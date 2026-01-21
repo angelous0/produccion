@@ -561,6 +561,24 @@ async def get_registros():
             r['tallas'] = []
         if 'distribucion_colores' not in r:
             r['distribucion_colores'] = []
+        
+        # Actualizar nombres de tallas desde el catálogo
+        for talla in r['tallas']:
+            talla_cat = await db.tallas_catalogo.find_one({"id": talla.get('talla_id')}, {"_id": 0, "nombre": 1})
+            if talla_cat:
+                talla['talla_nombre'] = talla_cat['nombre']
+        
+        # Actualizar nombres de colores en distribución desde el catálogo
+        for dist in r['distribucion_colores']:
+            # Actualizar nombre de talla
+            talla_cat = await db.tallas_catalogo.find_one({"id": dist.get('talla_id')}, {"_id": 0, "nombre": 1})
+            if talla_cat:
+                dist['talla_nombre'] = talla_cat['nombre']
+            # Actualizar nombres de colores
+            for color in dist.get('colores', []):
+                color_cat = await db.colores_catalogo.find_one({"id": color.get('color_id')}, {"_id": 0, "nombre": 1})
+                if color_cat:
+                    color['color_nombre'] = color_cat['nombre']
             
         result.append(RegistroConRelaciones(**r))
     return result
