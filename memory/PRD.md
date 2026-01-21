@@ -3,48 +3,51 @@
 ## Problema Original
 Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - **Marca, Tipo, Entalle, Tela, Hilo**: Tablas maestras simples
-- **Modelo**: Con relaciones muchos-a-uno con todas las tablas anteriores
-- **Registro**: Con N Corte, Fecha Creación, relación con Modelo, Curva, Estado, Urgente
-- **Tallas/Colores**: Matriz estilo Excel donde tallas son columnas y colores filas
+- **Tallas (catálogo)**: Tabla maestra de tallas con orden
+- **Colores (catálogo)**: Tabla maestra de colores con código hex
+- **Modelo**: Con relaciones muchos-a-uno con Marca, Tipo, Entalle, Tela, Hilo
+- **Registro**: Con N Corte, Fecha Creación, relación con Modelo, Curva (texto), Estado, Urgente
+
+## Flujo de Tallas y Colores
+1. **Paso 1 - En Corte**: Al crear registro, seleccionar tallas del catálogo con cantidades
+2. **Paso 2 - En Lavandería**: Distribuir cantidades por colores usando botón de paleta
+   - Validación: suma de colores no puede exceder cantidad total de la talla
 
 ## Preferencias del Usuario
 - Diseño corporativo minimalista claro con dark mode
 - Todo en español
 - Estados: Para Corte, Corte, Para Costura, Costura, Para Atraque, Atraque, Para Lavandería, Muestra Lavanderia, Lavandería, Para Acabado, Acabado, Almacén PT, Tienda
-- Curva como texto
-- Sin autenticación por ahora
+- Inputs numéricos sin flechitas (spinners)
+- Eliminación directa sin confirmación
 
 ## Arquitectura
 
 ### Backend (FastAPI + MongoDB)
-- `/api/marcas` - CRUD marcas
-- `/api/tipos` - CRUD tipos
-- `/api/entalles` - CRUD entalles
-- `/api/telas` - CRUD telas
-- `/api/hilos` - CRUD hilos
+- `/api/marcas`, `/api/tipos`, `/api/entalles`, `/api/telas`, `/api/hilos` - CRUDs básicos
+- `/api/tallas-catalogo` - CRUD tallas maestras
+- `/api/colores-catalogo` - CRUD colores maestros con hex
 - `/api/modelos` - CRUD modelos con relaciones
-- `/api/registros` - CRUD registros con matriz tallas/colores
-- `/api/estados` - Lista de estados de producción
-- `/api/stats` - Estadísticas del dashboard
+- `/api/registros` - CRUD registros con tallas y distribución colores
+- `/api/estados` - Lista de estados
+- `/api/stats` - Estadísticas dashboard
 
 ### Frontend (React + Shadcn/UI)
-- Dashboard con contadores y estados
+- Dashboard con contadores
 - CRUDs para todas las entidades
-- Matriz de producción estilo Excel
+- Registros con flujo de 2 pasos
 - Dark/Light mode toggle
 
-## Implementado (Diciembre 2025)
+## Implementado (Enero 2025)
 - ✅ Backend completo con todos los endpoints
 - ✅ Frontend con todas las páginas y CRUDs
-- ✅ Matriz de tallas/colores con totales
+- ✅ Catálogo de Tallas y Colores
+- ✅ Flujo de 2 pasos para tallas/colores
+- ✅ Validación de cantidades en distribución
 - ✅ Dark mode toggle
-- ✅ Navegación lateral
-- ✅ Todo en español
+- ✅ Inputs sin spinners
+- ✅ Eliminación directa
 
-## Backlog (P0/P1/P2)
-
-### P0 - Crítico
-- (Completado)
+## Backlog
 
 ### P1 - Importante
 - Autenticación de usuarios
@@ -55,9 +58,3 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - Reportes de producción
 - Gráficos de estados
 - Historial de cambios de estado
-- Notificaciones de urgentes
-
-## Próximos Pasos
-1. Agregar autenticación de usuarios
-2. Implementar filtros en las tablas
-3. Exportación a Excel
