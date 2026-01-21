@@ -299,27 +299,56 @@ class TextileAPITester:
         """Test Registros CRUD operations with production matrix"""
         print("\n📋 Testing Registros CRUD...")
         
-        # First get a modelo (create one if needed)
-        success, modelos_response = self.run_test("Get Modelos for Registro", "GET", "modelos", 200)
+        # Create required items for modelo first
+        marca_data = {"nombre": f"Marca for Registro {datetime.now().strftime('%H%M%S')}"}
+        success, marca_response = self.run_test("Create Marca for Registro", "POST", "marcas", 200, marca_data)
         if not success:
             return False
-        
-        modelos = modelos_response if isinstance(modelos_response, list) else []
-        if not modelos:
-            # Create a modelo first
-            print("No models found, creating one for registro test...")
-            if not self.test_modelos_crud():
-                return False
-            success, modelos_response = self.run_test("Get Modelos Again", "GET", "modelos", 200)
-            if not success:
-                return False
-            modelos = modelos_response if isinstance(modelos_response, list) else []
-        
-        if not modelos:
-            print("❌ No models available for registro test")
-            return False
+        marca_id = marca_response.get('id')
+        self.created_items['marcas'].append(marca_id)
 
-        modelo_id = modelos[0]['id']
+        tipo_data = {"nombre": f"Tipo for Registro {datetime.now().strftime('%H%M%S')}"}
+        success, tipo_response = self.run_test("Create Tipo for Registro", "POST", "tipos", 200, tipo_data)
+        if not success:
+            return False
+        tipo_id = tipo_response.get('id')
+        self.created_items['tipos'].append(tipo_id)
+
+        entalle_data = {"nombre": f"Entalle for Registro {datetime.now().strftime('%H%M%S')}"}
+        success, entalle_response = self.run_test("Create Entalle for Registro", "POST", "entalles", 200, entalle_data)
+        if not success:
+            return False
+        entalle_id = entalle_response.get('id')
+        self.created_items['entalles'].append(entalle_id)
+
+        tela_data = {"nombre": f"Tela for Registro {datetime.now().strftime('%H%M%S')}"}
+        success, tela_response = self.run_test("Create Tela for Registro", "POST", "telas", 200, tela_data)
+        if not success:
+            return False
+        tela_id = tela_response.get('id')
+        self.created_items['telas'].append(tela_id)
+
+        hilo_data = {"nombre": f"Hilo for Registro {datetime.now().strftime('%H%M%S')}"}
+        success, hilo_response = self.run_test("Create Hilo for Registro", "POST", "hilos", 200, hilo_data)
+        if not success:
+            return False
+        hilo_id = hilo_response.get('id')
+        self.created_items['hilos'].append(hilo_id)
+
+        # Create modelo for registro
+        modelo_data = {
+            "nombre": f"Modelo for Registro {datetime.now().strftime('%H%M%S')}",
+            "marca_id": marca_id,
+            "tipo_id": tipo_id,
+            "entalle_id": entalle_id,
+            "tela_id": tela_id,
+            "hilo_id": hilo_id
+        }
+        success, modelo_response = self.run_test("Create Modelo for Registro", "POST", "modelos", 200, modelo_data)
+        if not success:
+            return False
+        modelo_id = modelo_response.get('id')
+        self.created_items['modelos'].append(modelo_id)
 
         # Create registro with production matrix
         registro_data = {
