@@ -9,6 +9,8 @@ import { Tipos } from "./pages/Tipos";
 import { Entalles } from "./pages/Entalles";
 import { Telas } from "./pages/Telas";
 import { Hilos } from "./pages/Hilos";
+import { TallasCatalogo } from "./pages/TallasCatalogo";
+import { ColoresCatalogo } from "./pages/ColoresCatalogo";
 import { Modelos } from "./pages/Modelos";
 import { Registros } from "./pages/Registros";
 
@@ -24,6 +26,8 @@ function App() {
             <Route path="entalles" element={<Entalles />} />
             <Route path="telas" element={<Telas />} />
             <Route path="hilos" element={<Hilos />} />
+            <Route path="tallas-catalogo" element={<TallasCatalogo />} />
+            <Route path="colores-catalogo" element={<ColoresCatalogo />} />
             <Route path="modelos" element={<Modelos />} />
             <Route path="registros" element={<Registros />} />
           </Route>

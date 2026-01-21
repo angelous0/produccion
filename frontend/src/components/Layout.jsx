@@ -13,7 +13,9 @@ import {
   Sun,
   Moon,
   Menu,
-  X
+  X,
+  Ruler,
+  Droplets
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -24,6 +26,8 @@ const navItems = [
   { to: '/entalles', icon: Shirt, label: 'Entalles' },
   { to: '/telas', icon: Palette, label: 'Telas' },
   { to: '/hilos', icon: Scissors, label: 'Hilos' },
+  { to: '/tallas-catalogo', icon: Ruler, label: 'Tallas' },
+  { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
   { to: '/modelos', icon: Box, label: 'Modelos' },
   { to: '/registros', icon: ClipboardList, label: 'Registros' },
 ];
