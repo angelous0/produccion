@@ -295,8 +295,68 @@ class TextileAPITester:
 
         return True
 
+    def test_tallas_catalogo_crud(self):
+        """Test Tallas Catalogo CRUD operations"""
+        print("\n📋 Testing Tallas Catalogo CRUD...")
+        
+        # Create
+        talla_data = {"nombre": f"Talla Test {datetime.now().strftime('%H%M%S')}", "orden": 99}
+        success, response = self.run_test("Create Talla Catalogo", "POST", "tallas-catalogo", 200, talla_data)
+        if not success:
+            return False
+        talla_id = response.get('id')
+
+        # Read all
+        success, _ = self.run_test("Get All Tallas Catalogo", "GET", "tallas-catalogo", 200)
+        if not success:
+            return False
+
+        # Update
+        if talla_id:
+            update_data = {"nombre": f"Talla Updated {datetime.now().strftime('%H%M%S')}", "orden": 100}
+            success, _ = self.run_test("Update Talla Catalogo", "PUT", f"tallas-catalogo/{talla_id}", 200, update_data)
+            if not success:
+                return False
+
+        # Delete
+        if talla_id:
+            success, _ = self.run_test("Delete Talla Catalogo", "DELETE", f"tallas-catalogo/{talla_id}", 200)
+            return success
+
+        return True
+
+    def test_colores_catalogo_crud(self):
+        """Test Colores Catalogo CRUD operations"""
+        print("\n📋 Testing Colores Catalogo CRUD...")
+        
+        # Create
+        color_data = {"nombre": f"Color Test {datetime.now().strftime('%H%M%S')}", "codigo_hex": "#FF5733"}
+        success, response = self.run_test("Create Color Catalogo", "POST", "colores-catalogo", 200, color_data)
+        if not success:
+            return False
+        color_id = response.get('id')
+
+        # Read all
+        success, _ = self.run_test("Get All Colores Catalogo", "GET", "colores-catalogo", 200)
+        if not success:
+            return False
+
+        # Update
+        if color_id:
+            update_data = {"nombre": f"Color Updated {datetime.now().strftime('%H%M%S')}", "codigo_hex": "#33FF57"}
+            success, _ = self.run_test("Update Color Catalogo", "PUT", f"colores-catalogo/{color_id}", 200, update_data)
+            if not success:
+                return False
+
+        # Delete
+        if color_id:
+            success, _ = self.run_test("Delete Color Catalogo", "DELETE", f"colores-catalogo/{color_id}", 200)
+            return success
+
+        return True
+
     def test_registros_crud(self):
-        """Test Registros CRUD operations with production matrix"""
+        """Test Registros CRUD operations with new tallas structure"""
         print("\n📋 Testing Registros CRUD...")
         
         # Create required items for modelo first
@@ -350,29 +410,31 @@ class TextileAPITester:
         modelo_id = modelo_response.get('id')
         self.created_items['modelos'].append(modelo_id)
 
-        # Create registro with production matrix
+        # Create tallas for testing
+        talla1_data = {"nombre": "Test-S", "orden": 1}
+        success, talla1_response = self.run_test("Create Test Talla 1", "POST", "tallas-catalogo", 200, talla1_data)
+        if not success:
+            return False
+        talla1_id = talla1_response.get('id')
+
+        talla2_data = {"nombre": "Test-M", "orden": 2}
+        success, talla2_response = self.run_test("Create Test Talla 2", "POST", "tallas-catalogo", 200, talla2_data)
+        if not success:
+            return False
+        talla2_id = talla2_response.get('id')
+
+        # Create registro with new tallas structure
         registro_data = {
             "n_corte": f"CORTE-{datetime.now().strftime('%H%M%S')}",
             "modelo_id": modelo_id,
             "curva": "Curva Test",
             "estado": "Para Corte",
             "urgente": True,
-            "matriz_tallas_colores": [
-                {
-                    "talla": "S",
-                    "colores": [
-                        {"color": "Rojo", "cantidad": 10},
-                        {"color": "Azul", "cantidad": 15}
-                    ]
-                },
-                {
-                    "talla": "M",
-                    "colores": [
-                        {"color": "Rojo", "cantidad": 20},
-                        {"color": "Azul", "cantidad": 25}
-                    ]
-                }
-            ]
+            "tallas": [
+                {"talla_id": talla1_id, "talla_nombre": "Test-S", "cantidad": 10},
+                {"talla_id": talla2_id, "talla_nombre": "Test-M", "cantidad": 15}
+            ],
+            "distribucion_colores": []
         }
         success, response = self.run_test("Create Registro", "POST", "registros", 200, registro_data)
         if not success:
@@ -396,14 +458,10 @@ class TextileAPITester:
                 "curva": "Curva Updated",
                 "estado": "Corte",
                 "urgente": False,
-                "matriz_tallas_colores": [
-                    {
-                        "talla": "L",
-                        "colores": [
-                            {"color": "Verde", "cantidad": 30}
-                        ]
-                    }
-                ]
+                "tallas": [
+                    {"talla_id": talla1_id, "talla_nombre": "Test-S", "cantidad": 20}
+                ],
+                "distribucion_colores": []
             }
             success, _ = self.run_test("Update Registro", "PUT", f"registros/{registro_id}", 200, update_data)
             if not success:
@@ -412,6 +470,10 @@ class TextileAPITester:
             success, _ = self.run_test("Delete Registro", "DELETE", f"registros/{registro_id}", 200)
             if success:
                 self.created_items['registros'].remove(registro_id)
+
+        # Clean up test tallas
+        self.run_test("Delete Test Talla 1", "DELETE", f"tallas-catalogo/{talla1_id}", 200)
+        self.run_test("Delete Test Talla 2", "DELETE", f"tallas-catalogo/{talla2_id}", 200)
 
         return True
 
