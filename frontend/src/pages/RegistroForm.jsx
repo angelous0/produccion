@@ -21,10 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
 import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
+import { MultiSelectColors } from '../components/MultiSelectColors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -50,22 +58,31 @@ export const RegistroForm = () => {
   // Tallas seleccionadas
   const [tallasSeleccionadas, setTallasSeleccionadas] = useState([]);
 
+  // Datos para distribución de colores
+  const [coloresDialogOpen, setColoresDialogOpen] = useState(false);
+  const [coloresSeleccionados, setColoresSeleccionados] = useState([]);
+  const [matrizCantidades, setMatrizCantidades] = useState({});
+  const [distribucionColores, setDistribucionColores] = useState([]);
+
   // Datos del catálogo
   const [tallasCatalogo, setTallasCatalogo] = useState([]);
+  const [coloresCatalogo, setColoresCatalogo] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [estados, setEstados] = useState([]);
 
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
     try {
-      const [modelosRes, estadosRes, tallasRes] = await Promise.all([
+      const [modelosRes, estadosRes, tallasRes, coloresRes] = await Promise.all([
         axios.get(`${API}/modelos`),
         axios.get(`${API}/estados`),
         axios.get(`${API}/tallas-catalogo`),
+        axios.get(`${API}/colores-catalogo`),
       ]);
       setModelos(modelosRes.data);
       setEstados(estadosRes.data.estados);
       setTallasCatalogo(tallasRes.data);
+      setColoresCatalogo(coloresRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
     }
@@ -91,6 +108,7 @@ export const RegistroForm = () => {
       });
       
       setTallasSeleccionadas(registro.tallas || []);
+      setDistribucionColores(registro.distribucion_colores || []);
       
       // Buscar modelo seleccionado
       const modelosRes = await axios.get(`${API}/modelos`);
@@ -141,6 +159,145 @@ export const RegistroForm = () => {
     setTallasSeleccionadas(tallasSeleccionadas.filter(t => t.talla_id !== tallaId));
   };
 
+  // ========== LÓGICA DE COLORES ==========
+
+  const handleOpenColoresDialog = () => {
+    // Reconstruir colores seleccionados y matriz desde distribución guardada
+    if (distribucionColores && distribucionColores.length > 0) {
+      const coloresUnicos = [];
+      const matriz = {};
+      
+      distribucionColores.forEach(talla => {
+        (talla.colores || []).forEach(c => {
+          if (!coloresUnicos.find(cu => cu.id === c.color_id)) {
+            const colorCat = coloresCatalogo.find(cc => cc.id === c.color_id);
+            if (colorCat) {
+              coloresUnicos.push(colorCat);
+            }
+          }
+          const key = `${c.color_id}_${talla.talla_id}`;
+          matriz[key] = c.cantidad;
+        });
+      });
+      
+      setColoresSeleccionados(coloresUnicos);
+      setMatrizCantidades(matriz);
+    } else {
+      setColoresSeleccionados([]);
+      setMatrizCantidades({});
+    }
+    
+    setColoresDialogOpen(true);
+  };
+
+  const handleColoresChange = (nuevosColores) => {
+    const coloresAgregados = nuevosColores.filter(
+      nc => !coloresSeleccionados.find(cs => cs.id === nc.id)
+    );
+    
+    const coloresRemovidos = coloresSeleccionados.filter(
+      cs => !nuevosColores.find(nc => nc.id === cs.id)
+    );
+    
+    if (coloresRemovidos.length > 0) {
+      const nuevaMatriz = { ...matrizCantidades };
+      coloresRemovidos.forEach(color => {
+        Object.keys(nuevaMatriz).forEach(key => {
+          if (key.startsWith(`${color.id}_`)) {
+            delete nuevaMatriz[key];
+          }
+        });
+      });
+      setMatrizCantidades(nuevaMatriz);
+    }
+    
+    if (coloresSeleccionados.length === 0 && coloresAgregados.length > 0 && tallasSeleccionadas.length > 0) {
+      const primerColor = coloresAgregados[0];
+      const nuevaMatriz = { ...matrizCantidades };
+      tallasSeleccionadas.forEach(t => {
+        nuevaMatriz[`${primerColor.id}_${t.talla_id}`] = t.cantidad;
+      });
+      setMatrizCantidades(nuevaMatriz);
+    }
+    
+    setColoresSeleccionados(nuevosColores);
+  };
+
+  const getCantidadMatriz = (colorId, tallaId) => {
+    return matrizCantidades[`${colorId}_${tallaId}`] || 0;
+  };
+
+  const handleMatrizChange = (colorId, tallaId, valor) => {
+    const cantidad = parseInt(valor) || 0;
+    const talla = tallasSeleccionadas.find(t => t.talla_id === tallaId);
+    
+    if (!talla) return;
+    
+    let sumaOtros = 0;
+    coloresSeleccionados.forEach(c => {
+      if (c.id !== colorId) {
+        sumaOtros += getCantidadMatriz(c.id, tallaId);
+      }
+    });
+    
+    if (cantidad + sumaOtros > talla.cantidad) {
+      toast.error(`La suma (${cantidad + sumaOtros}) excede el total de la talla ${talla.talla_nombre} (${talla.cantidad})`);
+      return;
+    }
+    
+    setMatrizCantidades({
+      ...matrizCantidades,
+      [`${colorId}_${tallaId}`]: cantidad
+    });
+  };
+
+  const getTotalColor = (colorId) => {
+    let total = 0;
+    tallasSeleccionadas.forEach(t => {
+      total += getCantidadMatriz(colorId, t.talla_id);
+    });
+    return total;
+  };
+
+  const getTotalTallaAsignado = (tallaId) => {
+    let total = 0;
+    coloresSeleccionados.forEach(c => {
+      total += getCantidadMatriz(c.id, tallaId);
+    });
+    return total;
+  };
+
+  const getTotalGeneralAsignado = () => {
+    let total = 0;
+    coloresSeleccionados.forEach(c => {
+      total += getTotalColor(c.id);
+    });
+    return total;
+  };
+
+  const handleSaveColores = () => {
+    const distribucion = tallasSeleccionadas.map(t => ({
+      talla_id: t.talla_id,
+      talla_nombre: t.talla_nombre,
+      cantidad_total: t.cantidad,
+      colores: coloresSeleccionados.map(c => ({
+        color_id: c.id,
+        color_nombre: c.nombre,
+        cantidad: getCantidadMatriz(c.id, t.talla_id)
+      })).filter(c => c.cantidad > 0)
+    }));
+    
+    setDistribucionColores(distribucion);
+    setColoresDialogOpen(false);
+    toast.success('Distribución de colores guardada');
+  };
+
+  // Verificar si tiene colores asignados
+  const tieneColores = () => {
+    return distribucionColores && 
+           distribucionColores.some(t => t.colores && t.colores.length > 0);
+  };
+
   // Guardar registro
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -150,14 +307,10 @@ export const RegistroForm = () => {
       const payload = {
         ...formData,
         tallas: tallasSeleccionadas,
-        distribucion_colores: [],
+        distribucion_colores: distribucionColores,
       };
       
       if (isEditing) {
-        // Preservar distribución de colores existente
-        const existingRes = await axios.get(`${API}/registros/${id}`);
-        payload.distribucion_colores = existingRes.data.distribucion_colores || [];
-        
         await axios.put(`${API}/registros/${id}`, payload);
         toast.success('Registro actualizado');
       } else {
@@ -372,6 +525,28 @@ export const RegistroForm = () => {
                     Selecciona tallas del catálogo para agregar cantidades
                   </div>
                 )}
+
+                {/* Botón Agregar Colores */}
+                {tallasSeleccionadas.length > 0 && (
+                  <div className="pt-4">
+                    <Separator className="mb-4" />
+                    <Button
+                      type="button"
+                      variant={tieneColores() ? "default" : "outline"}
+                      onClick={handleOpenColoresDialog}
+                      className="w-full"
+                      data-testid="btn-agregar-colores"
+                    >
+                      <Palette className="h-4 w-4 mr-2" />
+                      {tieneColores() ? 'Editar Colores' : 'Agregar Colores'}
+                      {tieneColores() && (
+                        <Badge variant="secondary" className="ml-2">
+                          {distribucionColores.reduce((sum, t) => sum + (t.colores?.length || 0), 0)} colores
+                        </Badge>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -469,6 +644,133 @@ export const RegistroForm = () => {
           </div>
         </div>
       </form>
+
+      {/* Dialog para distribuir colores */}
+      <Dialog open={coloresDialogOpen} onOpenChange={setColoresDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Distribución de Colores</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Selector de colores múltiple con buscador */}
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Seleccionar Colores
+              </h3>
+              <MultiSelectColors
+                options={coloresCatalogo}
+                selected={coloresSeleccionados}
+                onChange={handleColoresChange}
+                placeholder="Buscar y seleccionar colores..."
+                searchPlaceholder="Buscar color..."
+                emptyMessage="No se encontraron colores."
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                El primer color seleccionado recibe todo el total automáticamente.
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* Matriz de cantidades */}
+            {tallasSeleccionadas.length > 0 && coloresSeleccionados.length > 0 ? (
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Distribución por Talla y Color
+                </h3>
+                
+                <div className="border rounded-lg overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="bg-muted/50 p-3 text-left text-xs font-semibold uppercase tracking-wider border-b min-w-[120px]">
+                          Color
+                        </th>
+                        {tallasSeleccionadas.map((t) => (
+                          <th key={t.talla_id} className="bg-muted/50 p-3 text-center text-xs font-semibold uppercase tracking-wider border-b min-w-[100px]">
+                            <div>{t.talla_nombre}</div>
+                            <div className="text-muted-foreground font-normal mt-1">
+                              Total: {t.cantidad}
+                            </div>
+                          </th>
+                        ))}
+                        <th className="bg-muted/70 p-3 text-center text-xs font-semibold uppercase tracking-wider border-b min-w-[80px]">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coloresSeleccionados.map((color, colorIndex) => (
+                        <tr key={color.id} className={colorIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                          <td className="p-2 border-b">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-5 h-5 rounded border shrink-0"
+                                style={{ backgroundColor: color.codigo_hex || '#ccc' }}
+                              />
+                              <span className="font-medium text-sm">{color.nombre}</span>
+                            </div>
+                          </td>
+                          {tallasSeleccionadas.map((t) => (
+                            <td key={t.talla_id} className="p-1 border-b">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={getCantidadMatriz(color.id, t.talla_id) || ''}
+                                onChange={(e) => handleMatrizChange(color.id, t.talla_id, e.target.value)}
+                                className="w-full font-mono text-center h-10"
+                                placeholder="0"
+                                data-testid={`matriz-${color.id}-${t.talla_id}`}
+                              />
+                            </td>
+                          ))}
+                          <td className="p-2 border-b bg-muted/30 text-center font-mono font-semibold">
+                            {getTotalColor(color.id)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-muted/50">
+                        <td className="p-3 font-semibold text-sm">Asignado</td>
+                        {tallasSeleccionadas.map((t) => {
+                          const asignado = getTotalTallaAsignado(t.talla_id);
+                          const completo = asignado === t.cantidad;
+                          return (
+                            <td key={t.talla_id} className="p-3 text-center font-mono font-semibold">
+                              <span className={completo ? 'text-green-600' : 'text-orange-500'}>
+                                {asignado}
+                              </span>
+                              <span className="text-muted-foreground">/{t.cantidad}</span>
+                            </td>
+                          );
+                        })}
+                        <td className="p-3 text-center font-mono font-bold bg-primary/10 text-primary">
+                          {getTotalGeneralAsignado()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                Selecciona al menos un color para ver la matriz de distribución
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setColoresDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleSaveColores} 
+              disabled={coloresSeleccionados.length === 0}
+              data-testid="btn-guardar-colores"
+            >
+              Guardar Distribución
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
