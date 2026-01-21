@@ -72,7 +72,6 @@ export const Tipos = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este tipo?')) return;
     try {
       await axios.delete(`${API}/tipos/${id}`);
       toast.success('Tipo eliminado');

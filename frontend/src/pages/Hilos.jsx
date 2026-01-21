@@ -72,7 +72,6 @@ export const Hilos = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este hilo?')) return;
     try {
       await axios.delete(`${API}/hilos/${id}`);
       toast.success('Hilo eliminado');

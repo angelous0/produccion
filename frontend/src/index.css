@@ -105,6 +105,16 @@ code, .font-mono {
     box-shadow: inset 0 0 0 2px hsl(var(--primary));
 }
 
+/* Quitar flechitas de inputs numéricos */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
     width: 8px;

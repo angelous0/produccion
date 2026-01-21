@@ -127,7 +127,6 @@ export const Modelos = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este modelo?')) return;
     try {
       await axios.delete(`${API}/modelos/${id}`);
       toast.success('Modelo eliminado');
