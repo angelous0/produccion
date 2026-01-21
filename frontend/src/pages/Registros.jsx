@@ -29,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusClass } from '../lib/utils';
 
@@ -56,8 +56,9 @@ export const Registros = () => {
   // Datos para tallas seleccionadas
   const [tallasSeleccionadas, setTallasSeleccionadas] = useState([]);
   
-  // Datos para distribución de colores
-  const [distribucionColores, setDistribucionColores] = useState([]);
+  // Datos para distribución de colores - matriz [colorIndex][tallaIndex] = cantidad
+  const [coloresSeleccionados, setColoresSeleccionados] = useState([]);
+  const [matrizCantidades, setMatrizCantidades] = useState({});
 
   // Datos del catálogo
   const [tallasCatalogo, setTallasCatalogo] = useState([]);
@@ -122,90 +123,165 @@ export const Registros = () => {
     setTallasSeleccionadas(tallasSeleccionadas.filter(t => t.talla_id !== tallaId));
   };
 
+  // ========== LÓGICA DE COLORES ==========
+
   // Abrir dialog de colores para un registro
   const handleOpenColoresDialog = (item) => {
     setColorEditItem(item);
     
-    // Inicializar distribución de colores desde el registro o crear nueva
+    // Reconstruir colores seleccionados y matriz desde datos guardados
     if (item.distribucion_colores && item.distribucion_colores.length > 0) {
-      setDistribucionColores(item.distribucion_colores);
+      // Extraer colores únicos
+      const coloresUnicos = [];
+      const matriz = {};
+      
+      item.distribucion_colores.forEach(talla => {
+        (talla.colores || []).forEach(c => {
+          if (!coloresUnicos.find(cu => cu.id === c.color_id)) {
+            const colorCat = coloresCatalogo.find(cc => cc.id === c.color_id);
+            if (colorCat) {
+              coloresUnicos.push(colorCat);
+            }
+          }
+          // Guardar en matriz
+          const key = `${c.color_id}_${talla.talla_id}`;
+          matriz[key] = c.cantidad;
+        });
+      });
+      
+      setColoresSeleccionados(coloresUnicos);
+      setMatrizCantidades(matriz);
     } else {
-      // Crear estructura inicial basada en las tallas del registro
-      const nuevaDistribucion = (item.tallas || []).map(t => ({
-        talla_id: t.talla_id,
-        talla_nombre: t.talla_nombre,
-        cantidad_total: t.cantidad,
-        colores: []
-      }));
-      setDistribucionColores(nuevaDistribucion);
+      setColoresSeleccionados([]);
+      setMatrizCantidades({});
     }
     
     setColoresDialogOpen(true);
   };
 
-  // Agregar color a una talla
-  const handleAddColorToTalla = (tallaId, colorId) => {
+  // Toggle selección de color
+  const handleToggleColor = (colorId) => {
     const color = coloresCatalogo.find(c => c.id === colorId);
     if (!color) return;
     
-    setDistribucionColores(distribucionColores.map(t => {
-      if (t.talla_id === tallaId) {
-        // Verificar si el color ya existe
-        if (t.colores.find(c => c.color_id === colorId)) return t;
-        return {
-          ...t,
-          colores: [...t.colores, { color_id: color.id, color_nombre: color.nombre, cantidad: 0 }]
-        };
-      }
-      return t;
-    }));
-  };
-
-  // Actualizar cantidad de color
-  const handleColorCantidadChange = (tallaId, colorId, cantidad) => {
-    const cantidadNum = parseInt(cantidad) || 0;
+    const existe = coloresSeleccionados.find(c => c.id === colorId);
     
-    setDistribucionColores(distribucionColores.map(t => {
-      if (t.talla_id === tallaId) {
-        const nuevosColores = t.colores.map(c => 
-          c.color_id === colorId ? { ...c, cantidad: cantidadNum } : c
-        );
-        
-        // Validar que la suma no exceda el total
-        const sumaColores = nuevosColores.reduce((sum, c) => sum + c.cantidad, 0);
-        if (sumaColores > t.cantidad_total) {
-          toast.error(`La suma de colores (${sumaColores}) no puede exceder el total de la talla (${t.cantidad_total})`);
-          return t;
+    if (existe) {
+      // Remover color y limpiar matriz
+      setColoresSeleccionados(coloresSeleccionados.filter(c => c.id !== colorId));
+      const nuevaMatriz = { ...matrizCantidades };
+      Object.keys(nuevaMatriz).forEach(key => {
+        if (key.startsWith(`${colorId}_`)) {
+          delete nuevaMatriz[key];
         }
-        
-        return { ...t, colores: nuevosColores };
+      });
+      setMatrizCantidades(nuevaMatriz);
+    } else {
+      // Agregar color
+      const esElPrimero = coloresSeleccionados.length === 0;
+      setColoresSeleccionados([...coloresSeleccionados, color]);
+      
+      // Si es el primer color, asignar todo el total a este color
+      if (esElPrimero && colorEditItem?.tallas) {
+        const nuevaMatriz = { ...matrizCantidades };
+        colorEditItem.tallas.forEach(t => {
+          nuevaMatriz[`${colorId}_${t.talla_id}`] = t.cantidad;
+        });
+        setMatrizCantidades(nuevaMatriz);
       }
-      return t;
-    }));
+    }
   };
 
-  // Remover color de talla
-  const handleRemoveColorFromTalla = (tallaId, colorId) => {
-    setDistribucionColores(distribucionColores.map(t => {
-      if (t.talla_id === tallaId) {
-        return { ...t, colores: t.colores.filter(c => c.color_id !== colorId) };
+  // Obtener cantidad de la matriz
+  const getCantidadMatriz = (colorId, tallaId) => {
+    return matrizCantidades[`${colorId}_${tallaId}`] || 0;
+  };
+
+  // Actualizar cantidad en la matriz
+  const handleMatrizChange = (colorId, tallaId, valor) => {
+    const cantidad = parseInt(valor) || 0;
+    const talla = colorEditItem?.tallas?.find(t => t.talla_id === tallaId);
+    
+    if (!talla) return;
+    
+    // Calcular suma actual de otros colores para esta talla
+    let sumaOtros = 0;
+    coloresSeleccionados.forEach(c => {
+      if (c.id !== colorId) {
+        sumaOtros += getCantidadMatriz(c.id, tallaId);
       }
-      return t;
-    }));
+    });
+    
+    // Validar que no exceda el total
+    if (cantidad + sumaOtros > talla.cantidad) {
+      toast.error(`La suma (${cantidad + sumaOtros}) excede el total de la talla ${talla.talla_nombre} (${talla.cantidad})`);
+      return;
+    }
+    
+    setMatrizCantidades({
+      ...matrizCantidades,
+      [`${colorId}_${tallaId}`]: cantidad
+    });
+  };
+
+  // Calcular total por color (fila)
+  const getTotalColor = (colorId) => {
+    let total = 0;
+    (colorEditItem?.tallas || []).forEach(t => {
+      total += getCantidadMatriz(colorId, t.talla_id);
+    });
+    return total;
+  };
+
+  // Calcular total por talla (columna)
+  const getTotalTallaAsignado = (tallaId) => {
+    let total = 0;
+    coloresSeleccionados.forEach(c => {
+      total += getCantidadMatriz(c.id, tallaId);
+    });
+    return total;
+  };
+
+  // Calcular total general asignado
+  const getTotalGeneralAsignado = () => {
+    let total = 0;
+    coloresSeleccionados.forEach(c => {
+      total += getTotalColor(c.id);
+    });
+    return total;
   };
 
   // Guardar distribución de colores
   const handleSaveColores = async () => {
     try {
+      // Construir estructura de distribución
+      const distribucion = (colorEditItem?.tallas || []).map(t => ({
+        talla_id: t.talla_id,
+        talla_nombre: t.talla_nombre,
+        cantidad_total: t.cantidad,
+        colores: coloresSeleccionados.map(c => ({
+          color_id: c.id,
+          color_nombre: c.nombre,
+          cantidad: getCantidadMatriz(c.id, t.talla_id)
+        })).filter(c => c.cantidad > 0) // Solo guardar colores con cantidad > 0
+      }));
+      
       const payload = {
-        ...colorEditItem,
-        distribucion_colores: distribucionColores
+        n_corte: colorEditItem.n_corte,
+        modelo_id: colorEditItem.modelo_id,
+        curva: colorEditItem.curva,
+        estado: colorEditItem.estado,
+        urgente: colorEditItem.urgente,
+        tallas: colorEditItem.tallas,
+        distribucion_colores: distribucion
       };
       
       await axios.put(`${API}/registros/${colorEditItem.id}`, payload);
       toast.success('Distribución de colores guardada');
       setColoresDialogOpen(false);
       setColorEditItem(null);
+      setColoresSeleccionados([]);
+      setMatrizCantidades({});
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar distribución de colores');
@@ -222,7 +298,6 @@ export const Registros = () => {
       };
       
       if (editingItem) {
-        // Preservar distribución de colores si existe
         payload.distribucion_colores = editingItem.distribucion_colores || [];
         await axios.put(`${API}/registros/${editingItem.id}`, payload);
         toast.success('Registro actualizado');
@@ -291,19 +366,16 @@ export const Registros = () => {
     });
   };
 
-  // Calcular total de piezas
   const getTotalPiezas = (registro) => {
     if (!registro.tallas) return 0;
     return registro.tallas.reduce((sum, t) => sum + (t.cantidad || 0), 0);
   };
 
-  // Verificar si tiene distribución de colores
   const tieneColores = (registro) => {
     return registro.distribucion_colores && 
            registro.distribucion_colores.some(t => t.colores && t.colores.length > 0);
   };
 
-  // Obtener tallas disponibles (no seleccionadas)
   const tallasDisponibles = tallasCatalogo.filter(
     t => !tallasSeleccionadas.find(ts => ts.talla_id === t.id)
   );
@@ -524,7 +596,6 @@ export const Registros = () => {
                   Tallas y Cantidades
                 </h3>
                 
-                {/* Selector de tallas */}
                 <div className="flex gap-2 mb-4">
                   <Select onValueChange={handleAddTalla}>
                     <SelectTrigger className="w-[200px]" data-testid="select-agregar-talla">
@@ -540,7 +611,6 @@ export const Registros = () => {
                   </Select>
                 </div>
 
-                {/* Tabla de tallas seleccionadas */}
                 {tallasSeleccionadas.length > 0 ? (
                   <div className="border rounded-lg overflow-hidden">
                     <Table>
@@ -608,99 +678,149 @@ export const Registros = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog para distribuir colores - PASO 2 */}
+      {/* Dialog para distribuir colores - MATRIZ */}
       <Dialog open={coloresDialogOpen} onOpenChange={setColoresDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Distribución de Colores - Corte #{colorEditItem?.n_corte}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            <p className="text-sm text-muted-foreground">
-              Distribuye las cantidades de cada talla entre los diferentes colores. 
-              La suma de colores no puede exceder la cantidad total de la talla.
-            </p>
+            {/* Selector de colores múltiple */}
+            <div>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Seleccionar Colores
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {coloresCatalogo.map((color) => {
+                  const seleccionado = coloresSeleccionados.find(c => c.id === color.id);
+                  return (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => handleToggleColor(color.id)}
+                      className={`
+                        flex items-center gap-2 px-3 py-2 rounded-lg border transition-all
+                        ${seleccionado 
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary' 
+                          : 'border-border hover:border-primary/50 hover:bg-muted'
+                        }
+                      `}
+                      data-testid={`toggle-color-${color.id}`}
+                    >
+                      <div 
+                        className="w-5 h-5 rounded border"
+                        style={{ backgroundColor: color.codigo_hex || '#ccc' }}
+                      />
+                      <span className="text-sm font-medium">{color.nombre}</span>
+                      {seleccionado && <X className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                  );
+                })}
+              </div>
+              {coloresCatalogo.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No hay colores en el catálogo. Agrega colores primero.
+                </p>
+              )}
+            </div>
 
-            {distribucionColores.length > 0 ? (
-              <div className="space-y-6">
-                {distribucionColores.map((talla) => (
-                  <Card key={talla.talla_id}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center justify-between">
-                        <span>Talla {talla.talla_nombre}</span>
-                        <Badge variant="outline" className="font-mono">
-                          Total: {talla.cantidad_total} | Asignado: {talla.colores.reduce((s, c) => s + c.cantidad, 0)}
-                        </Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Selector de color */}
-                      <div className="flex gap-2 mb-4">
-                        <Select onValueChange={(colorId) => handleAddColorToTalla(talla.talla_id, colorId)}>
-                          <SelectTrigger className="w-[200px]">
-                            <SelectValue placeholder="Agregar color..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {coloresCatalogo.filter(c => !talla.colores.find(tc => tc.color_id === c.id)).map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                <div className="flex items-center gap-2">
-                                  <div 
-                                    className="w-4 h-4 rounded border"
-                                    style={{ backgroundColor: c.codigo_hex || '#ccc' }}
-                                  />
-                                  {c.nombre}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+            <Separator />
 
-                      {/* Lista de colores */}
-                      {talla.colores.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {talla.colores.map((color) => (
-                            <div 
-                              key={color.color_id} 
-                              className="flex items-center gap-2 p-2 border rounded-lg bg-muted/20"
-                            >
-                              <div 
-                                className="w-6 h-6 rounded border shrink-0"
-                                style={{ backgroundColor: coloresCatalogo.find(c => c.id === color.color_id)?.codigo_hex || '#ccc' }}
-                              />
-                              <span className="text-sm font-medium truncate flex-1">{color.color_nombre}</span>
-                              <Input
-                                type="number"
-                                min="0"
-                                max={talla.cantidad_total}
-                                value={color.cantidad || ''}
-                                onChange={(e) => handleColorCantidadChange(talla.talla_id, color.color_id, e.target.value)}
-                                className="w-20 font-mono text-center h-8"
-                                placeholder="0"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleRemoveColorFromTalla(talla.talla_id, color.color_id)}
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
+            {/* Matriz de cantidades */}
+            {colorEditItem?.tallas?.length > 0 && coloresSeleccionados.length > 0 ? (
+              <div>
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  Distribución por Talla y Color
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  El primer color agregado recibe todo el total. Redistribuye según necesites.
+                </p>
+                
+                <div className="border rounded-lg overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr>
+                        <th className="bg-muted/50 p-3 text-left text-xs font-semibold uppercase tracking-wider border-b min-w-[120px]">
+                          Color
+                        </th>
+                        {colorEditItem.tallas.map((t) => (
+                          <th key={t.talla_id} className="bg-muted/50 p-3 text-center text-xs font-semibold uppercase tracking-wider border-b min-w-[100px]">
+                            <div>{t.talla_nombre}</div>
+                            <div className="text-muted-foreground font-normal mt-1">
+                              Total: {t.cantidad}
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          Agrega colores para esta talla
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                          </th>
+                        ))}
+                        <th className="bg-muted/70 p-3 text-center text-xs font-semibold uppercase tracking-wider border-b min-w-[80px]">
+                          Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {coloresSeleccionados.map((color, colorIndex) => (
+                        <tr key={color.id} className={colorIndex % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                          <td className="p-2 border-b">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-5 h-5 rounded border shrink-0"
+                                style={{ backgroundColor: color.codigo_hex || '#ccc' }}
+                              />
+                              <span className="font-medium text-sm">{color.nombre}</span>
+                            </div>
+                          </td>
+                          {colorEditItem.tallas.map((t) => {
+                            const asignado = getTotalTallaAsignado(t.talla_id);
+                            const maximo = t.cantidad - asignado + getCantidadMatriz(color.id, t.talla_id);
+                            return (
+                              <td key={t.talla_id} className="p-1 border-b">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max={maximo}
+                                  value={getCantidadMatriz(color.id, t.talla_id) || ''}
+                                  onChange={(e) => handleMatrizChange(color.id, t.talla_id, e.target.value)}
+                                  className="w-full font-mono text-center h-10"
+                                  placeholder="0"
+                                  data-testid={`matriz-${color.id}-${t.talla_id}`}
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="p-2 border-b bg-muted/30 text-center font-mono font-semibold">
+                            {getTotalColor(color.id)}
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Fila de totales asignados */}
+                      <tr className="bg-muted/50">
+                        <td className="p-3 font-semibold text-sm">Asignado</td>
+                        {colorEditItem.tallas.map((t) => {
+                          const asignado = getTotalTallaAsignado(t.talla_id);
+                          const completo = asignado === t.cantidad;
+                          return (
+                            <td key={t.talla_id} className="p-3 text-center font-mono font-semibold">
+                              <span className={completo ? 'text-green-600' : 'text-orange-500'}>
+                                {asignado}
+                              </span>
+                              <span className="text-muted-foreground">/{t.cantidad}</span>
+                            </td>
+                          );
+                        })}
+                        <td className="p-3 text-center font-mono font-bold bg-primary/10 text-primary">
+                          {getTotalGeneralAsignado()}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : colorEditItem?.tallas?.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                Este registro no tiene tallas definidas. Edita el registro primero.
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                Este registro no tiene tallas definidas. Edita el registro primero.
+              <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                Selecciona al menos un color para ver la matriz de distribución
               </div>
             )}
           </div>
@@ -708,7 +828,11 @@ export const Registros = () => {
             <Button type="button" variant="outline" onClick={() => setColoresDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveColores} data-testid="btn-guardar-colores">
+            <Button 
+              onClick={handleSaveColores} 
+              disabled={coloresSeleccionados.length === 0}
+              data-testid="btn-guardar-colores"
+            >
               Guardar Distribución
             </Button>
           </DialogFooter>
@@ -723,7 +847,6 @@ export const Registros = () => {
           </DialogHeader>
           {viewingItem && (
             <div className="space-y-6 py-4">
-              {/* Info del registro */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -814,7 +937,7 @@ export const Registros = () => {
                         <thead>
                           <tr>
                             <th className="bg-muted/50 p-2 border text-left font-semibold">Color</th>
-                            {viewingItem.distribucion_colores.map((t) => (
+                            {viewingItem.tallas.map((t) => (
                               <th key={t.talla_id} className="bg-muted/50 p-2 border text-center font-semibold">
                                 {t.talla_nombre}
                               </th>
@@ -823,7 +946,6 @@ export const Registros = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {/* Obtener todos los colores únicos */}
                           {(() => {
                             const coloresUnicos = new Map();
                             viewingItem.distribucion_colores.forEach(t => {
@@ -837,8 +959,9 @@ export const Registros = () => {
                             return Array.from(coloresUnicos.entries()).map(([colorId, colorNombre]) => (
                               <tr key={colorId}>
                                 <td className="bg-muted/30 p-2 border font-medium">{colorNombre}</td>
-                                {viewingItem.distribucion_colores.map((t) => {
-                                  const colorData = (t.colores || []).find(c => c.color_id === colorId);
+                                {viewingItem.tallas.map((t) => {
+                                  const distTalla = viewingItem.distribucion_colores.find(d => d.talla_id === t.talla_id);
+                                  const colorData = (distTalla?.colores || []).find(c => c.color_id === colorId);
                                   return (
                                     <td key={t.talla_id} className="p-2 border text-center font-mono">
                                       {colorData?.cantidad || 0}
@@ -856,11 +979,14 @@ export const Registros = () => {
                           })()}
                           <tr>
                             <td className="bg-muted/70 p-2 border font-semibold">Total</td>
-                            {viewingItem.distribucion_colores.map((t) => (
-                              <td key={t.talla_id} className="bg-muted/50 p-2 border text-center font-mono font-semibold">
-                                {(t.colores || []).reduce((sum, c) => sum + (c.cantidad || 0), 0)}
-                              </td>
-                            ))}
+                            {viewingItem.tallas.map((t) => {
+                              const distTalla = viewingItem.distribucion_colores.find(d => d.talla_id === t.talla_id);
+                              return (
+                                <td key={t.talla_id} className="bg-muted/50 p-2 border text-center font-mono font-semibold">
+                                  {(distTalla?.colores || []).reduce((sum, c) => sum + (c.cantidad || 0), 0)}
+                                </td>
+                              );
+                            })}
                             <td className="bg-primary/10 p-2 border text-center font-mono font-bold text-primary">
                               {viewingItem.distribucion_colores.reduce((sum, t) => 
                                 sum + (t.colores || []).reduce((s, c) => s + (c.cantidad || 0), 0), 0
