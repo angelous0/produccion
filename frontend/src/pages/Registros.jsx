@@ -128,6 +128,44 @@ export const Registros = () => {
     }
   };
 
+  // Handler para el multiselect de colores
+  const handleColoresChange = (nuevosColores) => {
+    // Detectar si se agregó un nuevo color
+    const coloresAgregados = nuevosColores.filter(
+      nc => !coloresSeleccionados.find(cs => cs.id === nc.id)
+    );
+    
+    // Detectar si se removió un color
+    const coloresRemovidos = coloresSeleccionados.filter(
+      cs => !nuevosColores.find(nc => nc.id === cs.id)
+    );
+    
+    // Limpiar matriz para colores removidos
+    if (coloresRemovidos.length > 0) {
+      const nuevaMatriz = { ...matrizCantidades };
+      coloresRemovidos.forEach(color => {
+        Object.keys(nuevaMatriz).forEach(key => {
+          if (key.startsWith(`${color.id}_`)) {
+            delete nuevaMatriz[key];
+          }
+        });
+      });
+      setMatrizCantidades(nuevaMatriz);
+    }
+    
+    // Si es el primer color agregado, asignar todo el total
+    if (coloresSeleccionados.length === 0 && coloresAgregados.length > 0 && colorEditItem?.tallas) {
+      const primerColor = coloresAgregados[0];
+      const nuevaMatriz = { ...matrizCantidades };
+      colorEditItem.tallas.forEach(t => {
+        nuevaMatriz[`${primerColor.id}_${t.talla_id}`] = t.cantidad;
+      });
+      setMatrizCantidades(nuevaMatriz);
+    }
+    
+    setColoresSeleccionados(nuevosColores);
+  };
+
   const getCantidadMatriz = (colorId, tallaId) => {
     return matrizCantidades[`${colorId}_${tallaId}`] || 0;
   };
