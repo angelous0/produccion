@@ -13,6 +13,7 @@ import { TallasCatalogo } from "./pages/TallasCatalogo";
 import { ColoresCatalogo } from "./pages/ColoresCatalogo";
 import { Modelos } from "./pages/Modelos";
 import { Registros } from "./pages/Registros";
+import { RegistroForm } from "./pages/RegistroForm";
 
 function App() {
   return (
@@ -30,6 +31,8 @@ function App() {
             <Route path="colores-catalogo" element={<ColoresCatalogo />} />
             <Route path="modelos" element={<Modelos />} />
             <Route path="registros" element={<Registros />} />
+            <Route path="registros/nuevo" element={<RegistroForm />} />
+            <Route path="registros/editar/:id" element={<RegistroForm />} />
           </Route>
         </Routes>
       </BrowserRouter>
