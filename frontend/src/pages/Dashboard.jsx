@@ -10,7 +10,9 @@ import {
   Scissors, 
   Box, 
   ClipboardList,
-  AlertTriangle
+  AlertTriangle,
+  Ruler,
+  Droplets
 } from 'lucide-react';
 import { getStatusClass } from '../lib/utils';
 
@@ -64,12 +66,14 @@ export const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Marcas" value={stats?.marcas || 0} icon={Tag} />
         <StatCard title="Tipos" value={stats?.tipos || 0} icon={Layers} />
         <StatCard title="Entalles" value={stats?.entalles || 0} icon={Shirt} />
         <StatCard title="Telas" value={stats?.telas || 0} icon={Palette} />
         <StatCard title="Hilos" value={stats?.hilos || 0} icon={Scissors} />
+        <StatCard title="Tallas" value={stats?.tallas || 0} icon={Ruler} />
+        <StatCard title="Colores" value={stats?.colores || 0} icon={Droplets} />
         <StatCard title="Modelos" value={stats?.modelos || 0} icon={Box} />
         <StatCard title="Registros" value={stats?.registros || 0} icon={ClipboardList} />
         <StatCard 
