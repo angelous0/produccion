@@ -20,17 +20,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusClass } from '../lib/utils';
+import { MultiSelectColors } from '../components/MultiSelectColors';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
