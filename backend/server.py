@@ -86,7 +86,36 @@ class Hilo(HiloBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Modelo (tiene relación con todas las tablas anteriores)
+# ==================== TALLAS Y COLORES (TABLAS MAESTRAS) ====================
+
+# Talla (tabla maestra)
+class TallaBase(BaseModel):
+    nombre: str
+    orden: int = 0
+
+class TallaCreate(TallaBase):
+    pass
+
+class Talla(TallaBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Color (tabla maestra)
+class ColorBase(BaseModel):
+    nombre: str
+    codigo_hex: str = ""
+
+class ColorCreate(ColorBase):
+    pass
+
+class Color(ColorBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# ==================== MODELO ====================
+
 class ModeloBase(BaseModel):
     nombre: str
     marca_id: str
@@ -119,15 +148,25 @@ class ModeloConRelaciones(BaseModel):
     hilo_nombre: Optional[str] = None
     created_at: datetime
 
-# Color (parte de la matriz)
-class ColorCantidad(BaseModel):
-    color: str
+# ==================== REGISTRO DE PRODUCCIÓN ====================
+
+# Estructura para cantidades por talla
+class TallaCantidadItem(BaseModel):
+    talla_id: str
+    talla_nombre: str = ""
     cantidad: int = 0
 
-# Talla (parte de la matriz)
-class TallaCantidad(BaseModel):
-    talla: str
-    colores: List[ColorCantidad] = []
+# Estructura para distribución de colores por talla
+class ColorDistribucion(BaseModel):
+    color_id: str
+    color_nombre: str = ""
+    cantidad: int = 0
+
+class TallaConColores(BaseModel):
+    talla_id: str
+    talla_nombre: str = ""
+    cantidad_total: int = 0
+    colores: List[ColorDistribucion] = []
 
 # Registro de producción
 class RegistroBase(BaseModel):
@@ -138,13 +177,15 @@ class RegistroBase(BaseModel):
     urgente: bool = False
 
 class RegistroCreate(RegistroBase):
-    matriz_tallas_colores: List[TallaCantidad] = []
+    tallas: List[TallaCantidadItem] = []
+    distribucion_colores: List[TallaConColores] = []
 
 class Registro(RegistroBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     fecha_creacion: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    matriz_tallas_colores: List[TallaCantidad] = []
+    tallas: List[TallaCantidadItem] = []
+    distribucion_colores: List[TallaConColores] = []
 
 class RegistroConRelaciones(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -155,8 +196,8 @@ class RegistroConRelaciones(BaseModel):
     estado: str
     urgente: bool
     fecha_creacion: datetime
-    matriz_tallas_colores: List[TallaCantidad] = []
-    # Datos del modelo relacionado
+    tallas: List[TallaCantidadItem] = []
+    distribucion_colores: List[TallaConColores] = []
     modelo_nombre: Optional[str] = None
     marca_nombre: Optional[str] = None
     tipo_nombre: Optional[str] = None
@@ -361,6 +402,78 @@ async def delete_hilo(hilo_id: str):
         raise HTTPException(status_code=404, detail="Hilo no encontrado")
     return {"message": "Hilo eliminado"}
 
+# ==================== ENDPOINTS TALLA (TABLA MAESTRA) ====================
+
+@api_router.get("/tallas-catalogo", response_model=List[Talla])
+async def get_tallas_catalogo():
+    tallas = await db.tallas_catalogo.find({}, {"_id": 0}).to_list(1000)
+    for t in tallas:
+        if isinstance(t.get('created_at'), str):
+            t['created_at'] = datetime.fromisoformat(t['created_at'])
+    return sorted(tallas, key=lambda x: x.get('orden', 0))
+
+@api_router.post("/tallas-catalogo", response_model=Talla)
+async def create_talla_catalogo(input: TallaCreate):
+    talla = Talla(**input.model_dump())
+    doc = talla.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.tallas_catalogo.insert_one(doc)
+    return talla
+
+@api_router.put("/tallas-catalogo/{talla_id}", response_model=Talla)
+async def update_talla_catalogo(talla_id: str, input: TallaCreate):
+    result = await db.tallas_catalogo.find_one({"id": talla_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Talla no encontrada")
+    await db.tallas_catalogo.update_one({"id": talla_id}, {"$set": input.model_dump()})
+    result.update(input.model_dump())
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return Talla(**result)
+
+@api_router.delete("/tallas-catalogo/{talla_id}")
+async def delete_talla_catalogo(talla_id: str):
+    result = await db.tallas_catalogo.delete_one({"id": talla_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Talla no encontrada")
+    return {"message": "Talla eliminada"}
+
+# ==================== ENDPOINTS COLOR (TABLA MAESTRA) ====================
+
+@api_router.get("/colores-catalogo", response_model=List[Color])
+async def get_colores_catalogo():
+    colores = await db.colores_catalogo.find({}, {"_id": 0}).to_list(1000)
+    for c in colores:
+        if isinstance(c.get('created_at'), str):
+            c['created_at'] = datetime.fromisoformat(c['created_at'])
+    return colores
+
+@api_router.post("/colores-catalogo", response_model=Color)
+async def create_color_catalogo(input: ColorCreate):
+    color = Color(**input.model_dump())
+    doc = color.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.colores_catalogo.insert_one(doc)
+    return color
+
+@api_router.put("/colores-catalogo/{color_id}", response_model=Color)
+async def update_color_catalogo(color_id: str, input: ColorCreate):
+    result = await db.colores_catalogo.find_one({"id": color_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Color no encontrado")
+    await db.colores_catalogo.update_one({"id": color_id}, {"$set": input.model_dump()})
+    result.update(input.model_dump())
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return Color(**result)
+
+@api_router.delete("/colores-catalogo/{color_id}")
+async def delete_color_catalogo(color_id: str):
+    result = await db.colores_catalogo.delete_one({"id": color_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Color no encontrado")
+    return {"message": "Color eliminado"}
+
 # ==================== ENDPOINTS MODELO ====================
 
 @api_router.get("/modelos", response_model=List[ModeloConRelaciones])
@@ -371,7 +484,6 @@ async def get_modelos():
         if isinstance(m.get('created_at'), str):
             m['created_at'] = datetime.fromisoformat(m['created_at'])
         
-        # Obtener nombres de relaciones
         marca = await db.marcas.find_one({"id": m.get('marca_id')}, {"_id": 0, "nombre": 1})
         tipo = await db.tipos.find_one({"id": m.get('tipo_id')}, {"_id": 0, "nombre": 1})
         entalle = await db.entalles.find_one({"id": m.get('entalle_id')}, {"_id": 0, "nombre": 1})
@@ -428,7 +540,6 @@ async def get_registros():
         if isinstance(r.get('fecha_creacion'), str):
             r['fecha_creacion'] = datetime.fromisoformat(r['fecha_creacion'])
         
-        # Obtener datos del modelo relacionado
         modelo = await db.modelos.find_one({"id": r.get('modelo_id')}, {"_id": 0})
         if modelo:
             r['modelo_nombre'] = modelo.get('nombre')
@@ -445,6 +556,12 @@ async def get_registros():
             r['tela_nombre'] = tela['nombre'] if tela else None
             r['hilo_nombre'] = hilo['nombre'] if hilo else None
         
+        # Asegurar campos de tallas y colores
+        if 'tallas' not in r:
+            r['tallas'] = []
+        if 'distribucion_colores' not in r:
+            r['distribucion_colores'] = []
+            
         result.append(RegistroConRelaciones(**r))
     return result
 
@@ -472,6 +589,11 @@ async def get_registro(registro_id: str):
         r['entalle_nombre'] = entalle['nombre'] if entalle else None
         r['tela_nombre'] = tela['nombre'] if tela else None
         r['hilo_nombre'] = hilo['nombre'] if hilo else None
+    
+    if 'tallas' not in r:
+        r['tallas'] = []
+    if 'distribucion_colores' not in r:
+        r['distribucion_colores'] = []
     
     return RegistroConRelaciones(**r)
 
@@ -514,8 +636,9 @@ async def get_stats():
     modelos_count = await db.modelos.count_documents({})
     registros_count = await db.registros.count_documents({})
     registros_urgentes = await db.registros.count_documents({"urgente": True})
+    tallas_count = await db.tallas_catalogo.count_documents({})
+    colores_count = await db.colores_catalogo.count_documents({})
     
-    # Conteo por estado
     estados_count = {}
     for estado in ESTADOS_PRODUCCION:
         count = await db.registros.count_documents({"estado": estado})
@@ -530,6 +653,8 @@ async def get_stats():
         "modelos": modelos_count,
         "registros": registros_count,
         "registros_urgentes": registros_urgentes,
+        "tallas": tallas_count,
+        "colores": colores_count,
         "estados_count": estados_count
     }
 
