@@ -525,6 +525,8 @@ def main():
     test_results.append(("Entalles CRUD", tester.test_entalles_crud()))
     test_results.append(("Telas CRUD", tester.test_telas_crud()))
     test_results.append(("Hilos CRUD", tester.test_hilos_crud()))
+    test_results.append(("Tallas Catalogo CRUD", tester.test_tallas_catalogo_crud()))
+    test_results.append(("Colores Catalogo CRUD", tester.test_colores_catalogo_crud()))
     test_results.append(("Modelos CRUD", tester.test_modelos_crud()))
     test_results.append(("Registros CRUD", tester.test_registros_crud()))
 
