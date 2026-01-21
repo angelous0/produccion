@@ -409,38 +409,22 @@ export const Registros = () => {
             <DialogTitle>Distribución de Colores - Corte #{colorEditItem?.n_corte}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 py-4">
-            {/* Selector de colores múltiple */}
+            {/* Selector de colores múltiple con buscador */}
             <div>
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                 Seleccionar Colores
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {coloresCatalogo.map((color) => {
-                  const seleccionado = coloresSeleccionados.find(c => c.id === color.id);
-                  return (
-                    <button
-                      key={color.id}
-                      type="button"
-                      onClick={() => handleToggleColor(color.id)}
-                      className={`
-                        flex items-center gap-2 px-3 py-2 rounded-lg border transition-all
-                        ${seleccionado 
-                          ? 'border-primary bg-primary/10 ring-2 ring-primary' 
-                          : 'border-border hover:border-primary/50 hover:bg-muted'
-                        }
-                      `}
-                      data-testid={`toggle-color-${color.id}`}
-                    >
-                      <div 
-                        className="w-5 h-5 rounded border"
-                        style={{ backgroundColor: color.codigo_hex || '#ccc' }}
-                      />
-                      <span className="text-sm font-medium">{color.nombre}</span>
-                      {seleccionado && <X className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                  );
-                })}
-              </div>
+              <MultiSelectColors
+                options={coloresCatalogo}
+                selected={coloresSeleccionados}
+                onChange={handleColoresChange}
+                placeholder="Buscar y seleccionar colores..."
+                searchPlaceholder="Buscar color..."
+                emptyMessage="No se encontraron colores."
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                El primer color seleccionado recibe todo el total automáticamente.
+              </p>
             </div>
 
             <Separator />
