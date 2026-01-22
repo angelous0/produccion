@@ -72,6 +72,17 @@ export const RegistroForm = () => {
   const [modelos, setModelos] = useState([]);
   const [estados, setEstados] = useState([]);
 
+  // Datos de inventario y salidas
+  const [itemsInventario, setItemsInventario] = useState([]);
+  const [salidasRegistro, setSalidasRegistro] = useState([]);
+  const [salidaDialogOpen, setSalidaDialogOpen] = useState(false);
+  const [selectedItemInventario, setSelectedItemInventario] = useState(null);
+  const [salidaFormData, setSalidaFormData] = useState({
+    item_id: '',
+    cantidad: 1,
+    observaciones: '',
+  });
+
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
     try {
