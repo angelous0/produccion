@@ -876,7 +876,7 @@ async def update_registro(registro_id: str, input: RegistroCreate):
                     if idx_nuevo != idx_anterior + 1:
                         raise HTTPException(
                             status_code=400, 
-                            detail=f"Solo puede avanzar al siguiente estado en la ruta"
+                            detail="Solo puede avanzar al siguiente estado en la ruta"
                         )
                     
                     # Validar que hay movimiento con fechas para el servicio anterior
@@ -884,8 +884,8 @@ async def update_registro(registro_id: str, input: RegistroCreate):
                         movimiento = await db.movimientos_produccion.find_one({
                             "registro_id": registro_id,
                             "servicio_id": servicio_anterior_id,
-                            "fecha_inicio": {"$ne": None, "$ne": ""},
-                            "fecha_fin": {"$ne": None, "$ne": ""}
+                            "fecha_inicio": {"$nin": [None, ""]},
+                            "fecha_fin": {"$nin": [None, ""]}
                         }, {"_id": 0})
                         if not movimiento:
                             servicio_nombre = await db.servicios_produccion.find_one({"id": servicio_anterior_id}, {"_id": 0, "nombre": 1})
