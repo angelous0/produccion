@@ -77,9 +77,12 @@ export const RegistroForm = () => {
   const [salidasRegistro, setSalidasRegistro] = useState([]);
   const [salidaDialogOpen, setSalidaDialogOpen] = useState(false);
   const [selectedItemInventario, setSelectedItemInventario] = useState(null);
+  const [rollosDisponibles, setRollosDisponibles] = useState([]);
+  const [selectedRollo, setSelectedRollo] = useState(null);
   const [salidaFormData, setSalidaFormData] = useState({
     item_id: '',
     cantidad: 1,
+    rollo_id: '',
     observaciones: '',
   });
 
