@@ -565,6 +565,21 @@ export const MovimientosProduccion = () => {
               />
             </div>
 
+            {/* Mostrar costo calculado en edición */}
+            {formData.servicio_id && formData.cantidad > 0 && getServicioTarifa(formData.servicio_id) > 0 && (
+              <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-green-700 dark:text-green-300">Costo calculado:</span>
+                  <span className="text-lg font-bold text-green-700 dark:text-green-300">
+                    {formatCurrency(calcularCostoEdit())}
+                  </span>
+                </div>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  {formData.cantidad} prendas × {formatCurrency(getServicioTarifa(formData.servicio_id))}
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="edit-observaciones">Observaciones</Label>
               <Textarea
