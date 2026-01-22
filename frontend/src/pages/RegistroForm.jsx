@@ -478,14 +478,6 @@ export const RegistroForm = () => {
     return tarifa * (movimientoFormData.cantidad || 0);
   };
 
-  // Helper para formatear moneda
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(value || 0);
-  };
-
   const handleOpenMovimientoDialog = (movimiento = null) => {
     if (movimiento) {
       // Modo edición
