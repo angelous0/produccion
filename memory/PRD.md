@@ -79,12 +79,11 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 
 ### P1 - Importante
 - [ ] Autenticación de usuarios
-- [ ] Filtros y búsqueda en tablas
+- [ ] Filtros y búsqueda en tablas de producción
 - [ ] Exportar registros a Excel
-- [ ] Reporte de movimientos de inventario
 
 ### P2 - Mejoras
-- [ ] Reportes de producción
+- [ ] Reportes de producción con costos de materiales
 - [ ] Gráficos de estados
 - [ ] Historial de cambios de estado
-- [ ] Kardex de inventario (reporte detallado FIFO)
+- [ ] Exportar Kardex a PDF/Excel
