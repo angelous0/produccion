@@ -330,6 +330,70 @@ export const RegistroForm = () => {
            distribucionColores.some(t => t.colores && t.colores.length > 0);
   };
 
+  // ========== LÓGICA DE SALIDAS DE INVENTARIO ==========
+
+  const handleOpenSalidaDialog = () => {
+    setSalidaFormData({
+      item_id: '',
+      cantidad: 1,
+      observaciones: '',
+    });
+    setSelectedItemInventario(null);
+    setSalidaDialogOpen(true);
+  };
+
+  const handleItemInventarioChange = (itemId) => {
+    const item = itemsInventario.find(i => i.id === itemId);
+    setSelectedItemInventario(item);
+    setSalidaFormData({ ...salidaFormData, item_id: itemId });
+  };
+
+  const handleCreateSalida = async () => {
+    if (!salidaFormData.item_id || salidaFormData.cantidad < 1) {
+      toast.error('Selecciona un item y cantidad válida');
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/inventario-salidas`, {
+        ...salidaFormData,
+        registro_id: id,
+      });
+      toast.success('Salida registrada');
+      setSalidaDialogOpen(false);
+      fetchSalidasRegistro();
+      // Refrescar inventario para actualizar stock
+      const inventarioRes = await axios.get(`${API}/inventario`);
+      setItemsInventario(inventarioRes.data);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear salida');
+    }
+  };
+
+  const handleDeleteSalida = async (salidaId) => {
+    try {
+      await axios.delete(`${API}/inventario-salidas/${salidaId}`);
+      toast.success('Salida eliminada');
+      fetchSalidasRegistro();
+      // Refrescar inventario
+      const inventarioRes = await axios.get(`${API}/inventario`);
+      setItemsInventario(inventarioRes.data);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al eliminar salida');
+    }
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: 'PEN',
+    }).format(value);
+  };
+
+  const getTotalCostoSalidas = () => {
+    return salidasRegistro.reduce((sum, s) => sum + (s.costo_total || 0), 0);
+  };
+
   // Guardar registro
   const handleSubmit = async (e) => {
     e.preventDefault();
