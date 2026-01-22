@@ -25,6 +25,7 @@ import { ServiciosProduccion } from "./pages/ServiciosProduccion";
 import { PersonasProduccion } from "./pages/PersonasProduccion";
 import { MovimientosProduccion } from "./pages/MovimientosProduccion";
 import { ReporteProductividad } from "./pages/ReporteProductividad";
+import { RutasProduccion } from "./pages/RutasProduccion";
 
 function App() {
   return (
@@ -53,6 +54,7 @@ function App() {
             <Route path="inventario/kardex" element={<Kardex />} />
             <Route path="maestros/servicios" element={<ServiciosProduccion />} />
             <Route path="maestros/personas" element={<PersonasProduccion />} />
+            <Route path="maestros/rutas" element={<RutasProduccion />} />
             <Route path="maestros/movimientos" element={<MovimientosProduccion />} />
             <Route path="maestros/productividad" element={<ReporteProductividad />} />
           </Route>
