@@ -162,6 +162,49 @@ export const MovimientosProduccion = () => {
     }
   };
 
+  // ===== Funciones para Crear Nuevo =====
+  const handleOpenCreateDialog = () => {
+    setCreateFormData({
+      registro_id: '',
+      servicio_id: '',
+      persona_id: '',
+      fecha_inicio: new Date().toISOString().split('T')[0],
+      fecha_fin: '',
+      cantidad: 0,
+      observaciones: '',
+    });
+    setPersonasFiltradasCreate([]);
+    setCreateDialogOpen(true);
+  };
+
+  const handleCreateServicioChange = (servicioId) => {
+    setCreateFormData({ 
+      ...createFormData, 
+      servicio_id: servicioId,
+      persona_id: '' 
+    });
+    const filtradas = personas.filter(p => 
+      p.servicio_ids && p.servicio_ids.includes(servicioId)
+    );
+    setPersonasFiltradasCreate(filtradas);
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id) {
+      toast.error('Selecciona registro, servicio y persona');
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/movimientos-produccion`, createFormData);
+      toast.success('Movimiento creado');
+      setCreateDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear');
+    }
+  };
+
   const limpiarFiltros = () => {
     setFiltroServicio('');
     setFiltroPersona('');
