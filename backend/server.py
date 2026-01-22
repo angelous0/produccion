@@ -1728,7 +1728,7 @@ async def get_movimientos_produccion(registro_id: str = None):
         if isinstance(m.get('created_at'), str):
             m['created_at'] = datetime.fromisoformat(m['created_at'])
         
-        # Obtener nombres y tarifa
+        # Obtener nombres
         servicio = await db.servicios_produccion.find_one({"id": m.get('servicio_id')}, {"_id": 0, "nombre": 1, "tarifa": 1})
         persona = await db.personas_produccion.find_one({"id": m.get('persona_id')}, {"_id": 0, "nombre": 1})
         registro = await db.registros.find_one({"id": m.get('registro_id')}, {"_id": 0, "n_corte": 1})
@@ -1736,8 +1736,10 @@ async def get_movimientos_produccion(registro_id: str = None):
         m['servicio_nombre'] = servicio['nombre'] if servicio else ""
         m['persona_nombre'] = persona['nombre'] if persona else ""
         m['registro_n_corte'] = registro['n_corte'] if registro else ""
-        m['tarifa'] = servicio.get('tarifa', 0) if servicio else 0
-        m['costo'] = m['tarifa'] * m.get('cantidad', 0)
+        m['tarifa_servicio'] = servicio.get('tarifa', 0) if servicio else 0  # Tarifa referencial del servicio
+        # El costo se calcula con la tarifa_aplicada del movimiento (la que el usuario ingresó)
+        tarifa_mov = m.get('tarifa_aplicada', 0)
+        m['costo'] = tarifa_mov * m.get('cantidad', 0)
         
         result.append(m)
     return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
