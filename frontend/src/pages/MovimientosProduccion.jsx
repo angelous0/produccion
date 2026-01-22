@@ -375,6 +375,7 @@ export const MovimientosProduccion = () => {
                     <TableHead className="text-center">Fecha Inicio</TableHead>
                     <TableHead className="text-center">Fecha Fin</TableHead>
                     <TableHead className="text-right">Cantidad</TableHead>
+                    <TableHead className="text-right">Costo</TableHead>
                     <TableHead className="w-[100px] text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -387,7 +388,14 @@ export const MovimientosProduccion = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Cog className="h-4 w-4 text-blue-500" />
-                          <span>{mov.servicio_nombre}</span>
+                          <div>
+                            <span>{mov.servicio_nombre}</span>
+                            {mov.tarifa > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatCurrency(mov.tarifa)}/prenda
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -409,6 +417,9 @@ export const MovimientosProduccion = () => {
                       </TableCell>
                       <TableCell className="text-right font-mono font-semibold">
                         {mov.cantidad.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-green-600">
+                        {mov.costo > 0 ? formatCurrency(mov.costo) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
