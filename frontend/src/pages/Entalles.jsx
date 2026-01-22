@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import {
   Table,
   TableBody,
@@ -19,17 +20,33 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '../lib/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '../components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Entalles = () => {
   const [items, setItems] = useState([]);
+  const [tipos, setTipos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '' });
+  const [formData, setFormData] = useState({ nombre: '', tipo_ids: [] });
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const fetchItems = async () => {
     try {
@@ -42,8 +59,18 @@ export const Entalles = () => {
     }
   };
 
+  const fetchTipos = async () => {
+    try {
+      const response = await axios.get(`${API}/tipos`);
+      setTipos(response.data);
+    } catch (error) {
+      console.error('Error fetching tipos:', error);
+    }
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchTipos();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -58,7 +85,7 @@ export const Entalles = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '' });
+      setFormData({ nombre: '', tipo_ids: [] });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar entalle');
@@ -67,7 +94,7 @@ export const Entalles = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre });
+    setFormData({ nombre: item.nombre, tipo_ids: item.tipo_ids || [] });
     setDialogOpen(true);
   };
 
@@ -83,8 +110,17 @@ export const Entalles = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '' });
+    setFormData({ nombre: '', tipo_ids: [] });
     setDialogOpen(true);
+  };
+
+  const toggleTipo = (tipoId) => {
+    const current = formData.tipo_ids || [];
+    if (current.includes(tipoId)) {
+      setFormData({ ...formData, tipo_ids: current.filter(id => id !== tipoId) });
+    } else {
+      setFormData({ ...formData, tipo_ids: [...current, tipoId] });
+    }
   };
 
   return (
@@ -106,19 +142,20 @@ export const Entalles = () => {
             <TableHeader>
               <TableRow className="data-table-header">
                 <TableHead>Nombre</TableHead>
+                <TableHead>Tipos</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     No hay entalles registrados
                   </TableCell>
                 </TableRow>
@@ -127,12 +164,26 @@ export const Entalles = () => {
                   <TableRow key={item.id} className="data-table-row" data-testid={`entalle-row-${item.id}`}>
                     <TableCell className="font-medium">{item.nombre}</TableCell>
                     <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(item.tipo_ids || []).map(tipoId => {
+                          const tipo = tipos.find(t => t.id === tipoId);
+                          return tipo ? (
+                            <Badge key={tipoId} variant="secondary" className="text-xs">
+                              {tipo.nombre}
+                            </Badge>
+                          ) : null;
+                        })}
+                        {(!item.tipo_ids || item.tipo_ids.length === 0) && (
+                          <span className="text-muted-foreground text-sm">Sin tipos</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleEdit(item)}
-                          data-testid={`edit-entalle-${item.id}`}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -140,7 +191,6 @@ export const Entalles = () => {
                           variant="ghost"
                           size="icon"
                           onClick={() => handleDelete(item.id)}
-                          data-testid={`delete-entalle-${item.id}`}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -166,18 +216,72 @@ export const Entalles = () => {
                 <Input
                   id="nombre"
                   value={formData.nombre}
-                  onChange={(e) => setFormData({ nombre: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   placeholder="Nombre del entalle"
                   required
-                  data-testid="input-nombre-entalle"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipos disponibles</Label>
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between h-auto min-h-10"
+                    >
+                      <div className="flex flex-wrap gap-1 flex-1">
+                        {formData.tipo_ids?.length === 0 ? (
+                          <span className="text-muted-foreground">Seleccionar tipos...</span>
+                        ) : (
+                          formData.tipo_ids.map(id => {
+                            const tipo = tipos.find(t => t.id === id);
+                            return tipo ? (
+                              <Badge key={id} variant="secondary" className="text-xs">
+                                {tipo.nombre}
+                              </Badge>
+                            ) : null;
+                          })
+                        )}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar tipo..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron tipos.</CommandEmpty>
+                        <CommandGroup>
+                          {tipos.map((tipo) => (
+                            <CommandItem
+                              key={tipo.id}
+                              value={tipo.nombre}
+                              onSelect={() => toggleTipo(tipo.id)}
+                            >
+                              <div className={cn(
+                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+                                formData.tipo_ids?.includes(tipo.id)
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "opacity-50"
+                              )}>
+                                {formData.tipo_ids?.includes(tipo.id) && <Check className="h-3 w-3" />}
+                              </div>
+                              {tipo.nombre}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-entalle">
+              <Button type="submit">
                 {editingItem ? 'Actualizar' : 'Crear'}
               </Button>
             </DialogFooter>
