@@ -25,7 +25,8 @@ import {
   Cog,
   Users,
   Play,
-  BarChart3
+  BarChart3,
+  Route
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -55,6 +56,7 @@ const inventarioItems = [
 const maestrosItems = [
   { to: '/maestros/servicios', icon: Cog, label: 'Servicios' },
   { to: '/maestros/personas', icon: Users, label: 'Personas' },
+  { to: '/maestros/rutas', icon: Route, label: 'Rutas' },
   { to: '/maestros/movimientos', icon: Play, label: 'Movimientos' },
   { to: '/maestros/productividad', icon: BarChart3, label: 'Productividad' },
 ];
