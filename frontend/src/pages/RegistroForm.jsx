@@ -138,6 +138,17 @@ export const RegistroForm = () => {
     }
   };
 
+  // Cargar movimientos de producción del registro
+  const fetchMovimientosProduccion = async () => {
+    if (!id) return;
+    try {
+      const response = await axios.get(`${API}/movimientos-produccion?registro_id=${id}`);
+      setMovimientosProduccion(response.data);
+    } catch (error) {
+      console.error('Error fetching movimientos:', error);
+    }
+  };
+
   // Cargar registro existente si es edición
   const fetchRegistro = async () => {
     if (!id) {
