@@ -1551,6 +1551,7 @@ async def get_kardex(item_id: str):
 class ServicioProduccionBase(BaseModel):
     nombre: str
     secuencia: int = 0
+    tarifa: float = 0.0  # Tarifa por prenda
 
 class ServicioProduccionCreate(ServicioProduccionBase):
     pass
