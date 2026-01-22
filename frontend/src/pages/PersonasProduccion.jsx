@@ -123,8 +123,6 @@ export const PersonasProduccion = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar esta persona?')) return;
-    
     try {
       await axios.delete(`${API}/personas-produccion/${id}`);
       toast.success('Persona eliminada');
