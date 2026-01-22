@@ -123,6 +123,7 @@ export const RegistroForm = () => {
       ]);
       setModelos(modelosRes.data);
       setEstados(estadosRes.data.estados);
+      setEstadosGlobales(estadosRes.data.estados);
       setTallasCatalogo(tallasRes.data);
       setColoresCatalogo(coloresRes.data);
       setItemsInventario(inventarioRes.data);
@@ -130,6 +131,28 @@ export const RegistroForm = () => {
       setPersonasProduccion(personasRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
+    }
+  };
+
+  // Cargar estados dinámicos según el registro o modelo
+  const fetchEstadosDisponibles = async (registroId) => {
+    if (!registroId) {
+      setEstados(estadosGlobales);
+      setUsaRuta(false);
+      setRutaNombre('');
+      setSiguienteEstado(null);
+      return;
+    }
+    try {
+      const response = await axios.get(`${API}/registros/${registroId}/estados-disponibles`);
+      const data = response.data;
+      setEstados(data.estados || estadosGlobales);
+      setUsaRuta(data.usa_ruta || false);
+      setRutaNombre(data.ruta_nombre || '');
+      setSiguienteEstado(data.siguiente_estado || null);
+    } catch (error) {
+      console.error('Error fetching estados disponibles:', error);
+      setEstados(estadosGlobales);
     }
   };
 
