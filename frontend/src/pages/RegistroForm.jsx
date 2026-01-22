@@ -1437,10 +1437,16 @@ export const RegistroForm = () => {
                   {serviciosProduccion.map((servicio) => (
                     <SelectItem key={servicio.id} value={servicio.id}>
                       {servicio.nombre}
+                      {servicio.tarifa > 0 && ` (${formatCurrency(servicio.tarifa)}/prenda)`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {movimientoFormData.servicio_id && getServicioTarifa(movimientoFormData.servicio_id) > 0 && (
+                <p className="text-xs text-green-600 font-medium">
+                  Tarifa: {formatCurrency(getServicioTarifa(movimientoFormData.servicio_id))} por prenda
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
