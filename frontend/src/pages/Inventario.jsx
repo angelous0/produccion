@@ -213,7 +213,6 @@ export const Inventario = () => {
                           {item.categoria || 'Otros'}
                         </Badge>
                       </TableCell>
-                      </TableCell>
                       <TableCell className="capitalize">{item.unidad_medida}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">
                         {item.stock_actual}
