@@ -154,6 +154,12 @@ export const RegistroForm = () => {
     fetchRegistro();
   }, [id]);
 
+  useEffect(() => {
+    if (id) {
+      fetchSalidasRegistro();
+    }
+  }, [id]);
+
   // Cuando cambia el modelo seleccionado
   const handleModeloChange = (modeloId) => {
     setFormData({ ...formData, modelo_id: modeloId });
