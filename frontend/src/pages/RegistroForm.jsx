@@ -875,6 +875,109 @@ export const RegistroForm = () => {
                 </CardContent>
               </Card>
             )}
+
+            {/* Movimientos de Producción (solo en modo edición) */}
+            {isEditing && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Play className="h-5 w-5" />
+                    Movimientos de Producción
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleOpenMovimientoDialog}
+                    data-testid="btn-nuevo-movimiento"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Agregar Movimiento
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {movimientosProduccion.length > 0 ? (
+                    <>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead>Servicio</TableHead>
+                              <TableHead>Persona</TableHead>
+                              <TableHead className="text-center">Fechas</TableHead>
+                              <TableHead className="text-right">Cantidad</TableHead>
+                              <TableHead className="w-[60px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {movimientosProduccion.map((mov) => (
+                              <TableRow key={mov.id} data-testid={`movimiento-row-${mov.id}`}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Cog className="h-4 w-4 text-blue-500" />
+                                    <span className="font-medium">{mov.servicio_nombre}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <span>{mov.persona_nombre}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="text-xs">
+                                    {mov.fecha_inicio && (
+                                      <div className="flex items-center justify-center gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        {mov.fecha_inicio}
+                                      </div>
+                                    )}
+                                    {mov.fecha_fin && (
+                                      <div className="text-muted-foreground">
+                                        → {mov.fecha_fin}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-semibold">
+                                  {mov.cantidad}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteMovimiento(mov.id)}
+                                    data-testid={`delete-movimiento-${mov.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="bg-muted/30">
+                              <TableCell colSpan={3} className="font-semibold">Total Prendas</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-primary">
+                                {getTotalCantidadMovimientos()}
+                              </TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {movimientosProduccion.length} movimiento{movimientosProduccion.length !== 1 ? 's' : ''} registrado{movimientosProduccion.length !== 1 ? 's' : ''}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
+                      <Play className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No hay movimientos de producción</p>
+                      <p className="text-xs mt-1">Registra los servicios realizados</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Columna derecha - Datos del modelo */}
