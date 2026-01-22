@@ -435,6 +435,13 @@ export const InventarioSalidas = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para salida masiva de rollos */}
+      <SalidaRollosDialog
+        open={rollosDialogOpen}
+        onOpenChange={setRollosDialogOpen}
+        onSuccess={fetchData}
+      />
     </div>
   );
 };
