@@ -808,9 +808,10 @@ class IngresoConDetalles(IngresoInventario):
 # Salida de Inventario (vinculada a Registro)
 class SalidaInventarioBase(BaseModel):
     item_id: str
-    cantidad: int
+    cantidad: float  # Cambiado a float para metraje
     registro_id: Optional[str] = None
     observaciones: str = ""
+    rollo_id: Optional[str] = None  # Si es salida de un rollo específico
 
 class SalidaInventarioCreate(SalidaInventarioBase):
     pass
@@ -826,12 +827,13 @@ class SalidaConDetalles(SalidaInventario):
     item_nombre: str = ""
     item_codigo: str = ""
     registro_n_corte: Optional[str] = None
+    rollo_numero: Optional[str] = None
 
 # Ajuste de Inventario
 class AjusteInventarioBase(BaseModel):
     item_id: str
     tipo: str  # "entrada" o "salida"
-    cantidad: int
+    cantidad: float  # Cambiado a float
     motivo: str = ""
     observaciones: str = ""
 
