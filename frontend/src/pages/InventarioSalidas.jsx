@@ -280,14 +280,14 @@ export const InventarioSalidas = () => {
               <div className="space-y-2">
                 <Label>Vincular a Registro (opcional)</Label>
                 <Select
-                  value={formData.registro_id}
-                  onValueChange={(value) => setFormData({ ...formData, registro_id: value })}
+                  value={formData.registro_id || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, registro_id: value === "none" ? "" : value })}
                 >
                   <SelectTrigger data-testid="select-registro">
                     <SelectValue placeholder="Sin vincular" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin vincular</SelectItem>
+                    <SelectItem value="none">Sin vincular</SelectItem>
                     {registros.map((reg) => (
                       <SelectItem key={reg.id} value={reg.id}>
                         <span className="font-mono mr-2">#{reg.n_corte}</span>
