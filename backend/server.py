@@ -1785,6 +1785,116 @@ async def delete_movimiento_produccion(movimiento_id: str):
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     return {"message": "Movimiento eliminado"}
 
+# ==================== REPORTE DE PRODUCTIVIDAD ====================
+
+@api_router.get("/reporte-productividad")
+async def get_reporte_productividad(
+    fecha_desde: str = None,
+    fecha_hasta: str = None,
+    servicio_id: str = None,
+    persona_id: str = None
+):
+    query = {}
+    if servicio_id:
+        query['servicio_id'] = servicio_id
+    if persona_id:
+        query['persona_id'] = persona_id
+    
+    movimientos = await db.movimientos_produccion.find(query, {"_id": 0}).to_list(10000)
+    
+    # Filtrar por fecha
+    if fecha_desde or fecha_hasta:
+        movimientos_filtrados = []
+        for m in movimientos:
+            fecha = m.get('fecha_inicio') or m.get('fecha_fin')
+            if not fecha:
+                continue
+            if fecha_desde and fecha < fecha_desde:
+                continue
+            if fecha_hasta and fecha > fecha_hasta:
+                continue
+            movimientos_filtrados.append(m)
+        movimientos = movimientos_filtrados
+    
+    # Calcular totales por persona
+    totales_persona = {}
+    # Calcular totales por servicio
+    totales_servicio = {}
+    # Calcular totales por persona-servicio
+    detalle_persona_servicio = {}
+    
+    for m in movimientos:
+        persona_id_m = m.get('persona_id')
+        servicio_id_m = m.get('servicio_id')
+        cantidad = m.get('cantidad', 0)
+        
+        # Obtener tarifa del servicio
+        servicio = await db.servicios_produccion.find_one({"id": servicio_id_m}, {"_id": 0, "tarifa": 1, "nombre": 1})
+        tarifa = servicio.get('tarifa', 0) if servicio else 0
+        costo = cantidad * tarifa
+        
+        # Por persona
+        if persona_id_m not in totales_persona:
+            persona = await db.personas_produccion.find_one({"id": persona_id_m}, {"_id": 0, "nombre": 1})
+            totales_persona[persona_id_m] = {
+                "persona_id": persona_id_m,
+                "persona_nombre": persona['nombre'] if persona else "Desconocido",
+                "total_cantidad": 0,
+                "total_costo": 0,
+                "movimientos": 0
+            }
+        totales_persona[persona_id_m]['total_cantidad'] += cantidad
+        totales_persona[persona_id_m]['total_costo'] += costo
+        totales_persona[persona_id_m]['movimientos'] += 1
+        
+        # Por servicio
+        if servicio_id_m not in totales_servicio:
+            totales_servicio[servicio_id_m] = {
+                "servicio_id": servicio_id_m,
+                "servicio_nombre": servicio['nombre'] if servicio else "Desconocido",
+                "tarifa": tarifa,
+                "total_cantidad": 0,
+                "total_costo": 0,
+                "movimientos": 0
+            }
+        totales_servicio[servicio_id_m]['total_cantidad'] += cantidad
+        totales_servicio[servicio_id_m]['total_costo'] += costo
+        totales_servicio[servicio_id_m]['movimientos'] += 1
+        
+        # Detalle persona-servicio
+        key = f"{persona_id_m}_{servicio_id_m}"
+        if key not in detalle_persona_servicio:
+            persona = await db.personas_produccion.find_one({"id": persona_id_m}, {"_id": 0, "nombre": 1})
+            detalle_persona_servicio[key] = {
+                "persona_id": persona_id_m,
+                "persona_nombre": persona['nombre'] if persona else "Desconocido",
+                "servicio_id": servicio_id_m,
+                "servicio_nombre": servicio['nombre'] if servicio else "Desconocido",
+                "tarifa": tarifa,
+                "total_cantidad": 0,
+                "total_costo": 0,
+                "movimientos": 0
+            }
+        detalle_persona_servicio[key]['total_cantidad'] += cantidad
+        detalle_persona_servicio[key]['total_costo'] += costo
+        detalle_persona_servicio[key]['movimientos'] += 1
+    
+    # Calcular totales generales
+    total_general_cantidad = sum(p['total_cantidad'] for p in totales_persona.values())
+    total_general_costo = sum(p['total_costo'] for p in totales_persona.values())
+    total_general_movimientos = sum(p['movimientos'] for p in totales_persona.values())
+    
+    return {
+        "por_persona": sorted(list(totales_persona.values()), key=lambda x: x['total_cantidad'], reverse=True),
+        "por_servicio": sorted(list(totales_servicio.values()), key=lambda x: x['total_cantidad'], reverse=True),
+        "detalle": sorted(list(detalle_persona_servicio.values()), key=lambda x: (x['persona_nombre'], x['servicio_nombre'])),
+        "totales": {
+            "cantidad": total_general_cantidad,
+            "costo": total_general_costo,
+            "movimientos": total_general_movimientos
+        }
+    }
+
 # Root endpoint
 @api_router.get("/")
 async def root():
