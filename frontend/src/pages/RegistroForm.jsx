@@ -72,6 +72,10 @@ export const RegistroForm = () => {
   const [coloresCatalogo, setColoresCatalogo] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [estados, setEstados] = useState([]);
+  const [estadosGlobales, setEstadosGlobales] = useState([]);
+  const [usaRuta, setUsaRuta] = useState(false);
+  const [rutaNombre, setRutaNombre] = useState('');
+  const [siguienteEstado, setSiguienteEstado] = useState(null);
 
   // Datos de inventario y salidas
   const [itemsInventario, setItemsInventario] = useState([]);
