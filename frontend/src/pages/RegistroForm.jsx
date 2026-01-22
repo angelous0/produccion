@@ -88,6 +88,21 @@ export const RegistroForm = () => {
   });
   const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
 
+  // Datos para movimientos de producción
+  const [movimientosProduccion, setMovimientosProduccion] = useState([]);
+  const [serviciosProduccion, setServiciosProduccion] = useState([]);
+  const [personasProduccion, setPersonasProduccion] = useState([]);
+  const [movimientoDialogOpen, setMovimientoDialogOpen] = useState(false);
+  const [personasFiltradas, setPersonasFiltradas] = useState([]);
+  const [movimientoFormData, setMovimientoFormData] = useState({
+    servicio_id: '',
+    persona_id: '',
+    fecha_inicio: '',
+    fecha_fin: '',
+    cantidad: 0,
+    observaciones: '',
+  });
+
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
     try {
