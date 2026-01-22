@@ -106,6 +106,23 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Filtros por fecha
 - ✅ Nueva sección "Maestros" en el menú lateral
 
+### Enero 2025 - Rutas de Producción y BOM
+- ✅ **Rutas de Producción**: CRUD completo en `/maestros/rutas`
+  - Define secuencias de etapas (servicios) para modelos
+  - Drag & drop para reordenar etapas
+  - Validación: no se puede eliminar ruta si hay modelos usándola
+- ✅ **Modelos con BOM y Ruta**:
+  - Formulario con 3 pestañas: General, Materiales, Producción
+  - **Lista de Materiales (BOM)**: Items de inventario con cantidades estimadas
+  - **Servicios Requeridos**: Checkboxes para seleccionar servicios del modelo
+  - **Ruta de Producción**: Selector para asignar ruta al modelo
+  - Columnas nuevas en tabla: Ruta, Materiales, Servicios
+- ✅ **Estados Dinámicos en Registros**:
+  - Si el modelo tiene ruta, los estados del registro vienen de las etapas de la ruta
+  - El registro solo puede avanzar al siguiente estado de la ruta
+  - Validación: requiere movimiento con fechas antes de cambiar estado
+  - Endpoint: `GET /api/registros/{id}/estados-disponibles`
+
 ## Backlog
 
 ### P0 - Crítico
