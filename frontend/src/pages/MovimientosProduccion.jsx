@@ -567,6 +567,144 @@ export const MovimientosProduccion = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para Crear Nuevo Movimiento */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo Movimiento de Producción</DialogTitle>
+            <DialogDescription>
+              Registra un nuevo movimiento de producción
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Registro *</Label>
+              <Select
+                value={createFormData.registro_id}
+                onValueChange={(value) => setCreateFormData({ ...createFormData, registro_id: value })}
+              >
+                <SelectTrigger data-testid="create-select-registro">
+                  <SelectValue placeholder="Seleccionar registro..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {registros.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.modelo_nombre || 'Sin modelo'} - {r.n_corte}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Servicio *</Label>
+              <Select
+                value={createFormData.servicio_id}
+                onValueChange={handleCreateServicioChange}
+              >
+                <SelectTrigger data-testid="create-select-servicio">
+                  <SelectValue placeholder="Seleccionar servicio..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {servicios.map((servicio) => (
+                    <SelectItem key={servicio.id} value={servicio.id}>
+                      {servicio.nombre}
+                      {servicio.tarifa > 0 && ` (${formatCurrency(servicio.tarifa)}/prenda)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Persona *</Label>
+              <Select
+                value={createFormData.persona_id}
+                onValueChange={(value) => setCreateFormData({ ...createFormData, persona_id: value })}
+                disabled={!createFormData.servicio_id}
+              >
+                <SelectTrigger data-testid="create-select-persona">
+                  <SelectValue placeholder={createFormData.servicio_id ? "Seleccionar persona..." : "Selecciona servicio primero"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {personasFiltradasCreate.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      No hay personas asignadas a este servicio
+                    </SelectItem>
+                  ) : (
+                    personasFiltradasCreate.map((persona) => (
+                      <SelectItem key={persona.id} value={persona.id}>
+                        {persona.nombre}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-fecha-inicio">Fecha Inicio</Label>
+                <Input
+                  id="create-fecha-inicio"
+                  type="date"
+                  value={createFormData.fecha_inicio}
+                  onChange={(e) => setCreateFormData({ ...createFormData, fecha_inicio: e.target.value })}
+                  data-testid="create-input-fecha-inicio"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-fecha-fin">Fecha Fin</Label>
+                <Input
+                  id="create-fecha-fin"
+                  type="date"
+                  value={createFormData.fecha_fin}
+                  onChange={(e) => setCreateFormData({ ...createFormData, fecha_fin: e.target.value })}
+                  data-testid="create-input-fecha-fin"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-cantidad">Cantidad de Prendas</Label>
+              <Input
+                id="create-cantidad"
+                type="number"
+                min="0"
+                value={createFormData.cantidad}
+                onChange={(e) => setCreateFormData({ ...createFormData, cantidad: parseInt(e.target.value) || 0 })}
+                className="font-mono"
+                data-testid="create-input-cantidad"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-observaciones">Observaciones</Label>
+              <Textarea
+                id="create-observaciones"
+                value={createFormData.observaciones}
+                onChange={(e) => setCreateFormData({ ...createFormData, observaciones: e.target.value })}
+                placeholder="Notas adicionales..."
+                rows={2}
+                data-testid="create-input-observaciones"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateSubmit}
+              disabled={!createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id}
+              data-testid="btn-crear-movimiento"
+            >
+              Crear Movimiento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
