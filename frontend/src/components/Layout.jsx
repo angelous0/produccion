@@ -21,7 +21,9 @@ import {
   ArrowUpCircle,
   RefreshCw,
   FileText,
-  BookOpen
+  BookOpen,
+  Cog,
+  Users
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -46,6 +48,11 @@ const inventarioItems = [
   { to: '/inventario/rollos', icon: Layers, label: 'Rollos' },
   { to: '/inventario/movimientos', icon: FileText, label: 'Movimientos' },
   { to: '/inventario/kardex', icon: BookOpen, label: 'Kardex' },
+];
+
+const maestrosItems = [
+  { to: '/maestros/servicios', icon: Cog, label: 'Servicios' },
+  { to: '/maestros/personas', icon: Users, label: 'Personas' },
 ];
 
 export const Layout = () => {
@@ -125,6 +132,28 @@ export const Layout = () => {
                 key={item.to}
                 to={item.to}
                 end={item.to === '/inventario'}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `sidebar-item ${isActive ? 'active' : ''}`
+                }
+                data-testid={`nav-${item.label.toLowerCase()}`}
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </NavLink>
+            ))}
+
+            {/* Separador Maestros */}
+            <div className="mt-4 mb-2">
+              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Maestros
+              </p>
+            </div>
+            
+            {maestrosItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
                   `sidebar-item ${isActive ? 'active' : ''}`
