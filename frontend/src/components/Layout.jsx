@@ -53,6 +53,7 @@ const inventarioItems = [
 const maestrosItems = [
   { to: '/maestros/servicios', icon: Cog, label: 'Servicios' },
   { to: '/maestros/personas', icon: Users, label: 'Personas' },
+  { to: '/maestros/movimientos', icon: Play, label: 'Movimientos' },
 ];
 
 export const Layout = () => {
