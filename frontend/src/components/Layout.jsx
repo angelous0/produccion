@@ -19,7 +19,9 @@ import {
   Package,
   ArrowDownCircle,
   ArrowUpCircle,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  BookOpen
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -41,6 +43,8 @@ const inventarioItems = [
   { to: '/inventario/ingresos', icon: ArrowDownCircle, label: 'Ingresos' },
   { to: '/inventario/salidas', icon: ArrowUpCircle, label: 'Salidas' },
   { to: '/inventario/ajustes', icon: RefreshCw, label: 'Ajustes' },
+  { to: '/inventario/movimientos', icon: FileText, label: 'Movimientos' },
+  { to: '/inventario/kardex', icon: BookOpen, label: 'Kardex' },
 ];
 
 export const Layout = () => {
