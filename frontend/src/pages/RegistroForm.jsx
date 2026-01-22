@@ -106,18 +106,22 @@ export const RegistroForm = () => {
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
     try {
-      const [modelosRes, estadosRes, tallasRes, coloresRes, inventarioRes] = await Promise.all([
+      const [modelosRes, estadosRes, tallasRes, coloresRes, inventarioRes, serviciosRes, personasRes] = await Promise.all([
         axios.get(`${API}/modelos`),
         axios.get(`${API}/estados`),
         axios.get(`${API}/tallas-catalogo`),
         axios.get(`${API}/colores-catalogo`),
         axios.get(`${API}/inventario`),
+        axios.get(`${API}/servicios-produccion`),
+        axios.get(`${API}/personas-produccion?activo=true`),
       ]);
       setModelos(modelosRes.data);
       setEstados(estadosRes.data.estados);
       setTallasCatalogo(tallasRes.data);
       setColoresCatalogo(coloresRes.data);
       setItemsInventario(inventarioRes.data);
+      setServiciosProduccion(serviciosRes.data);
+      setPersonasProduccion(personasRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
     }
