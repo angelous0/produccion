@@ -190,6 +190,7 @@ export const ServiciosProduccion = () => {
             axios.put(`${API}/servicios-produccion/${s.id}`, {
               nombre: s.nombre,
               secuencia: s.secuencia,
+              tarifa: s.tarifa || 0,
             })
           )
         );
