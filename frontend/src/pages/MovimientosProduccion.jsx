@@ -176,6 +176,7 @@ export const MovimientosProduccion = () => {
       fecha_inicio: new Date().toISOString().split('T')[0],
       fecha_fin: '',
       cantidad: 0,
+      tarifa_aplicada: 0,
       observaciones: '',
     });
     setPersonasFiltradasCreate([]);
@@ -183,10 +184,12 @@ export const MovimientosProduccion = () => {
   };
 
   const handleCreateServicioChange = (servicioId) => {
+    const tarifaServicio = getServicioTarifa(servicioId);
     setCreateFormData({ 
       ...createFormData, 
       servicio_id: servicioId,
-      persona_id: '' 
+      persona_id: '',
+      tarifa_aplicada: tarifaServicio
     });
     const filtradas = personas.filter(p => 
       p.servicio_ids && p.servicio_ids.includes(servicioId)
@@ -200,13 +203,12 @@ export const MovimientosProduccion = () => {
     return servicio?.tarifa || 0;
   };
 
-  // Helper para calcular costo del formulario de crear
+  // Helper para calcular costo del formulario de crear (usa tarifa_aplicada)
   const calcularCostoCreate = () => {
-    const tarifa = getServicioTarifa(createFormData.servicio_id);
-    return tarifa * (createFormData.cantidad || 0);
+    return (createFormData.tarifa_aplicada || 0) * (createFormData.cantidad || 0);
   };
 
-  // Helper para calcular costo del formulario de editar
+  // Helper para calcular costo del formulario de editar (usa tarifa_aplicada)
   const calcularCostoEdit = () => {
     const tarifa = getServicioTarifa(formData.servicio_id);
     return tarifa * (formData.cantidad || 0);
