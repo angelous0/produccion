@@ -491,10 +491,16 @@ export const MovimientosProduccion = () => {
                   {servicios.map((servicio) => (
                     <SelectItem key={servicio.id} value={servicio.id}>
                       {servicio.nombre}
+                      {servicio.tarifa > 0 && ` (${formatCurrency(servicio.tarifa)}/prenda)`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {formData.servicio_id && getServicioTarifa(formData.servicio_id) > 0 && (
+                <p className="text-xs text-green-600 font-medium">
+                  Tarifa: {formatCurrency(getServicioTarifa(formData.servicio_id))} por prenda
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
