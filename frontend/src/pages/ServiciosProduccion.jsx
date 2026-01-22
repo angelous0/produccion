@@ -4,14 +4,6 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -22,8 +14,86 @@ import {
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2, Cog, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Componente de fila sorteable
+const SortableRow = ({ servicio, onEdit, onDelete }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: servicio.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={`border-b ${isDragging ? 'bg-muted' : ''}`}
+      data-testid={`servicio-row-${servicio.id}`}
+    >
+      <td className="p-3 font-mono text-center">
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+            data-testid={`drag-handle-${servicio.id}`}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          {servicio.secuencia}
+        </div>
+      </td>
+      <td className="p-3 font-medium">{servicio.nombre}</td>
+      <td className="p-3 text-right">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(servicio)}
+            data-testid={`edit-servicio-${servicio.id}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(servicio.id)}
+            data-testid={`delete-servicio-${servicio.id}`}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+};
 
 export const ServiciosProduccion = () => {
   const [servicios, setServicios] = useState([]);
@@ -31,6 +101,13 @@ export const ServiciosProduccion = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingServicio, setEditingServicio] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', secuencia: 0 });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchServicios = async () => {
     try {
@@ -53,7 +130,6 @@ export const ServiciosProduccion = () => {
       setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0 });
     } else {
       setEditingServicio(null);
-      // Calcular la siguiente secuencia
       const maxSecuencia = servicios.reduce((max, s) => Math.max(max, s.secuencia || 0), 0);
       setFormData({ nombre: '', secuencia: maxSecuencia + 1 });
     }
@@ -91,6 +167,40 @@ export const ServiciosProduccion = () => {
     }
   };
 
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = servicios.findIndex((s) => s.id === active.id);
+      const newIndex = servicios.findIndex((s) => s.id === over.id);
+
+      const newServicios = arrayMove(servicios, oldIndex, newIndex);
+      
+      // Actualizar secuencias localmente primero para UI responsiva
+      const updatedServicios = newServicios.map((s, index) => ({
+        ...s,
+        secuencia: index + 1,
+      }));
+      setServicios(updatedServicios);
+
+      // Actualizar en el backend
+      try {
+        await Promise.all(
+          updatedServicios.map((s) =>
+            axios.put(`${API}/servicios-produccion/${s.id}`, {
+              nombre: s.nombre,
+              secuencia: s.secuencia,
+            })
+          )
+        );
+        toast.success('Orden actualizado');
+      } catch (error) {
+        toast.error('Error al actualizar orden');
+        fetchServicios(); // Revertir en caso de error
+      }
+    }
+  };
+
   return (
     <div className="space-y-6" data-testid="servicios-produccion-page">
       <div className="flex items-center justify-between">
@@ -100,7 +210,7 @@ export const ServiciosProduccion = () => {
             Servicios de Producción
           </h2>
           <p className="text-muted-foreground">
-            Gestiona los servicios del proceso productivo
+            Gestiona los servicios del proceso productivo. Arrastra para reordenar.
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-servicio">
@@ -122,48 +232,36 @@ export const ServiciosProduccion = () => {
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[80px]">Orden</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead className="w-[120px] text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {servicios.map((servicio) => (
-                    <TableRow key={servicio.id} data-testid={`servicio-row-${servicio.id}`}>
-                      <TableCell className="font-mono text-center">
-                        <div className="flex items-center gap-2">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          {servicio.secuencia}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{servicio.nombre}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenDialog(servicio)}
-                            data-testid={`edit-servicio-${servicio.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(servicio.id)}
-                            data-testid={`delete-servicio-${servicio.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted/50 border-b">
+                    <th className="p-3 text-left text-sm font-semibold w-[100px]">Orden</th>
+                    <th className="p-3 text-left text-sm font-semibold">Nombre</th>
+                    <th className="p-3 text-right text-sm font-semibold w-[120px]">Acciones</th>
+                  </tr>
+                </thead>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={servicios.map((s) => s.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <tbody>
+                      {servicios.map((servicio) => (
+                        <SortableRow
+                          key={servicio.id}
+                          servicio={servicio}
+                          onEdit={handleOpenDialog}
+                          onDelete={handleDelete}
+                        />
+                      ))}
+                    </tbody>
+                  </SortableContext>
+                </DndContext>
+              </table>
             </div>
           )}
         </CardContent>
@@ -205,7 +303,7 @@ export const ServiciosProduccion = () => {
                 data-testid="input-secuencia-servicio"
               />
               <p className="text-xs text-muted-foreground">
-                Define el orden en que aparecen los servicios
+                O arrastra las filas en la tabla para cambiar el orden
               </p>
             </div>
           </div>
