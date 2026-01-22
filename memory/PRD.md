@@ -65,7 +65,9 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - ✅ Control de stock mínimo con alertas visuales
 - ✅ Estadísticas de inventario en API /stats
 - ✅ Navegación sidebar separada para módulo "Inventario FIFO"
-- ✅ Testing completo (22/22 tests pasados)
+- ✅ **Reporte de Movimientos** - Vista general con filtros (item, tipo, fecha desde/hasta), tarjetas de resumen
+- ✅ **Kardex de Inventario** - Historial detallado por item con saldos, costos de entradas/salidas
+- ✅ Testing completo
 
 ## Backlog
 
