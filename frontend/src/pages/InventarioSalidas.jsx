@@ -173,10 +173,16 @@ export const InventarioSalidas = () => {
           <h2 className="text-2xl font-bold tracking-tight">Salidas de Inventario</h2>
           <p className="text-muted-foreground">Registro de salidas con método FIFO</p>
         </div>
-        <Button onClick={handleOpenDialog} data-testid="btn-nueva-salida">
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Salida
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setRollosDialogOpen(true)} data-testid="btn-salida-rollos">
+            <Layers className="h-4 w-4 mr-2" />
+            Salida de Rollos
+          </Button>
+          <Button onClick={handleOpenDialog} data-testid="btn-nueva-salida">
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Salida
+          </Button>
+        </div>
       </div>
 
       <Card>
