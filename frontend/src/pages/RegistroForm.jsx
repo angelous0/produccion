@@ -466,6 +466,26 @@ export const RegistroForm = () => {
 
   // ========== LÓGICA DE MOVIMIENTOS DE PRODUCCIÓN ==========
 
+  // Helper para obtener tarifa del servicio seleccionado
+  const getServicioTarifa = (servicioId) => {
+    const servicio = serviciosProduccion.find(s => s.id === servicioId);
+    return servicio?.tarifa || 0;
+  };
+
+  // Helper para calcular costo
+  const calcularCostoMovimiento = () => {
+    const tarifa = getServicioTarifa(movimientoFormData.servicio_id);
+    return tarifa * (movimientoFormData.cantidad || 0);
+  };
+
+  // Helper para formatear moneda
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: 'PEN',
+    }).format(value || 0);
+  };
+
   const handleOpenMovimientoDialog = (movimiento = null) => {
     if (movimiento) {
       // Modo edición
