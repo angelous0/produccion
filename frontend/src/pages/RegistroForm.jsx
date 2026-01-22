@@ -780,9 +780,6 @@ export const RegistroForm = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                      </Select>
-                    )}
-                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2 pt-2">
