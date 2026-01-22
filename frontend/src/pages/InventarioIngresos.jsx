@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Trash2, ArrowDownCircle } from 'lucide-react';
+import { Plus, Trash2, ArrowDownCircle, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -38,14 +39,17 @@ export const InventarioIngresos = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [formData, setFormData] = useState({
     item_id: '',
-    cantidad: 1,
+    cantidad: 0,
     costo_unitario: 0,
     proveedor: '',
     numero_documento: '',
     observaciones: '',
   });
+  // Rollos para items con control_por_rollos
+  const [rollos, setRollos] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -69,15 +73,50 @@ export const InventarioIngresos = () => {
   const resetForm = () => {
     setFormData({
       item_id: '',
-      cantidad: 1,
+      cantidad: 0,
       costo_unitario: 0,
       proveedor: '',
       numero_documento: '',
       observaciones: '',
     });
+    setSelectedItem(null);
+    setRollos([]);
   };
 
-  const handleOpenDialog = () => {
+  const handleItemChange = (itemId) => {
+    const item = items.find(i => i.id === itemId);
+    setSelectedItem(item);
+    setFormData({ ...formData, item_id: itemId, cantidad: 0 });
+    setRollos([]);
+  };
+
+  const addRollo = () => {
+    setRollos([...rollos, {
+      numero_rollo: '',
+      metraje: 0,
+      ancho: 0,
+      tono: '',
+    }]);
+  };
+
+  const updateRollo = (index, field, value) => {
+    const newRollos = [...rollos];
+    newRollos[index][field] = value;
+    setRollos(newRollos);
+    
+    // Actualizar cantidad total
+    if (field === 'metraje') {
+      const totalMetraje = newRollos.reduce((sum, r) => sum + (parseFloat(r.metraje) || 0), 0);
+      setFormData({ ...formData, cantidad: totalMetraje });
+    }
+  };
+
+  const removeRollo = (index) => {
+    const newRollos = rollos.filter((_, i) => i !== index);
+    setRollos(newRollos);
+    const totalMetraje = newRollos.reduce((sum, r) => sum + (parseFloat(r.metraje) || 0), 0);
+    setFormData({ ...formData, cantidad: totalMetraje });
+  };
     resetForm();
     setDialogOpen(true);
   };
