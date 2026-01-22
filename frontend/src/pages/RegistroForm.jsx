@@ -1500,13 +1500,27 @@ export const RegistroForm = () => {
                   <SelectValue placeholder="Seleccionar servicio..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {serviciosProduccion.map((servicio) => (
+                  {(modeloSeleccionado?.servicios_ids?.length > 0
+                    ? serviciosProduccion.filter(s => modeloSeleccionado.servicios_ids.includes(s.id))
+                    : serviciosProduccion
+                  ).map((servicio) => (
                     <SelectItem key={servicio.id} value={servicio.id}>
                       {servicio.nombre}
                     </SelectItem>
                   ))}
+                  {modeloSeleccionado?.servicios_ids?.length > 0 && 
+                   serviciosProduccion.filter(s => modeloSeleccionado.servicios_ids.includes(s.id)).length === 0 && (
+                    <SelectItem value="none" disabled>
+                      No hay servicios configurados en el modelo
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
+              {modeloSeleccionado?.servicios_ids?.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Mostrando servicios configurados en el modelo
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
