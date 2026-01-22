@@ -692,15 +692,27 @@ export const RegistroForm = () => {
                     <Package className="h-5 w-5" />
                     Salidas de Inventario
                   </CardTitle>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleOpenSalidaDialog}
-                    data-testid="btn-nueva-salida"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Agregar Salida
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRollosDialogOpen(true)}
+                      data-testid="btn-salida-rollos"
+                    >
+                      <Layers className="h-4 w-4 mr-1" />
+                      Rollos
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleOpenSalidaDialog}
+                      data-testid="btn-nueva-salida"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Agregar Salida
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {salidasRegistro.length > 0 ? (
