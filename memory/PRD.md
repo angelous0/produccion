@@ -60,6 +60,7 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - ✅ Ingresos de inventario (entradas con costo unitario, proveedor, documento)
 - ✅ Salidas de inventario con método FIFO (calcula costo automáticamente de lotes más antiguos)
 - ✅ Vinculación de salidas con registros de producción (un registro puede tener muchas salidas)
+- ✅ **Tabla de salidas integrada en formulario de registro** - permite ver y agregar salidas directamente desde el registro
 - ✅ Ajustes de inventario (entrada/salida con motivo)
 - ✅ Control de stock mínimo con alertas visuales
 - ✅ Estadísticas de inventario en API /stats
