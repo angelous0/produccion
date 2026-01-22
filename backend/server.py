@@ -1194,15 +1194,6 @@ async def create_salida(input: SalidaInventarioCreate):
         
         if cantidad_restante > 0:
             raise HTTPException(status_code=400, detail="No hay suficiente stock en los lotes")
-        await db.inventario_ingresos.update_one(
-            {"id": ingreso['id']},
-            {"$inc": {"cantidad_disponible": -consumir}}
-        )
-        
-        cantidad_restante -= consumir
-    
-    if cantidad_restante > 0:
-        raise HTTPException(status_code=400, detail="No hay suficiente stock en los lotes")
     
     salida = SalidaInventario(**input.model_dump())
     salida.costo_total = costo_total
