@@ -780,7 +780,7 @@ export const RegistroForm = () => {
                           onClick={() => setFormData({ ...formData, estado: siguienteEstado })}
                           data-testid="btn-avanzar-estado"
                         >
-                          Avanzar a "{siguienteEstado}"
+                          Avanzar a &quot;{siguienteEstado}&quot;
                         </Button>
                         <p className="text-xs text-muted-foreground">
                           * Requiere movimiento con fechas para el estado actual
