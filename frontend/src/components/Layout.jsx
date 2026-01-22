@@ -24,7 +24,8 @@ import {
   BookOpen,
   Cog,
   Users,
-  Play
+  Play,
+  BarChart3
 } from 'lucide-react';
 import { useState } from 'react';
 
