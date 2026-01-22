@@ -29,7 +29,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Play, Pencil, Trash2, Calendar, Users, Cog, Filter, X } from 'lucide-react';
+import { Play, Pencil, Trash2, Calendar, Users, Cog, Filter, X, Plus, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -47,6 +47,19 @@ export const MovimientosProduccion = () => {
   const [filtroRegistro, setFiltroRegistro] = useState('');
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
+
+  // Dialog para crear nuevo
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [personasFiltradasCreate, setPersonasFiltradasCreate] = useState([]);
+  const [createFormData, setCreateFormData] = useState({
+    registro_id: '',
+    servicio_id: '',
+    persona_id: '',
+    fecha_inicio: '',
+    fecha_fin: '',
+    cantidad: 0,
+    observaciones: '',
+  });
 
   // Dialog de edición
   const [dialogOpen, setDialogOpen] = useState(false);
