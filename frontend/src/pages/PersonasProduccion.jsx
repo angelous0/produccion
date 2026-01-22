@@ -15,7 +15,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
-import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -35,6 +35,13 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency: 'PEN',
+  }).format(value || 0);
+};
 
 // Componente de fila sorteable
 const SortableRow = ({ persona, onEdit, onDelete, onToggleActivo }) => {
@@ -75,9 +82,12 @@ const SortableRow = ({ persona, onEdit, onDelete, onToggleActivo }) => {
       </td>
       <td className="p-3">
         <div className="flex flex-wrap gap-1">
-          {(persona.servicios_nombres || []).map((nombre, idx) => (
+          {(persona.servicios_detalle || []).map((s, idx) => (
             <Badge key={idx} variant="secondary" className="text-xs">
-              {nombre}
+              {s.servicio_nombre}
+              {s.tarifa > 0 && (
+                <span className="ml-1 text-green-600">({formatCurrency(s.tarifa)})</span>
+              )}
             </Badge>
           ))}
         </div>
@@ -131,7 +141,7 @@ export const PersonasProduccion = () => {
   const [editingPersona, setEditingPersona] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
-    servicio_ids: [],
+    servicios: [],  // [{servicio_id, tarifa}]
     telefono: '',
     activo: true,
     orden: 0,
@@ -167,9 +177,14 @@ export const PersonasProduccion = () => {
   const handleOpenDialog = (persona = null) => {
     if (persona) {
       setEditingPersona(persona);
+      // Convertir servicios al formato del formulario
+      const serviciosForm = (persona.servicios || persona.servicios_detalle || []).map(s => ({
+        servicio_id: s.servicio_id,
+        tarifa: s.tarifa || 0,
+      }));
       setFormData({
         nombre: persona.nombre,
-        servicio_ids: persona.servicio_ids || [],
+        servicios: serviciosForm,
         telefono: persona.telefono || '',
         activo: persona.activo !== false,
         orden: persona.orden || 0,
@@ -179,7 +194,7 @@ export const PersonasProduccion = () => {
       const maxOrden = personas.reduce((max, p) => Math.max(max, p.orden || 0), 0);
       setFormData({
         nombre: '',
-        servicio_ids: [],
+        servicios: [],
         telefono: '',
         activo: true,
         orden: maxOrden + 1,
@@ -189,18 +204,42 @@ export const PersonasProduccion = () => {
   };
 
   const handleServicioToggle = (servicioId) => {
-    const current = formData.servicio_ids;
-    if (current.includes(servicioId)) {
+    const current = formData.servicios;
+    const exists = current.find(s => s.servicio_id === servicioId);
+    
+    if (exists) {
+      // Quitar servicio
       setFormData({
         ...formData,
-        servicio_ids: current.filter(id => id !== servicioId),
+        servicios: current.filter(s => s.servicio_id !== servicioId),
       });
     } else {
+      // Agregar servicio con tarifa 0
       setFormData({
         ...formData,
-        servicio_ids: [...current, servicioId],
+        servicios: [...current, { servicio_id: servicioId, tarifa: 0 }],
       });
     }
+  };
+
+  const handleTarifaChange = (servicioId, tarifa) => {
+    setFormData({
+      ...formData,
+      servicios: formData.servicios.map(s => 
+        s.servicio_id === servicioId 
+          ? { ...s, tarifa: parseFloat(tarifa) || 0 }
+          : s
+      ),
+    });
+  };
+
+  const isServicioSelected = (servicioId) => {
+    return formData.servicios.some(s => s.servicio_id === servicioId);
+  };
+
+  const getServicioTarifa = (servicioId) => {
+    const servicio = formData.servicios.find(s => s.servicio_id === servicioId);
+    return servicio?.tarifa || 0;
   };
 
   const handleSubmit = async () => {
@@ -208,7 +247,7 @@ export const PersonasProduccion = () => {
       toast.error('El nombre es requerido');
       return;
     }
-    if (formData.servicio_ids.length === 0) {
+    if (formData.servicios.length === 0) {
       toast.error('Selecciona al menos un servicio');
       return;
     }
@@ -242,7 +281,7 @@ export const PersonasProduccion = () => {
     try {
       await axios.put(`${API}/personas-produccion/${persona.id}`, {
         nombre: persona.nombre,
-        servicio_ids: persona.servicio_ids || [],
+        servicios: persona.servicios || [],
         telefono: persona.telefono || '',
         activo: !persona.activo,
         orden: persona.orden || 0,
@@ -263,25 +302,22 @@ export const PersonasProduccion = () => {
 
       const newPersonas = arrayMove(personasFiltradas, oldIndex, newIndex);
       
-      // Actualizar orden localmente primero para UI responsiva
       const updatedPersonas = newPersonas.map((p, index) => ({
         ...p,
         orden: index + 1,
       }));
       
-      // Actualizar el estado local
       setPersonas(prev => {
         const otrasPersonas = prev.filter(p => !updatedPersonas.find(up => up.id === p.id));
         return [...updatedPersonas, ...otrasPersonas].sort((a, b) => (a.orden || 0) - (b.orden || 0));
       });
 
-      // Actualizar en el backend
       try {
         await Promise.all(
           updatedPersonas.map((p) =>
             axios.put(`${API}/personas-produccion/${p.id}`, {
               nombre: p.nombre,
-              servicio_ids: p.servicio_ids || [],
+              servicios: p.servicios || [],
               telefono: p.telefono || '',
               activo: p.activo !== false,
               orden: p.orden,
@@ -291,7 +327,7 @@ export const PersonasProduccion = () => {
         toast.success('Orden actualizado');
       } catch (error) {
         toast.error('Error al actualizar orden');
-        fetchData(); // Revertir en caso de error
+        fetchData();
       }
     }
   };
@@ -309,7 +345,7 @@ export const PersonasProduccion = () => {
             Personas de Producción
           </h2>
           <p className="text-muted-foreground">
-            Gestiona el personal asignado a los servicios. Arrastra para reordenar.
+            Gestiona el personal con sus tarifas por servicio. Arrastra para reordenar.
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} data-testid="btn-nueva-persona">
@@ -360,7 +396,7 @@ export const PersonasProduccion = () => {
                 <thead>
                   <tr className="bg-muted/50 border-b">
                     <th className="p-3 text-left text-sm font-semibold">Nombre</th>
-                    <th className="p-3 text-left text-sm font-semibold">Servicios</th>
+                    <th className="p-3 text-left text-sm font-semibold">Servicios (Tarifa)</th>
                     <th className="p-3 text-left text-sm font-semibold">Teléfono</th>
                     <th className="p-3 text-center text-sm font-semibold">Estado</th>
                     <th className="p-3 text-right text-sm font-semibold w-[120px]">Acciones</th>
@@ -395,7 +431,7 @@ export const PersonasProduccion = () => {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingPersona ? 'Editar Persona' : 'Nueva Persona'}
@@ -430,30 +466,48 @@ export const PersonasProduccion = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Servicios Asignados *</Label>
+              <Label>Servicios y Tarifas *</Label>
               <p className="text-xs text-muted-foreground mb-2">
-                Selecciona los servicios que puede realizar esta persona
+                Selecciona los servicios e ingresa la tarifa por prenda para cada uno
               </p>
-              <div className="border rounded-lg p-3 space-y-2 max-h-[200px] overflow-y-auto">
+              <div className="border rounded-lg p-3 space-y-3 max-h-[250px] overflow-y-auto">
                 {servicios.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-2">
                     No hay servicios registrados
                   </p>
                 ) : (
                   servicios.map((servicio) => (
-                    <div key={servicio.id} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`servicio-${servicio.id}`}
-                        checked={formData.servicio_ids.includes(servicio.id)}
-                        onCheckedChange={() => handleServicioToggle(servicio.id)}
-                        data-testid={`checkbox-servicio-${servicio.id}`}
-                      />
-                      <Label 
-                        htmlFor={`servicio-${servicio.id}`}
-                        className="cursor-pointer flex-1"
-                      >
-                        {servicio.nombre}
-                      </Label>
+                    <div key={servicio.id} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`servicio-${servicio.id}`}
+                          checked={isServicioSelected(servicio.id)}
+                          onCheckedChange={() => handleServicioToggle(servicio.id)}
+                          data-testid={`checkbox-servicio-${servicio.id}`}
+                        />
+                        <Label 
+                          htmlFor={`servicio-${servicio.id}`}
+                          className="cursor-pointer flex-1 font-medium"
+                        >
+                          {servicio.nombre}
+                        </Label>
+                      </div>
+                      {isServicioSelected(servicio.id) && (
+                        <div className="ml-6 flex items-center gap-2">
+                          <DollarSign className="h-4 w-4 text-green-600" />
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={getServicioTarifa(servicio.id)}
+                            onChange={(e) => handleTarifaChange(servicio.id, e.target.value)}
+                            placeholder="Tarifa por prenda"
+                            className="font-mono w-32"
+                            data-testid={`input-tarifa-${servicio.id}`}
+                          />
+                          <span className="text-xs text-muted-foreground">por prenda</span>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
