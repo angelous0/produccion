@@ -18,6 +18,8 @@ import { Inventario } from "./pages/Inventario";
 import { InventarioIngresos } from "./pages/InventarioIngresos";
 import { InventarioSalidas } from "./pages/InventarioSalidas";
 import { InventarioAjustes } from "./pages/InventarioAjustes";
+import { ReporteMovimientos } from "./pages/ReporteMovimientos";
+import { Kardex } from "./pages/Kardex";
 
 function App() {
   return (
@@ -41,6 +43,8 @@ function App() {
             <Route path="inventario/ingresos" element={<InventarioIngresos />} />
             <Route path="inventario/salidas" element={<InventarioSalidas />} />
             <Route path="inventario/ajustes" element={<InventarioAjustes />} />
+            <Route path="inventario/movimientos" element={<ReporteMovimientos />} />
+            <Route path="inventario/kardex" element={<Kardex />} />
           </Route>
         </Routes>
       </BrowserRouter>
