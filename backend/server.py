@@ -265,11 +265,16 @@ async def delete_marca(marca_id: str):
 # ==================== ENDPOINTS TIPO ====================
 
 @api_router.get("/tipos", response_model=List[Tipo])
-async def get_tipos():
-    tipos = await db.tipos.find({}, {"_id": 0}).to_list(1000)
+async def get_tipos(marca_id: str = None):
+    query = {}
+    if marca_id:
+        query = {"marca_ids": marca_id}
+    tipos = await db.tipos.find(query, {"_id": 0}).to_list(1000)
     for t in tipos:
         if isinstance(t.get('created_at'), str):
             t['created_at'] = datetime.fromisoformat(t['created_at'])
+        if 'marca_ids' not in t:
+            t['marca_ids'] = []
     return tipos
 
 @api_router.post("/tipos", response_model=Tipo)
@@ -285,8 +290,9 @@ async def update_tipo(tipo_id: str, input: TipoCreate):
     result = await db.tipos.find_one({"id": tipo_id}, {"_id": 0})
     if not result:
         raise HTTPException(status_code=404, detail="Tipo no encontrado")
-    await db.tipos.update_one({"id": tipo_id}, {"$set": {"nombre": input.nombre}})
-    result['nombre'] = input.nombre
+    update_data = input.model_dump()
+    await db.tipos.update_one({"id": tipo_id}, {"$set": update_data})
+    result.update(update_data)
     if isinstance(result.get('created_at'), str):
         result['created_at'] = datetime.fromisoformat(result['created_at'])
     return Tipo(**result)
@@ -301,11 +307,16 @@ async def delete_tipo(tipo_id: str):
 # ==================== ENDPOINTS ENTALLE ====================
 
 @api_router.get("/entalles", response_model=List[Entalle])
-async def get_entalles():
-    entalles = await db.entalles.find({}, {"_id": 0}).to_list(1000)
+async def get_entalles(tipo_id: str = None):
+    query = {}
+    if tipo_id:
+        query = {"tipo_ids": tipo_id}
+    entalles = await db.entalles.find(query, {"_id": 0}).to_list(1000)
     for e in entalles:
         if isinstance(e.get('created_at'), str):
             e['created_at'] = datetime.fromisoformat(e['created_at'])
+        if 'tipo_ids' not in e:
+            e['tipo_ids'] = []
     return entalles
 
 @api_router.post("/entalles", response_model=Entalle)
@@ -321,8 +332,9 @@ async def update_entalle(entalle_id: str, input: EntalleCreate):
     result = await db.entalles.find_one({"id": entalle_id}, {"_id": 0})
     if not result:
         raise HTTPException(status_code=404, detail="Entalle no encontrado")
-    await db.entalles.update_one({"id": entalle_id}, {"$set": {"nombre": input.nombre}})
-    result['nombre'] = input.nombre
+    update_data = input.model_dump()
+    await db.entalles.update_one({"id": entalle_id}, {"$set": update_data})
+    result.update(update_data)
     if isinstance(result.get('created_at'), str):
         result['created_at'] = datetime.fromisoformat(result['created_at'])
     return Entalle(**result)
