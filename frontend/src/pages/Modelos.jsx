@@ -529,13 +529,13 @@ export const Modelos = () => {
                   </p>
                   <Select
                     value={formData.ruta_produccion_id}
-                    onValueChange={(value) => setFormData({ ...formData, ruta_produccion_id: value })}
+                    onValueChange={(value) => setFormData({ ...formData, ruta_produccion_id: value === 'none' ? '' : value })}
                   >
                     <SelectTrigger data-testid="select-ruta">
                       <SelectValue placeholder="Seleccionar ruta..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin ruta (estados globales)</SelectItem>
+                      <SelectItem value="none">Sin ruta (estados globales)</SelectItem>
                       {rutas.map((r) => (
                         <SelectItem key={r.id} value={r.id}>
                           {r.nombre} ({r.etapas?.length || 0} etapas)
