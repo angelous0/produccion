@@ -50,13 +50,6 @@ const SortableRow = ({ servicio, onEdit, onDelete }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(value || 0);
-  };
-
   return (
     <tr
       ref={setNodeRef}
@@ -78,9 +71,6 @@ const SortableRow = ({ servicio, onEdit, onDelete }) => {
         </div>
       </td>
       <td className="p-3 font-medium">{servicio.nombre}</td>
-      <td className="p-3 text-right font-mono">
-        {servicio.tarifa > 0 ? formatCurrency(servicio.tarifa) : '-'}
-      </td>
       <td className="p-3 text-right">
         <div className="flex justify-end gap-1">
           <Button
@@ -247,7 +237,6 @@ export const ServiciosProduccion = () => {
                   <tr className="bg-muted/50 border-b">
                     <th className="p-3 text-left text-sm font-semibold w-[100px]">Orden</th>
                     <th className="p-3 text-left text-sm font-semibold">Nombre</th>
-                    <th className="p-3 text-right text-sm font-semibold w-[120px]">Tarifa/Prenda</th>
                     <th className="p-3 text-right text-sm font-semibold w-[120px]">Acciones</th>
                   </tr>
                 </thead>
@@ -301,37 +290,21 @@ export const ServiciosProduccion = () => {
                 data-testid="input-nombre-servicio"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="secuencia">Orden de Secuencia</Label>
-                <Input
-                  id="secuencia"
-                  type="number"
-                  min="0"
-                  value={formData.secuencia}
-                  onChange={(e) => setFormData({ ...formData, secuencia: parseInt(e.target.value) || 0 })}
-                  placeholder="0"
-                  className="font-mono"
-                  data-testid="input-secuencia-servicio"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tarifa">Tarifa por Prenda (S/)</Label>
-                <Input
-                  id="tarifa"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.tarifa}
-                  onChange={(e) => setFormData({ ...formData, tarifa: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
-                  className="font-mono"
-                  data-testid="input-tarifa-servicio"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="secuencia">Orden de Secuencia</Label>
+              <Input
+                id="secuencia"
+                type="number"
+                min="0"
+                value={formData.secuencia}
+                onChange={(e) => setFormData({ ...formData, secuencia: parseInt(e.target.value) || 0 })}
+                placeholder="0"
+                className="font-mono"
+                data-testid="input-secuencia-servicio"
+              />
             </div>
             <p className="text-xs text-muted-foreground">
-              Arrastra las filas en la tabla para cambiar el orden
+              Arrastra las filas en la tabla para cambiar el orden. Las tarifas se configuran en la ficha de cada Persona.
             </p>
           </div>
           <DialogFooter>
