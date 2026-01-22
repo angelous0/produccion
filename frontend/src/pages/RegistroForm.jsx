@@ -1560,9 +1560,9 @@ export const RegistroForm = () => {
                 placeholder="0.00"
                 data-testid="input-tarifa-movimiento"
               />
-              {movimientoFormData.servicio_id && getServicioTarifa(movimientoFormData.servicio_id) > 0 && (
+              {movimientoFormData.persona_id && movimientoFormData.servicio_id && (
                 <p className="text-xs text-muted-foreground">
-                  Tarifa referencial del servicio: {formatCurrency(getServicioTarifa(movimientoFormData.servicio_id))}
+                  Tarifa configurada para esta persona: {formatCurrency(getTarifaPersonaServicio(movimientoFormData.persona_id, movimientoFormData.servicio_id))}
                 </p>
               )}
             </div>
