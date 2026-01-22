@@ -127,11 +127,11 @@ export const ServiciosProduccion = () => {
   const handleOpenDialog = (servicio = null) => {
     if (servicio) {
       setEditingServicio(servicio);
-      setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0 });
+      setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0, tarifa: servicio.tarifa || 0 });
     } else {
       setEditingServicio(null);
       const maxSecuencia = servicios.reduce((max, s) => Math.max(max, s.secuencia || 0), 0);
-      setFormData({ nombre: '', secuencia: maxSecuencia + 1 });
+      setFormData({ nombre: '', secuencia: maxSecuencia + 1, tarifa: 0 });
     }
     setDialogOpen(true);
   };
