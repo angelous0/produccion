@@ -938,7 +938,7 @@ export const RegistroForm = () => {
                               <TableHead>Persona</TableHead>
                               <TableHead className="text-center">Fechas</TableHead>
                               <TableHead className="text-right">Cantidad</TableHead>
-                              <TableHead className="w-[60px]"></TableHead>
+                              <TableHead className="w-[100px] text-right">Acciones</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -974,25 +974,35 @@ export const RegistroForm = () => {
                                 <TableCell className="text-right font-mono font-semibold">
                                   {mov.cantidad}
                                 </TableCell>
-                                <TableCell>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeleteMovimiento(mov.id)}
-                                    data-testid={`delete-movimiento-${mov.id}`}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
+                                <TableCell className="text-right">
+                                  <div className="flex justify-end gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleOpenMovimientoDialog(mov)}
+                                      data-testid={`edit-movimiento-${mov.id}`}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteMovimiento(mov.id)}
+                                      data-testid={`delete-movimiento-${mov.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={3} className="font-semibold">Total Prendas</TableCell>
+                              <TableCell colSpan={4} className="font-semibold">Total Prendas</TableCell>
                               <TableCell className="text-right font-mono font-bold text-primary">
                                 {getTotalCantidadMovimientos()}
                               </TableCell>
-                              <TableCell></TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
