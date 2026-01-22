@@ -205,12 +205,12 @@ export const MovimientosProduccion = () => {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="space-y-1">
               <Label className="text-xs">Registro</Label>
-              <Select value={filtroRegistro} onValueChange={setFiltroRegistro}>
+              <Select value={filtroRegistro} onValueChange={(val) => setFiltroRegistro(val === 'all' ? '' : val)}>
                 <SelectTrigger data-testid="filtro-registro">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {registros.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.modelo_nombre || 'Sin modelo'} - {r.n_corte}
@@ -221,12 +221,12 @@ export const MovimientosProduccion = () => {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Servicio</Label>
-              <Select value={filtroServicio} onValueChange={setFiltroServicio}>
+              <Select value={filtroServicio} onValueChange={(val) => setFiltroServicio(val === 'all' ? '' : val)}>
                 <SelectTrigger data-testid="filtro-servicio">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {servicios.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>
                   ))}
@@ -235,12 +235,12 @@ export const MovimientosProduccion = () => {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Persona</Label>
-              <Select value={filtroPersona} onValueChange={setFiltroPersona}>
+              <Select value={filtroPersona} onValueChange={(val) => setFiltroPersona(val === 'all' ? '' : val)}>
                 <SelectTrigger data-testid="filtro-persona">
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {personas.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
                   ))}
