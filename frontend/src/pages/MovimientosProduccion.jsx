@@ -58,6 +58,7 @@ export const MovimientosProduccion = () => {
     fecha_inicio: '',
     fecha_fin: '',
     cantidad: 0,
+    tarifa_aplicada: 0,
     observaciones: '',
   });
 
@@ -72,6 +73,7 @@ export const MovimientosProduccion = () => {
     fecha_inicio: '',
     fecha_fin: '',
     cantidad: 0,
+    tarifa_aplicada: 0,
     observaciones: '',
   });
 
