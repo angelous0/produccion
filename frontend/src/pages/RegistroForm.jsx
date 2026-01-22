@@ -31,9 +31,10 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { MultiSelectColors } from '../components/MultiSelectColors';
+import { Textarea } from '../components/ui/textarea';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
