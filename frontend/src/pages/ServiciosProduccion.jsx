@@ -50,6 +50,13 @@ const SortableRow = ({ servicio, onEdit, onDelete }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: 'PEN',
+    }).format(value || 0);
+  };
+
   return (
     <tr
       ref={setNodeRef}
@@ -71,6 +78,9 @@ const SortableRow = ({ servicio, onEdit, onDelete }) => {
         </div>
       </td>
       <td className="p-3 font-medium">{servicio.nombre}</td>
+      <td className="p-3 text-right font-mono">
+        {servicio.tarifa > 0 ? formatCurrency(servicio.tarifa) : '-'}
+      </td>
       <td className="p-3 text-right">
         <div className="flex justify-end gap-1">
           <Button
