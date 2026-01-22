@@ -463,6 +463,68 @@ export const RegistroForm = () => {
     return salidasRegistro.reduce((sum, s) => sum + (s.costo_total || 0), 0);
   };
 
+  // ========== LÓGICA DE MOVIMIENTOS DE PRODUCCIÓN ==========
+
+  const handleOpenMovimientoDialog = () => {
+    setMovimientoFormData({
+      servicio_id: '',
+      persona_id: '',
+      fecha_inicio: new Date().toISOString().split('T')[0],
+      fecha_fin: '',
+      cantidad: 0,
+      observaciones: '',
+    });
+    setPersonasFiltradas([]);
+    setMovimientoDialogOpen(true);
+  };
+
+  const handleServicioChange = (servicioId) => {
+    setMovimientoFormData({ 
+      ...movimientoFormData, 
+      servicio_id: servicioId,
+      persona_id: '' 
+    });
+    // Filtrar personas que tienen asignado este servicio
+    const filtradas = personasProduccion.filter(p => 
+      p.servicio_ids && p.servicio_ids.includes(servicioId)
+    );
+    setPersonasFiltradas(filtradas);
+  };
+
+  const handleCreateMovimiento = async () => {
+    if (!movimientoFormData.servicio_id || !movimientoFormData.persona_id) {
+      toast.error('Selecciona servicio y persona');
+      return;
+    }
+
+    try {
+      const payload = {
+        ...movimientoFormData,
+        registro_id: id,
+      };
+      await axios.post(`${API}/movimientos-produccion`, payload);
+      toast.success('Movimiento registrado');
+      setMovimientoDialogOpen(false);
+      fetchMovimientosProduccion();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear movimiento');
+    }
+  };
+
+  const handleDeleteMovimiento = async (movimientoId) => {
+    try {
+      await axios.delete(`${API}/movimientos-produccion/${movimientoId}`);
+      toast.success('Movimiento eliminado');
+      fetchMovimientosProduccion();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al eliminar');
+    }
+  };
+
+  const getTotalCantidadMovimientos = () => {
+    return movimientosProduccion.reduce((sum, m) => sum + (m.cantidad || 0), 0);
+  };
+
   // Guardar registro
   const handleSubmit = async (e) => {
     e.preventDefault();
