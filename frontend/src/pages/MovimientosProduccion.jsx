@@ -571,8 +571,29 @@ export const MovimientosProduccion = () => {
               />
             </div>
 
+            {/* Tarifa editable */}
+            <div className="space-y-2">
+              <Label htmlFor="edit-tarifa">Tarifa por Prenda (S/)</Label>
+              <Input
+                id="edit-tarifa"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.tarifa_aplicada}
+                onChange={(e) => setFormData({ ...formData, tarifa_aplicada: parseFloat(e.target.value) || 0 })}
+                className="font-mono"
+                placeholder="0.00"
+                data-testid="edit-input-tarifa"
+              />
+              {formData.servicio_id && getServicioTarifa(formData.servicio_id) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Tarifa referencial del servicio: {formatCurrency(getServicioTarifa(formData.servicio_id))}
+                </p>
+              )}
+            </div>
+
             {/* Mostrar costo calculado en edición */}
-            {formData.servicio_id && formData.cantidad > 0 && getServicioTarifa(formData.servicio_id) > 0 && (
+            {formData.cantidad > 0 && formData.tarifa_aplicada > 0 && (
               <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-green-700 dark:text-green-300">Costo calculado:</span>
@@ -581,7 +602,7 @@ export const MovimientosProduccion = () => {
                   </span>
                 </div>
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {formData.cantidad} prendas × {formatCurrency(getServicioTarifa(formData.servicio_id))}
+                  {formData.cantidad} prendas × {formatCurrency(formData.tarifa_aplicada)}
                 </p>
               </div>
             )}
