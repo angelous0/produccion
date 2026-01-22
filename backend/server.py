@@ -1141,6 +1141,233 @@ async def delete_ajuste(ajuste_id: str):
     
     return {"message": "Ajuste eliminado"}
 
+# ==================== ENDPOINTS REPORTES INVENTARIO ====================
+
+@api_router.get("/inventario-movimientos")
+async def get_movimientos(
+    item_id: str = None,
+    tipo: str = None,  # "ingreso", "salida", "ajuste"
+    fecha_desde: str = None,
+    fecha_hasta: str = None
+):
+    """Reporte general de todos los movimientos de inventario"""
+    movimientos = []
+    
+    # Filtrar ingresos
+    if not tipo or tipo == "ingreso":
+        query_ingresos = {}
+        if item_id:
+            query_ingresos['item_id'] = item_id
+        
+        ingresos = await db.inventario_ingresos.find(query_ingresos, {"_id": 0}).to_list(5000)
+        for ing in ingresos:
+            if isinstance(ing.get('fecha'), str):
+                ing['fecha'] = datetime.fromisoformat(ing['fecha'])
+            
+            # Filtrar por fecha
+            if fecha_desde:
+                fecha_d = datetime.fromisoformat(fecha_desde)
+                if ing['fecha'] < fecha_d:
+                    continue
+            if fecha_hasta:
+                fecha_h = datetime.fromisoformat(fecha_hasta)
+                if ing['fecha'] > fecha_h:
+                    continue
+            
+            item = await db.inventario.find_one({"id": ing.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+            movimientos.append({
+                "id": ing['id'],
+                "fecha": ing['fecha'].isoformat(),
+                "tipo": "ingreso",
+                "item_id": ing['item_id'],
+                "item_codigo": item['codigo'] if item else "",
+                "item_nombre": item['nombre'] if item else "",
+                "cantidad": ing['cantidad'],
+                "costo_unitario": ing.get('costo_unitario', 0),
+                "costo_total": ing['cantidad'] * ing.get('costo_unitario', 0),
+                "proveedor": ing.get('proveedor', ''),
+                "documento": ing.get('numero_documento', ''),
+                "observaciones": ing.get('observaciones', ''),
+                "registro_n_corte": None
+            })
+    
+    # Filtrar salidas
+    if not tipo or tipo == "salida":
+        query_salidas = {}
+        if item_id:
+            query_salidas['item_id'] = item_id
+        
+        salidas = await db.inventario_salidas.find(query_salidas, {"_id": 0}).to_list(5000)
+        for sal in salidas:
+            if isinstance(sal.get('fecha'), str):
+                sal['fecha'] = datetime.fromisoformat(sal['fecha'])
+            
+            if fecha_desde:
+                fecha_d = datetime.fromisoformat(fecha_desde)
+                if sal['fecha'] < fecha_d:
+                    continue
+            if fecha_hasta:
+                fecha_h = datetime.fromisoformat(fecha_hasta)
+                if sal['fecha'] > fecha_h:
+                    continue
+            
+            item = await db.inventario.find_one({"id": sal.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+            registro_n_corte = None
+            if sal.get('registro_id'):
+                registro = await db.registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
+                registro_n_corte = registro['n_corte'] if registro else None
+            
+            movimientos.append({
+                "id": sal['id'],
+                "fecha": sal['fecha'].isoformat(),
+                "tipo": "salida",
+                "item_id": sal['item_id'],
+                "item_codigo": item['codigo'] if item else "",
+                "item_nombre": item['nombre'] if item else "",
+                "cantidad": -sal['cantidad'],  # Negativo para salidas
+                "costo_unitario": sal.get('costo_total', 0) / sal['cantidad'] if sal['cantidad'] > 0 else 0,
+                "costo_total": sal.get('costo_total', 0),
+                "proveedor": "",
+                "documento": "",
+                "observaciones": sal.get('observaciones', ''),
+                "registro_n_corte": registro_n_corte
+            })
+    
+    # Filtrar ajustes
+    if not tipo or tipo == "ajuste":
+        query_ajustes = {}
+        if item_id:
+            query_ajustes['item_id'] = item_id
+        
+        ajustes = await db.inventario_ajustes.find(query_ajustes, {"_id": 0}).to_list(5000)
+        for aj in ajustes:
+            if isinstance(aj.get('fecha'), str):
+                aj['fecha'] = datetime.fromisoformat(aj['fecha'])
+            
+            if fecha_desde:
+                fecha_d = datetime.fromisoformat(fecha_desde)
+                if aj['fecha'] < fecha_d:
+                    continue
+            if fecha_hasta:
+                fecha_h = datetime.fromisoformat(fecha_hasta)
+                if aj['fecha'] > fecha_h:
+                    continue
+            
+            item = await db.inventario.find_one({"id": aj.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+            cantidad = aj['cantidad'] if aj['tipo'] == "entrada" else -aj['cantidad']
+            
+            movimientos.append({
+                "id": aj['id'],
+                "fecha": aj['fecha'].isoformat(),
+                "tipo": f"ajuste_{aj['tipo']}",
+                "item_id": aj['item_id'],
+                "item_codigo": item['codigo'] if item else "",
+                "item_nombre": item['nombre'] if item else "",
+                "cantidad": cantidad,
+                "costo_unitario": 0,
+                "costo_total": 0,
+                "proveedor": "",
+                "documento": "",
+                "observaciones": f"{aj.get('motivo', '')} - {aj.get('observaciones', '')}".strip(' - '),
+                "registro_n_corte": None
+            })
+    
+    # Ordenar por fecha descendente
+    movimientos.sort(key=lambda x: x['fecha'], reverse=True)
+    return movimientos
+
+
+@api_router.get("/inventario-kardex/{item_id}")
+async def get_kardex(item_id: str):
+    """Kardex de un item específico - historial con saldos"""
+    
+    # Verificar que el item existe
+    item = await db.inventario.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    
+    movimientos = []
+    
+    # Obtener ingresos
+    ingresos = await db.inventario_ingresos.find({"item_id": item_id}, {"_id": 0}).to_list(5000)
+    for ing in ingresos:
+        if isinstance(ing.get('fecha'), str):
+            ing['fecha'] = datetime.fromisoformat(ing['fecha'])
+        movimientos.append({
+            "fecha": ing['fecha'],
+            "tipo": "Ingreso",
+            "documento": ing.get('numero_documento', '') or ing.get('proveedor', ''),
+            "entrada": ing['cantidad'],
+            "salida": 0,
+            "costo_unitario": ing.get('costo_unitario', 0),
+            "costo_total": ing['cantidad'] * ing.get('costo_unitario', 0),
+            "observaciones": ing.get('observaciones', ''),
+            "id": ing['id']
+        })
+    
+    # Obtener salidas
+    salidas = await db.inventario_salidas.find({"item_id": item_id}, {"_id": 0}).to_list(5000)
+    for sal in salidas:
+        if isinstance(sal.get('fecha'), str):
+            sal['fecha'] = datetime.fromisoformat(sal['fecha'])
+        
+        documento = ""
+        if sal.get('registro_id'):
+            registro = await db.registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
+            documento = f"Corte #{registro['n_corte']}" if registro else ""
+        
+        movimientos.append({
+            "fecha": sal['fecha'],
+            "tipo": "Salida",
+            "documento": documento,
+            "entrada": 0,
+            "salida": sal['cantidad'],
+            "costo_unitario": sal.get('costo_total', 0) / sal['cantidad'] if sal['cantidad'] > 0 else 0,
+            "costo_total": sal.get('costo_total', 0),
+            "observaciones": sal.get('observaciones', ''),
+            "id": sal['id']
+        })
+    
+    # Obtener ajustes
+    ajustes = await db.inventario_ajustes.find({"item_id": item_id}, {"_id": 0}).to_list(5000)
+    for aj in ajustes:
+        if isinstance(aj.get('fecha'), str):
+            aj['fecha'] = datetime.fromisoformat(aj['fecha'])
+        
+        es_entrada = aj['tipo'] == "entrada"
+        movimientos.append({
+            "fecha": aj['fecha'],
+            "tipo": f"Ajuste ({aj['tipo']})",
+            "documento": aj.get('motivo', ''),
+            "entrada": aj['cantidad'] if es_entrada else 0,
+            "salida": aj['cantidad'] if not es_entrada else 0,
+            "costo_unitario": 0,
+            "costo_total": 0,
+            "observaciones": aj.get('observaciones', ''),
+            "id": aj['id']
+        })
+    
+    # Ordenar por fecha ascendente para calcular saldos
+    movimientos.sort(key=lambda x: x['fecha'])
+    
+    # Calcular saldos
+    saldo = 0
+    for mov in movimientos:
+        saldo += mov['entrada'] - mov['salida']
+        mov['saldo'] = saldo
+        mov['fecha'] = mov['fecha'].isoformat()
+    
+    return {
+        "item": {
+            "id": item['id'],
+            "codigo": item['codigo'],
+            "nombre": item['nombre'],
+            "unidad_medida": item.get('unidad_medida', 'unidad'),
+            "stock_actual": item.get('stock_actual', 0)
+        },
+        "movimientos": movimientos
+    }
+
 # Root endpoint
 @api_router.get("/")
 async def root():
