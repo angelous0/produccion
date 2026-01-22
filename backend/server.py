@@ -641,6 +641,69 @@ async def create_modelo(input: ModeloCreate):
     await db.modelos.insert_one(doc)
     return modelo
 
+@api_router.get("/modelos/{modelo_id}")
+async def get_modelo_detalle(modelo_id: str):
+    m = await db.modelos.find_one({"id": modelo_id}, {"_id": 0})
+    if not m:
+        raise HTTPException(status_code=404, detail="Modelo no encontrado")
+    
+    if isinstance(m.get('created_at'), str):
+        m['created_at'] = datetime.fromisoformat(m['created_at'])
+    
+    # Enriquecer relaciones básicas
+    marca = await db.marcas.find_one({"id": m.get('marca_id')}, {"_id": 0, "nombre": 1})
+    tipo = await db.tipos.find_one({"id": m.get('tipo_id')}, {"_id": 0, "nombre": 1})
+    entalle = await db.entalles.find_one({"id": m.get('entalle_id')}, {"_id": 0, "nombre": 1})
+    tela = await db.telas.find_one({"id": m.get('tela_id')}, {"_id": 0, "nombre": 1})
+    hilo = await db.hilos.find_one({"id": m.get('hilo_id')}, {"_id": 0, "nombre": 1})
+    
+    m['marca_nombre'] = marca['nombre'] if marca else None
+    m['tipo_nombre'] = tipo['nombre'] if tipo else None
+    m['entalle_nombre'] = entalle['nombre'] if entalle else None
+    m['tela_nombre'] = tela['nombre'] if tela else None
+    m['hilo_nombre'] = hilo['nombre'] if hilo else None
+    
+    # Enriquecer ruta de producción
+    if m.get('ruta_produccion_id'):
+        ruta = await db.rutas_produccion.find_one({"id": m['ruta_produccion_id']}, {"_id": 0})
+        if ruta:
+            m['ruta_nombre'] = ruta.get('nombre')
+            # Agregar etapas con nombres
+            etapas_detalle = []
+            for etapa in sorted(ruta.get('etapas', []), key=lambda x: x.get('orden', 0)):
+                servicio = await db.servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
+                etapas_detalle.append({
+                    "servicio_id": etapa['servicio_id'],
+                    "servicio_nombre": servicio['nombre'] if servicio else None,
+                    "orden": etapa.get('orden', 0)
+                })
+            m['ruta_etapas'] = etapas_detalle
+    
+    # Enriquecer materiales
+    materiales_detalle = []
+    for mat in m.get('materiales', []):
+        item = await db.inventario.find_one({"id": mat.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1, "unidad_medida": 1})
+        materiales_detalle.append({
+            "item_id": mat.get('item_id'),
+            "item_nombre": item['nombre'] if item else None,
+            "item_codigo": item.get('codigo') if item else None,
+            "unidad_medida": item.get('unidad_medida') if item else None,
+            "cantidad_estimada": mat.get('cantidad_estimada', 0)
+        })
+    m['materiales_detalle'] = materiales_detalle
+    
+    # Enriquecer servicios
+    servicios_detalle = []
+    for srv_id in m.get('servicios_ids', []):
+        servicio = await db.servicios_produccion.find_one({"id": srv_id}, {"_id": 0, "nombre": 1})
+        servicios_detalle.append({
+            "servicio_id": srv_id,
+            "servicio_nombre": servicio['nombre'] if servicio else None
+        })
+    m['servicios_detalle'] = servicios_detalle
+    
+    return m
+
 @api_router.put("/modelos/{modelo_id}", response_model=Modelo)
 async def update_modelo(modelo_id: str, input: ModeloCreate):
     result = await db.modelos.find_one({"id": modelo_id}, {"_id": 0})
