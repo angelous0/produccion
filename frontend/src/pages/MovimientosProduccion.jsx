@@ -227,6 +227,17 @@ export const MovimientosProduccion = () => {
     return movimientosFiltrados.reduce((sum, m) => sum + (m.cantidad || 0), 0);
   };
 
+  const getTotalCosto = () => {
+    return movimientosFiltrados.reduce((sum, m) => sum + (m.costo || 0), 0);
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: 'PEN',
+    }).format(value || 0);
+  };
+
   const hayFiltrosActivos = filtroServicio || filtroPersona || filtroRegistro || filtroFechaDesde || filtroFechaHasta;
 
   return (
@@ -241,6 +252,10 @@ export const MovimientosProduccion = () => {
             Historial completo de movimientos de producción
           </p>
         </div>
+        <Button onClick={handleOpenCreateDialog} data-testid="btn-nuevo-movimiento-page">
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo Movimiento
+        </Button>
       </div>
 
       {/* Filtros */}
