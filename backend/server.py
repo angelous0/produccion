@@ -859,6 +859,11 @@ async def get_inventario():
             item['created_at'] = datetime.fromisoformat(item['created_at'])
     return items
 
+@api_router.get("/inventario-categorias")
+async def get_categorias():
+    """Obtener lista de categorías disponibles"""
+    return {"categorias": CATEGORIAS_INVENTARIO}
+
 @api_router.get("/inventario/{item_id}")
 async def get_item_inventario(item_id: str):
     item = await db.inventario.find_one({"id": item_id}, {"_id": 0})
@@ -879,6 +884,18 @@ async def get_item_inventario(item_id: str):
             ing['fecha'] = datetime.fromisoformat(ing['fecha'])
     
     item['lotes'] = ingresos
+    
+    # Si tiene control por rollos, obtener rollos activos
+    if item.get('control_por_rollos'):
+        rollos = await db.inventario_rollos.find(
+            {"item_id": item_id, "activo": True, "metraje_disponible": {"$gt": 0}},
+            {"_id": 0}
+        ).to_list(500)
+        for rollo in rollos:
+            if isinstance(rollo.get('created_at'), str):
+                rollo['created_at'] = datetime.fromisoformat(rollo['created_at'])
+        item['rollos'] = rollos
+    
     return item
 
 @api_router.post("/inventario", response_model=ItemInventario)
