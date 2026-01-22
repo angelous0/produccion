@@ -110,7 +110,7 @@ export const ServiciosProduccion = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingServicio, setEditingServicio] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', secuencia: 0, tarifa: 0 });
+  const [formData, setFormData] = useState({ nombre: '', secuencia: 0 });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -137,11 +137,11 @@ export const ServiciosProduccion = () => {
   const handleOpenDialog = (servicio = null) => {
     if (servicio) {
       setEditingServicio(servicio);
-      setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0, tarifa: servicio.tarifa || 0 });
+      setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0 });
     } else {
       setEditingServicio(null);
       const maxSecuencia = servicios.reduce((max, s) => Math.max(max, s.secuencia || 0), 0);
-      setFormData({ nombre: '', secuencia: maxSecuencia + 1, tarifa: 0 });
+      setFormData({ nombre: '', secuencia: maxSecuencia + 1 });
     }
     setDialogOpen(true);
   };
@@ -200,7 +200,6 @@ export const ServiciosProduccion = () => {
             axios.put(`${API}/servicios-produccion/${s.id}`, {
               nombre: s.nombre,
               secuencia: s.secuencia,
-              tarifa: s.tarifa || 0,
             })
           )
         );
