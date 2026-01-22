@@ -467,10 +467,20 @@ export const RegistroForm = () => {
 
   // ========== LÓGICA DE MOVIMIENTOS DE PRODUCCIÓN ==========
 
-  // Helper para obtener tarifa del servicio seleccionado
-  const getServicioTarifa = (servicioId) => {
-    const servicio = serviciosProduccion.find(s => s.id === servicioId);
-    return servicio?.tarifa || 0;
+  // Helper para obtener tarifa de la combinación persona-servicio
+  const getTarifaPersonaServicio = (personaId, servicioId) => {
+    const persona = personasProduccion.find(p => p.id === personaId);
+    if (!persona) return 0;
+    
+    // Buscar en servicios_detalle (estructura nueva con detalles)
+    const servicioDetalle = (persona.servicios_detalle || []).find(s => s.servicio_id === servicioId);
+    if (servicioDetalle) return servicioDetalle.tarifa || 0;
+    
+    // Buscar en servicios (estructura nueva sin detalles)
+    const servicio = (persona.servicios || []).find(s => s.servicio_id === servicioId);
+    if (servicio) return servicio.tarifa || 0;
+    
+    return 0;
   };
 
   // Helper para calcular costo (usa tarifa_aplicada del formulario)
@@ -491,10 +501,16 @@ export const RegistroForm = () => {
         tarifa_aplicada: movimiento.tarifa_aplicada || 0,
         observaciones: movimiento.observaciones || '',
       });
-      // Filtrar personas por el servicio del movimiento
-      const filtradas = personasProduccion.filter(p => 
-        p.servicio_ids && p.servicio_ids.includes(movimiento.servicio_id)
-      );
+      // Filtrar personas por el servicio del movimiento (nueva estructura)
+      const filtradas = personasProduccion.filter(p => {
+        // Verificar en servicios_detalle (formato con detalles)
+        const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === movimiento.servicio_id);
+        // Verificar en servicios (formato nuevo)
+        const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === movimiento.servicio_id);
+        // Formato antiguo (servicio_ids)
+        const tieneEnIds = (p.servicio_ids || []).includes(movimiento.servicio_id);
+        return tieneEnDetalle || tieneEnServicios || tieneEnIds;
+      });
       setPersonasFiltradas(filtradas);
     } else {
       // Modo creación
@@ -514,19 +530,35 @@ export const RegistroForm = () => {
   };
 
   const handleServicioChange = (servicioId) => {
-    // Pre-llenar tarifa con la del servicio (referencial)
-    const tarifaServicio = getServicioTarifa(servicioId);
+    // Filtrar personas que tienen asignado este servicio (nueva estructura)
+    const filtradas = personasProduccion.filter(p => {
+      // Verificar en servicios_detalle (formato con detalles)
+      const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === servicioId);
+      // Verificar en servicios (formato nuevo)
+      const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === servicioId);
+      // Formato antiguo (servicio_ids)
+      const tieneEnIds = (p.servicio_ids || []).includes(servicioId);
+      return tieneEnDetalle || tieneEnServicios || tieneEnIds;
+    });
+    setPersonasFiltradas(filtradas);
+    
     setMovimientoFormData({ 
       ...movimientoFormData, 
       servicio_id: servicioId,
       persona_id: '',
-      tarifa_aplicada: tarifaServicio  // Pre-llenar pero editable
+      tarifa_aplicada: 0  // Se pre-llenará cuando se seleccione persona
     });
-    // Filtrar personas que tienen asignado este servicio
-    const filtradas = personasProduccion.filter(p => 
-      p.servicio_ids && p.servicio_ids.includes(servicioId)
-    );
-    setPersonasFiltradas(filtradas);
+  };
+
+  // Handler para cuando se selecciona una persona
+  const handlePersonaChange = (personaId) => {
+    // Obtener tarifa de la combinación persona-servicio
+    const tarifa = getTarifaPersonaServicio(personaId, movimientoFormData.servicio_id);
+    setMovimientoFormData({
+      ...movimientoFormData,
+      persona_id: personaId,
+      tarifa_aplicada: tarifa  // Pre-llenar con tarifa de persona-servicio (editable)
+    });
   };
 
   const handleSaveMovimiento = async () => {
