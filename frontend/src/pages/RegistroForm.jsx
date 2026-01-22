@@ -1513,8 +1513,29 @@ export const RegistroForm = () => {
               />
             </div>
 
+            {/* Tarifa editable */}
+            <div className="space-y-2">
+              <Label htmlFor="tarifa-movimiento">Tarifa por Prenda (S/)</Label>
+              <Input
+                id="tarifa-movimiento"
+                type="number"
+                min="0"
+                step="0.01"
+                value={movimientoFormData.tarifa_aplicada}
+                onChange={(e) => setMovimientoFormData({ ...movimientoFormData, tarifa_aplicada: parseFloat(e.target.value) || 0 })}
+                className="font-mono"
+                placeholder="0.00"
+                data-testid="input-tarifa-movimiento"
+              />
+              {movimientoFormData.servicio_id && getServicioTarifa(movimientoFormData.servicio_id) > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Tarifa referencial del servicio: {formatCurrency(getServicioTarifa(movimientoFormData.servicio_id))}
+                </p>
+              )}
+            </div>
+
             {/* Mostrar costo calculado */}
-            {movimientoFormData.servicio_id && movimientoFormData.cantidad > 0 && getServicioTarifa(movimientoFormData.servicio_id) > 0 && (
+            {movimientoFormData.cantidad > 0 && movimientoFormData.tarifa_aplicada > 0 && (
               <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-green-700 dark:text-green-300">Costo calculado:</span>
@@ -1523,7 +1544,7 @@ export const RegistroForm = () => {
                   </span>
                 </div>
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {movimientoFormData.cantidad} prendas × {formatCurrency(getServicioTarifa(movimientoFormData.servicio_id))}
+                  {movimientoFormData.cantidad} prendas × {formatCurrency(movimientoFormData.tarifa_aplicada)}
                 </p>
               </div>
             )}
