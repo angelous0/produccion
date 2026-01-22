@@ -1394,13 +1394,13 @@ export const RegistroForm = () => {
         }}
       />
 
-      {/* Dialog para crear movimiento de producción */}
+      {/* Dialog para crear/editar movimiento de producción */}
       <Dialog open={movimientoDialogOpen} onOpenChange={setMovimientoDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nuevo Movimiento de Producción</DialogTitle>
+            <DialogTitle>{editingMovimiento ? 'Editar Movimiento' : 'Nuevo Movimiento de Producción'}</DialogTitle>
             <DialogDescription>
-              Registrar un movimiento de producción para este corte
+              {editingMovimiento ? 'Modifica los datos del movimiento' : 'Registrar un movimiento de producción para este corte'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
