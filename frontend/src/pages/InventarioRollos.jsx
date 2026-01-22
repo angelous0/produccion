@@ -37,7 +37,7 @@ export const InventarioRollos = () => {
     try {
       const params = new URLSearchParams();
       if (filtroItem) params.append('item_id', filtroItem);
-      if (filtroActivo) params.append('activo', filtroActivo);
+      if (filtroActivo && filtroActivo !== 'all') params.append('activo', filtroActivo);
       
       const [rollosRes, itemsRes] = await Promise.all([
         axios.get(`${API}/inventario-rollos?${params.toString()}`),
