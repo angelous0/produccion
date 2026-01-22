@@ -105,7 +105,7 @@ export const InventarioRollos = () => {
                   <SelectValue placeholder="Todas las telas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las telas</SelectItem>
+                  <SelectItem value="all">Todas las telas</SelectItem>
                   {items.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.codigo} - {item.nombre}
