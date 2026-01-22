@@ -1780,7 +1780,15 @@ async def create_movimiento_produccion(input: MovimientoProduccionCreate):
     persona = await db.personas_produccion.find_one({"id": input.persona_id}, {"_id": 0})
     if not persona:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
-    if input.servicio_id not in persona.get('servicio_ids', []):
+    
+    # Verificar que la persona tiene el servicio (nuevo formato o antiguo)
+    servicios_persona = persona.get('servicios', [])
+    servicio_ids_persona = [s.get('servicio_id') if isinstance(s, dict) else s for s in servicios_persona]
+    # También soportar formato antiguo
+    if not servicio_ids_persona:
+        servicio_ids_persona = persona.get('servicio_ids', [])
+    
+    if input.servicio_id not in servicio_ids_persona:
         raise HTTPException(status_code=400, detail="La persona no tiene asignado este servicio")
     
     movimiento = MovimientoProduccion(**input.model_dump())
