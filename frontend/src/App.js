@@ -14,6 +14,10 @@ import { ColoresCatalogo } from "./pages/ColoresCatalogo";
 import { Modelos } from "./pages/Modelos";
 import { Registros } from "./pages/Registros";
 import { RegistroForm } from "./pages/RegistroForm";
+import { Inventario } from "./pages/Inventario";
+import { InventarioIngresos } from "./pages/InventarioIngresos";
+import { InventarioSalidas } from "./pages/InventarioSalidas";
+import { InventarioAjustes } from "./pages/InventarioAjustes";
 
 function App() {
   return (
@@ -33,6 +37,10 @@ function App() {
             <Route path="registros" element={<Registros />} />
             <Route path="registros/nuevo" element={<RegistroForm />} />
             <Route path="registros/editar/:id" element={<RegistroForm />} />
+            <Route path="inventario" element={<Inventario />} />
+            <Route path="inventario/ingresos" element={<InventarioIngresos />} />
+            <Route path="inventario/salidas" element={<InventarioSalidas />} />
+            <Route path="inventario/ajustes" element={<InventarioAjustes />} />
           </Route>
         </Routes>
       </BrowserRouter>
