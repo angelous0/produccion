@@ -1019,29 +1019,88 @@ export const RegistroForm = () => {
                       <span className="font-mono mr-2">{item.codigo}</span>
                       {item.nombre}
                       <span className="ml-2 text-muted-foreground">(Stock: {item.stock_actual})</span>
+                      {item.control_por_rollos && (
+                        <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 rounded">Rollos</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {selectedItemInventario && (
+              {selectedItemInventario && !selectedItemInventario.control_por_rollos && (
                 <p className="text-sm text-muted-foreground">
                   Stock disponible: <span className="font-mono font-semibold">{selectedItemInventario.stock_actual}</span> {selectedItemInventario.unidad_medida}
                 </p>
               )}
             </div>
             
+            {/* Selector de Rollo si aplica */}
+            {selectedItemInventario?.control_por_rollos && (
+              <div className="space-y-2">
+                <Label>Rollo *</Label>
+                <Select
+                  value={salidaFormData.rollo_id}
+                  onValueChange={handleRolloChange}
+                >
+                  <SelectTrigger data-testid="select-rollo">
+                    <SelectValue placeholder="Seleccionar rollo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rollosDisponibles.length === 0 ? (
+                      <SelectItem value="none" disabled>No hay rollos disponibles</SelectItem>
+                    ) : (
+                      rollosDisponibles.map((rollo) => (
+                        <SelectItem key={rollo.id} value={rollo.id}>
+                          <span className="font-mono font-semibold">{rollo.numero_rollo}</span>
+                          <span className="mx-1">|</span>
+                          <span>{rollo.tono || 'Sin tono'}</span>
+                          <span className="mx-1">|</span>
+                          <span className="font-mono text-green-600">{rollo.metraje_disponible?.toFixed(2)}m</span>
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {selectedRollo && (
+                  <div className="p-3 bg-muted/30 rounded-lg text-sm grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-muted-foreground">Rollo:</span>
+                      <span className="font-mono font-semibold ml-2">{selectedRollo.numero_rollo}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Tono:</span>
+                      <span className="ml-2">{selectedRollo.tono || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Ancho:</span>
+                      <span className="font-mono ml-2">{selectedRollo.ancho}cm</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Disponible:</span>
+                      <span className="font-mono font-semibold text-green-600 ml-2">{selectedRollo.metraje_disponible?.toFixed(2)}m</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="space-y-2">
-              <Label htmlFor="cantidad-salida">Cantidad *</Label>
+              <Label htmlFor="cantidad-salida">Cantidad ({selectedItemInventario?.unidad_medida || 'unidad'}) *</Label>
               <Input
                 id="cantidad-salida"
                 type="number"
-                min="1"
-                max={selectedItemInventario?.stock_actual || 999999}
+                min="0.01"
+                step="0.01"
+                max={selectedRollo?.metraje_disponible || selectedItemInventario?.stock_actual || 999999}
                 value={salidaFormData.cantidad}
-                onChange={(e) => setSalidaFormData({ ...salidaFormData, cantidad: parseInt(e.target.value) || 1 })}
+                onChange={(e) => setSalidaFormData({ ...salidaFormData, cantidad: parseFloat(e.target.value) || 1 })}
                 className="font-mono"
                 data-testid="input-cantidad-salida"
               />
+              {selectedRollo && (
+                <p className="text-xs text-muted-foreground">
+                  Máximo del rollo: {selectedRollo.metraje_disponible?.toFixed(2)}m
+                </p>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -1062,7 +1121,7 @@ export const RegistroForm = () => {
             </Button>
             <Button 
               onClick={handleCreateSalida}
-              disabled={!salidaFormData.item_id || salidaFormData.cantidad < 1}
+              disabled={!salidaFormData.item_id || salidaFormData.cantidad < 0.01 || (selectedItemInventario?.control_por_rollos && !salidaFormData.rollo_id)}
               data-testid="btn-guardar-salida"
             >
               Registrar Salida
