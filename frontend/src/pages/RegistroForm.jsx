@@ -86,18 +86,31 @@ export const RegistroForm = () => {
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
     try {
-      const [modelosRes, estadosRes, tallasRes, coloresRes] = await Promise.all([
+      const [modelosRes, estadosRes, tallasRes, coloresRes, inventarioRes] = await Promise.all([
         axios.get(`${API}/modelos`),
         axios.get(`${API}/estados`),
         axios.get(`${API}/tallas-catalogo`),
         axios.get(`${API}/colores-catalogo`),
+        axios.get(`${API}/inventario`),
       ]);
       setModelos(modelosRes.data);
       setEstados(estadosRes.data.estados);
       setTallasCatalogo(tallasRes.data);
       setColoresCatalogo(coloresRes.data);
+      setItemsInventario(inventarioRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
+    }
+  };
+
+  // Cargar salidas del registro
+  const fetchSalidasRegistro = async () => {
+    if (!id) return;
+    try {
+      const response = await axios.get(`${API}/inventario-salidas?registro_id=${id}`);
+      setSalidasRegistro(response.data);
+    } catch (error) {
+      console.error('Error fetching salidas:', error);
     }
   };
 
