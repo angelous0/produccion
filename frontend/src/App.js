@@ -24,6 +24,7 @@ import { Kardex } from "./pages/Kardex";
 import { ServiciosProduccion } from "./pages/ServiciosProduccion";
 import { PersonasProduccion } from "./pages/PersonasProduccion";
 import { MovimientosProduccion } from "./pages/MovimientosProduccion";
+import { ReporteProductividad } from "./pages/ReporteProductividad";
 
 function App() {
   return (
