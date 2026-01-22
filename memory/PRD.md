@@ -63,13 +63,17 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Ingreso con múltiples rollos: cada rollo tiene N° Rollo, Metraje, Ancho, Tono
   - Página dedicada `/inventario/rollos` para ver todos los rollos con filtros y resumen
   - Stock se calcula automáticamente sumando metrajes de todos los rollos
+- ✅ **Salidas por Rollo**: Al crear salida de item con rollos, se debe seleccionar el rollo específico
+  - Selector de rollo muestra: N° Rollo, Tono, Metraje disponible
+  - Trazabilidad completa: saber qué tono/rollo se usó en cada producción
+  - El metraje disponible del rollo se descuenta automáticamente
 - ✅ Ingresos de inventario (entradas con costo unitario, proveedor, documento)
-- ✅ Salidas de inventario con método FIFO (calcula costo automáticamente de lotes más antiguos)
-- ✅ Vinculación de salidas con registros de producción (un registro puede tener muchas salidas)
-- ✅ Tabla de salidas integrada en formulario de registro
+- ✅ Salidas de inventario con método FIFO (calcula costo automáticamente)
+- ✅ Vinculación de salidas con registros de producción
+- ✅ Tabla de salidas integrada en formulario de registro (con selector de rollo)
 - ✅ Ajustes de inventario (entrada/salida con motivo)
 - ✅ Control de stock mínimo con alertas visuales
-- ✅ **Reporte de Movimientos** - Vista general con filtros (item, tipo, fecha desde/hasta)
+- ✅ **Reporte de Movimientos** - Vista general con filtros
 - ✅ **Kardex de Inventario** - Historial detallado por item con saldos
 - ✅ Navegación sidebar con sección "Inventario FIFO" completa
 
