@@ -347,9 +347,15 @@ export const MovimientosProduccion = () => {
             {movimientosFiltrados.length} movimientos
             {hayFiltrosActivos && ` (filtrados de ${movimientos.length})`}
           </CardTitle>
-          <Badge variant="secondary" className="text-lg px-3 py-1">
-            Total: {getTotalCantidad().toLocaleString()} prendas
-          </Badge>
+          <div className="flex gap-3">
+            <Badge variant="secondary" className="text-base px-3 py-1">
+              {getTotalCantidad().toLocaleString()} prendas
+            </Badge>
+            <Badge variant="default" className="text-base px-3 py-1">
+              <DollarSign className="h-4 w-4 mr-1" />
+              {formatCurrency(getTotalCosto())}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
