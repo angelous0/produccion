@@ -1613,9 +1613,13 @@ async def delete_servicio_produccion(servicio_id: str):
 
 # ==================== PERSONAS DE PRODUCCIÓN ====================
 
+class ServicioPersona(BaseModel):
+    servicio_id: str
+    tarifa: float = 0.0  # Tarifa específica de esta persona para este servicio
+
 class PersonaProduccionBase(BaseModel):
     nombre: str
-    servicio_ids: List[str] = []  # Lista de IDs de servicios asignados
+    servicios: List[ServicioPersona] = []  # Lista de servicios con tarifa por cada uno
     telefono: str = ""
     activo: bool = True
     orden: int = 0  # Para ordenar manualmente
@@ -1629,13 +1633,13 @@ class PersonaProduccion(PersonaProduccionBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class PersonaConServicios(PersonaProduccion):
-    servicios_nombres: List[str] = []
+    servicios_detalle: List[dict] = []  # Con nombre del servicio incluido
 
 @api_router.get("/personas-produccion")
 async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
     query = {}
     if servicio_id:
-        query['servicio_ids'] = servicio_id
+        query['servicios.servicio_id'] = servicio_id
     if activo is not None:
         query['activo'] = activo
     
@@ -1645,13 +1649,29 @@ async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
         if isinstance(p.get('created_at'), str):
             p['created_at'] = datetime.fromisoformat(p['created_at'])
         
-        # Obtener nombres de servicios
+        # Obtener detalles de servicios (nombre + tarifa)
+        servicios_detalle = []
         servicios_nombres = []
-        for sid in p.get('servicio_ids', []):
+        # Soportar tanto el nuevo formato (servicios) como el antiguo (servicio_ids)
+        servicios_list = p.get('servicios', [])
+        if not servicios_list and p.get('servicio_ids'):
+            # Migrar formato antiguo
+            servicios_list = [{"servicio_id": sid, "tarifa": 0} for sid in p.get('servicio_ids', [])]
+        
+        for s in servicios_list:
+            sid = s.get('servicio_id') if isinstance(s, dict) else s
+            tarifa = s.get('tarifa', 0) if isinstance(s, dict) else 0
             servicio = await db.servicios_produccion.find_one({"id": sid}, {"_id": 0, "nombre": 1})
             if servicio:
+                servicios_detalle.append({
+                    "servicio_id": sid,
+                    "servicio_nombre": servicio['nombre'],
+                    "tarifa": tarifa
+                })
                 servicios_nombres.append(servicio['nombre'])
-        p['servicios_nombres'] = servicios_nombres
+        
+        p['servicios_detalle'] = servicios_detalle
+        p['servicios_nombres'] = servicios_nombres  # Para compatibilidad
         
         result.append(p)
     return sorted(result, key=lambda x: (x.get('orden', 0), x.get('nombre', '')))
