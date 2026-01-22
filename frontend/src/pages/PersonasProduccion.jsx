@@ -6,14 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -23,10 +15,113 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
-import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Componente de fila sorteable
+const SortableRow = ({ persona, onEdit, onDelete, onToggleActivo }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: persona.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      className={`border-b ${isDragging ? 'bg-muted' : ''}`}
+      data-testid={`persona-row-${persona.id}`}
+    >
+      <td className="p-3">
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded"
+            data-testid={`drag-handle-${persona.id}`}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <span className="font-medium">{persona.nombre}</span>
+        </div>
+      </td>
+      <td className="p-3">
+        <div className="flex flex-wrap gap-1">
+          {(persona.servicios_nombres || []).map((nombre, idx) => (
+            <Badge key={idx} variant="secondary" className="text-xs">
+              {nombre}
+            </Badge>
+          ))}
+        </div>
+      </td>
+      <td className="p-3">
+        {persona.telefono ? (
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Phone className="h-3 w-3" />
+            {persona.telefono}
+          </div>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </td>
+      <td className="p-3 text-center">
+        <Switch
+          checked={persona.activo !== false}
+          onCheckedChange={() => onToggleActivo(persona)}
+          data-testid={`toggle-activo-${persona.id}`}
+        />
+      </td>
+      <td className="p-3 text-right">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onEdit(persona)}
+            data-testid={`edit-persona-${persona.id}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(persona.id)}
+            data-testid={`delete-persona-${persona.id}`}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+};
 
 export const PersonasProduccion = () => {
   const [personas, setPersonas] = useState([]);
@@ -39,8 +134,16 @@ export const PersonasProduccion = () => {
     servicio_ids: [],
     telefono: '',
     activo: true,
+    orden: 0,
   });
   const [filtroActivo, setFiltroActivo] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const fetchData = async () => {
     try {
@@ -69,14 +172,17 @@ export const PersonasProduccion = () => {
         servicio_ids: persona.servicio_ids || [],
         telefono: persona.telefono || '',
         activo: persona.activo !== false,
+        orden: persona.orden || 0,
       });
     } else {
       setEditingPersona(null);
+      const maxOrden = personas.reduce((max, p) => Math.max(max, p.orden || 0), 0);
       setFormData({
         nombre: '',
         servicio_ids: [],
         telefono: '',
         activo: true,
+        orden: maxOrden + 1,
       });
     }
     setDialogOpen(true);
@@ -135,13 +241,58 @@ export const PersonasProduccion = () => {
   const handleToggleActivo = async (persona) => {
     try {
       await axios.put(`${API}/personas-produccion/${persona.id}`, {
-        ...persona,
+        nombre: persona.nombre,
+        servicio_ids: persona.servicio_ids || [],
+        telefono: persona.telefono || '',
         activo: !persona.activo,
+        orden: persona.orden || 0,
       });
       toast.success(persona.activo ? 'Persona desactivada' : 'Persona activada');
       fetchData();
     } catch (error) {
       toast.error('Error al actualizar estado');
+    }
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id) {
+      const oldIndex = personasFiltradas.findIndex((p) => p.id === active.id);
+      const newIndex = personasFiltradas.findIndex((p) => p.id === over.id);
+
+      const newPersonas = arrayMove(personasFiltradas, oldIndex, newIndex);
+      
+      // Actualizar orden localmente primero para UI responsiva
+      const updatedPersonas = newPersonas.map((p, index) => ({
+        ...p,
+        orden: index + 1,
+      }));
+      
+      // Actualizar el estado local
+      setPersonas(prev => {
+        const otrasPersonas = prev.filter(p => !updatedPersonas.find(up => up.id === p.id));
+        return [...updatedPersonas, ...otrasPersonas].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+      });
+
+      // Actualizar en el backend
+      try {
+        await Promise.all(
+          updatedPersonas.map((p) =>
+            axios.put(`${API}/personas-produccion/${p.id}`, {
+              nombre: p.nombre,
+              servicio_ids: p.servicio_ids || [],
+              telefono: p.telefono || '',
+              activo: p.activo !== false,
+              orden: p.orden,
+            })
+          )
+        );
+        toast.success('Orden actualizado');
+      } catch (error) {
+        toast.error('Error al actualizar orden');
+        fetchData(); // Revertir en caso de error
+      }
     }
   };
 
@@ -158,7 +309,7 @@ export const PersonasProduccion = () => {
             Personas de Producción
           </h2>
           <p className="text-muted-foreground">
-            Gestiona el personal asignado a los servicios de producción
+            Gestiona el personal asignado a los servicios. Arrastra para reordenar.
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} data-testid="btn-nueva-persona">
@@ -205,70 +356,39 @@ export const PersonasProduccion = () => {
             </div>
           ) : (
             <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Servicios</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead className="w-[120px] text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {personasFiltradas.map((persona) => (
-                    <TableRow key={persona.id} data-testid={`persona-row-${persona.id}`}>
-                      <TableCell className="font-medium">{persona.nombre}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(persona.servicios_nombres || []).map((nombre, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {nombre}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {persona.telefono ? (
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {persona.telefono}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={persona.activo !== false}
-                          onCheckedChange={() => handleToggleActivo(persona)}
-                          data-testid={`toggle-activo-${persona.id}`}
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-muted/50 border-b">
+                    <th className="p-3 text-left text-sm font-semibold">Nombre</th>
+                    <th className="p-3 text-left text-sm font-semibold">Servicios</th>
+                    <th className="p-3 text-left text-sm font-semibold">Teléfono</th>
+                    <th className="p-3 text-center text-sm font-semibold">Estado</th>
+                    <th className="p-3 text-right text-sm font-semibold w-[120px]">Acciones</th>
+                  </tr>
+                </thead>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={personasFiltradas.map((p) => p.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <tbody>
+                      {personasFiltradas.map((persona) => (
+                        <SortableRow
+                          key={persona.id}
+                          persona={persona}
+                          onEdit={handleOpenDialog}
+                          onDelete={handleDelete}
+                          onToggleActivo={handleToggleActivo}
                         />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenDialog(persona)}
-                            data-testid={`edit-persona-${persona.id}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(persona.id)}
-                            data-testid={`delete-persona-${persona.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      ))}
+                    </tbody>
+                  </SortableContext>
+                </DndContext>
+              </table>
             </div>
           )}
         </CardContent>
