@@ -57,17 +57,21 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 
 ### Enero 2025 - Módulo Inventario FIFO
 - ✅ CRUD de Items de Inventario (código, nombre, descripción, unidad_medida, stock_minimo)
+- ✅ **Campo Categoría** en items (Telas, Avios, Otros) con badges de colores
+- ✅ **Control por Rollos** para telas:
+  - Checkbox "Control por Rollos" al crear/editar items de categoría Telas
+  - Ingreso con múltiples rollos: cada rollo tiene N° Rollo, Metraje, Ancho, Tono
+  - Página dedicada `/inventario/rollos` para ver todos los rollos con filtros y resumen
+  - Stock se calcula automáticamente sumando metrajes de todos los rollos
 - ✅ Ingresos de inventario (entradas con costo unitario, proveedor, documento)
 - ✅ Salidas de inventario con método FIFO (calcula costo automáticamente de lotes más antiguos)
 - ✅ Vinculación de salidas con registros de producción (un registro puede tener muchas salidas)
-- ✅ **Tabla de salidas integrada en formulario de registro** - permite ver y agregar salidas directamente desde el registro
+- ✅ Tabla de salidas integrada en formulario de registro
 - ✅ Ajustes de inventario (entrada/salida con motivo)
 - ✅ Control de stock mínimo con alertas visuales
-- ✅ Estadísticas de inventario en API /stats
-- ✅ Navegación sidebar separada para módulo "Inventario FIFO"
-- ✅ **Reporte de Movimientos** - Vista general con filtros (item, tipo, fecha desde/hasta), tarjetas de resumen
-- ✅ **Kardex de Inventario** - Historial detallado por item con saldos, costos de entradas/salidas
-- ✅ Testing completo
+- ✅ **Reporte de Movimientos** - Vista general con filtros (item, tipo, fecha desde/hasta)
+- ✅ **Kardex de Inventario** - Historial detallado por item con saldos
+- ✅ Navegación sidebar con sección "Inventario FIFO" completa
 
 ## Backlog
 
