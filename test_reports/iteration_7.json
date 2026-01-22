@@ -1,0 +1,116 @@
+{
+  "summary": "Completed testing of Rutas de Producción and BOM features. Backend: 25/25 tests passed. Frontend: All key features verified working - Rutas CRUD, Modelos with 3 tabs (General, Materiales, Producción), delete blocking when models use ruta, and RegistroForm showing dynamic estados based on ruta.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/rutas-produccion",
+        "issue": "Ruta Estándar has an empty etapa (servicio_id: '') at orden 2, showing as 'N/A' in UI. This is a data quality issue.",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Rutas page",
+        "issues": ["Empty etapa shows as 'N/A' badge - should be filtered out or prevented from being saved"]
+      }
+    ]
+  },
+  "passed_tests": [
+    "Backend: GET /api/rutas-produccion - List all routes",
+    "Backend: GET /api/rutas-produccion/{id} - Get single route",
+    "Backend: POST /api/rutas-produccion - Create route with etapas",
+    "Backend: PUT /api/rutas-produccion/{id} - Update route",
+    "Backend: DELETE /api/rutas-produccion/{id} - Delete route",
+    "Backend: DELETE blocked when models use ruta (returns 400)",
+    "Backend: Ruta etapas include servicio_nombre",
+    "Backend: GET /api/modelos - List models with ruta_nombre",
+    "Backend: GET /api/modelos/{id} - Detail includes ruta_etapas",
+    "Backend: POST /api/modelos - Create with ruta_produccion_id",
+    "Backend: POST /api/modelos - Create with materiales (BOM)",
+    "Backend: POST /api/modelos - Create with servicios_ids",
+    "Backend: PUT /api/modelos/{id} - Update ruta assignment",
+    "Backend: GET /api/estados - Global production states",
+    "Backend: GET /api/registros/{id}/estados-disponibles - Dynamic estados based on ruta",
+    "Backend: Full workflow test (ruta -> modelo -> registro)",
+    "Frontend: Rutas page loads with table showing rutas",
+    "Frontend: Nueva Ruta button opens dialog with form",
+    "Frontend: Ruta form has nombre, descripcion, etapas fields",
+    "Frontend: Etapas show with servicio badges (Corte → Costura)",
+    "Frontend: Delete ruta blocked shows error toast",
+    "Frontend: Modelos page shows Ruta Producción column",
+    "Frontend: Modelo Eduard shows 'Ruta Estándar' badge",
+    "Frontend: Modelo form has 3 tabs: General, Materiales, Producción",
+    "Frontend: Materiales tab shows BOM section with item selector",
+    "Frontend: Producción tab shows Ruta dropdown and Servicios checkboxes",
+    "Frontend: RegistroForm shows Estado with 'Ruta: Ruta Estándar' badge",
+    "Frontend: RegistroForm shows Datos del Modelo panel"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_rutas_bom.py",
+    "/app/test_reports/pytest/pytest_rutas_bom.xml"
+  ],
+  "action_items": [
+    "Clean up Ruta Estándar data - remove empty etapa with servicio_id=''",
+    "Consider adding validation to prevent saving etapas with empty servicio_id"
+  ],
+  "critical_code_review_comments": [
+    "Ruta Estándar has invalid etapa with empty servicio_id - should be cleaned up",
+    "Registros with estado 'Para Corte' don't match ruta estados ('Corte', 'Costura') - this is expected for legacy data but may cause confusion"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rutas_bom.py"
+  ],
+  "success_rate": {
+    "backend": "100% (25/25 tests passed)",
+    "frontend": "100% (all key features verified)"
+  },
+  "seed_data_creation": "Used existing data: Ruta Estándar (id: 5b27fb94-a704-43a9-a4c6-e3d05e5e280b), Modelo Eduard (id: 5180c7f2-13cc-4f81-8cd6-53c96e68f55c)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Rutas de Producción and BOM features fully implemented and tested. Key IDs: RUTA_ESTANDAR_ID='5b27fb94-a704-43a9-a4c6-e3d05e5e280b', MODELO_EDUARD_ID='5180c7f2-13cc-4f81-8cd6-53c96e68f55c'. Note: Ruta Estándar has an empty etapa that should be cleaned up. Registros created before ruta assignment may have estados not matching ruta (e.g., 'Para Corte' vs 'Corte').",
+  "features_verified": {
+    "rutas_produccion_crud": {
+      "list": "GET /api/rutas-produccion returns rutas with etapas and servicio_nombre",
+      "create": "POST creates ruta with etapas array",
+      "update": "PUT updates ruta including etapas reordering",
+      "delete": "DELETE blocked if models use ruta, returns 400 with message",
+      "get_by_id": "GET /api/rutas-produccion/{id} returns single ruta with enriched etapas"
+    },
+    "modelos_with_ruta_and_bom": {
+      "list": "GET /api/modelos includes ruta_nombre",
+      "detail": "GET /api/modelos/{id} includes ruta_etapas, materiales_detalle, servicios_detalle",
+      "create_with_ruta": "POST with ruta_produccion_id works",
+      "create_with_bom": "POST with materiales array works",
+      "create_with_servicios": "POST with servicios_ids array works",
+      "update_ruta": "PUT can change ruta_produccion_id"
+    },
+    "registro_dynamic_estados": {
+      "endpoint": "GET /api/registros/{id}/estados-disponibles",
+      "usa_ruta": "Returns true if modelo has ruta",
+      "estados": "Returns estados from ruta etapas (servicio nombres)",
+      "siguiente_estado": "Returns next available estado based on current position"
+    },
+    "frontend_rutas_page": {
+      "url": "/maestros/rutas",
+      "table": "Shows nombre, descripcion, etapas (as badges with arrows)",
+      "nueva_ruta_dialog": "Form with nombre, descripcion, servicio selector, drag-drop etapas",
+      "delete_blocking": "Shows error toast when trying to delete ruta used by models"
+    },
+    "frontend_modelos_form": {
+      "tabs": "General, Materiales, Producción",
+      "general_tab": "Nombre, Marca, Tipo, Entalle, Tela, Hilo selects",
+      "materiales_tab": "BOM section with item selector and cantidad input",
+      "produccion_tab": "Ruta dropdown (shows etapas count), Servicios checkboxes"
+    },
+    "frontend_registro_form": {
+      "estado_section": "Shows 'Ruta: {nombre}' badge when modelo has ruta",
+      "dynamic_estados": "Shows current estado and next available estado",
+      "datos_modelo_panel": "Shows modelo details (marca, tipo, entalle, tela, hilo)"
+    }
+  }
+}
