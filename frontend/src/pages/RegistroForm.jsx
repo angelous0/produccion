@@ -205,6 +205,9 @@ export const RegistroForm = () => {
       const modelo = modelosRes.data.find(m => m.id === registro.modelo_id);
       setModeloSeleccionado(modelo || null);
       
+      // Cargar estados disponibles para este registro
+      await fetchEstadosDisponibles(id);
+      
     } catch (error) {
       toast.error('Error al cargar registro');
       navigate('/registros');
