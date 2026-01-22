@@ -192,6 +192,7 @@ export const RegistroForm = () => {
   useEffect(() => {
     if (id) {
       fetchSalidasRegistro();
+      fetchMovimientosProduccion();
     }
   }, [id]);
 
