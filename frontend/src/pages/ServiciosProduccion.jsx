@@ -302,22 +302,38 @@ export const ServiciosProduccion = () => {
                 data-testid="input-nombre-servicio"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="secuencia">Orden de Secuencia</Label>
-              <Input
-                id="secuencia"
-                type="number"
-                min="0"
-                value={formData.secuencia}
-                onChange={(e) => setFormData({ ...formData, secuencia: parseInt(e.target.value) || 0 })}
-                placeholder="0"
-                className="font-mono"
-                data-testid="input-secuencia-servicio"
-              />
-              <p className="text-xs text-muted-foreground">
-                O arrastra las filas en la tabla para cambiar el orden
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="secuencia">Orden de Secuencia</Label>
+                <Input
+                  id="secuencia"
+                  type="number"
+                  min="0"
+                  value={formData.secuencia}
+                  onChange={(e) => setFormData({ ...formData, secuencia: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                  className="font-mono"
+                  data-testid="input-secuencia-servicio"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tarifa">Tarifa por Prenda (S/)</Label>
+                <Input
+                  id="tarifa"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.tarifa}
+                  onChange={(e) => setFormData({ ...formData, tarifa: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  className="font-mono"
+                  data-testid="input-tarifa-servicio"
+                />
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Arrastra las filas en la tabla para cambiar el orden
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
