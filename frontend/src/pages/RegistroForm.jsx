@@ -1143,6 +1143,17 @@ export const RegistroForm = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para salida masiva de rollos */}
+      <SalidaRollosDialog
+        open={rollosDialogOpen}
+        onOpenChange={setRollosDialogOpen}
+        registroId={id}
+        onSuccess={() => {
+          fetchSalidasRegistro();
+          axios.get(`${API}/inventario`).then(res => setItemsInventario(res.data));
+        }}
+      />
     </div>
   );
 };
