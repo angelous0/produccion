@@ -1832,10 +1832,12 @@ async def get_reporte_productividad(
         servicio_id_m = m.get('servicio_id')
         cantidad = m.get('cantidad', 0)
         
-        # Obtener tarifa del servicio
-        servicio = await db.servicios_produccion.find_one({"id": servicio_id_m}, {"_id": 0, "tarifa": 1, "nombre": 1})
-        tarifa = servicio.get('tarifa', 0) if servicio else 0
+        # Usar tarifa_aplicada del movimiento (la que el usuario ingresó)
+        tarifa = m.get('tarifa_aplicada', 0)
         costo = cantidad * tarifa
+        
+        # Obtener datos del servicio para mostrar nombre
+        servicio = await db.servicios_produccion.find_one({"id": servicio_id_m}, {"_id": 0, "tarifa": 1, "nombre": 1})
         
         # Por persona
         if persona_id_m not in totales_persona:
@@ -1856,7 +1858,7 @@ async def get_reporte_productividad(
             totales_servicio[servicio_id_m] = {
                 "servicio_id": servicio_id_m,
                 "servicio_nombre": servicio['nombre'] if servicio else "Desconocido",
-                "tarifa": tarifa,
+                "tarifa": servicio.get('tarifa', 0) if servicio else 0,  # Tarifa referencial
                 "total_cantidad": 0,
                 "total_costo": 0,
                 "movimientos": 0
