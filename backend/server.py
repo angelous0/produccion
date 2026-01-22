@@ -1546,6 +1546,217 @@ async def get_kardex(item_id: str):
         "movimientos": movimientos
     }
 
+# ==================== SERVICIOS DE PRODUCCIÓN ====================
+
+class ServicioProduccionBase(BaseModel):
+    nombre: str
+    secuencia: int = 0
+
+class ServicioProduccionCreate(ServicioProduccionBase):
+    pass
+
+class ServicioProduccion(ServicioProduccionBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+@api_router.get("/servicios-produccion", response_model=List[ServicioProduccion])
+async def get_servicios_produccion():
+    servicios = await db.servicios_produccion.find({}, {"_id": 0}).to_list(1000)
+    for s in servicios:
+        if isinstance(s.get('created_at'), str):
+            s['created_at'] = datetime.fromisoformat(s['created_at'])
+    return sorted(servicios, key=lambda x: x.get('secuencia', 0))
+
+@api_router.post("/servicios-produccion", response_model=ServicioProduccion)
+async def create_servicio_produccion(input: ServicioProduccionCreate):
+    servicio = ServicioProduccion(**input.model_dump())
+    doc = servicio.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.servicios_produccion.insert_one(doc)
+    return servicio
+
+@api_router.put("/servicios-produccion/{servicio_id}", response_model=ServicioProduccion)
+async def update_servicio_produccion(servicio_id: str, input: ServicioProduccionCreate):
+    result = await db.servicios_produccion.find_one({"id": servicio_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
+    await db.servicios_produccion.update_one({"id": servicio_id}, {"$set": input.model_dump()})
+    result.update(input.model_dump())
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return ServicioProduccion(**result)
+
+@api_router.delete("/servicios-produccion/{servicio_id}")
+async def delete_servicio_produccion(servicio_id: str):
+    result = await db.servicios_produccion.delete_one({"id": servicio_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
+    return {"message": "Servicio eliminado"}
+
+# ==================== PERSONAS DE PRODUCCIÓN ====================
+
+class PersonaProduccionBase(BaseModel):
+    nombre: str
+    servicio_ids: List[str] = []  # Lista de IDs de servicios asignados
+    telefono: str = ""
+    activo: bool = True
+
+class PersonaProduccionCreate(PersonaProduccionBase):
+    pass
+
+class PersonaProduccion(PersonaProduccionBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class PersonaConServicios(PersonaProduccion):
+    servicios_nombres: List[str] = []
+
+@api_router.get("/personas-produccion")
+async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
+    query = {}
+    if servicio_id:
+        query['servicio_ids'] = servicio_id
+    if activo is not None:
+        query['activo'] = activo
+    
+    personas = await db.personas_produccion.find(query, {"_id": 0}).to_list(1000)
+    result = []
+    for p in personas:
+        if isinstance(p.get('created_at'), str):
+            p['created_at'] = datetime.fromisoformat(p['created_at'])
+        
+        # Obtener nombres de servicios
+        servicios_nombres = []
+        for sid in p.get('servicio_ids', []):
+            servicio = await db.servicios_produccion.find_one({"id": sid}, {"_id": 0, "nombre": 1})
+            if servicio:
+                servicios_nombres.append(servicio['nombre'])
+        p['servicios_nombres'] = servicios_nombres
+        
+        result.append(p)
+    return sorted(result, key=lambda x: x.get('nombre', ''))
+
+@api_router.post("/personas-produccion", response_model=PersonaProduccion)
+async def create_persona_produccion(input: PersonaProduccionCreate):
+    persona = PersonaProduccion(**input.model_dump())
+    doc = persona.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.personas_produccion.insert_one(doc)
+    return persona
+
+@api_router.put("/personas-produccion/{persona_id}", response_model=PersonaProduccion)
+async def update_persona_produccion(persona_id: str, input: PersonaProduccionCreate):
+    result = await db.personas_produccion.find_one({"id": persona_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    await db.personas_produccion.update_one({"id": persona_id}, {"$set": input.model_dump()})
+    result.update(input.model_dump())
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return PersonaProduccion(**result)
+
+@api_router.delete("/personas-produccion/{persona_id}")
+async def delete_persona_produccion(persona_id: str):
+    result = await db.personas_produccion.delete_one({"id": persona_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    return {"message": "Persona eliminada"}
+
+# ==================== MOVIMIENTOS DE PRODUCCIÓN ====================
+
+class MovimientoProduccionBase(BaseModel):
+    registro_id: str
+    servicio_id: str
+    persona_id: str
+    fecha_inicio: Optional[str] = None
+    fecha_fin: Optional[str] = None
+    cantidad: int = 0
+    observaciones: str = ""
+
+class MovimientoProduccionCreate(MovimientoProduccionBase):
+    pass
+
+class MovimientoProduccion(MovimientoProduccionBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class MovimientoConDetalles(MovimientoProduccion):
+    servicio_nombre: str = ""
+    persona_nombre: str = ""
+    registro_n_corte: str = ""
+
+@api_router.get("/movimientos-produccion")
+async def get_movimientos_produccion(registro_id: str = None):
+    query = {}
+    if registro_id:
+        query['registro_id'] = registro_id
+    
+    movimientos = await db.movimientos_produccion.find(query, {"_id": 0}).to_list(5000)
+    result = []
+    for m in movimientos:
+        if isinstance(m.get('created_at'), str):
+            m['created_at'] = datetime.fromisoformat(m['created_at'])
+        
+        # Obtener nombres
+        servicio = await db.servicios_produccion.find_one({"id": m.get('servicio_id')}, {"_id": 0, "nombre": 1})
+        persona = await db.personas_produccion.find_one({"id": m.get('persona_id')}, {"_id": 0, "nombre": 1})
+        registro = await db.registros.find_one({"id": m.get('registro_id')}, {"_id": 0, "n_corte": 1})
+        
+        m['servicio_nombre'] = servicio['nombre'] if servicio else ""
+        m['persona_nombre'] = persona['nombre'] if persona else ""
+        m['registro_n_corte'] = registro['n_corte'] if registro else ""
+        
+        result.append(m)
+    return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
+
+@api_router.post("/movimientos-produccion", response_model=MovimientoProduccion)
+async def create_movimiento_produccion(input: MovimientoProduccionCreate):
+    # Verificar que el registro existe
+    registro = await db.registros.find_one({"id": input.registro_id})
+    if not registro:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    
+    # Verificar que el servicio existe
+    servicio = await db.servicios_produccion.find_one({"id": input.servicio_id})
+    if not servicio:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
+    
+    # Verificar que la persona existe y tiene el servicio asignado
+    persona = await db.personas_produccion.find_one({"id": input.persona_id}, {"_id": 0})
+    if not persona:
+        raise HTTPException(status_code=404, detail="Persona no encontrada")
+    if input.servicio_id not in persona.get('servicio_ids', []):
+        raise HTTPException(status_code=400, detail="La persona no tiene asignado este servicio")
+    
+    movimiento = MovimientoProduccion(**input.model_dump())
+    doc = movimiento.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.movimientos_produccion.insert_one(doc)
+    return movimiento
+
+@api_router.put("/movimientos-produccion/{movimiento_id}", response_model=MovimientoProduccion)
+async def update_movimiento_produccion(movimiento_id: str, input: MovimientoProduccionCreate):
+    result = await db.movimientos_produccion.find_one({"id": movimiento_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+    
+    update_data = input.model_dump()
+    await db.movimientos_produccion.update_one({"id": movimiento_id}, {"$set": update_data})
+    result.update(update_data)
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return MovimientoProduccion(**result)
+
+@api_router.delete("/movimientos-produccion/{movimiento_id}")
+async def delete_movimiento_produccion(movimiento_id: str):
+    result = await db.movimientos_produccion.delete_one({"id": movimiento_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+    return {"message": "Movimiento eliminado"}
+
 # Root endpoint
 @api_router.get("/")
 async def root():
