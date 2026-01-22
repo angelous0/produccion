@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -29,12 +30,13 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Pencil, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const UNIDADES = ['unidad', 'metro', 'kg', 'litro', 'rollo', 'caja', 'par'];
+const CATEGORIAS = ['Telas', 'Avios', 'Otros'];
 
 export const Inventario = () => {
   const [items, setItems] = useState([]);
@@ -45,8 +47,10 @@ export const Inventario = () => {
     codigo: '',
     nombre: '',
     descripcion: '',
+    categoria: 'Otros',
     unidad_medida: 'unidad',
     stock_minimo: 0,
+    control_por_rollos: false,
   });
 
   const fetchItems = async () => {
