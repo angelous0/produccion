@@ -488,6 +488,7 @@ export const RegistroForm = () => {
         fecha_inicio: movimiento.fecha_inicio || '',
         fecha_fin: movimiento.fecha_fin || '',
         cantidad: movimiento.cantidad || 0,
+        tarifa_aplicada: movimiento.tarifa_aplicada || 0,
         observaciones: movimiento.observaciones || '',
       });
       // Filtrar personas por el servicio del movimiento
@@ -504,6 +505,7 @@ export const RegistroForm = () => {
         fecha_inicio: new Date().toISOString().split('T')[0],
         fecha_fin: '',
         cantidad: 0,
+        tarifa_aplicada: 0,
         observaciones: '',
       });
       setPersonasFiltradas([]);
@@ -512,10 +514,13 @@ export const RegistroForm = () => {
   };
 
   const handleServicioChange = (servicioId) => {
+    // Pre-llenar tarifa con la del servicio (referencial)
+    const tarifaServicio = getServicioTarifa(servicioId);
     setMovimientoFormData({ 
       ...movimientoFormData, 
       servicio_id: servicioId,
-      persona_id: '' 
+      persona_id: '',
+      tarifa_aplicada: tarifaServicio  // Pre-llenar pero editable
     });
     // Filtrar personas que tienen asignado este servicio
     const filtradas = personasProduccion.filter(p => 
