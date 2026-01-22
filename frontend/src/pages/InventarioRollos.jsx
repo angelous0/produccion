@@ -36,7 +36,7 @@ export const InventarioRollos = () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filtroItem) params.append('item_id', filtroItem);
+      if (filtroItem && filtroItem !== 'all') params.append('item_id', filtroItem);
       if (filtroActivo && filtroActivo !== 'all') params.append('activo', filtroActivo);
       
       const [rollosRes, itemsRes] = await Promise.all([
