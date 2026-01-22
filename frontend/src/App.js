@@ -54,6 +54,7 @@ function App() {
             <Route path="maestros/servicios" element={<ServiciosProduccion />} />
             <Route path="maestros/personas" element={<PersonasProduccion />} />
             <Route path="maestros/movimientos" element={<MovimientosProduccion />} />
+            <Route path="maestros/productividad" element={<ReporteProductividad />} />
           </Route>
         </Routes>
       </BrowserRouter>
