@@ -548,12 +548,16 @@ async def get_modelos():
         entalle = await db.entalles.find_one({"id": m.get('entalle_id')}, {"_id": 0, "nombre": 1})
         tela = await db.telas.find_one({"id": m.get('tela_id')}, {"_id": 0, "nombre": 1})
         hilo = await db.hilos.find_one({"id": m.get('hilo_id')}, {"_id": 0, "nombre": 1})
+        ruta = await db.rutas_produccion.find_one({"id": m.get('ruta_produccion_id')}, {"_id": 0, "nombre": 1}) if m.get('ruta_produccion_id') else None
         
         m['marca_nombre'] = marca['nombre'] if marca else None
         m['tipo_nombre'] = tipo['nombre'] if tipo else None
         m['entalle_nombre'] = entalle['nombre'] if entalle else None
         m['tela_nombre'] = tela['nombre'] if tela else None
         m['hilo_nombre'] = hilo['nombre'] if hilo else None
+        m['ruta_nombre'] = ruta['nombre'] if ruta else None
+        m.setdefault('materiales', [])
+        m.setdefault('servicios_ids', [])
         
         result.append(ModeloConRelaciones(**m))
     return result
