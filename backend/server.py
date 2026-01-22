@@ -1699,6 +1699,7 @@ class MovimientoProduccionBase(BaseModel):
     fecha_inicio: Optional[str] = None
     fecha_fin: Optional[str] = None
     cantidad: int = 0
+    tarifa_aplicada: float = 0.0  # Tarifa editable (puede diferir de la del servicio)
     observaciones: str = ""
 
 class MovimientoProduccionCreate(MovimientoProduccionBase):
@@ -1713,6 +1714,7 @@ class MovimientoConDetalles(MovimientoProduccion):
     servicio_nombre: str = ""
     persona_nombre: str = ""
     registro_n_corte: str = ""
+    costo: float = 0.0  # Calculado: cantidad * tarifa_aplicada
 
 @api_router.get("/movimientos-produccion")
 async def get_movimientos_produccion(registro_id: str = None):
