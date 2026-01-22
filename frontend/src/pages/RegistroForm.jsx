@@ -651,6 +651,9 @@ export const RegistroForm = () => {
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Distribución de Colores</DialogTitle>
+            <DialogDescription>
+              Selecciona colores y distribuye las cantidades por talla
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Selector de colores múltiple con buscador */}

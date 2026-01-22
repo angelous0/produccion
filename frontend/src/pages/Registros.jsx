@@ -408,6 +408,9 @@ export const Registros = () => {
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Distribución de Colores - Corte #{colorEditItem?.n_corte}</DialogTitle>
+            <DialogDescription>
+              Selecciona colores y distribuye las cantidades por talla
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
             {/* Selector de colores múltiple con buscador */}
@@ -539,6 +542,9 @@ export const Registros = () => {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalle del Registro</DialogTitle>
+            <DialogDescription>
+              Información completa del registro de producción
+            </DialogDescription>
           </DialogHeader>
           {viewingItem && (
             <div className="space-y-6 py-4">
