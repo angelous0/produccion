@@ -955,6 +955,10 @@ async def get_ingresos():
         ing['item_nombre'] = item['nombre'] if item else ""
         ing['item_codigo'] = item['codigo'] if item else ""
         
+        # Contar rollos de este ingreso
+        rollos_count = await db.inventario_rollos.count_documents({"ingreso_id": ing['id']})
+        ing['rollos_count'] = rollos_count
+        
         result.append(IngresoConDetalles(**ing))
     return sorted(result, key=lambda x: x.fecha, reverse=True)
 
@@ -965,17 +969,48 @@ async def create_ingreso(input: IngresoInventarioCreate):
     if not item:
         raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
     
-    ingreso = IngresoInventario(**input.model_dump())
-    ingreso.cantidad_disponible = input.cantidad  # Inicialmente toda la cantidad está disponible
+    # Si tiene control por rollos, la cantidad se calcula de los rollos
+    rollos_data = input.rollos if hasattr(input, 'rollos') else []
+    
+    if item.get('control_por_rollos') and rollos_data:
+        # Calcular cantidad total desde los rollos
+        cantidad_total = sum(r.get('metraje', 0) for r in rollos_data)
+        ingreso_data = input.model_dump()
+        ingreso_data['cantidad'] = cantidad_total
+        ingreso_data.pop('rollos', None)
+        ingreso = IngresoInventario(**ingreso_data)
+    else:
+        ingreso_data = input.model_dump()
+        ingreso_data.pop('rollos', None)
+        ingreso = IngresoInventario(**ingreso_data)
+    
+    ingreso.cantidad_disponible = ingreso.cantidad
     
     doc = ingreso.model_dump()
     doc['fecha'] = doc['fecha'].isoformat()
     await db.inventario_ingresos.insert_one(doc)
     
+    # Si hay rollos, crearlos
+    if item.get('control_por_rollos') and rollos_data:
+        for rollo_data in rollos_data:
+            rollo = Rollo(
+                item_id=input.item_id,
+                ingreso_id=ingreso.id,
+                numero_rollo=rollo_data.get('numero_rollo', ''),
+                metraje=rollo_data.get('metraje', 0),
+                ancho=rollo_data.get('ancho', 0),
+                tono=rollo_data.get('tono', ''),
+                observaciones=rollo_data.get('observaciones', ''),
+                metraje_disponible=rollo_data.get('metraje', 0)
+            )
+            rollo_doc = rollo.model_dump()
+            rollo_doc['created_at'] = rollo_doc['created_at'].isoformat()
+            await db.inventario_rollos.insert_one(rollo_doc)
+    
     # Actualizar stock del item
     await db.inventario.update_one(
         {"id": input.item_id},
-        {"$inc": {"stock_actual": input.cantidad}}
+        {"$inc": {"stock_actual": ingreso.cantidad}}
     )
     
     return ingreso
@@ -990,6 +1025,9 @@ async def delete_ingreso(ingreso_id: str):
     if ingreso.get('cantidad_disponible', 0) != ingreso.get('cantidad', 0):
         raise HTTPException(status_code=400, detail="No se puede eliminar un ingreso que ya tiene salidas")
     
+    # Eliminar rollos asociados
+    await db.inventario_rollos.delete_many({"ingreso_id": ingreso_id})
+    
     await db.inventario_ingresos.delete_one({"id": ingreso_id})
     
     # Restar del stock
@@ -999,6 +1037,46 @@ async def delete_ingreso(ingreso_id: str):
     )
     
     return {"message": "Ingreso eliminado"}
+
+# ==================== ENDPOINTS ROLLOS ====================
+
+@api_router.get("/inventario-rollos")
+async def get_rollos(item_id: str = None, activo: bool = None):
+    query = {}
+    if item_id:
+        query['item_id'] = item_id
+    if activo is not None:
+        query['activo'] = activo
+        if activo:
+            query['metraje_disponible'] = {"$gt": 0}
+    
+    rollos = await db.inventario_rollos.find(query, {"_id": 0}).to_list(1000)
+    result = []
+    for rollo in rollos:
+        if isinstance(rollo.get('created_at'), str):
+            rollo['created_at'] = datetime.fromisoformat(rollo['created_at'])
+        
+        item = await db.inventario.find_one({"id": rollo.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+        rollo['item_nombre'] = item['nombre'] if item else ""
+        rollo['item_codigo'] = item['codigo'] if item else ""
+        
+        result.append(rollo)
+    return sorted(result, key=lambda x: x['created_at'], reverse=True)
+
+@api_router.get("/inventario-rollos/{rollo_id}")
+async def get_rollo(rollo_id: str):
+    rollo = await db.inventario_rollos.find_one({"id": rollo_id}, {"_id": 0})
+    if not rollo:
+        raise HTTPException(status_code=404, detail="Rollo no encontrado")
+    
+    if isinstance(rollo.get('created_at'), str):
+        rollo['created_at'] = datetime.fromisoformat(rollo['created_at'])
+    
+    item = await db.inventario.find_one({"id": rollo.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+    rollo['item_nombre'] = item['nombre'] if item else ""
+    rollo['item_codigo'] = item['codigo'] if item else ""
+    
+    return rollo
 
 # ==================== ENDPOINTS SALIDAS ====================
 
