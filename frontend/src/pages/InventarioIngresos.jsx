@@ -226,7 +226,15 @@ export const InventarioIngresos = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <ArrowDownCircle className="h-4 w-4 text-green-600" />
-                          {ingreso.item_nombre}
+                          <div>
+                            {ingreso.item_nombre}
+                            {ingreso.rollos_count > 0 && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                <Layers className="h-3 w-3 mr-1" />
+                                {ingreso.rollos_count} rollos
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-mono font-semibold">
