@@ -189,6 +189,24 @@ export const MovimientosProduccion = () => {
     setPersonasFiltradasCreate(filtradas);
   };
 
+  // Helper para obtener tarifa del servicio
+  const getServicioTarifa = (servicioId) => {
+    const servicio = servicios.find(s => s.id === servicioId);
+    return servicio?.tarifa || 0;
+  };
+
+  // Helper para calcular costo del formulario de crear
+  const calcularCostoCreate = () => {
+    const tarifa = getServicioTarifa(createFormData.servicio_id);
+    return tarifa * (createFormData.cantidad || 0);
+  };
+
+  // Helper para calcular costo del formulario de editar
+  const calcularCostoEdit = () => {
+    const tarifa = getServicioTarifa(formData.servicio_id);
+    return tarifa * (formData.cantidad || 0);
+  };
+
   const handleCreateSubmit = async () => {
     if (!createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id) {
       toast.error('Selecciona registro, servicio y persona');
