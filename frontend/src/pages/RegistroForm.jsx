@@ -645,6 +645,93 @@ export const RegistroForm = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Salidas de Inventario (solo en modo edición) */}
+            {isEditing && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Salidas de Inventario
+                  </CardTitle>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleOpenSalidaDialog}
+                    data-testid="btn-nueva-salida"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Agregar Salida
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {salidasRegistro.length > 0 ? (
+                    <>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead>Item</TableHead>
+                              <TableHead className="text-right">Cantidad</TableHead>
+                              <TableHead className="text-right">Costo FIFO</TableHead>
+                              <TableHead className="w-[60px]"></TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {salidasRegistro.map((salida) => (
+                              <TableRow key={salida.id} data-testid={`salida-row-${salida.id}`}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <ArrowUpCircle className="h-4 w-4 text-red-500" />
+                                    <div>
+                                      <p className="font-medium">{salida.item_nombre}</p>
+                                      <p className="text-xs text-muted-foreground font-mono">{salida.item_codigo}</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-semibold">
+                                  {salida.cantidad}
+                                </TableCell>
+                                <TableCell className="text-right font-mono">
+                                  {formatCurrency(salida.costo_total)}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteSalida(salida.id)}
+                                    data-testid={`delete-salida-${salida.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="bg-muted/30">
+                              <TableCell colSpan={2} className="font-semibold">Total Costo</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-primary">
+                                {formatCurrency(getTotalCostoSalidas())}
+                              </TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {salidasRegistro.length} salida{salidasRegistro.length !== 1 ? 's' : ''} vinculada{salidasRegistro.length !== 1 ? 's' : ''} a este registro
+                      </p>
+                    </>
+                  ) : (
+                    <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
+                      <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No hay salidas de inventario</p>
+                      <p className="text-xs mt-1">Agrega materiales utilizados en este registro</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Columna derecha - Datos del modelo */}
