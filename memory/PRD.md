@@ -30,14 +30,21 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - `/api/registros` - CRUD registros con tallas y distribución colores
 - `/api/estados` - Lista de estados
 - `/api/stats` - Estadísticas dashboard
+- **NUEVO** `/api/inventario` - CRUD items de inventario
+- **NUEVO** `/api/inventario-ingresos` - Entradas de inventario
+- **NUEVO** `/api/inventario-salidas` - Salidas de inventario con método FIFO
+- **NUEVO** `/api/inventario-ajustes` - Ajustes de inventario
 
 ### Frontend (React + Shadcn/UI)
 - Dashboard con contadores
 - CRUDs para todas las entidades
 - Registros con flujo de 2 pasos
 - Dark/Light mode toggle
+- **NUEVO** Módulo de Inventario FIFO con navegación separada
 
-## Implementado (Enero 2025)
+## Implementado
+
+### Enero 2025 - MVP
 - ✅ Backend completo con todos los endpoints
 - ✅ Frontend con todas las páginas y CRUDs
 - ✅ Catálogo de Tallas y Colores
@@ -46,15 +53,35 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - ✅ Dark mode toggle
 - ✅ Inputs sin spinners
 - ✅ Eliminación directa
+- ✅ Accesibilidad mejorada en Dialogs (DialogDescription)
+
+### Enero 2025 - Módulo Inventario FIFO
+- ✅ CRUD de Items de Inventario (código, nombre, descripción, unidad_medida, stock_minimo)
+- ✅ Ingresos de inventario (entradas con costo unitario, proveedor, documento)
+- ✅ Salidas de inventario con método FIFO (calcula costo automáticamente de lotes más antiguos)
+- ✅ Vinculación de salidas con registros de producción (un registro puede tener muchas salidas)
+- ✅ Ajustes de inventario (entrada/salida con motivo)
+- ✅ Control de stock mínimo con alertas visuales
+- ✅ Estadísticas de inventario en API /stats
+- ✅ Navegación sidebar separada para módulo "Inventario FIFO"
+- ✅ Testing completo (22/22 tests pasados)
 
 ## Backlog
 
+### P0 - En Progreso
+- [ ] Implementar dropdowns en cascada para creación de Modelos (seleccionar Marca → filtra Tipos → filtra Entalles, etc.)
+  - Backend ya tiene relaciones many-to-many (marca_ids, tipo_ids, etc.)
+  - Falta: actualizar frontend de Telas.jsx, Hilos.jsx con multi-selects
+  - Falta: implementar lógica de filtrado en Modelos.jsx
+
 ### P1 - Importante
-- Autenticación de usuarios
-- Filtros y búsqueda en tablas
-- Exportar registros a Excel
+- [ ] Autenticación de usuarios
+- [ ] Filtros y búsqueda en tablas
+- [ ] Exportar registros a Excel
+- [ ] Reporte de movimientos de inventario
 
 ### P2 - Mejoras
-- Reportes de producción
-- Gráficos de estados
-- Historial de cambios de estado
+- [ ] Reportes de producción
+- [ ] Gráficos de estados
+- [ ] Historial de cambios de estado
+- [ ] Kardex de inventario (reporte detallado FIFO)
