@@ -30,17 +30,22 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - `/api/registros` - CRUD registros con tallas y distribución colores
 - `/api/estados` - Lista de estados
 - `/api/stats` - Estadísticas dashboard
-- **NUEVO** `/api/inventario` - CRUD items de inventario
-- **NUEVO** `/api/inventario-ingresos` - Entradas de inventario
-- **NUEVO** `/api/inventario-salidas` - Salidas de inventario con método FIFO
-- **NUEVO** `/api/inventario-ajustes` - Ajustes de inventario
+- `/api/inventario` - CRUD items de inventario
+- `/api/inventario-ingresos` - Entradas de inventario
+- `/api/inventario-salidas` - Salidas de inventario con método FIFO
+- `/api/inventario-ajustes` - Ajustes de inventario
+- **NUEVO** `/api/servicios-produccion` - CRUD servicios de producción (nombre, secuencia)
+- **NUEVO** `/api/personas-produccion` - CRUD personas de producción (nombre, servicios[], teléfono, activo)
+- **NUEVO** `/api/movimientos-produccion` - CRUD movimientos de producción (vinculados a registros)
 
 ### Frontend (React + Shadcn/UI)
 - Dashboard con contadores
 - CRUDs para todas las entidades
 - Registros con flujo de 2 pasos
 - Dark/Light mode toggle
-- **NUEVO** Módulo de Inventario FIFO con navegación separada
+- Módulo de Inventario FIFO con navegación separada
+- **NUEVO** Sección "Maestros" con Servicios y Personas
+- **NUEVO** Movimientos de Producción integrados en formulario de Registro
 
 ## Implementado
 
@@ -77,13 +82,31 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - ✅ **Kardex de Inventario** - Historial detallado por item con saldos
 - ✅ Navegación sidebar con sección "Inventario FIFO" completa
 
+### Enero 2025 - Módulo de Movimientos de Producción
+- ✅ **Servicios de Producción**: CRUD completo en `/maestros/servicios`
+  - Campos: nombre, secuencia (para ordenar manualmente)
+  - Ordenamiento por secuencia
+- ✅ **Personas de Producción**: CRUD completo en `/maestros/personas`
+  - Campos: nombre, servicios (múltiples), teléfono, activo
+  - Filtros por estado activo/inactivo
+  - Toggle para activar/desactivar personas
+  - Badges mostrando los servicios asignados
+- ✅ **Movimientos de Producción** integrados en RegistroForm:
+  - Tabla de movimientos vinculados al registro
+  - Campos: servicio, persona, fecha inicio, fecha fin, cantidad de prendas
+  - Filtro dinámico: al seleccionar servicio, las personas se filtran
+  - Validación: persona debe tener el servicio asignado
+  - Total de prendas entregadas calculado
+- ✅ Nueva sección "Maestros" en el menú lateral
+
 ## Backlog
 
 ### P0 - En Progreso
-- [ ] Implementar dropdowns en cascada para creación de Modelos (seleccionar Marca → filtra Tipos → filtra Entalles, etc.)
-  - Backend ya tiene relaciones many-to-many (marca_ids, tipo_ids, etc.)
-  - Falta: actualizar frontend de Telas.jsx, Hilos.jsx con multi-selects
-  - Falta: implementar lógica de filtrado en Modelos.jsx
+- [ ] Completar diálogo de salida masiva de rollos (`SalidaRollosDialog.jsx`)
+  - Filtrar rollos por ancho y tono
+  - Selección múltiple con checkboxes
+  - Uso parcial o total por rollo
+  - Endpoint batch: `/api/inventario/salidas/batch-rollos`
 
 ### P1 - Importante
 - [ ] Autenticación de usuarios
@@ -94,4 +117,5 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - [ ] Reportes de producción con costos de materiales
 - [ ] Gráficos de estados
 - [ ] Historial de cambios de estado
-- [ ] Exportar Kardex a PDF/Excel
+- [ ] Exportar Kardex y Reportes a PDF/Excel
+- [ ] Dropdowns en cascada para creación de Modelos
