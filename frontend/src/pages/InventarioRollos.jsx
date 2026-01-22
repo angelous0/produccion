@@ -124,7 +124,7 @@ export const InventarioRollos = () => {
                 <SelectContent>
                   <SelectItem value="true">Con stock disponible</SelectItem>
                   <SelectItem value="false">Agotados</SelectItem>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
