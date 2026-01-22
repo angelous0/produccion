@@ -15,7 +15,11 @@ import {
   Menu,
   X,
   Ruler,
-  Droplets
+  Droplets,
+  Package,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -30,6 +34,13 @@ const navItems = [
   { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
   { to: '/modelos', icon: Box, label: 'Modelos' },
   { to: '/registros', icon: ClipboardList, label: 'Registros' },
+];
+
+const inventarioItems = [
+  { to: '/inventario', icon: Package, label: 'Inventario' },
+  { to: '/inventario/ingresos', icon: ArrowDownCircle, label: 'Ingresos' },
+  { to: '/inventario/salidas', icon: ArrowUpCircle, label: 'Salidas' },
+  { to: '/inventario/ajustes', icon: RefreshCw, label: 'Ajustes' },
 ];
 
 export const Layout = () => {
