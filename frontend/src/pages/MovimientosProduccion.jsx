@@ -210,8 +210,7 @@ export const MovimientosProduccion = () => {
 
   // Helper para calcular costo del formulario de editar (usa tarifa_aplicada)
   const calcularCostoEdit = () => {
-    const tarifa = getServicioTarifa(formData.servicio_id);
-    return tarifa * (formData.cantidad || 0);
+    return (formData.tarifa_aplicada || 0) * (formData.cantidad || 0);
   };
 
   const handleCreateSubmit = async () => {
