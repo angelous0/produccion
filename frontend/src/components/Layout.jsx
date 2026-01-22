@@ -23,7 +23,8 @@ import {
   FileText,
   BookOpen,
   Cog,
-  Users
+  Users,
+  Play
 } from 'lucide-react';
 import { useState } from 'react';
 
