@@ -803,9 +803,9 @@ export const MovimientosProduccion = () => {
                 placeholder="0.00"
                 data-testid="create-input-tarifa"
               />
-              {createFormData.servicio_id && getServicioTarifa(createFormData.servicio_id) > 0 && (
+              {createFormData.persona_id && createFormData.servicio_id && (
                 <p className="text-xs text-muted-foreground">
-                  Tarifa referencial del servicio: {formatCurrency(getServicioTarifa(createFormData.servicio_id))}
+                  Tarifa configurada para esta persona: {formatCurrency(getTarifaPersonaServicio(createFormData.persona_id, createFormData.servicio_id))}
                 </p>
               )}
             </div>
