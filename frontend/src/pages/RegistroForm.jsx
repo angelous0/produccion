@@ -957,6 +957,83 @@ export const RegistroForm = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog para crear salida de inventario */}
+      <Dialog open={salidaDialogOpen} onOpenChange={setSalidaDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nueva Salida de Inventario</DialogTitle>
+            <DialogDescription>
+              Registrar una salida de inventario vinculada a este registro
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Item de Inventario *</Label>
+              <Select
+                value={salidaFormData.item_id}
+                onValueChange={handleItemInventarioChange}
+              >
+                <SelectTrigger data-testid="select-item-inventario">
+                  <SelectValue placeholder="Seleccionar item..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {itemsInventario.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      <span className="font-mono mr-2">{item.codigo}</span>
+                      {item.nombre}
+                      <span className="ml-2 text-muted-foreground">(Stock: {item.stock_actual})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedItemInventario && (
+                <p className="text-sm text-muted-foreground">
+                  Stock disponible: <span className="font-mono font-semibold">{selectedItemInventario.stock_actual}</span> {selectedItemInventario.unidad_medida}
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="cantidad-salida">Cantidad *</Label>
+              <Input
+                id="cantidad-salida"
+                type="number"
+                min="1"
+                max={selectedItemInventario?.stock_actual || 999999}
+                value={salidaFormData.cantidad}
+                onChange={(e) => setSalidaFormData({ ...salidaFormData, cantidad: parseInt(e.target.value) || 1 })}
+                className="font-mono"
+                data-testid="input-cantidad-salida"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="observaciones-salida">Observaciones</Label>
+              <Textarea
+                id="observaciones-salida"
+                value={salidaFormData.observaciones}
+                onChange={(e) => setSalidaFormData({ ...salidaFormData, observaciones: e.target.value })}
+                placeholder="Notas adicionales..."
+                rows={2}
+                data-testid="input-observaciones-salida"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSalidaDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateSalida}
+              disabled={!salidaFormData.item_id || salidaFormData.cantidad < 1}
+              data-testid="btn-guardar-salida"
+            >
+              Registrar Salida
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
