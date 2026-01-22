@@ -186,6 +186,7 @@ export const InventarioSalidas = () => {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Item</TableHead>
+                  <TableHead>Rollo</TableHead>
                   <TableHead className="text-right">Cantidad</TableHead>
                   <TableHead className="text-right">Costo FIFO</TableHead>
                   <TableHead>Registro Vinculado</TableHead>
@@ -195,13 +196,13 @@ export const InventarioSalidas = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : salidas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No hay salidas registradas
                     </TableCell>
                   </TableRow>
