@@ -533,6 +533,77 @@ async def delete_color_catalogo(color_id: str):
         raise HTTPException(status_code=404, detail="Color no encontrado")
     return {"message": "Color eliminado"}
 
+# ==================== ENDPOINTS RUTA DE PRODUCCIÓN ====================
+
+@api_router.get("/rutas-produccion")
+async def get_rutas_produccion():
+    rutas = await db.rutas_produccion.find({}, {"_id": 0}).to_list(1000)
+    # Enriquecer con nombres de servicios
+    for ruta in rutas:
+        if isinstance(ruta.get('created_at'), str):
+            ruta['created_at'] = datetime.fromisoformat(ruta['created_at'])
+        etapas_con_nombres = []
+        for etapa in ruta.get('etapas', []):
+            servicio = await db.servicios_produccion.find_one({"id": etapa.get('servicio_id')}, {"_id": 0, "nombre": 1})
+            etapas_con_nombres.append({
+                **etapa,
+                "servicio_nombre": servicio['nombre'] if servicio else None
+            })
+        ruta['etapas'] = etapas_con_nombres
+    return rutas
+
+@api_router.get("/rutas-produccion/{ruta_id}")
+async def get_ruta_produccion(ruta_id: str):
+    ruta = await db.rutas_produccion.find_one({"id": ruta_id}, {"_id": 0})
+    if not ruta:
+        raise HTTPException(status_code=404, detail="Ruta no encontrada")
+    if isinstance(ruta.get('created_at'), str):
+        ruta['created_at'] = datetime.fromisoformat(ruta['created_at'])
+    # Enriquecer con nombres de servicios
+    etapas_con_nombres = []
+    for etapa in ruta.get('etapas', []):
+        servicio = await db.servicios_produccion.find_one({"id": etapa.get('servicio_id')}, {"_id": 0, "nombre": 1})
+        etapas_con_nombres.append({
+            **etapa,
+            "servicio_nombre": servicio['nombre'] if servicio else None
+        })
+    ruta['etapas'] = etapas_con_nombres
+    return ruta
+
+@api_router.post("/rutas-produccion", response_model=RutaProduccion)
+async def create_ruta_produccion(input: RutaProduccionCreate):
+    ruta = RutaProduccion(**input.model_dump())
+    doc = ruta.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.rutas_produccion.insert_one(doc)
+    return ruta
+
+@api_router.put("/rutas-produccion/{ruta_id}", response_model=RutaProduccion)
+async def update_ruta_produccion(ruta_id: str, input: RutaProduccionCreate):
+    result = await db.rutas_produccion.find_one({"id": ruta_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Ruta no encontrada")
+    update_data = input.model_dump()
+    await db.rutas_produccion.update_one({"id": ruta_id}, {"$set": update_data})
+    result.update(update_data)
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return RutaProduccion(**result)
+
+@api_router.delete("/rutas-produccion/{ruta_id}")
+async def delete_ruta_produccion(ruta_id: str):
+    # Verificar si hay modelos usando esta ruta
+    modelos_count = await db.modelos.count_documents({"ruta_produccion_id": ruta_id})
+    if modelos_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"No se puede eliminar: {modelos_count} modelo(s) usan esta ruta"
+        )
+    result = await db.rutas_produccion.delete_one({"id": ruta_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Ruta no encontrada")
+    return {"message": "Ruta eliminada"}
+
 # ==================== ENDPOINTS MODELO ====================
 
 @api_router.get("/modelos", response_model=List[ModeloConRelaciones])
