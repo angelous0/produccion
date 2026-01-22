@@ -778,12 +778,104 @@ async def update_registro(registro_id: str, input: RegistroCreate):
     result = await db.registros.find_one({"id": registro_id}, {"_id": 0})
     if not result:
         raise HTTPException(status_code=404, detail="Registro no encontrado")
+    
     update_data = input.model_dump()
+    estado_anterior = result.get('estado')
+    estado_nuevo = update_data.get('estado')
+    
+    # Si el estado cambió, validar según la ruta de producción
+    if estado_anterior != estado_nuevo:
+        modelo = await db.modelos.find_one({"id": result.get('modelo_id')}, {"_id": 0})
+        if modelo and modelo.get('ruta_produccion_id'):
+            ruta = await db.rutas_produccion.find_one({"id": modelo['ruta_produccion_id']}, {"_id": 0})
+            if ruta and ruta.get('etapas'):
+                etapas = sorted(ruta['etapas'], key=lambda x: x.get('orden', 0))
+                # Encontrar índice del estado anterior
+                idx_anterior = -1
+                servicio_anterior_id = None
+                for i, etapa in enumerate(etapas):
+                    servicio = await db.servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
+                    if servicio and servicio['nombre'] == estado_anterior:
+                        idx_anterior = i
+                        servicio_anterior_id = etapa['servicio_id']
+                        break
+                
+                # Encontrar índice del estado nuevo
+                idx_nuevo = -1
+                for i, etapa in enumerate(etapas):
+                    servicio = await db.servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
+                    if servicio and servicio['nombre'] == estado_nuevo:
+                        idx_nuevo = i
+                        break
+                
+                # Validar que solo puede avanzar al siguiente estado
+                if idx_anterior >= 0 and idx_nuevo >= 0:
+                    if idx_nuevo != idx_anterior + 1:
+                        raise HTTPException(
+                            status_code=400, 
+                            detail=f"Solo puede avanzar al siguiente estado en la ruta"
+                        )
+                    
+                    # Validar que hay movimiento con fechas para el servicio anterior
+                    if servicio_anterior_id:
+                        movimiento = await db.movimientos_produccion.find_one({
+                            "registro_id": registro_id,
+                            "servicio_id": servicio_anterior_id,
+                            "fecha_inicio": {"$ne": None, "$ne": ""},
+                            "fecha_fin": {"$ne": None, "$ne": ""}
+                        }, {"_id": 0})
+                        if not movimiento:
+                            servicio_nombre = await db.servicios_produccion.find_one({"id": servicio_anterior_id}, {"_id": 0, "nombre": 1})
+                            nombre = servicio_nombre['nombre'] if servicio_nombre else estado_anterior
+                            raise HTTPException(
+                                status_code=400, 
+                                detail=f"Debe registrar un movimiento con fechas para '{nombre}' antes de cambiar de estado"
+                            )
+    
     await db.registros.update_one({"id": registro_id}, {"$set": update_data})
     result.update(update_data)
     if isinstance(result.get('fecha_creacion'), str):
         result['fecha_creacion'] = datetime.fromisoformat(result['fecha_creacion'])
     return Registro(**result)
+
+# Endpoint para obtener estados disponibles para un registro (basado en ruta del modelo)
+@api_router.get("/registros/{registro_id}/estados-disponibles")
+async def get_estados_disponibles_registro(registro_id: str):
+    registro = await db.registros.find_one({"id": registro_id}, {"_id": 0})
+    if not registro:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+    
+    modelo = await db.modelos.find_one({"id": registro.get('modelo_id')}, {"_id": 0})
+    if not modelo or not modelo.get('ruta_produccion_id'):
+        # Si no tiene ruta, devolver estados globales
+        return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro.get('estado')}
+    
+    ruta = await db.rutas_produccion.find_one({"id": modelo['ruta_produccion_id']}, {"_id": 0})
+    if not ruta or not ruta.get('etapas'):
+        return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro.get('estado')}
+    
+    # Obtener nombres de servicios como estados
+    etapas = sorted(ruta['etapas'], key=lambda x: x.get('orden', 0))
+    estados = []
+    estado_actual_idx = -1
+    for i, etapa in enumerate(etapas):
+        servicio = await db.servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
+        if servicio:
+            estados.append(servicio['nombre'])
+            if servicio['nombre'] == registro.get('estado'):
+                estado_actual_idx = i
+    
+    # El siguiente estado disponible es el actual + 1
+    siguiente_estado = estados[estado_actual_idx + 1] if estado_actual_idx >= 0 and estado_actual_idx < len(estados) - 1 else None
+    
+    return {
+        "estados": estados, 
+        "usa_ruta": True, 
+        "ruta_nombre": ruta.get('nombre'),
+        "estado_actual": registro.get('estado'),
+        "estado_actual_idx": estado_actual_idx,
+        "siguiente_estado": siguiente_estado
+    }
 
 @api_router.delete("/registros/{registro_id}")
 async def delete_registro(registro_id: str):
