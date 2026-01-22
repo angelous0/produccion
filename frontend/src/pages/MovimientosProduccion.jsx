@@ -730,7 +730,7 @@ export const MovimientosProduccion = () => {
               <Label>Persona *</Label>
               <Select
                 value={createFormData.persona_id}
-                onValueChange={(value) => setCreateFormData({ ...createFormData, persona_id: value })}
+                onValueChange={handlePersonaChangeCreate}
                 disabled={!createFormData.servicio_id}
               >
                 <SelectTrigger data-testid="create-select-persona">
@@ -742,11 +742,17 @@ export const MovimientosProduccion = () => {
                       No hay personas asignadas a este servicio
                     </SelectItem>
                   ) : (
-                    personasFiltradasCreate.map((persona) => (
-                      <SelectItem key={persona.id} value={persona.id}>
-                        {persona.nombre}
-                      </SelectItem>
-                    ))
+                    personasFiltradasCreate.map((persona) => {
+                      const tarifaPersona = getTarifaPersonaServicio(persona.id, createFormData.servicio_id);
+                      return (
+                        <SelectItem key={persona.id} value={persona.id}>
+                          {persona.nombre}
+                          {tarifaPersona > 0 && (
+                            <span className="ml-2 text-green-600">({formatCurrency(tarifaPersona)}/prenda)</span>
+                          )}
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>
