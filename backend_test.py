@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class TextileAPITester:
-    def __init__(self, base_url="https://stockflow-app-47.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://textile-prod-1.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
