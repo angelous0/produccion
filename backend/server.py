@@ -1676,6 +1676,14 @@ async def update_persona_produccion(persona_id: str, input: PersonaProduccionCre
 
 @api_router.delete("/personas-produccion/{persona_id}")
 async def delete_persona_produccion(persona_id: str):
+    # Verificar si tiene movimientos asociados
+    movimientos_count = await db.movimientos_produccion.count_documents({"persona_id": persona_id})
+    if movimientos_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"No se puede eliminar: tiene {movimientos_count} movimiento(s) de producción asociado(s)"
+        )
+    
     result = await db.personas_produccion.delete_one({"id": persona_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Persona no encontrada")
