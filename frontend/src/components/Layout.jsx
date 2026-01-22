@@ -43,6 +43,7 @@ const inventarioItems = [
   { to: '/inventario/ingresos', icon: ArrowDownCircle, label: 'Ingresos' },
   { to: '/inventario/salidas', icon: ArrowUpCircle, label: 'Salidas' },
   { to: '/inventario/ajustes', icon: RefreshCw, label: 'Ajustes' },
+  { to: '/inventario/rollos', icon: Layers, label: 'Rollos' },
   { to: '/inventario/movimientos', icon: FileText, label: 'Movimientos' },
   { to: '/inventario/kardex', icon: BookOpen, label: 'Kardex' },
 ];
