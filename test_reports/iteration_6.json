@@ -1,0 +1,67 @@
+{
+  "summary": "Frontend testing completed for tarifa per persona-servicio feature. All 7 test cases passed. The tarifa field has been successfully removed from Servicios and is now configured per person-service combination in Personas. When creating/editing movimientos, the tarifa is pre-filled from the persona-servicio configuration but remains editable.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Servicios page does NOT show Tarifa column (only Orden, Nombre, Acciones)",
+    "Servicios form does NOT have Tarifa field (only Nombre and Orden de Secuencia)",
+    "Servicios form shows helper text: 'Las tarifas se configuran en la ficha de cada Persona'",
+    "Personas page shows 'Servicios (Tarifa)' column header",
+    "Personas page shows services with tarifas in badges (e.g., 'Corte (S/ 0.75)')",
+    "Persona edit form shows 'Servicios y Tarifas' section with tarifa input per selected service",
+    "Persona edit form shows Juan Pérez with Corte service and tarifa 0.75",
+    "MovimientosProduccion page - persona dropdown shows tarifa next to name (Juan Pérez (S/ 0.75/prenda))",
+    "MovimientosProduccion page - selecting persona pre-fills tarifa from persona-servicio (0.75)",
+    "MovimientosProduccion page - tarifa field is editable",
+    "MovimientosProduccion page - helper text shows 'Tarifa configurada para esta persona: S/ 0.75'",
+    "RegistroForm page - persona dropdown shows tarifa next to name (Juan Pérez (S/ 0.75/prenda))",
+    "RegistroForm page - selecting persona pre-fills tarifa from persona-servicio (0.75)",
+    "RegistroForm page - tarifa field is editable",
+    "RegistroForm page - helper text shows 'Tarifa configurada para esta persona: S/ 0.75'"
+  ],
+  "test_report_links": [
+    "/app/test_reports/iteration_6.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only testing)",
+    "frontend": "100% (15/15 tests passed)"
+  },
+  "seed_data_creation": "Used existing test data: Juan Pérez with Corte service and tarifa S/0.75",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Tarifa per persona-servicio feature fully implemented and tested. Key changes: 1) ServicioProduccion model no longer has tarifa field, 2) PersonaProduccion has servicios array with {servicio_id, tarifa} objects, 3) When creating movimientos, selecting a persona pre-fills tarifa_aplicada from the persona-servicio configuration, 4) Tarifa remains editable in movimiento forms. Test data: Juan Pérez has tarifa S/0.75 for Corte service.",
+  "features_verified": {
+    "servicios_sin_tarifa": {
+      "table": "No Tarifa column - only Orden, Nombre, Acciones",
+      "form": "No Tarifa field - only Nombre and Orden de Secuencia",
+      "helper_text": "Shows 'Las tarifas se configuran en la ficha de cada Persona'"
+    },
+    "personas_con_tarifa_por_servicio": {
+      "table": "Shows 'Servicios (Tarifa)' column with badges showing service name and tarifa",
+      "form": "Shows 'Servicios y Tarifas' section with checkbox per service and tarifa input when selected",
+      "tarifa_display": "Tarifa shown in green text (S/ 0.75)"
+    },
+    "movimientos_tarifa_prellenada": {
+      "persona_dropdown": "Shows persona name with tarifa (Juan Pérez (S/ 0.75/prenda))",
+      "tarifa_prefill": "Tarifa pre-filled when persona selected (0.75)",
+      "tarifa_editable": "Tarifa field is editable",
+      "helper_text": "Shows 'Tarifa configurada para esta persona: S/ 0.75'"
+    },
+    "registro_form_movimientos": {
+      "persona_dropdown": "Shows persona name with tarifa (Juan Pérez (S/ 0.75/prenda))",
+      "tarifa_prefill": "Tarifa pre-filled when persona selected (0.75)",
+      "tarifa_editable": "Tarifa field is editable",
+      "helper_text": "Shows 'Tarifa configurada para esta persona: S/ 0.75'"
+    }
+  }
+}
