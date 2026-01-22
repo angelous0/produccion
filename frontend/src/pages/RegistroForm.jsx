@@ -466,16 +466,36 @@ export const RegistroForm = () => {
 
   // ========== LÓGICA DE MOVIMIENTOS DE PRODUCCIÓN ==========
 
-  const handleOpenMovimientoDialog = () => {
-    setMovimientoFormData({
-      servicio_id: '',
-      persona_id: '',
-      fecha_inicio: new Date().toISOString().split('T')[0],
-      fecha_fin: '',
-      cantidad: 0,
-      observaciones: '',
-    });
-    setPersonasFiltradas([]);
+  const handleOpenMovimientoDialog = (movimiento = null) => {
+    if (movimiento) {
+      // Modo edición
+      setEditingMovimiento(movimiento);
+      setMovimientoFormData({
+        servicio_id: movimiento.servicio_id,
+        persona_id: movimiento.persona_id,
+        fecha_inicio: movimiento.fecha_inicio || '',
+        fecha_fin: movimiento.fecha_fin || '',
+        cantidad: movimiento.cantidad || 0,
+        observaciones: movimiento.observaciones || '',
+      });
+      // Filtrar personas por el servicio del movimiento
+      const filtradas = personasProduccion.filter(p => 
+        p.servicio_ids && p.servicio_ids.includes(movimiento.servicio_id)
+      );
+      setPersonasFiltradas(filtradas);
+    } else {
+      // Modo creación
+      setEditingMovimiento(null);
+      setMovimientoFormData({
+        servicio_id: '',
+        persona_id: '',
+        fecha_inicio: new Date().toISOString().split('T')[0],
+        fecha_fin: '',
+        cantidad: 0,
+        observaciones: '',
+      });
+      setPersonasFiltradas([]);
+    }
     setMovimientoDialogOpen(true);
   };
 
@@ -492,23 +512,35 @@ export const RegistroForm = () => {
     setPersonasFiltradas(filtradas);
   };
 
-  const handleCreateMovimiento = async () => {
+  const handleSaveMovimiento = async () => {
     if (!movimientoFormData.servicio_id || !movimientoFormData.persona_id) {
       toast.error('Selecciona servicio y persona');
       return;
     }
 
     try {
-      const payload = {
-        ...movimientoFormData,
-        registro_id: id,
-      };
-      await axios.post(`${API}/movimientos-produccion`, payload);
-      toast.success('Movimiento registrado');
+      if (editingMovimiento) {
+        // Actualizar
+        const payload = {
+          ...movimientoFormData,
+          registro_id: id,
+        };
+        await axios.put(`${API}/movimientos-produccion/${editingMovimiento.id}`, payload);
+        toast.success('Movimiento actualizado');
+      } else {
+        // Crear
+        const payload = {
+          ...movimientoFormData,
+          registro_id: id,
+        };
+        await axios.post(`${API}/movimientos-produccion`, payload);
+        toast.success('Movimiento registrado');
+      }
       setMovimientoDialogOpen(false);
+      setEditingMovimiento(null);
       fetchMovimientosProduccion();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Error al crear movimiento');
+      toast.error(error.response?.data?.detail || 'Error al guardar movimiento');
     }
   };
 
