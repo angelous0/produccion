@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import {
   Table,
   TableBody,
@@ -19,17 +20,33 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '../lib/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '../components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Tipos = () => {
   const [items, setItems] = useState([]);
+  const [marcas, setMarcas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '' });
+  const [formData, setFormData] = useState({ nombre: '', marca_ids: [] });
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const fetchItems = async () => {
     try {
@@ -42,8 +59,18 @@ export const Tipos = () => {
     }
   };
 
+  const fetchMarcas = async () => {
+    try {
+      const response = await axios.get(`${API}/marcas`);
+      setMarcas(response.data);
+    } catch (error) {
+      console.error('Error fetching marcas:', error);
+    }
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchMarcas();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -58,7 +85,7 @@ export const Tipos = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '' });
+      setFormData({ nombre: '', marca_ids: [] });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar tipo');
@@ -67,7 +94,7 @@ export const Tipos = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre });
+    setFormData({ nombre: item.nombre, marca_ids: item.marca_ids || [] });
     setDialogOpen(true);
   };
 
@@ -83,8 +110,25 @@ export const Tipos = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '' });
+    setFormData({ nombre: '', marca_ids: [] });
     setDialogOpen(true);
+  };
+
+  const toggleMarca = (marcaId) => {
+    const current = formData.marca_ids || [];
+    if (current.includes(marcaId)) {
+      setFormData({ ...formData, marca_ids: current.filter(id => id !== marcaId) });
+    } else {
+      setFormData({ ...formData, marca_ids: [...current, marcaId] });
+    }
+  };
+
+  const getMarcaNombres = (marca_ids) => {
+    if (!marca_ids || marca_ids.length === 0) return '-';
+    return marca_ids.map(id => {
+      const marca = marcas.find(m => m.id === id);
+      return marca ? marca.nombre : '';
+    }).filter(Boolean).join(', ');
   };
 
   return (
@@ -106,19 +150,20 @@ export const Tipos = () => {
             <TableHeader>
               <TableRow className="data-table-header">
                 <TableHead>Nombre</TableHead>
+                <TableHead>Marcas</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     No hay tipos registrados
                   </TableCell>
                 </TableRow>
@@ -126,6 +171,21 @@ export const Tipos = () => {
                 items.map((item) => (
                   <TableRow key={item.id} className="data-table-row" data-testid={`tipo-row-${item.id}`}>
                     <TableCell className="font-medium">{item.nombre}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(item.marca_ids || []).map(marcaId => {
+                          const marca = marcas.find(m => m.id === marcaId);
+                          return marca ? (
+                            <Badge key={marcaId} variant="secondary" className="text-xs">
+                              {marca.nombre}
+                            </Badge>
+                          ) : null;
+                        })}
+                        {(!item.marca_ids || item.marca_ids.length === 0) && (
+                          <span className="text-muted-foreground text-sm">Sin marcas</span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
@@ -166,11 +226,66 @@ export const Tipos = () => {
                 <Input
                   id="nombre"
                   value={formData.nombre}
-                  onChange={(e) => setFormData({ nombre: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   placeholder="Nombre del tipo"
                   required
                   data-testid="input-nombre-tipo"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Marcas disponibles</Label>
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="w-full justify-between h-auto min-h-10"
+                    >
+                      <div className="flex flex-wrap gap-1 flex-1">
+                        {formData.marca_ids?.length === 0 ? (
+                          <span className="text-muted-foreground">Seleccionar marcas...</span>
+                        ) : (
+                          formData.marca_ids.map(id => {
+                            const marca = marcas.find(m => m.id === id);
+                            return marca ? (
+                              <Badge key={id} variant="secondary" className="text-xs">
+                                {marca.nombre}
+                              </Badge>
+                            ) : null;
+                          })
+                        )}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar marca..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron marcas.</CommandEmpty>
+                        <CommandGroup>
+                          {marcas.map((marca) => (
+                            <CommandItem
+                              key={marca.id}
+                              value={marca.nombre}
+                              onSelect={() => toggleMarca(marca.id)}
+                            >
+                              <div className={cn(
+                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+                                formData.marca_ids?.includes(marca.id)
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "opacity-50"
+                              )}>
+                                {formData.marca_ids?.includes(marca.id) && <Check className="h-3 w-3" />}
+                              </div>
+                              {marca.nombre}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <DialogFooter>
