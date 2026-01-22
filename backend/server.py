@@ -1100,6 +1100,11 @@ async def get_salidas(registro_id: str = None):
             registro = await db.registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
             sal['registro_n_corte'] = registro['n_corte'] if registro else None
         
+        # Si tiene rollo_id, obtener número de rollo
+        if sal.get('rollo_id'):
+            rollo = await db.inventario_rollos.find_one({"id": sal.get('rollo_id')}, {"_id": 0, "numero_rollo": 1})
+            sal['rollo_numero'] = rollo['numero_rollo'] if rollo else None
+        
         result.append(SalidaConDetalles(**sal))
     return sorted(result, key=lambda x: x.fecha, reverse=True)
 
@@ -1120,34 +1125,75 @@ async def create_salida(input: SalidaInventarioCreate):
         if not registro:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
     
-    # Aplicar FIFO: obtener lotes ordenados por fecha y consumir
-    ingresos = await db.inventario_ingresos.find(
-        {"item_id": input.item_id, "cantidad_disponible": {"$gt": 0}},
-        {"_id": 0}
-    ).sort("fecha", 1).to_list(100)
-    
-    cantidad_restante = input.cantidad
-    costo_total = 0.0
-    detalle_fifo = []
-    
-    for ingreso in ingresos:
-        if cantidad_restante <= 0:
-            break
+    # Si es salida de un rollo específico
+    if input.rollo_id:
+        rollo = await db.inventario_rollos.find_one({"id": input.rollo_id}, {"_id": 0})
+        if not rollo:
+            raise HTTPException(status_code=404, detail="Rollo no encontrado")
+        if rollo.get('metraje_disponible', 0) < input.cantidad:
+            raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo.get('metraje_disponible', 0)}")
         
-        disponible = ingreso.get('cantidad_disponible', 0)
-        consumir = min(disponible, cantidad_restante)
+        # Obtener el ingreso del rollo para el costo
+        ingreso = await db.inventario_ingresos.find_one({"id": rollo['ingreso_id']}, {"_id": 0})
+        costo_unitario = ingreso.get('costo_unitario', 0) if ingreso else 0
+        costo_total = input.cantidad * costo_unitario
         
-        costo_unitario = ingreso.get('costo_unitario', 0)
-        costo_total += consumir * costo_unitario
-        
-        detalle_fifo.append({
-            "ingreso_id": ingreso['id'],
-            "cantidad": consumir,
+        detalle_fifo = [{
+            "rollo_id": input.rollo_id,
+            "cantidad": input.cantidad,
             "costo_unitario": costo_unitario,
-            "fecha_ingreso": ingreso.get('fecha')
-        })
+            "numero_rollo": rollo.get('numero_rollo', '')
+        }]
+        
+        # Actualizar metraje disponible del rollo
+        await db.inventario_rollos.update_one(
+            {"id": input.rollo_id},
+            {"$inc": {"metraje_disponible": -input.cantidad}}
+        )
         
         # Actualizar cantidad disponible del ingreso
+        await db.inventario_ingresos.update_one(
+            {"id": rollo['ingreso_id']},
+            {"$inc": {"cantidad_disponible": -input.cantidad}}
+        )
+    else:
+        # FIFO normal: obtener lotes ordenados por fecha y consumir
+        ingresos = await db.inventario_ingresos.find(
+            {"item_id": input.item_id, "cantidad_disponible": {"$gt": 0}},
+            {"_id": 0}
+        ).sort("fecha", 1).to_list(100)
+        
+        cantidad_restante = input.cantidad
+        costo_total = 0.0
+        detalle_fifo = []
+        
+        for ingreso in ingresos:
+            if cantidad_restante <= 0:
+                break
+            
+            disponible = ingreso.get('cantidad_disponible', 0)
+            consumir = min(disponible, cantidad_restante)
+            
+            costo_unitario = ingreso.get('costo_unitario', 0)
+            costo_total += consumir * costo_unitario
+            
+            detalle_fifo.append({
+                "ingreso_id": ingreso['id'],
+                "cantidad": consumir,
+                "costo_unitario": costo_unitario,
+                "fecha_ingreso": ingreso.get('fecha')
+            })
+            
+            # Actualizar cantidad disponible del ingreso
+            await db.inventario_ingresos.update_one(
+                {"id": ingreso['id']},
+                {"$inc": {"cantidad_disponible": -consumir}}
+            )
+            
+            cantidad_restante -= consumir
+        
+        if cantidad_restante > 0:
+            raise HTTPException(status_code=400, detail="No hay suficiente stock en los lotes")
         await db.inventario_ingresos.update_one(
             {"id": ingreso['id']},
             {"$inc": {"cantidad_disponible": -consumir}}
