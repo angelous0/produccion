@@ -85,18 +85,25 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 ### Enero 2025 - Módulo de Movimientos de Producción
 - ✅ **Servicios de Producción**: CRUD completo en `/maestros/servicios`
   - Campos: nombre, secuencia (para ordenar manualmente)
-  - Ordenamiento por secuencia
+  - Ordenamiento drag & drop con @dnd-kit
+  - **Sin campo tarifa** (tarifas se configuran en Personas)
 - ✅ **Personas de Producción**: CRUD completo en `/maestros/personas`
-  - Campos: nombre, servicios (múltiples), teléfono, activo
-  - Filtros por estado activo/inactivo
+  - Campos: nombre, teléfono, activo, orden
+  - **Tarifas por servicio**: Cada persona tiene tarifa específica por cada servicio que realiza
+  - Estructura: servicios: [{servicio_id, tarifa}]
   - Toggle para activar/desactivar personas
-  - Badges mostrando los servicios asignados
-- ✅ **Movimientos de Producción** integrados en RegistroForm:
+  - Badges mostrando servicios con tarifas (Ej: "Corte (S/ 0.75)")
+- ✅ **Movimientos de Producción** integrados en RegistroForm y página dedicada:
   - Tabla de movimientos vinculados al registro
-  - Campos: servicio, persona, fecha inicio, fecha fin, cantidad de prendas
-  - Filtro dinámico: al seleccionar servicio, las personas se filtran
-  - Validación: persona debe tener el servicio asignado
-  - Total de prendas entregadas calculado
+  - Campos: servicio, persona, fecha inicio, fecha fin, cantidad, tarifa_aplicada
+  - **Filtro dinámico**: al seleccionar servicio, personas se filtran
+  - **Pre-llenado de tarifa**: al seleccionar persona, tarifa se pre-llena desde configuración persona-servicio
+  - **Tarifa editable**: usuario puede ajustar tarifa en cada movimiento
+  - Costo calculado automáticamente (cantidad × tarifa_aplicada)
+  - Vista general en `/maestros/movimientos` con filtros avanzados
+- ✅ **Reporte de Productividad** en `/maestros/productividad`
+  - Resumen de prendas y costos por persona y servicio
+  - Filtros por fecha
 - ✅ Nueva sección "Maestros" en el menú lateral
 
 ## Backlog
