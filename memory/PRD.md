@@ -108,7 +108,7 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 
 ## Backlog
 
-### P0 - En Progreso
+### P0 - Crítico
 - [ ] Completar diálogo de salida masiva de rollos (`SalidaRollosDialog.jsx`)
   - Filtrar rollos por ancho y tono
   - Selección múltiple con checkboxes
@@ -126,3 +126,4 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - [ ] Historial de cambios de estado
 - [ ] Exportar Kardex y Reportes a PDF/Excel
 - [ ] Dropdowns en cascada para creación de Modelos
+- [ ] Auditoría de accesibilidad en todos los componentes Dialog
