@@ -473,10 +473,9 @@ export const RegistroForm = () => {
     return servicio?.tarifa || 0;
   };
 
-  // Helper para calcular costo
+  // Helper para calcular costo (usa tarifa_aplicada del formulario)
   const calcularCostoMovimiento = () => {
-    const tarifa = getServicioTarifa(movimientoFormData.servicio_id);
-    return tarifa * (movimientoFormData.cantidad || 0);
+    return (movimientoFormData.tarifa_aplicada || 0) * (movimientoFormData.cantidad || 0);
   };
 
   const handleOpenMovimientoDialog = (movimiento = null) => {
