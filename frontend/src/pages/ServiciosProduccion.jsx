@@ -248,6 +248,7 @@ export const ServiciosProduccion = () => {
                   <tr className="bg-muted/50 border-b">
                     <th className="p-3 text-left text-sm font-semibold w-[100px]">Orden</th>
                     <th className="p-3 text-left text-sm font-semibold">Nombre</th>
+                    <th className="p-3 text-right text-sm font-semibold w-[120px]">Tarifa/Prenda</th>
                     <th className="p-3 text-right text-sm font-semibold w-[120px]">Acciones</th>
                   </tr>
                 </thead>
