@@ -118,7 +118,31 @@ class Color(ColorBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# ==================== RUTA DE PRODUCCIÓN ====================
+
+class EtapaRuta(BaseModel):
+    servicio_id: str
+    orden: int = 0
+
+class RutaProduccionBase(BaseModel):
+    nombre: str
+    descripcion: str = ""
+    etapas: List[EtapaRuta] = []
+
+class RutaProduccionCreate(RutaProduccionBase):
+    pass
+
+class RutaProduccion(RutaProduccionBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # ==================== MODELO ====================
+
+# Estructura para materiales del modelo (BOM)
+class MaterialModelo(BaseModel):
+    item_id: str
+    cantidad_estimada: float = 0
 
 class ModeloBase(BaseModel):
     nombre: str
@@ -127,6 +151,9 @@ class ModeloBase(BaseModel):
     entalle_id: str
     tela_id: str
     hilo_id: str
+    ruta_produccion_id: Optional[str] = None
+    materiales: List[MaterialModelo] = []
+    servicios_ids: List[str] = []  # Servicios requeridos para este modelo
 
 class ModeloCreate(ModeloBase):
     pass
