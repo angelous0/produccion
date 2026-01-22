@@ -732,14 +732,19 @@ async def get_stats():
 
 # ==================== INVENTARIO FIFO ====================
 
+# Categorías de inventario
+CATEGORIAS_INVENTARIO = ["Telas", "Avios", "Otros"]
+
 # Modelos de Inventario
 
 class ItemInventarioBase(BaseModel):
     codigo: str
     nombre: str
     descripcion: str = ""
+    categoria: str = "Otros"  # Telas, Avios, Otros
     unidad_medida: str = "unidad"
     stock_minimo: int = 0
+    control_por_rollos: bool = False  # Solo para Telas
 
 class ItemInventarioCreate(ItemInventarioBase):
     pass
@@ -747,33 +752,58 @@ class ItemInventarioCreate(ItemInventarioBase):
 class ItemInventario(ItemInventarioBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    stock_actual: int = 0
+    stock_actual: float = 0  # Cambiado a float para metraje
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ItemInventarioConStock(ItemInventario):
     lotes: List[dict] = []
 
+# Modelo de Rollo (para telas con control por rollos)
+class RolloBase(BaseModel):
+    item_id: str
+    ingreso_id: str
+    numero_rollo: str
+    metraje: float
+    ancho: float = 0.0
+    tono: str = ""
+    observaciones: str = ""
+
+class RolloCreate(RolloBase):
+    pass
+
+class Rollo(RolloBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    metraje_disponible: float = 0.0  # Para FIFO de rollos
+    activo: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class RolloConDetalles(Rollo):
+    item_nombre: str = ""
+    item_codigo: str = ""
+
 # Ingreso de Inventario (Entrada)
 class IngresoInventarioBase(BaseModel):
     item_id: str
-    cantidad: int
+    cantidad: float  # Cambiado a float para metraje
     costo_unitario: float = 0.0
     proveedor: str = ""
     numero_documento: str = ""
     observaciones: str = ""
 
 class IngresoInventarioCreate(IngresoInventarioBase):
-    pass
+    rollos: List[dict] = []  # Lista de rollos si el item tiene control_por_rollos
 
 class IngresoInventario(IngresoInventarioBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    cantidad_disponible: int = 0  # Para FIFO, cantidad aún disponible de este lote
+    cantidad_disponible: float = 0  # Para FIFO, cantidad aún disponible de este lote
 
 class IngresoConDetalles(IngresoInventario):
     item_nombre: str = ""
     item_codigo: str = ""
+    rollos_count: int = 0
 
 # Salida de Inventario (vinculada a Registro)
 class SalidaInventarioBase(BaseModel):
