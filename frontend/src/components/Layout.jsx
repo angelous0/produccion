@@ -56,6 +56,7 @@ const maestrosItems = [
   { to: '/maestros/servicios', icon: Cog, label: 'Servicios' },
   { to: '/maestros/personas', icon: Users, label: 'Personas' },
   { to: '/maestros/movimientos', icon: Play, label: 'Movimientos' },
+  { to: '/maestros/productividad', icon: BarChart3, label: 'Productividad' },
 ];
 
 export const Layout = () => {
