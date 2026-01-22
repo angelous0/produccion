@@ -169,6 +169,7 @@ export const Inventario = () => {
                 <TableRow className="data-table-header">
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Categoría</TableHead>
                   <TableHead>Unidad</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
                   <TableHead className="text-right">Stock Mínimo</TableHead>
@@ -179,13 +180,13 @@ export const Inventario = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No hay items en el inventario
                     </TableCell>
                   </TableRow>
@@ -196,8 +197,22 @@ export const Inventario = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Package className="h-4 w-4 text-muted-foreground" />
-                          {item.nombre}
+                          <div>
+                            {item.nombre}
+                            {item.control_por_rollos && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                <Layers className="h-3 w-3 mr-1" />
+                                Rollos
+                              </Badge>
+                            )}
+                          </div>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getCategoriaColor(item.categoria)}>
+                          {item.categoria || 'Otros'}
+                        </Badge>
+                      </TableCell>
                       </TableCell>
                       <TableCell className="capitalize">{item.unidad_medida}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">
