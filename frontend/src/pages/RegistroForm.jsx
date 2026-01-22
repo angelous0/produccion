@@ -101,6 +101,7 @@ export const RegistroForm = () => {
     fecha_inicio: '',
     fecha_fin: '',
     cantidad: 0,
+    tarifa_aplicada: 0,  // Tarifa editable
     observaciones: '',
   });
 
