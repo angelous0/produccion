@@ -90,10 +90,30 @@ export const InventarioSalidas = () => {
     setDialogOpen(true);
   };
 
-  const handleItemChange = (itemId) => {
+  const handleItemChange = async (itemId) => {
     const item = items.find(i => i.id === itemId);
     setSelectedItem(item);
-    setFormData({ ...formData, item_id: itemId });
+    setSelectedRollo(null);
+    setFormData({ ...formData, item_id: itemId, rollo_id: '', cantidad: 1 });
+    
+    // Si tiene control por rollos, cargar rollos disponibles
+    if (item?.control_por_rollos) {
+      try {
+        const response = await axios.get(`${API}/inventario-rollos?item_id=${itemId}&activo=true`);
+        setRollosDisponibles(response.data.filter(r => r.metraje_disponible > 0));
+      } catch (error) {
+        console.error('Error loading rollos:', error);
+        setRollosDisponibles([]);
+      }
+    } else {
+      setRollosDisponibles([]);
+    }
+  };
+
+  const handleRolloChange = (rolloId) => {
+    const rollo = rollosDisponibles.find(r => r.id === rolloId);
+    setSelectedRollo(rollo);
+    setFormData({ ...formData, rollo_id: rolloId, cantidad: 1 });
   };
 
   const handleSubmit = async (e) => {
@@ -102,6 +122,9 @@ export const InventarioSalidas = () => {
       const payload = { ...formData };
       if (!payload.registro_id) {
         delete payload.registro_id;
+      }
+      if (!payload.rollo_id) {
+        delete payload.rollo_id;
       }
       await axios.post(`${API}/inventario-salidas`, payload);
       toast.success('Salida registrada');
