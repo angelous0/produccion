@@ -93,6 +93,7 @@ export const RegistroForm = () => {
   const [serviciosProduccion, setServiciosProduccion] = useState([]);
   const [personasProduccion, setPersonasProduccion] = useState([]);
   const [movimientoDialogOpen, setMovimientoDialogOpen] = useState(false);
+  const [editingMovimiento, setEditingMovimiento] = useState(null);
   const [personasFiltradas, setPersonasFiltradas] = useState([]);
   const [movimientoFormData, setMovimientoFormData] = useState({
     servicio_id: '',
