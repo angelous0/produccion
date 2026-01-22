@@ -1507,11 +1507,11 @@ export const RegistroForm = () => {
               Cancelar
             </Button>
             <Button 
-              onClick={handleCreateMovimiento}
+              onClick={handleSaveMovimiento}
               disabled={!movimientoFormData.servicio_id || !movimientoFormData.persona_id}
               data-testid="btn-guardar-movimiento"
             >
-              Registrar Movimiento
+              {editingMovimiento ? 'Actualizar' : 'Registrar Movimiento'}
             </Button>
           </DialogFooter>
         </DialogContent>
