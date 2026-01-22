@@ -701,6 +701,12 @@ async def get_stats():
     tallas_count = await db.tallas_catalogo.count_documents({})
     colores_count = await db.colores_catalogo.count_documents({})
     
+    # Stats de inventario
+    inventario_items = await db.inventario.count_documents({})
+    ingresos_count = await db.inventario_ingresos.count_documents({})
+    salidas_count = await db.inventario_salidas.count_documents({})
+    ajustes_count = await db.inventario_ajustes.count_documents({})
+    
     estados_count = {}
     for estado in ESTADOS_PRODUCCION:
         count = await db.registros.count_documents({"estado": estado})
@@ -717,8 +723,423 @@ async def get_stats():
         "registros_urgentes": registros_urgentes,
         "tallas": tallas_count,
         "colores": colores_count,
-        "estados_count": estados_count
+        "estados_count": estados_count,
+        "inventario_items": inventario_items,
+        "ingresos_count": ingresos_count,
+        "salidas_count": salidas_count,
+        "ajustes_count": ajustes_count
     }
+
+# ==================== INVENTARIO FIFO ====================
+
+# Modelos de Inventario
+
+class ItemInventarioBase(BaseModel):
+    codigo: str
+    nombre: str
+    descripcion: str = ""
+    unidad_medida: str = "unidad"
+    stock_minimo: int = 0
+
+class ItemInventarioCreate(ItemInventarioBase):
+    pass
+
+class ItemInventario(ItemInventarioBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    stock_actual: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ItemInventarioConStock(ItemInventario):
+    lotes: List[dict] = []
+
+# Ingreso de Inventario (Entrada)
+class IngresoInventarioBase(BaseModel):
+    item_id: str
+    cantidad: int
+    costo_unitario: float = 0.0
+    proveedor: str = ""
+    numero_documento: str = ""
+    observaciones: str = ""
+
+class IngresoInventarioCreate(IngresoInventarioBase):
+    pass
+
+class IngresoInventario(IngresoInventarioBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    cantidad_disponible: int = 0  # Para FIFO, cantidad aún disponible de este lote
+
+class IngresoConDetalles(IngresoInventario):
+    item_nombre: str = ""
+    item_codigo: str = ""
+
+# Salida de Inventario (vinculada a Registro)
+class SalidaInventarioBase(BaseModel):
+    item_id: str
+    cantidad: int
+    registro_id: Optional[str] = None
+    observaciones: str = ""
+
+class SalidaInventarioCreate(SalidaInventarioBase):
+    pass
+
+class SalidaInventario(SalidaInventarioBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    costo_total: float = 0.0  # Calculado según FIFO
+    detalle_fifo: List[dict] = []  # Detalle de qué lotes se usaron
+
+class SalidaConDetalles(SalidaInventario):
+    item_nombre: str = ""
+    item_codigo: str = ""
+    registro_n_corte: Optional[str] = None
+
+# Ajuste de Inventario
+class AjusteInventarioBase(BaseModel):
+    item_id: str
+    tipo: str  # "entrada" o "salida"
+    cantidad: int
+    motivo: str = ""
+    observaciones: str = ""
+
+class AjusteInventarioCreate(AjusteInventarioBase):
+    pass
+
+class AjusteInventario(AjusteInventarioBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AjusteConDetalles(AjusteInventario):
+    item_nombre: str = ""
+    item_codigo: str = ""
+
+# ==================== ENDPOINTS ITEMS INVENTARIO ====================
+
+@api_router.get("/inventario", response_model=List[ItemInventario])
+async def get_inventario():
+    items = await db.inventario.find({}, {"_id": 0}).to_list(1000)
+    for item in items:
+        if isinstance(item.get('created_at'), str):
+            item['created_at'] = datetime.fromisoformat(item['created_at'])
+    return items
+
+@api_router.get("/inventario/{item_id}")
+async def get_item_inventario(item_id: str):
+    item = await db.inventario.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    
+    if isinstance(item.get('created_at'), str):
+        item['created_at'] = datetime.fromisoformat(item['created_at'])
+    
+    # Obtener lotes disponibles (FIFO)
+    ingresos = await db.inventario_ingresos.find(
+        {"item_id": item_id, "cantidad_disponible": {"$gt": 0}},
+        {"_id": 0}
+    ).sort("fecha", 1).to_list(100)
+    
+    for ing in ingresos:
+        if isinstance(ing.get('fecha'), str):
+            ing['fecha'] = datetime.fromisoformat(ing['fecha'])
+    
+    item['lotes'] = ingresos
+    return item
+
+@api_router.post("/inventario", response_model=ItemInventario)
+async def create_item_inventario(input: ItemInventarioCreate):
+    # Verificar código único
+    existing = await db.inventario.find_one({"codigo": input.codigo})
+    if existing:
+        raise HTTPException(status_code=400, detail="El código ya existe")
+    
+    item = ItemInventario(**input.model_dump())
+    doc = item.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.inventario.insert_one(doc)
+    return item
+
+@api_router.put("/inventario/{item_id}", response_model=ItemInventario)
+async def update_item_inventario(item_id: str, input: ItemInventarioCreate):
+    result = await db.inventario.find_one({"id": item_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    
+    # Verificar código único si cambió
+    if input.codigo != result.get('codigo'):
+        existing = await db.inventario.find_one({"codigo": input.codigo, "id": {"$ne": item_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="El código ya existe")
+    
+    update_data = input.model_dump()
+    await db.inventario.update_one({"id": item_id}, {"$set": update_data})
+    result.update(update_data)
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return ItemInventario(**result)
+
+@api_router.delete("/inventario/{item_id}")
+async def delete_item_inventario(item_id: str):
+    result = await db.inventario.delete_one({"id": item_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Item no encontrado")
+    # También eliminar movimientos relacionados
+    await db.inventario_ingresos.delete_many({"item_id": item_id})
+    await db.inventario_salidas.delete_many({"item_id": item_id})
+    await db.inventario_ajustes.delete_many({"item_id": item_id})
+    return {"message": "Item eliminado"}
+
+# ==================== ENDPOINTS INGRESOS ====================
+
+@api_router.get("/inventario-ingresos", response_model=List[IngresoConDetalles])
+async def get_ingresos():
+    ingresos = await db.inventario_ingresos.find({}, {"_id": 0}).to_list(1000)
+    result = []
+    for ing in ingresos:
+        if isinstance(ing.get('fecha'), str):
+            ing['fecha'] = datetime.fromisoformat(ing['fecha'])
+        
+        item = await db.inventario.find_one({"id": ing.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+        ing['item_nombre'] = item['nombre'] if item else ""
+        ing['item_codigo'] = item['codigo'] if item else ""
+        
+        result.append(IngresoConDetalles(**ing))
+    return sorted(result, key=lambda x: x.fecha, reverse=True)
+
+@api_router.post("/inventario-ingresos", response_model=IngresoInventario)
+async def create_ingreso(input: IngresoInventarioCreate):
+    # Verificar que el item existe
+    item = await db.inventario.find_one({"id": input.item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+    
+    ingreso = IngresoInventario(**input.model_dump())
+    ingreso.cantidad_disponible = input.cantidad  # Inicialmente toda la cantidad está disponible
+    
+    doc = ingreso.model_dump()
+    doc['fecha'] = doc['fecha'].isoformat()
+    await db.inventario_ingresos.insert_one(doc)
+    
+    # Actualizar stock del item
+    await db.inventario.update_one(
+        {"id": input.item_id},
+        {"$inc": {"stock_actual": input.cantidad}}
+    )
+    
+    return ingreso
+
+@api_router.delete("/inventario-ingresos/{ingreso_id}")
+async def delete_ingreso(ingreso_id: str):
+    ingreso = await db.inventario_ingresos.find_one({"id": ingreso_id}, {"_id": 0})
+    if not ingreso:
+        raise HTTPException(status_code=404, detail="Ingreso no encontrado")
+    
+    # Solo se puede eliminar si la cantidad disponible es igual a la cantidad original
+    if ingreso.get('cantidad_disponible', 0) != ingreso.get('cantidad', 0):
+        raise HTTPException(status_code=400, detail="No se puede eliminar un ingreso que ya tiene salidas")
+    
+    await db.inventario_ingresos.delete_one({"id": ingreso_id})
+    
+    # Restar del stock
+    await db.inventario.update_one(
+        {"id": ingreso['item_id']},
+        {"$inc": {"stock_actual": -ingreso['cantidad']}}
+    )
+    
+    return {"message": "Ingreso eliminado"}
+
+# ==================== ENDPOINTS SALIDAS ====================
+
+@api_router.get("/inventario-salidas", response_model=List[SalidaConDetalles])
+async def get_salidas(registro_id: str = None):
+    query = {}
+    if registro_id:
+        query['registro_id'] = registro_id
+    
+    salidas = await db.inventario_salidas.find(query, {"_id": 0}).to_list(1000)
+    result = []
+    for sal in salidas:
+        if isinstance(sal.get('fecha'), str):
+            sal['fecha'] = datetime.fromisoformat(sal['fecha'])
+        
+        item = await db.inventario.find_one({"id": sal.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+        sal['item_nombre'] = item['nombre'] if item else ""
+        sal['item_codigo'] = item['codigo'] if item else ""
+        
+        if sal.get('registro_id'):
+            registro = await db.registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
+            sal['registro_n_corte'] = registro['n_corte'] if registro else None
+        
+        result.append(SalidaConDetalles(**sal))
+    return sorted(result, key=lambda x: x.fecha, reverse=True)
+
+@api_router.post("/inventario-salidas", response_model=SalidaInventario)
+async def create_salida(input: SalidaInventarioCreate):
+    # Verificar que el item existe
+    item = await db.inventario.find_one({"id": input.item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+    
+    # Verificar stock suficiente
+    if item.get('stock_actual', 0) < input.cantidad:
+        raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item.get('stock_actual', 0)}")
+    
+    # Si hay registro_id, verificar que existe
+    if input.registro_id:
+        registro = await db.registros.find_one({"id": input.registro_id})
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+    
+    # Aplicar FIFO: obtener lotes ordenados por fecha y consumir
+    ingresos = await db.inventario_ingresos.find(
+        {"item_id": input.item_id, "cantidad_disponible": {"$gt": 0}},
+        {"_id": 0}
+    ).sort("fecha", 1).to_list(100)
+    
+    cantidad_restante = input.cantidad
+    costo_total = 0.0
+    detalle_fifo = []
+    
+    for ingreso in ingresos:
+        if cantidad_restante <= 0:
+            break
+        
+        disponible = ingreso.get('cantidad_disponible', 0)
+        consumir = min(disponible, cantidad_restante)
+        
+        costo_unitario = ingreso.get('costo_unitario', 0)
+        costo_total += consumir * costo_unitario
+        
+        detalle_fifo.append({
+            "ingreso_id": ingreso['id'],
+            "cantidad": consumir,
+            "costo_unitario": costo_unitario,
+            "fecha_ingreso": ingreso.get('fecha')
+        })
+        
+        # Actualizar cantidad disponible del ingreso
+        await db.inventario_ingresos.update_one(
+            {"id": ingreso['id']},
+            {"$inc": {"cantidad_disponible": -consumir}}
+        )
+        
+        cantidad_restante -= consumir
+    
+    if cantidad_restante > 0:
+        raise HTTPException(status_code=400, detail="No hay suficiente stock en los lotes")
+    
+    salida = SalidaInventario(**input.model_dump())
+    salida.costo_total = costo_total
+    salida.detalle_fifo = detalle_fifo
+    
+    doc = salida.model_dump()
+    doc['fecha'] = doc['fecha'].isoformat()
+    await db.inventario_salidas.insert_one(doc)
+    
+    # Actualizar stock del item
+    await db.inventario.update_one(
+        {"id": input.item_id},
+        {"$inc": {"stock_actual": -input.cantidad}}
+    )
+    
+    return salida
+
+@api_router.delete("/inventario-salidas/{salida_id}")
+async def delete_salida(salida_id: str):
+    salida = await db.inventario_salidas.find_one({"id": salida_id}, {"_id": 0})
+    if not salida:
+        raise HTTPException(status_code=404, detail="Salida no encontrada")
+    
+    # Revertir FIFO: devolver cantidades a los lotes
+    for detalle in salida.get('detalle_fifo', []):
+        await db.inventario_ingresos.update_one(
+            {"id": detalle['ingreso_id']},
+            {"$inc": {"cantidad_disponible": detalle['cantidad']}}
+        )
+    
+    await db.inventario_salidas.delete_one({"id": salida_id})
+    
+    # Restaurar stock
+    await db.inventario.update_one(
+        {"id": salida['item_id']},
+        {"$inc": {"stock_actual": salida['cantidad']}}
+    )
+    
+    return {"message": "Salida eliminada y stock restaurado"}
+
+# ==================== ENDPOINTS AJUSTES ====================
+
+@api_router.get("/inventario-ajustes", response_model=List[AjusteConDetalles])
+async def get_ajustes():
+    ajustes = await db.inventario_ajustes.find({}, {"_id": 0}).to_list(1000)
+    result = []
+    for aj in ajustes:
+        if isinstance(aj.get('fecha'), str):
+            aj['fecha'] = datetime.fromisoformat(aj['fecha'])
+        
+        item = await db.inventario.find_one({"id": aj.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
+        aj['item_nombre'] = item['nombre'] if item else ""
+        aj['item_codigo'] = item['codigo'] if item else ""
+        
+        result.append(AjusteConDetalles(**aj))
+    return sorted(result, key=lambda x: x.fecha, reverse=True)
+
+@api_router.post("/inventario-ajustes", response_model=AjusteInventario)
+async def create_ajuste(input: AjusteInventarioCreate):
+    # Verificar que el item existe
+    item = await db.inventario.find_one({"id": input.item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+    
+    # Verificar tipo válido
+    if input.tipo not in ["entrada", "salida"]:
+        raise HTTPException(status_code=400, detail="Tipo debe ser 'entrada' o 'salida'")
+    
+    # Si es salida, verificar stock suficiente
+    if input.tipo == "salida":
+        if item.get('stock_actual', 0) < input.cantidad:
+            raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item.get('stock_actual', 0)}")
+    
+    ajuste = AjusteInventario(**input.model_dump())
+    doc = ajuste.model_dump()
+    doc['fecha'] = doc['fecha'].isoformat()
+    await db.inventario_ajustes.insert_one(doc)
+    
+    # Actualizar stock según tipo
+    incremento = input.cantidad if input.tipo == "entrada" else -input.cantidad
+    await db.inventario.update_one(
+        {"id": input.item_id},
+        {"$inc": {"stock_actual": incremento}}
+    )
+    
+    return ajuste
+
+@api_router.delete("/inventario-ajustes/{ajuste_id}")
+async def delete_ajuste(ajuste_id: str):
+    ajuste = await db.inventario_ajustes.find_one({"id": ajuste_id}, {"_id": 0})
+    if not ajuste:
+        raise HTTPException(status_code=404, detail="Ajuste no encontrado")
+    
+    # Revertir el ajuste
+    incremento = -ajuste['cantidad'] if ajuste['tipo'] == "entrada" else ajuste['cantidad']
+    
+    # Verificar que no quede negativo si era entrada
+    if ajuste['tipo'] == "entrada":
+        item = await db.inventario.find_one({"id": ajuste['item_id']}, {"_id": 0})
+        if item and item.get('stock_actual', 0) < ajuste['cantidad']:
+            raise HTTPException(status_code=400, detail="No se puede eliminar: dejaría el stock negativo")
+    
+    await db.inventario_ajustes.delete_one({"id": ajuste_id})
+    
+    await db.inventario.update_one(
+        {"id": ajuste['item_id']},
+        {"$inc": {"stock_actual": incremento}}
+    )
+    
+    return {"message": "Ajuste eliminado"}
 
 # Root endpoint
 @api_router.get("/")
