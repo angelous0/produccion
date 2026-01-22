@@ -100,7 +100,7 @@ export const ServiciosProduccion = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingServicio, setEditingServicio] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', secuencia: 0 });
+  const [formData, setFormData] = useState({ nombre: '', secuencia: 0, tarifa: 0 });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
