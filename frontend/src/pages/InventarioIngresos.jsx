@@ -1,0 +1,325 @@
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Plus, Trash2, ArrowDownCircle } from 'lucide-react';
+import { toast } from 'sonner';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+export const InventarioIngresos = () => {
+  const [ingresos, setIngresos] = useState([]);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    item_id: '',
+    cantidad: 1,
+    costo_unitario: 0,
+    proveedor: '',
+    numero_documento: '',
+    observaciones: '',
+  });
+
+  const fetchData = async () => {
+    try {
+      const [ingresosRes, itemsRes] = await Promise.all([
+        axios.get(`${API}/inventario-ingresos`),
+        axios.get(`${API}/inventario`),
+      ]);
+      setIngresos(ingresosRes.data);
+      setItems(itemsRes.data);
+    } catch (error) {
+      toast.error('Error al cargar datos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const resetForm = () => {
+    setFormData({
+      item_id: '',
+      cantidad: 1,
+      costo_unitario: 0,
+      proveedor: '',
+      numero_documento: '',
+      observaciones: '',
+    });
+  };
+
+  const handleOpenDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API}/inventario-ingresos`, formData);
+      toast.success('Ingreso registrado');
+      setDialogOpen(false);
+      resetForm();
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al guardar');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Eliminar este ingreso?')) return;
+    try {
+      await axios.delete(`${API}/inventario-ingresos/${id}`);
+      toast.success('Ingreso eliminado');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al eliminar');
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-PE', {
+      style: 'currency',
+      currency: 'PEN',
+    }).format(value);
+  };
+
+  return (
+    <div className="space-y-6" data-testid="ingresos-page">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Ingresos de Inventario</h2>
+          <p className="text-muted-foreground">Registro de entradas al inventario</p>
+        </div>
+        <Button onClick={handleOpenDialog} data-testid="btn-nuevo-ingreso">
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo Ingreso
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="data-table-header">
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Item</TableHead>
+                  <TableHead className="text-right">Cantidad</TableHead>
+                  <TableHead className="text-right">Disponible</TableHead>
+                  <TableHead className="text-right">Costo Unit.</TableHead>
+                  <TableHead>Proveedor</TableHead>
+                  <TableHead>N° Doc.</TableHead>
+                  <TableHead className="w-[80px]">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      Cargando...
+                    </TableCell>
+                  </TableRow>
+                ) : ingresos.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      No hay ingresos registrados
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  ingresos.map((ingreso) => (
+                    <TableRow key={ingreso.id} className="data-table-row" data-testid={`ingreso-row-${ingreso.id}`}>
+                      <TableCell className="font-mono text-sm">
+                        {formatDate(ingreso.fecha)}
+                      </TableCell>
+                      <TableCell className="font-mono">{ingreso.item_codigo}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <ArrowDownCircle className="h-4 w-4 text-green-600" />
+                          {ingreso.item_nombre}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold">
+                        {ingreso.cantidad}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        <span className={ingreso.cantidad_disponible < ingreso.cantidad ? 'text-orange-500' : 'text-green-600'}>
+                          {ingreso.cantidad_disponible}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(ingreso.costo_unitario)}
+                      </TableCell>
+                      <TableCell>{ingreso.proveedor || '-'}</TableCell>
+                      <TableCell className="font-mono">{ingreso.numero_documento || '-'}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(ingreso.id)}
+                          title="Eliminar"
+                          disabled={ingreso.cantidad_disponible !== ingreso.cantidad}
+                          data-testid={`delete-ingreso-${ingreso.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo Ingreso</DialogTitle>
+            <DialogDescription>
+              Registrar una entrada de inventario
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Item *</Label>
+                <Select
+                  value={formData.item_id}
+                  onValueChange={(value) => setFormData({ ...formData, item_id: value })}
+                  required
+                >
+                  <SelectTrigger data-testid="select-item">
+                    <SelectValue placeholder="Seleccionar item..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {items.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        <span className="font-mono mr-2">{item.codigo}</span>
+                        {item.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cantidad">Cantidad *</Label>
+                  <Input
+                    id="cantidad"
+                    type="number"
+                    min="1"
+                    value={formData.cantidad}
+                    onChange={(e) => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 1 })}
+                    required
+                    className="font-mono"
+                    data-testid="input-cantidad"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="costo_unitario">Costo Unitario</Label>
+                  <Input
+                    id="costo_unitario"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.costo_unitario}
+                    onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                    className="font-mono"
+                    data-testid="input-costo"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="proveedor">Proveedor</Label>
+                  <Input
+                    id="proveedor"
+                    value={formData.proveedor}
+                    onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
+                    placeholder="Nombre del proveedor"
+                    data-testid="input-proveedor"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="numero_documento">N° Documento</Label>
+                  <Input
+                    id="numero_documento"
+                    value={formData.numero_documento}
+                    onChange={(e) => setFormData({ ...formData, numero_documento: e.target.value })}
+                    placeholder="Factura, guía, etc."
+                    className="font-mono"
+                    data-testid="input-documento"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="observaciones">Observaciones</Label>
+                <Textarea
+                  id="observaciones"
+                  value={formData.observaciones}
+                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  placeholder="Notas adicionales..."
+                  rows={2}
+                  data-testid="input-observaciones"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" data-testid="btn-guardar-ingreso">
+                Registrar Ingreso
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
