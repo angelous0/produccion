@@ -172,11 +172,15 @@ class ModeloConRelaciones(BaseModel):
     entalle_id: str
     tela_id: str
     hilo_id: str
+    ruta_produccion_id: Optional[str] = None
+    materiales: List[MaterialModelo] = []
+    servicios_ids: List[str] = []
     marca_nombre: Optional[str] = None
     tipo_nombre: Optional[str] = None
     entalle_nombre: Optional[str] = None
     tela_nombre: Optional[str] = None
     hilo_nombre: Optional[str] = None
+    ruta_nombre: Optional[str] = None
     created_at: datetime
 
 # ==================== REGISTRO DE PRODUCCIÓN ====================
