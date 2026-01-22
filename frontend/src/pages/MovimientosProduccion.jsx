@@ -715,7 +715,6 @@ export const MovimientosProduccion = () => {
                   {servicios.map((servicio) => (
                     <SelectItem key={servicio.id} value={servicio.id}>
                       {servicio.nombre}
-                      {servicio.tarifa > 0 && ` (${formatCurrency(servicio.tarifa)}/prenda)`}
                     </SelectItem>
                   ))}
                 </SelectContent>
