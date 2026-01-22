@@ -1219,10 +1219,24 @@ async def delete_salida(salida_id: str):
     
     # Revertir FIFO: devolver cantidades a los lotes
     for detalle in salida.get('detalle_fifo', []):
-        await db.inventario_ingresos.update_one(
-            {"id": detalle['ingreso_id']},
-            {"$inc": {"cantidad_disponible": detalle['cantidad']}}
-        )
+        if detalle.get('rollo_id'):
+            # Si era salida de rollo, restaurar metraje del rollo
+            await db.inventario_rollos.update_one(
+                {"id": detalle['rollo_id']},
+                {"$inc": {"metraje_disponible": detalle['cantidad']}}
+            )
+            # Obtener el ingreso_id del rollo
+            rollo = await db.inventario_rollos.find_one({"id": detalle['rollo_id']}, {"_id": 0, "ingreso_id": 1})
+            if rollo:
+                await db.inventario_ingresos.update_one(
+                    {"id": rollo['ingreso_id']},
+                    {"$inc": {"cantidad_disponible": detalle['cantidad']}}
+                )
+        elif detalle.get('ingreso_id'):
+            await db.inventario_ingresos.update_one(
+                {"id": detalle['ingreso_id']},
+                {"$inc": {"cantidad_disponible": detalle['cantidad']}}
+            )
     
     await db.inventario_salidas.delete_one({"id": salida_id})
     
