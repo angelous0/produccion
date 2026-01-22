@@ -86,6 +86,7 @@ export const RegistroForm = () => {
     rollo_id: '',
     observaciones: '',
   });
+  const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
 
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
