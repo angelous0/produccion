@@ -117,6 +117,8 @@ export const InventarioIngresos = () => {
     const totalMetraje = newRollos.reduce((sum, r) => sum + (parseFloat(r.metraje) || 0), 0);
     setFormData({ ...formData, cantidad: totalMetraje });
   };
+
+  const handleOpenDialog = () => {
     resetForm();
     setDialogOpen(true);
   };
@@ -124,7 +126,16 @@ export const InventarioIngresos = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/inventario-ingresos`, formData);
+      const payload = { ...formData };
+      // Si es item con control por rollos, incluir rollos
+      if (selectedItem?.control_por_rollos && rollos.length > 0) {
+        payload.rollos = rollos.map(r => ({
+          ...r,
+          metraje: parseFloat(r.metraje) || 0,
+          ancho: parseFloat(r.ancho) || 0,
+        }));
+      }
+      await axios.post(`${API}/inventario-ingresos`, payload);
       toast.success('Ingreso registrado');
       setDialogOpen(false);
       resetForm();
