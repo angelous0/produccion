@@ -286,18 +286,22 @@ export const Inventario = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unidad_medida">Unidad de Medida</Label>
+                  <Label>Categoría</Label>
                   <Select
-                    value={formData.unidad_medida}
-                    onValueChange={(value) => setFormData({ ...formData, unidad_medida: value })}
+                    value={formData.categoria}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      categoria: value,
+                      control_por_rollos: value !== 'Telas' ? false : formData.control_por_rollos
+                    })}
                   >
-                    <SelectTrigger data-testid="select-unidad">
+                    <SelectTrigger data-testid="select-categoria">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {UNIDADES.map((u) => (
-                        <SelectItem key={u} value={u} className="capitalize">
-                          {u}
+                      {CATEGORIAS.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -317,6 +321,40 @@ export const Inventario = () => {
                 />
               </div>
               
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="unidad_medida">Unidad de Medida</Label>
+                  <Select
+                    value={formData.unidad_medida}
+                    onValueChange={(value) => setFormData({ ...formData, unidad_medida: value })}
+                  >
+                    <SelectTrigger data-testid="select-unidad">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {UNIDADES.map((u) => (
+                        <SelectItem key={u} value={u} className="capitalize">
+                          {u}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stock_minimo">Stock Mínimo</Label>
+                  <Input
+                    id="stock_minimo"
+                    type="number"
+                    min="0"
+                    value={formData.stock_minimo}
+                    onChange={(e) => setFormData({ ...formData, stock_minimo: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="font-mono"
+                    data-testid="input-stock-minimo"
+                  />
+                </div>
+              </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="descripcion">Descripción</Label>
                 <Textarea
@@ -329,22 +367,24 @@ export const Inventario = () => {
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="stock_minimo">Stock Mínimo</Label>
-                <Input
-                  id="stock_minimo"
-                  type="number"
-                  min="0"
-                  value={formData.stock_minimo}
-                  onChange={(e) => setFormData({ ...formData, stock_minimo: parseInt(e.target.value) || 0 })}
-                  placeholder="0"
-                  className="font-mono"
-                  data-testid="input-stock-minimo"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Se mostrará una alerta cuando el stock sea igual o menor a este valor
-                </p>
-              </div>
+              {formData.categoria === 'Telas' && (
+                <div className="flex items-center space-x-2 p-3 border rounded-lg bg-muted/30">
+                  <Checkbox
+                    id="control_por_rollos"
+                    checked={formData.control_por_rollos}
+                    onCheckedChange={(checked) => setFormData({ ...formData, control_por_rollos: checked })}
+                    data-testid="checkbox-rollos"
+                  />
+                  <div>
+                    <Label htmlFor="control_por_rollos" className="cursor-pointer">
+                      Control por Rollos
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Permite registrar cada rollo con su metraje, ancho y tono individual
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
