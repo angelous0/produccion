@@ -33,6 +33,7 @@ import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
 import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { MultiSelectColors } from '../components/MultiSelectColors';
 import { Textarea } from '../components/ui/textarea';
 
