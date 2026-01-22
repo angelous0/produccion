@@ -291,30 +291,93 @@ export const InventarioSalidas = () => {
                         <span className="font-mono mr-2">{item.codigo}</span>
                         {item.nombre}
                         <span className="ml-2 text-muted-foreground">(Stock: {item.stock_actual})</span>
+                        {item.control_por_rollos && (
+                          <Badge variant="outline" className="ml-2 text-xs">Rollos</Badge>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedItem && (
+                {selectedItem && !selectedItem.control_por_rollos && (
                   <p className="text-sm text-muted-foreground">
                     Stock disponible: <span className="font-mono font-semibold">{selectedItem.stock_actual}</span> {selectedItem.unidad_medida}
                   </p>
                 )}
               </div>
               
+              {/* Selector de Rollo (solo si el item tiene control por rollos) */}
+              {selectedItem?.control_por_rollos && (
+                <div className="space-y-2">
+                  <Label>Rollo *</Label>
+                  <Select
+                    value={formData.rollo_id}
+                    onValueChange={handleRolloChange}
+                    required
+                  >
+                    <SelectTrigger data-testid="select-rollo">
+                      <SelectValue placeholder="Seleccionar rollo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rollosDisponibles.length === 0 ? (
+                        <SelectItem value="none" disabled>No hay rollos disponibles</SelectItem>
+                      ) : (
+                        rollosDisponibles.map((rollo) => (
+                          <SelectItem key={rollo.id} value={rollo.id}>
+                            <div className="flex items-center gap-2">
+                              <Layers className="h-4 w-4" />
+                              <span className="font-mono font-semibold">{rollo.numero_rollo}</span>
+                              <span className="text-muted-foreground">|</span>
+                              <span>{rollo.tono || 'Sin tono'}</span>
+                              <span className="text-muted-foreground">|</span>
+                              <span className="font-mono text-green-600">{rollo.metraje_disponible?.toFixed(2)}m</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {selectedRollo && (
+                    <div className="p-3 bg-muted/30 rounded-lg text-sm space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Rollo:</span>
+                        <span className="font-mono font-semibold">{selectedRollo.numero_rollo}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tono:</span>
+                        <span>{selectedRollo.tono || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ancho:</span>
+                        <span className="font-mono">{selectedRollo.ancho}cm</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Disponible:</span>
+                        <span className="font-mono font-semibold text-green-600">{selectedRollo.metraje_disponible?.toFixed(2)}m</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               <div className="space-y-2">
-                <Label htmlFor="cantidad">Cantidad *</Label>
+                <Label htmlFor="cantidad">Cantidad ({selectedItem?.unidad_medida || 'unidad'}) *</Label>
                 <Input
                   id="cantidad"
                   type="number"
-                  min="1"
-                  max={selectedItem?.stock_actual || 999999}
+                  min="0.01"
+                  step="0.01"
+                  max={selectedRollo?.metraje_disponible || selectedItem?.stock_actual || 999999}
                   value={formData.cantidad}
-                  onChange={(e) => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 1 })}
                   required
                   className="font-mono"
                   data-testid="input-cantidad"
                 />
+                {selectedRollo && (
+                  <p className="text-xs text-muted-foreground">
+                    Máximo disponible: {selectedRollo.metraje_disponible?.toFixed(2)}m
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
