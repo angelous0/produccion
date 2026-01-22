@@ -219,6 +219,16 @@ export const InventarioSalidas = () => {
                           {salida.item_nombre}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {salida.rollo_numero ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Layers className="h-3 w-3" />
+                            {salida.rollo_numero}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-mono font-semibold">
                         {salida.cantidad}
                       </TableCell>
