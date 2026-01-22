@@ -764,50 +764,22 @@ export const RegistroForm = () => {
                         </Badge>
                       )}
                     </Label>
-                    {id && usaRuta && siguienteEstado ? (
-                      // Modo edición con ruta: solo puede avanzar al siguiente
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                          <Badge variant="secondary">{formData.estado}</Badge>
-                          <span className="text-muted-foreground">→</span>
-                          <Badge variant="default">{siguienteEstado}</Badge>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => setFormData({ ...formData, estado: siguienteEstado })}
-                          data-testid="btn-avanzar-estado"
-                        >
-                          Avanzar a &quot;{siguienteEstado}&quot;
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          * Requiere movimiento con fechas para el estado actual
-                        </p>
-                      </div>
-                    ) : id && usaRuta && !siguienteEstado ? (
-                      // Último estado de la ruta
-                      <div className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-950 rounded-md border border-green-200 dark:border-green-800">
-                        <Badge variant="default" className="bg-green-600">{formData.estado}</Badge>
-                        <span className="text-xs text-green-600">Estado final de la ruta</span>
-                      </div>
-                    ) : (
-                      // Sin ruta o nuevo registro: selector normal
-                      <Select
-                        value={formData.estado}
-                        onValueChange={(value) => setFormData({ ...formData, estado: value })}
-                      >
-                        <SelectTrigger data-testid="select-estado">
-                          <SelectValue placeholder="Seleccionar estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {estados.map((e) => (
-                            <SelectItem key={e} value={e}>
-                              {e}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
+                    <Select
+                      value={formData.estado}
+                      onValueChange={(value) => setFormData({ ...formData, estado: value })}
+                    >
+                      <SelectTrigger data-testid="select-estado">
+                        <SelectValue placeholder="Seleccionar estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {estados.map((e) => (
+                          <SelectItem key={e} value={e}>
+                            {e}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                       </Select>
                     )}
                   </div>
