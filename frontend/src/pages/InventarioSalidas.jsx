@@ -29,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Trash2, ArrowUpCircle, Link2 } from 'lucide-react';
+import { Plus, Trash2, ArrowUpCircle, Link2, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -41,10 +41,13 @@ export const InventarioSalidas = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [rollosDisponibles, setRollosDisponibles] = useState([]);
+  const [selectedRollo, setSelectedRollo] = useState(null);
   const [formData, setFormData] = useState({
     item_id: '',
     cantidad: 1,
     registro_id: '',
+    rollo_id: '',
     observaciones: '',
   });
 
@@ -74,9 +77,12 @@ export const InventarioSalidas = () => {
       item_id: '',
       cantidad: 1,
       registro_id: '',
+      rollo_id: '',
       observaciones: '',
     });
     setSelectedItem(null);
+    setRollosDisponibles([]);
+    setSelectedRollo(null);
   };
 
   const handleOpenDialog = () => {
