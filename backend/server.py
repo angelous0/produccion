@@ -1601,6 +1601,7 @@ class PersonaProduccionBase(BaseModel):
     servicio_ids: List[str] = []  # Lista de IDs de servicios asignados
     telefono: str = ""
     activo: bool = True
+    orden: int = 0  # Para ordenar manualmente
 
 class PersonaProduccionCreate(PersonaProduccionBase):
     pass
@@ -1636,7 +1637,7 @@ async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
         p['servicios_nombres'] = servicios_nombres
         
         result.append(p)
-    return sorted(result, key=lambda x: x.get('nombre', ''))
+    return sorted(result, key=lambda x: (x.get('orden', 0), x.get('nombre', '')))
 
 @api_router.post("/personas-produccion", response_model=PersonaProduccion)
 async def create_persona_produccion(input: PersonaProduccionCreate):
