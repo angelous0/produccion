@@ -116,6 +116,7 @@ export const MovimientosProduccion = () => {
       fecha_inicio: movimiento.fecha_inicio || '',
       fecha_fin: movimiento.fecha_fin || '',
       cantidad: movimiento.cantidad || 0,
+      tarifa_aplicada: movimiento.tarifa_aplicada || 0,
       observaciones: movimiento.observaciones || '',
     });
     // Filtrar personas por el servicio del movimiento
@@ -127,10 +128,12 @@ export const MovimientosProduccion = () => {
   };
 
   const handleServicioChange = (servicioId) => {
+    const tarifaServicio = getServicioTarifa(servicioId);
     setFormData({ 
       ...formData, 
       servicio_id: servicioId,
-      persona_id: '' 
+      persona_id: '',
+      tarifa_aplicada: tarifaServicio
     });
     const filtradas = personas.filter(p => 
       p.servicio_ids && p.servicio_ids.includes(servicioId)
