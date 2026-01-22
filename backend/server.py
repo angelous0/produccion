@@ -1598,12 +1598,15 @@ async def delete_servicio_produccion(servicio_id: str):
             detail=f"No se puede eliminar: tiene {movimientos_count} movimiento(s) de producción asociado(s)"
         )
     
-    # Verificar si tiene personas asignadas
-    personas_count = await db.personas_produccion.count_documents({"servicio_ids": servicio_id})
-    if personas_count > 0:
+    # Verificar si tiene personas asignadas (nuevo formato)
+    personas_count = await db.personas_produccion.count_documents({"servicios.servicio_id": servicio_id})
+    # También verificar formato antiguo
+    personas_count_old = await db.personas_produccion.count_documents({"servicio_ids": servicio_id})
+    total_personas = personas_count + personas_count_old
+    if total_personas > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"No se puede eliminar: tiene {personas_count} persona(s) asignada(s)"
+            detail=f"No se puede eliminar: tiene {total_personas} persona(s) asignada(s)"
         )
     
     result = await db.servicios_produccion.delete_one({"id": servicio_id})
