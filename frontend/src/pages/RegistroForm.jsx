@@ -1439,11 +1439,6 @@ export const RegistroForm = () => {
                   ))}
                 </SelectContent>
               </Select>
-              {movimientoFormData.servicio_id && getServicioTarifa(movimientoFormData.servicio_id) > 0 && (
-                <p className="text-xs text-green-600 font-medium">
-                  Tarifa: {formatCurrency(getServicioTarifa(movimientoFormData.servicio_id))} por prenda
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
