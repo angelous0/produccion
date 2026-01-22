@@ -1350,6 +1350,129 @@ export const RegistroForm = () => {
           axios.get(`${API}/inventario`).then(res => setItemsInventario(res.data));
         }}
       />
+
+      {/* Dialog para crear movimiento de producción */}
+      <Dialog open={movimientoDialogOpen} onOpenChange={setMovimientoDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nuevo Movimiento de Producción</DialogTitle>
+            <DialogDescription>
+              Registrar un movimiento de producción para este corte
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Servicio *</Label>
+              <Select
+                value={movimientoFormData.servicio_id}
+                onValueChange={handleServicioChange}
+              >
+                <SelectTrigger data-testid="select-servicio-movimiento">
+                  <SelectValue placeholder="Seleccionar servicio..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {serviciosProduccion.map((servicio) => (
+                    <SelectItem key={servicio.id} value={servicio.id}>
+                      {servicio.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Persona *</Label>
+              <Select
+                value={movimientoFormData.persona_id}
+                onValueChange={(value) => setMovimientoFormData({ ...movimientoFormData, persona_id: value })}
+                disabled={!movimientoFormData.servicio_id}
+              >
+                <SelectTrigger data-testid="select-persona-movimiento">
+                  <SelectValue placeholder={movimientoFormData.servicio_id ? "Seleccionar persona..." : "Selecciona servicio primero"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {personasFiltradas.length === 0 ? (
+                    <SelectItem value="none" disabled>
+                      No hay personas asignadas a este servicio
+                    </SelectItem>
+                  ) : (
+                    personasFiltradas.map((persona) => (
+                      <SelectItem key={persona.id} value={persona.id}>
+                        {persona.nombre}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {movimientoFormData.servicio_id && personasFiltradas.length === 0 && (
+                <p className="text-xs text-orange-500">
+                  No hay personas asignadas a este servicio. Asígnalas en Maestros → Personas.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fecha-inicio">Fecha Inicio</Label>
+                <Input
+                  id="fecha-inicio"
+                  type="date"
+                  value={movimientoFormData.fecha_inicio}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_inicio: e.target.value })}
+                  data-testid="input-fecha-inicio"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="fecha-fin">Fecha Fin</Label>
+                <Input
+                  id="fecha-fin"
+                  type="date"
+                  value={movimientoFormData.fecha_fin}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_fin: e.target.value })}
+                  data-testid="input-fecha-fin"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cantidad-movimiento">Cantidad de Prendas Entregadas</Label>
+              <Input
+                id="cantidad-movimiento"
+                type="number"
+                min="0"
+                value={movimientoFormData.cantidad}
+                onChange={(e) => setMovimientoFormData({ ...movimientoFormData, cantidad: parseInt(e.target.value) || 0 })}
+                className="font-mono"
+                data-testid="input-cantidad-movimiento"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="observaciones-movimiento">Observaciones</Label>
+              <Textarea
+                id="observaciones-movimiento"
+                value={movimientoFormData.observaciones}
+                onChange={(e) => setMovimientoFormData({ ...movimientoFormData, observaciones: e.target.value })}
+                placeholder="Notas adicionales..."
+                rows={2}
+                data-testid="input-observaciones-movimiento"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMovimientoDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCreateMovimiento}
+              disabled={!movimientoFormData.servicio_id || !movimientoFormData.persona_id}
+              data-testid="btn-guardar-movimiento"
+            >
+              Registrar Movimiento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
