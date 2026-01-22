@@ -349,11 +349,16 @@ async def delete_entalle(entalle_id: str):
 # ==================== ENDPOINTS TELA ====================
 
 @api_router.get("/telas", response_model=List[Tela])
-async def get_telas():
-    telas = await db.telas.find({}, {"_id": 0}).to_list(1000)
+async def get_telas(entalle_id: str = None):
+    query = {}
+    if entalle_id:
+        query = {"entalle_ids": entalle_id}
+    telas = await db.telas.find(query, {"_id": 0}).to_list(1000)
     for t in telas:
         if isinstance(t.get('created_at'), str):
             t['created_at'] = datetime.fromisoformat(t['created_at'])
+        if 'entalle_ids' not in t:
+            t['entalle_ids'] = []
     return telas
 
 @api_router.post("/telas", response_model=Tela)
@@ -369,8 +374,9 @@ async def update_tela(tela_id: str, input: TelaCreate):
     result = await db.telas.find_one({"id": tela_id}, {"_id": 0})
     if not result:
         raise HTTPException(status_code=404, detail="Tela no encontrada")
-    await db.telas.update_one({"id": tela_id}, {"$set": {"nombre": input.nombre}})
-    result['nombre'] = input.nombre
+    update_data = input.model_dump()
+    await db.telas.update_one({"id": tela_id}, {"$set": update_data})
+    result.update(update_data)
     if isinstance(result.get('created_at'), str):
         result['created_at'] = datetime.fromisoformat(result['created_at'])
     return Tela(**result)
@@ -385,11 +391,16 @@ async def delete_tela(tela_id: str):
 # ==================== ENDPOINTS HILO ====================
 
 @api_router.get("/hilos", response_model=List[Hilo])
-async def get_hilos():
-    hilos = await db.hilos.find({}, {"_id": 0}).to_list(1000)
+async def get_hilos(tela_id: str = None):
+    query = {}
+    if tela_id:
+        query = {"tela_ids": tela_id}
+    hilos = await db.hilos.find(query, {"_id": 0}).to_list(1000)
     for h in hilos:
         if isinstance(h.get('created_at'), str):
             h['created_at'] = datetime.fromisoformat(h['created_at'])
+        if 'tela_ids' not in h:
+            h['tela_ids'] = []
     return hilos
 
 @api_router.post("/hilos", response_model=Hilo)
@@ -405,8 +416,9 @@ async def update_hilo(hilo_id: str, input: HiloCreate):
     result = await db.hilos.find_one({"id": hilo_id}, {"_id": 0})
     if not result:
         raise HTTPException(status_code=404, detail="Hilo no encontrado")
-    await db.hilos.update_one({"id": hilo_id}, {"$set": {"nombre": input.nombre}})
-    result['nombre'] = input.nombre
+    update_data = input.model_dump()
+    await db.hilos.update_one({"id": hilo_id}, {"$set": update_data})
+    result.update(update_data)
     if isinstance(result.get('created_at'), str):
         result['created_at'] = datetime.fromisoformat(result['created_at'])
     return Hilo(**result)
