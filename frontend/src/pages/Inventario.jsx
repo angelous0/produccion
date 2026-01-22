@@ -73,8 +73,10 @@ export const Inventario = () => {
       codigo: '',
       nombre: '',
       descripcion: '',
+      categoria: 'Otros',
       unidad_medida: 'unidad',
       stock_minimo: 0,
+      control_por_rollos: false,
     });
     setEditingItem(null);
   };
@@ -86,8 +88,10 @@ export const Inventario = () => {
         codigo: item.codigo,
         nombre: item.nombre,
         descripcion: item.descripcion || '',
+        categoria: item.categoria || 'Otros',
         unidad_medida: item.unidad_medida || 'unidad',
         stock_minimo: item.stock_minimo || 0,
+        control_por_rollos: item.control_por_rollos || false,
       });
     } else {
       resetForm();
@@ -110,6 +114,14 @@ export const Inventario = () => {
       fetchItems();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
+    }
+  };
+
+  const getCategoriaColor = (categoria) => {
+    switch (categoria) {
+      case 'Telas': return 'bg-blue-500';
+      case 'Avios': return 'bg-purple-500';
+      default: return 'bg-gray-500';
     }
   };
 
