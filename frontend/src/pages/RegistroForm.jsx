@@ -920,7 +920,7 @@ export const RegistroForm = () => {
                   <Button
                     type="button"
                     size="sm"
-                    onClick={handleOpenMovimientoDialog}
+                    onClick={() => handleOpenMovimientoDialog()}
                     data-testid="btn-nuevo-movimiento"
                   >
                     <Plus className="h-4 w-4 mr-1" />
