@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import {
   Table,
   TableBody,
@@ -19,17 +20,33 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '../lib/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '../components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Telas = () => {
   const [items, setItems] = useState([]);
+  const [entalles, setEntalles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '' });
+  const [formData, setFormData] = useState({ nombre: '', entalle_ids: [] });
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const fetchItems = async () => {
     try {
@@ -42,8 +59,18 @@ export const Telas = () => {
     }
   };
 
+  const fetchEntalles = async () => {
+    try {
+      const response = await axios.get(`${API}/entalles`);
+      setEntalles(response.data);
+    } catch (error) {
+      console.error('Error fetching entalles:', error);
+    }
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchEntalles();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -58,7 +85,7 @@ export const Telas = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '' });
+      setFormData({ nombre: '', entalle_ids: [] });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar tela');
@@ -67,7 +94,7 @@ export const Telas = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre });
+    setFormData({ nombre: item.nombre, entalle_ids: item.entalle_ids || [] });
     setDialogOpen(true);
   };
 
@@ -83,8 +110,17 @@ export const Telas = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '' });
+    setFormData({ nombre: '', entalle_ids: [] });
     setDialogOpen(true);
+  };
+
+  const toggleEntalle = (entalleId) => {
+    const current = formData.entalle_ids || [];
+    if (current.includes(entalleId)) {
+      setFormData({ ...formData, entalle_ids: current.filter(id => id !== entalleId) });
+    } else {
+      setFormData({ ...formData, entalle_ids: [...current, entalleId] });
+    }
   };
 
   return (
@@ -106,42 +142,48 @@ export const Telas = () => {
             <TableHeader>
               <TableRow className="data-table-header">
                 <TableHead>Nombre</TableHead>
+                <TableHead>Entalles</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     No hay telas registradas
                   </TableCell>
                 </TableRow>
               ) : (
                 items.map((item) => (
-                  <TableRow key={item.id} className="data-table-row" data-testid={`tela-row-${item.id}`}>
+                  <TableRow key={item.id} className="data-table-row">
                     <TableCell className="font-medium">{item.nombre}</TableCell>
                     <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(item.entalle_ids || []).map(entalleId => {
+                          const entalle = entalles.find(e => e.id === entalleId);
+                          return entalle ? (
+                            <Badge key={entalleId} variant="secondary" className="text-xs">
+                              {entalle.nombre}
+                            </Badge>
+                          ) : null;
+                        })}
+                        {(!item.entalle_ids || item.entalle_ids.length === 0) && (
+                          <span className="text-muted-foreground text-sm">Sin entalles</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`edit-tela-${item.id}`}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item.id)}
-                          data-testid={`delete-tela-${item.id}`}
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -166,20 +208,58 @@ export const Telas = () => {
                 <Input
                   id="nombre"
                   value={formData.nombre}
-                  onChange={(e) => setFormData({ nombre: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   placeholder="Nombre de la tela"
                   required
-                  data-testid="input-nombre-tela"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Entalles disponibles</Label>
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between h-auto min-h-10">
+                      <div className="flex flex-wrap gap-1 flex-1">
+                        {formData.entalle_ids?.length === 0 ? (
+                          <span className="text-muted-foreground">Seleccionar entalles...</span>
+                        ) : (
+                          formData.entalle_ids.map(id => {
+                            const entalle = entalles.find(e => e.id === id);
+                            return entalle ? (
+                              <Badge key={id} variant="secondary" className="text-xs">{entalle.nombre}</Badge>
+                            ) : null;
+                          })
+                        )}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar entalle..." />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron entalles.</CommandEmpty>
+                        <CommandGroup>
+                          {entalles.map((entalle) => (
+                            <CommandItem key={entalle.id} value={entalle.nombre} onSelect={() => toggleEntalle(entalle.id)}>
+                              <div className={cn(
+                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+                                formData.entalle_ids?.includes(entalle.id) ? "bg-primary border-primary text-primary-foreground" : "opacity-50"
+                              )}>
+                                {formData.entalle_ids?.includes(entalle.id) && <Check className="h-3 w-3" />}
+                              </div>
+                              {entalle.nombre}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" data-testid="btn-guardar-tela">
-                {editingItem ? 'Actualizar' : 'Crear'}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit">{editingItem ? 'Actualizar' : 'Crear'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
