@@ -272,7 +272,7 @@ export const InventarioIngresos = () => {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className={selectedItem?.control_por_rollos ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg"}>
           <DialogHeader>
             <DialogTitle>Nuevo Ingreso</DialogTitle>
             <DialogDescription>
@@ -285,7 +285,7 @@ export const InventarioIngresos = () => {
                 <Label>Item *</Label>
                 <Select
                   value={formData.item_id}
-                  onValueChange={(value) => setFormData({ ...formData, item_id: value })}
+                  onValueChange={handleItemChange}
                   required
                 >
                   <SelectTrigger data-testid="select-item">
@@ -296,40 +296,148 @@ export const InventarioIngresos = () => {
                       <SelectItem key={item.id} value={item.id}>
                         <span className="font-mono mr-2">{item.codigo}</span>
                         {item.nombre}
+                        {item.control_por_rollos && (
+                          <Badge variant="outline" className="ml-2 text-xs">Rollos</Badge>
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cantidad">Cantidad *</Label>
-                  <Input
-                    id="cantidad"
-                    type="number"
-                    min="1"
-                    value={formData.cantidad}
-                    onChange={(e) => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 1 })}
-                    required
-                    className="font-mono"
-                    data-testid="input-cantidad"
-                  />
+              {/* Si el item tiene control por rollos */}
+              {selectedItem?.control_por_rollos ? (
+                <>
+                  <div className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-5 w-5 text-primary" />
+                        <Label className="text-base font-semibold">Rollos</Label>
+                      </div>
+                      <Button type="button" size="sm" onClick={addRollo} data-testid="btn-agregar-rollo">
+                        <Plus className="h-4 w-4 mr-1" />
+                        Agregar Rollo
+                      </Button>
+                    </div>
+                    
+                    {rollos.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Agrega rollos para este ingreso
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {rollos.map((rollo, index) => (
+                          <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg bg-muted/30">
+                            <div className="col-span-3">
+                              <Label className="text-xs">N° Rollo</Label>
+                              <Input
+                                value={rollo.numero_rollo}
+                                onChange={(e) => updateRollo(index, 'numero_rollo', e.target.value)}
+                                placeholder="R001"
+                                className="font-mono"
+                                data-testid={`rollo-${index}-numero`}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label className="text-xs">Metraje (m)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={rollo.metraje}
+                                onChange={(e) => updateRollo(index, 'metraje', e.target.value)}
+                                className="font-mono"
+                                data-testid={`rollo-${index}-metraje`}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Label className="text-xs">Ancho (cm)</Label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                value={rollo.ancho}
+                                onChange={(e) => updateRollo(index, 'ancho', e.target.value)}
+                                className="font-mono"
+                                data-testid={`rollo-${index}-ancho`}
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <Label className="text-xs">Tono</Label>
+                              <Input
+                                value={rollo.tono}
+                                onChange={(e) => updateRollo(index, 'tono', e.target.value)}
+                                placeholder="Ej: Claro, Oscuro, Lote A"
+                                data-testid={`rollo-${index}-tono`}
+                              />
+                            </div>
+                            <div className="col-span-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeRollo(index)}
+                                data-testid={`rollo-${index}-eliminar`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="text-sm text-muted-foreground">Total Metraje:</span>
+                      <span className="font-mono font-bold text-lg">{formData.cantidad.toFixed(2)} m</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="costo_unitario">Costo por Metro</Label>
+                    <Input
+                      id="costo_unitario"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.costo_unitario}
+                      onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                      className="font-mono"
+                      data-testid="input-costo"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cantidad">Cantidad *</Label>
+                    <Input
+                      id="cantidad"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={formData.cantidad}
+                      onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 0 })}
+                      required
+                      className="font-mono"
+                      data-testid="input-cantidad"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="costo_unitario">Costo Unitario</Label>
+                    <Input
+                      id="costo_unitario"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.costo_unitario}
+                      onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                      className="font-mono"
+                      data-testid="input-costo"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="costo_unitario">Costo Unitario</Label>
-                  <Input
-                    id="costo_unitario"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.costo_unitario}
-                    onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
-                    className="font-mono"
-                    data-testid="input-costo"
-                  />
-                </div>
-              </div>
+              )}
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
