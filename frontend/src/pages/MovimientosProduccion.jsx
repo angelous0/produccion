@@ -119,26 +119,58 @@ export const MovimientosProduccion = () => {
       tarifa_aplicada: movimiento.tarifa_aplicada || 0,
       observaciones: movimiento.observaciones || '',
     });
-    // Filtrar personas por el servicio del movimiento
-    const filtradas = personas.filter(p => 
-      p.servicio_ids && p.servicio_ids.includes(movimiento.servicio_id)
-    );
+    // Filtrar personas por el servicio del movimiento (nueva estructura)
+    const filtradas = personas.filter(p => {
+      const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === movimiento.servicio_id);
+      const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === movimiento.servicio_id);
+      const tieneEnIds = (p.servicio_ids || []).includes(movimiento.servicio_id);
+      return tieneEnDetalle || tieneEnServicios || tieneEnIds;
+    });
     setPersonasFiltradas(filtradas);
     setDialogOpen(true);
   };
 
+  // Helper para obtener tarifa de la combinación persona-servicio
+  const getTarifaPersonaServicio = (personaId, servicioId) => {
+    const persona = personas.find(p => p.id === personaId);
+    if (!persona) return 0;
+    
+    const servicioDetalle = (persona.servicios_detalle || []).find(s => s.servicio_id === servicioId);
+    if (servicioDetalle) return servicioDetalle.tarifa || 0;
+    
+    const servicio = (persona.servicios || []).find(s => s.servicio_id === servicioId);
+    if (servicio) return servicio.tarifa || 0;
+    
+    return 0;
+  };
+
+  // Helper para filtrar personas por servicio
+  const filtrarPersonasPorServicio = (servicioId) => {
+    return personas.filter(p => {
+      const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === servicioId);
+      const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === servicioId);
+      const tieneEnIds = (p.servicio_ids || []).includes(servicioId);
+      return tieneEnDetalle || tieneEnServicios || tieneEnIds;
+    });
+  };
+
   const handleServicioChange = (servicioId) => {
-    const tarifaServicio = getServicioTarifa(servicioId);
     setFormData({ 
       ...formData, 
       servicio_id: servicioId,
       persona_id: '',
-      tarifa_aplicada: tarifaServicio
+      tarifa_aplicada: 0  // Se pre-llenará cuando se seleccione persona
     });
-    const filtradas = personas.filter(p => 
-      p.servicio_ids && p.servicio_ids.includes(servicioId)
-    );
-    setPersonasFiltradas(filtradas);
+    setPersonasFiltradas(filtrarPersonasPorServicio(servicioId));
+  };
+
+  const handlePersonaChangeEdit = (personaId) => {
+    const tarifa = getTarifaPersonaServicio(personaId, formData.servicio_id);
+    setFormData({
+      ...formData,
+      persona_id: personaId,
+      tarifa_aplicada: tarifa
+    });
   };
 
   const handleSubmit = async () => {
@@ -184,20 +216,25 @@ export const MovimientosProduccion = () => {
   };
 
   const handleCreateServicioChange = (servicioId) => {
-    const tarifaServicio = getServicioTarifa(servicioId);
     setCreateFormData({ 
       ...createFormData, 
       servicio_id: servicioId,
       persona_id: '',
-      tarifa_aplicada: tarifaServicio
+      tarifa_aplicada: 0  // Se pre-llenará cuando se seleccione persona
     });
-    const filtradas = personas.filter(p => 
-      p.servicio_ids && p.servicio_ids.includes(servicioId)
-    );
-    setPersonasFiltradasCreate(filtradas);
+    setPersonasFiltradasCreate(filtrarPersonasPorServicio(servicioId));
   };
 
-  // Helper para obtener tarifa del servicio
+  const handlePersonaChangeCreate = (personaId) => {
+    const tarifa = getTarifaPersonaServicio(personaId, createFormData.servicio_id);
+    setCreateFormData({
+      ...createFormData,
+      persona_id: personaId,
+      tarifa_aplicada: tarifa
+    });
+  };
+
+  // Helper para obtener tarifa del servicio (mantenido para compatibilidad con visualización)
   const getServicioTarifa = (servicioId) => {
     const servicio = servicios.find(s => s.id === servicioId);
     return servicio?.tarifa || 0;
