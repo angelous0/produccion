@@ -245,14 +245,14 @@ export const HistorialActividad = () => {
             <div className="space-y-2">
               <Label>Usuario</Label>
               <Select 
-                value={filtros.usuario_id} 
-                onValueChange={(value) => setFiltros({ ...filtros, usuario_id: value })}
+                value={filtros.usuario_id || "all"} 
+                onValueChange={(value) => setFiltros({ ...filtros, usuario_id: value === "all" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {usuarios.map((u) => (
                     <SelectItem key={u.id} value={u.id}>{u.username}</SelectItem>
                   ))}
@@ -263,14 +263,14 @@ export const HistorialActividad = () => {
             <div className="space-y-2">
               <Label>Tipo de Acción</Label>
               <Select 
-                value={filtros.tipo_accion} 
-                onValueChange={(value) => setFiltros({ ...filtros, tipo_accion: value })}
+                value={filtros.tipo_accion || "all"} 
+                onValueChange={(value) => setFiltros({ ...filtros, tipo_accion: value === "all" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {Object.entries(TIPO_ACCION_CONFIG).map(([key, config]) => (
                     <SelectItem key={key} value={key}>{config.label}</SelectItem>
                   ))}
@@ -281,14 +281,14 @@ export const HistorialActividad = () => {
             <div className="space-y-2">
               <Label>Tabla</Label>
               <Select 
-                value={filtros.tabla_afectada} 
-                onValueChange={(value) => setFiltros({ ...filtros, tabla_afectada: value })}
+                value={filtros.tabla_afectada || "all"} 
+                onValueChange={(value) => setFiltros({ ...filtros, tabla_afectada: value === "all" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   {tablasDisponibles.map((t) => (
                     <SelectItem key={t} value={t}>{TABLA_LABELS[t] || t}</SelectItem>
                   ))}
