@@ -48,6 +48,7 @@ function App() {
             <Route path="registros" element={<Registros />} />
             <Route path="registros/nuevo" element={<RegistroForm />} />
             <Route path="registros/editar/:id" element={<RegistroForm />} />
+            <Route path="registros/:registroId/hilos" element={<RegistroHilos />} />
             <Route path="inventario" element={<Inventario />} />
             <Route path="inventario/ingresos" element={<InventarioIngresos />} />
             <Route path="inventario/salidas" element={<InventarioSalidas />} />
