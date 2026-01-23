@@ -921,6 +921,104 @@ async def get_estructura_permisos():
         ]
     }
 
+# ==================== ENDPOINTS HISTORIAL DE ACTIVIDAD ====================
+
+@api_router.get("/actividad")
+async def get_actividad(
+    usuario_id: str = None,
+    tipo_accion: str = None,
+    tabla_afectada: str = None,
+    fecha_desde: str = None,
+    fecha_hasta: str = None,
+    limit: int = 100,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user)
+):
+    """Obtiene el historial de actividad con filtros"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden ver el historial")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_actividad_historial WHERE 1=1"
+        params = []
+        param_count = 0
+        
+        if usuario_id:
+            param_count += 1
+            query += f" AND usuario_id = ${param_count}"
+            params.append(usuario_id)
+        
+        if tipo_accion:
+            param_count += 1
+            query += f" AND tipo_accion = ${param_count}"
+            params.append(tipo_accion)
+        
+        if tabla_afectada:
+            param_count += 1
+            query += f" AND tabla_afectada = ${param_count}"
+            params.append(tabla_afectada)
+        
+        if fecha_desde:
+            param_count += 1
+            query += f" AND created_at >= ${param_count}::timestamp"
+            params.append(fecha_desde)
+        
+        if fecha_hasta:
+            param_count += 1
+            query += f" AND created_at <= ${param_count}::timestamp + interval '1 day'"
+            params.append(fecha_hasta)
+        
+        # Contar total
+        count_query = query.replace("SELECT *", "SELECT COUNT(*)")
+        total = await conn.fetchval(count_query, *params)
+        
+        # Obtener registros con paginación
+        query += f" ORDER BY created_at DESC LIMIT {limit} OFFSET {offset}"
+        rows = await conn.fetch(query, *params)
+        
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['datos_anteriores'] = parse_jsonb(d.get('datos_anteriores'))
+            d['datos_nuevos'] = parse_jsonb(d.get('datos_nuevos'))
+            result.append(d)
+        
+        return {
+            "total": total,
+            "items": result,
+            "limit": limit,
+            "offset": offset
+        }
+
+@api_router.get("/actividad/tipos")
+async def get_tipos_actividad(current_user: dict = Depends(get_current_user)):
+    """Retorna los tipos de actividad disponibles"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    return [
+        {"value": "login", "label": "Inicio de Sesión", "icon": "LogIn", "color": "text-green-500"},
+        {"value": "crear", "label": "Crear", "icon": "Plus", "color": "text-blue-500"},
+        {"value": "editar", "label": "Editar", "icon": "Pencil", "color": "text-yellow-500"},
+        {"value": "eliminar", "label": "Eliminar", "icon": "Trash2", "color": "text-red-500"},
+        {"value": "cambio_password", "label": "Cambio de Contraseña", "icon": "Key", "color": "text-purple-500"},
+        {"value": "cambio_password_admin", "label": "Cambio Contraseña (Admin)", "icon": "Shield", "color": "text-orange-500"},
+    ]
+
+@api_router.get("/actividad/tablas")
+async def get_tablas_actividad(current_user: dict = Depends(get_current_user)):
+    """Retorna las tablas que tienen actividad registrada"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT DISTINCT tabla_afectada FROM prod_actividad_historial WHERE tabla_afectada IS NOT NULL ORDER BY tabla_afectada"
+        )
+        return [r['tabla_afectada'] for r in rows]
+
 # ==================== ENDPOINTS MARCA ====================
 
 @api_router.get("/marcas")
