@@ -2339,17 +2339,33 @@ async def create_guia_remision(input: GuiaRemisionCreate):
 
 @api_router.post("/guias-remision/desde-movimiento/{movimiento_id}")
 async def create_guia_desde_movimiento(movimiento_id: str, observaciones: str = ""):
-    """Crea una guía de remisión a partir de un movimiento existente"""
+    """Crea o actualiza una guía de remisión a partir de un movimiento existente"""
     movimiento = await db.movimientos_produccion.find_one({"id": movimiento_id}, {"_id": 0})
     if not movimiento:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     
     # Verificar si ya existe una guía para este movimiento
     guia_existente = await db.guias_remision.find_one({"movimiento_id": movimiento_id}, {"_id": 0})
-    if guia_existente:
-        raise HTTPException(status_code=400, detail="Ya existe una guía para este movimiento")
     
-    # Generar número automático
+    if guia_existente:
+        # Actualizar guía existente con datos actuales del movimiento
+        update_data = {
+            "registro_id": movimiento.get('registro_id', ''),
+            "servicio_id": movimiento.get('servicio_id', ''),
+            "persona_id": movimiento.get('persona_id', ''),
+            "cantidad": movimiento.get('cantidad_enviada', movimiento.get('cantidad', 0)),
+            "fecha_emision": movimiento.get('fecha_inicio', guia_existente.get('fecha_emision', '')),
+        }
+        if observaciones:
+            update_data['observaciones'] = observaciones
+            
+        await db.guias_remision.update_one(
+            {"id": guia_existente['id']}, 
+            {"$set": update_data}
+        )
+        return await get_guia_remision(guia_existente['id'])
+    
+    # Crear nueva guía con número automático
     numero = await generar_numero_guia()
     
     guia = GuiaRemision(
