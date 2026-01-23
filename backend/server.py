@@ -662,6 +662,85 @@ async def delete_color_catalogo(color_id: str):
         await conn.execute("DELETE FROM prod_colores_catalogo WHERE id = $1", color_id)
         return {"message": "Color eliminado"}
 
+# ==================== ENDPOINTS HILOS REGISTRO ====================
+
+class RegistroHiloBase(BaseModel):
+    registro_id: str
+    hilo_id: str
+    color_id: Optional[str] = None
+    cantidad: float = 0
+    observaciones: str = ""
+
+class RegistroHiloCreate(RegistroHiloBase):
+    pass
+
+class RegistroHilo(RegistroHiloBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+@api_router.get("/registro-hilos")
+async def get_registro_hilos(registro_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if registro_id:
+            rows = await conn.fetch("SELECT * FROM prod_registro_hilos WHERE registro_id = $1 ORDER BY created_at DESC", registro_id)
+        else:
+            rows = await conn.fetch("SELECT * FROM prod_registro_hilos ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            # Enriquecer con nombres
+            hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
+            color = await conn.fetchrow("SELECT nombre FROM prod_colores_catalogo WHERE id = $1", d.get('color_id')) if d.get('color_id') else None
+            registro = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d.get('registro_id'))
+            d['hilo_nombre'] = hilo['nombre'] if hilo else None
+            d['color_nombre'] = color['nombre'] if color else None
+            d['registro_n_corte'] = registro['n_corte'] if registro else None
+            result.append(d)
+        return result
+
+@api_router.post("/registro-hilos")
+async def create_registro_hilo(input: RegistroHiloCreate):
+    registro_hilo = RegistroHilo(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Verificar que registro y hilo existen
+        reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        hilo = await conn.fetchrow("SELECT id FROM prod_hilos WHERE id = $1", input.hilo_id)
+        if not hilo:
+            raise HTTPException(status_code=404, detail="Hilo no encontrado")
+        
+        await conn.execute(
+            """INSERT INTO prod_registro_hilos (id, registro_id, hilo_id, color_id, cantidad, observaciones, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)""",
+            registro_hilo.id, registro_hilo.registro_id, registro_hilo.hilo_id, registro_hilo.color_id,
+            registro_hilo.cantidad, registro_hilo.observaciones, registro_hilo.created_at.replace(tzinfo=None)
+        )
+    return registro_hilo
+
+@api_router.put("/registro-hilos/{hilo_registro_id}")
+async def update_registro_hilo(hilo_registro_id: str, input: RegistroHiloCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_registro_hilos WHERE id = $1", hilo_registro_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Hilo de registro no encontrado")
+        await conn.execute(
+            """UPDATE prod_registro_hilos SET hilo_id=$1, color_id=$2, cantidad=$3, observaciones=$4 WHERE id=$5""",
+            input.hilo_id, input.color_id, input.cantidad, input.observaciones, hilo_registro_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
+
+@api_router.delete("/registro-hilos/{hilo_registro_id}")
+async def delete_registro_hilo(hilo_registro_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_registro_hilos WHERE id = $1", hilo_registro_id)
+        return {"message": "Hilo de registro eliminado"}
+
 # ==================== ENDPOINTS RUTAS PRODUCCION ====================
 
 @api_router.get("/rutas-produccion")
