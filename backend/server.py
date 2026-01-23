@@ -664,6 +664,19 @@ async def create_usuario(input: UserCreate, current_user: dict = Depends(get_cur
             input.rol, json.dumps(input.permisos)
         )
         
+        # Registrar actividad
+        await registrar_actividad(
+            pool,
+            usuario_id=current_user['id'],
+            usuario_nombre=current_user['username'],
+            tipo_accion="crear",
+            tabla_afectada="usuarios",
+            registro_id=user_id,
+            registro_nombre=input.username,
+            descripcion=f"Creó usuario '{input.username}' con rol '{input.rol}'",
+            datos_nuevos=limpiar_datos_sensibles({"username": input.username, "email": input.email, "nombre_completo": input.nombre_completo, "rol": input.rol})
+        )
+        
         return {"id": user_id, "username": input.username, "message": "Usuario creado correctamente"}
 
 @api_router.put("/usuarios/{user_id}")
