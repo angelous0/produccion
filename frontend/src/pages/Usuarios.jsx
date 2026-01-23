@@ -65,6 +65,7 @@ export const Usuarios = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [permisosDialogOpen, setPermisosDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
@@ -74,6 +75,8 @@ export const Usuarios = () => {
     rol: 'usuario',
   });
   const [permisos, setPermisos] = useState({});
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const fetchUsuarios = async () => {
     try {
