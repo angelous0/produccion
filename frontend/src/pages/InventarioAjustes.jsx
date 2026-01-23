@@ -89,7 +89,22 @@ export const InventarioAjustes = () => {
   };
 
   const handleOpenDialog = () => {
+    setEditingAjuste(null);
     resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (ajuste) => {
+    setEditingAjuste(ajuste);
+    const item = items.find(i => i.id === ajuste.item_id);
+    setSelectedItem(item);
+    setFormData({
+      item_id: ajuste.item_id,
+      tipo: ajuste.tipo,
+      cantidad: ajuste.cantidad,
+      motivo: ajuste.motivo || '',
+      observaciones: ajuste.observaciones || '',
+    });
     setDialogOpen(true);
   };
 
@@ -102,9 +117,19 @@ export const InventarioAjustes = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/inventario-ajustes`, formData);
-      toast.success('Ajuste registrado');
+      if (editingAjuste) {
+        // Solo permitir editar motivo y observaciones
+        await axios.put(`${API}/inventario-ajustes/${editingAjuste.id}`, {
+          motivo: formData.motivo,
+          observaciones: formData.observaciones,
+        });
+        toast.success('Ajuste actualizado');
+      } else {
+        await axios.post(`${API}/inventario-ajustes`, formData);
+        toast.success('Ajuste registrado');
+      }
       setDialogOpen(false);
+      setEditingAjuste(null);
       resetForm();
       fetchData();
     } catch (error) {
