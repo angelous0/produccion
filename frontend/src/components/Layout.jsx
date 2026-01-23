@@ -38,6 +38,7 @@ const navItems = [
   { to: '/entalles', icon: Shirt, label: 'Entalles' },
   { to: '/telas', icon: Palette, label: 'Telas' },
   { to: '/hilos', icon: Scissors, label: 'Hilos' },
+  { to: '/hilos-especificos', icon: Sparkles, label: 'Hilos Específicos' },
   { to: '/tallas-catalogo', icon: Ruler, label: 'Tallas' },
   { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
   { to: '/colores-generales', icon: Palette, label: 'Colores Generales' },
