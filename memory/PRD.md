@@ -166,10 +166,40 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - CRUD completo en `/hilos-especificos`
   - Enlace en menú lateral con icono Sparkles
 
+### Enero 2025 - Sistema de Autenticación y Permisos
+- ✅ **Autenticación JWT Completa**:
+  - Login con usuario/contraseña (sin OAuth/Google)
+  - Token JWT con expiración de 24 horas (algoritmo HS256)
+  - Hash de contraseñas con bcrypt (passlib)
+  - Endpoints: `POST /api/auth/login`, `GET /api/auth/me`, `PUT /api/auth/change-password`
+- ✅ **Sistema de Roles**:
+  - **Admin**: Acceso total, puede gestionar usuarios
+  - **Usuario**: Permisos personalizables por tabla (CRUD)
+  - **Lectura**: Solo puede ver datos
+- ✅ **Gestión de Usuarios** (solo admin):
+  - CRUD completo en `/usuarios`
+  - Crear, editar, eliminar usuarios
+  - Activar/desactivar usuarios
+  - Resetear contraseña (nueva = username + "123")
+  - Endpoint estructura de permisos: `GET /api/permisos/estructura`
+- ✅ **Permisos Granulares por Tabla**:
+  - Cada usuario tipo "usuario" puede tener permisos específicos
+  - Permisos CRUD (ver, crear, editar, eliminar) por cada tabla
+  - Estructura de permisos organizada por categorías
+  - Dialog de configuración de permisos con checkboxes
+- ✅ **Frontend Protegido**:
+  - `AuthProvider` context para estado de autenticación
+  - `ProtectedRoute` redirige a `/login` si no autenticado
+  - `PublicRoute` redirige a `/` si ya autenticado
+  - Menú de usuario en header con dropdown (logout, gestión usuarios)
+  - Persistencia de token en localStorage
+- ✅ **Usuario Administrador**: eduard / eduard123
+
 ## Backlog
 
 ### P1 - Importante
-- [ ] Autenticación de usuarios
+- [ ] Aplicar permisos granulares en frontend (ocultar botones según rol)
+- [ ] Proteger endpoints de backend según permisos de usuario
 - [ ] Filtros y búsqueda en tablas de producción
 - [ ] Exportar registros a Excel
 
