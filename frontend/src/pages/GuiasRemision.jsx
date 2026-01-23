@@ -300,11 +300,11 @@ export const GuiasRemision = () => {
                   <TableRow key={guia.id} data-testid={`guia-row-${guia.id}`}>
                     <TableCell>
                       <Badge variant="outline" className="font-mono">
-                        {guia.numero}
+                        {guia.numero_guia || '-'}
                       </Badge>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      {guia.fecha_emision || '-'}
+                      {guia.fecha ? formatDate(guia.fecha) : '-'}
                     </TableCell>
                     <TableCell>
                       <div>
