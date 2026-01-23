@@ -52,7 +52,8 @@ import {
   User,
   Shield,
   Key,
-  Loader2
+  Loader2,
+  History
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
