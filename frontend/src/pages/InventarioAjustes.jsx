@@ -31,6 +31,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Plus, Trash2, RefreshCw, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
