@@ -110,6 +110,10 @@ export const RegistroForm = () => {
     observaciones: '',
   });
 
+  // Hilos específicos asignados al registro
+  const [hilosEspecificos, setHilosEspecificos] = useState([]);
+  const [hilosAsignados, setHilosAsignados] = useState([]);
+
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
     try {
