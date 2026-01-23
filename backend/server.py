@@ -777,6 +777,84 @@ async def delete_color_catalogo(color_id: str):
         await conn.execute("DELETE FROM prod_colores_catalogo WHERE id = $1", color_id)
         return {"message": "Color eliminado"}
 
+# ==================== ENDPOINT REORDENAMIENTO BATCH ====================
+
+class ReorderItem(BaseModel):
+    id: str
+    orden: int
+
+class ReorderRequest(BaseModel):
+    items: List[ReorderItem]
+
+@api_router.put("/reorder/{tabla}")
+async def reorder_items(tabla: str, request: ReorderRequest):
+    """Endpoint genérico para reordenar items de cualquier tabla"""
+    tablas_permitidas = {
+        "marcas": "prod_marcas",
+        "tipos": "prod_tipos",
+        "entalles": "prod_entalles",
+        "telas": "prod_telas",
+        "hilos": "prod_hilos",
+        "tallas-catalogo": "prod_tallas_catalogo",
+        "colores-generales": "prod_colores_generales",
+        "colores-catalogo": "prod_colores_catalogo",
+        "hilos-especificos": "prod_hilos_especificos"
+    }
+    
+    if tabla not in tablas_permitidas:
+        raise HTTPException(status_code=400, detail=f"Tabla '{tabla}' no permitida para reordenamiento")
+    
+    table_name = tablas_permitidas[tabla]
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for item in request.items:
+            await conn.execute(f"UPDATE {table_name} SET orden = $1 WHERE id = $2", item.orden, item.id)
+    
+    return {"message": f"Reordenamiento de {tabla} completado", "items_updated": len(request.items)}
+
+# ==================== ENDPOINTS HILOS ESPECÍFICOS ====================
+
+@api_router.get("/hilos-especificos")
+async def get_hilos_especificos():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_hilos_especificos ORDER BY orden ASC, nombre ASC")
+        return [row_to_dict(r) for r in rows]
+
+@api_router.post("/hilos-especificos")
+async def create_hilo_especifico(input: HiloEspecificoCreate):
+    hilo = HiloEspecifico(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if hilo.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_hilos_especificos")
+            hilo.orden = max_orden + 1
+        await conn.execute(
+            "INSERT INTO prod_hilos_especificos (id, nombre, codigo, color, descripcion, orden, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            hilo.id, hilo.nombre, hilo.codigo, hilo.color, hilo.descripcion, hilo.orden, hilo.created_at.replace(tzinfo=None)
+        )
+    return hilo
+
+@api_router.put("/hilos-especificos/{hilo_id}")
+async def update_hilo_especifico(hilo_id: str, input: HiloEspecificoCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_hilos_especificos WHERE id = $1", hilo_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Hilo específico no encontrado")
+        await conn.execute(
+            "UPDATE prod_hilos_especificos SET nombre = $1, codigo = $2, color = $3, descripcion = $4, orden = $5 WHERE id = $6",
+            input.nombre, input.codigo, input.color, input.descripcion, input.orden, hilo_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
+
+@api_router.delete("/hilos-especificos/{hilo_id}")
+async def delete_hilo_especifico(hilo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_hilos_especificos WHERE id = $1", hilo_id)
+        return {"message": "Hilo específico eliminado"}
+
 # ==================== ENDPOINTS HILOS REGISTRO ====================
 
 class RegistroHiloBase(BaseModel):
