@@ -23,6 +23,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Plus, Pencil, Trash2, Palette } from 'lucide-react';
 import { toast } from 'sonner';
+import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -31,7 +32,9 @@ export const ColoresGenerales = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '' });
+  const [formData, setFormData] = useState({ nombre: '', orden: 0 });
+
+  const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(items, setItems, 'colores-generales');
 
   const fetchItems = async () => {
     try {
@@ -60,7 +63,7 @@ export const ColoresGenerales = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '' });
+      setFormData({ nombre: '', orden: 0 });
       fetchItems();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
@@ -69,7 +72,7 @@ export const ColoresGenerales = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre });
+    setFormData({ nombre: item.nombre, orden: item.orden || 0 });
     setDialogOpen(true);
   };
 
@@ -86,7 +89,7 @@ export const ColoresGenerales = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '' });
+    setFormData({ nombre: '', orden: 0 });
     setDialogOpen(true);
   };
 
@@ -95,7 +98,10 @@ export const ColoresGenerales = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Colores Generales</h2>
-          <p className="text-muted-foreground">Categorías de colores para agrupar tonalidades</p>
+          <p className="text-muted-foreground">
+            Categorías de colores para agrupar tonalidades
+            {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
+          </p>
         </div>
         <Button onClick={handleNew} data-testid="btn-nuevo-color-general">
           <Plus className="h-4 w-4 mr-2" />
@@ -114,6 +120,7 @@ export const ColoresGenerales = () => {
           <Table>
             <TableHeader>
               <TableRow className="data-table-header">
+                <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
@@ -121,46 +128,53 @@ export const ColoresGenerales = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     No hay colores generales registrados
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} className="data-table-row" data-testid={`color-general-row-${item.id}`}>
-                    <TableCell>
-                      <Badge variant="secondary" className="font-medium">
-                        {item.nombre}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`edit-color-general-${item.id}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item.id)}
-                          data-testid={`delete-color-general-${item.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <SortableTableWrapper
+                  items={items}
+                  sensors={sensors}
+                  handleDragEnd={handleDragEnd}
+                  modifiers={modifiers}
+                >
+                  {items.map((item) => (
+                    <SortableRow key={item.id} id={item.id}>
+                      <TableCell>
+                        <Badge variant="secondary" className="font-medium">
+                          {item.nombre}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(item)}
+                            data-testid={`edit-color-general-${item.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(item.id)}
+                            data-testid={`delete-color-general-${item.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))}
+                </SortableTableWrapper>
               )}
             </TableBody>
           </Table>
