@@ -153,6 +153,19 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Opción de uso parcial por rollo
   - Procesamiento batch de salidas
 
+### Enero 2025 - Ordenamiento Manual y Hilos Específicos
+- ✅ **Ordenamiento Manual (Drag & Drop)** en tablas de catálogo:
+  - Componente reutilizable `SortableTable.jsx` usando `@dnd-kit`
+  - Tablas habilitadas: Marcas, Tipos, Entalles, Telas, Hilos, Tallas, Colores, Colores Generales, Hilos Específicos
+  - Campo `orden` en todas las tablas
+  - Endpoint genérico `PUT /api/reorder/{tabla}` para guardar orden
+  - Persistencia automática al soltar
+- ✅ **Nueva tabla "Hilos Específicos"**:
+  - Catálogo independiente de hilos especiales para registros
+  - Campos: nombre, código, color, descripción
+  - CRUD completo en `/hilos-especificos`
+  - Enlace en menú lateral con icono Sparkles
+
 ## Backlog
 
 ### P1 - Importante
