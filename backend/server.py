@@ -690,31 +690,46 @@ async def update_usuario(user_id: str, input: UserUpdate, current_user: dict = D
         if not user:
             raise HTTPException(status_code=404, detail="Usuario no encontrado")
         
+        # Guardar datos anteriores
+        datos_anteriores = limpiar_datos_sensibles({
+            "email": user['email'],
+            "nombre_completo": user['nombre_completo'],
+            "rol": user['rol'],
+            "activo": user['activo'],
+            "permisos": parse_jsonb(user.get('permisos'))
+        })
+        
         # Construir actualización dinámica
         updates = []
         params = []
         param_count = 0
+        cambios = {}
         
         if input.email is not None:
             param_count += 1
             updates.append(f"email = ${param_count}")
             params.append(input.email)
+            cambios['email'] = input.email
         if input.nombre_completo is not None:
             param_count += 1
             updates.append(f"nombre_completo = ${param_count}")
             params.append(input.nombre_completo)
+            cambios['nombre_completo'] = input.nombre_completo
         if input.rol is not None:
             param_count += 1
             updates.append(f"rol = ${param_count}")
             params.append(input.rol)
+            cambios['rol'] = input.rol
         if input.permisos is not None:
             param_count += 1
             updates.append(f"permisos = ${param_count}")
             params.append(json.dumps(input.permisos))
+            cambios['permisos'] = input.permisos
         if input.activo is not None:
             param_count += 1
             updates.append(f"activo = ${param_count}")
             params.append(input.activo)
+            cambios['activo'] = input.activo
         
         if updates:
             param_count += 1
@@ -722,6 +737,28 @@ async def update_usuario(user_id: str, input: UserUpdate, current_user: dict = D
             params.append(user_id)
             query = f"UPDATE prod_usuarios SET {', '.join(updates)} WHERE id = ${param_count}"
             await conn.execute(query, *params)
+            
+            # Registrar actividad
+            descripcion = f"Editó usuario '{user['username']}'"
+            if 'activo' in cambios:
+                descripcion = f"{'Activó' if cambios['activo'] else 'Desactivó'} usuario '{user['username']}'"
+            elif 'permisos' in cambios:
+                descripcion = f"Modificó permisos de '{user['username']}'"
+            elif 'rol' in cambios:
+                descripcion = f"Cambió rol de '{user['username']}' a '{cambios['rol']}'"
+            
+            await registrar_actividad(
+                pool,
+                usuario_id=current_user['id'],
+                usuario_nombre=current_user['username'],
+                tipo_accion="editar",
+                tabla_afectada="usuarios",
+                registro_id=user_id,
+                registro_nombre=user['username'],
+                descripcion=descripcion,
+                datos_anteriores=datos_anteriores,
+                datos_nuevos=limpiar_datos_sensibles(cambios)
+            )
         
         return {"message": "Usuario actualizado correctamente"}
 
