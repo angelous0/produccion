@@ -2,7 +2,7 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 import asyncpg
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from dotenv import load_dotenv
 from pathlib import Path
@@ -10,82 +10,97 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Conexiones
 MONGO_URL = os.environ['MONGO_URL']
 MONGO_DB = os.environ['DB_NAME']
 POSTGRES_URL = "postgres://admin:admin@72.60.241.216:9091/datos?sslmode=disable"
 
-# Esquema de tablas PostgreSQL
 TABLES_SQL = """
--- Tablas de catálogo base
-CREATE TABLE IF NOT EXISTS prod_marcas (
+DROP TABLE IF EXISTS prod_guias_remision CASCADE;
+DROP TABLE IF EXISTS prod_mermas CASCADE;
+DROP TABLE IF EXISTS prod_movimientos_produccion CASCADE;
+DROP TABLE IF EXISTS prod_personas_produccion CASCADE;
+DROP TABLE IF EXISTS prod_inventario_rollos CASCADE;
+DROP TABLE IF EXISTS prod_inventario_ajustes CASCADE;
+DROP TABLE IF EXISTS prod_inventario_salidas CASCADE;
+DROP TABLE IF EXISTS prod_inventario_ingresos CASCADE;
+DROP TABLE IF EXISTS prod_inventario CASCADE;
+DROP TABLE IF EXISTS prod_registros CASCADE;
+DROP TABLE IF EXISTS prod_modelos CASCADE;
+DROP TABLE IF EXISTS prod_servicios_produccion CASCADE;
+DROP TABLE IF EXISTS prod_rutas_produccion CASCADE;
+DROP TABLE IF EXISTS prod_colores_catalogo CASCADE;
+DROP TABLE IF EXISTS prod_tallas_catalogo CASCADE;
+DROP TABLE IF EXISTS prod_hilos CASCADE;
+DROP TABLE IF EXISTS prod_telas CASCADE;
+DROP TABLE IF EXISTS prod_entalles CASCADE;
+DROP TABLE IF EXISTS prod_tipos CASCADE;
+DROP TABLE IF EXISTS prod_marcas CASCADE;
+
+CREATE TABLE prod_marcas (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_tipos (
+CREATE TABLE prod_tipos (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     marca_ids JSONB DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_entalles (
+CREATE TABLE prod_entalles (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     tipo_ids JSONB DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_telas (
+CREATE TABLE prod_telas (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     entalle_ids JSONB DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_hilos (
+CREATE TABLE prod_hilos (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     tela_ids JSONB DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_tallas_catalogo (
+CREATE TABLE prod_tallas_catalogo (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     orden INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_colores_catalogo (
+CREATE TABLE prod_colores_catalogo (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     codigo_hex VARCHAR(20) DEFAULT '',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Rutas de producción
-CREATE TABLE IF NOT EXISTS prod_rutas_produccion (
+CREATE TABLE prod_rutas_produccion (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     descripcion TEXT DEFAULT '',
     etapas JSONB DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Servicios de producción
-CREATE TABLE IF NOT EXISTS prod_servicios_produccion (
+CREATE TABLE prod_servicios_produccion (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     descripcion TEXT DEFAULT '',
     tarifa DECIMAL(10,2) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Modelos
-CREATE TABLE IF NOT EXISTS prod_modelos (
+CREATE TABLE prod_modelos (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     marca_id VARCHAR(36),
@@ -96,11 +111,10 @@ CREATE TABLE IF NOT EXISTS prod_modelos (
     ruta_produccion_id VARCHAR(36),
     materiales JSONB DEFAULT '[]',
     servicios_ids JSONB DEFAULT '[]',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Registros de producción
-CREATE TABLE IF NOT EXISTS prod_registros (
+CREATE TABLE prod_registros (
     id VARCHAR(36) PRIMARY KEY,
     n_corte VARCHAR(100) NOT NULL,
     modelo_id VARCHAR(36),
@@ -109,11 +123,10 @@ CREATE TABLE IF NOT EXISTS prod_registros (
     urgente BOOLEAN DEFAULT FALSE,
     tallas JSONB DEFAULT '[]',
     distribucion_colores JSONB DEFAULT '[]',
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_creacion TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Inventario
-CREATE TABLE IF NOT EXISTS prod_inventario (
+CREATE TABLE prod_inventario (
     id VARCHAR(36) PRIMARY KEY,
     codigo VARCHAR(100) UNIQUE NOT NULL,
     nombre VARCHAR(255) NOT NULL,
@@ -123,10 +136,10 @@ CREATE TABLE IF NOT EXISTS prod_inventario (
     stock_minimo INTEGER DEFAULT 0,
     stock_actual DECIMAL(10,2) DEFAULT 0,
     control_por_rollos BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_inventario_ingresos (
+CREATE TABLE prod_inventario_ingresos (
     id VARCHAR(36) PRIMARY KEY,
     item_id VARCHAR(36),
     cantidad DECIMAL(10,2) DEFAULT 0,
@@ -135,10 +148,10 @@ CREATE TABLE IF NOT EXISTS prod_inventario_ingresos (
     proveedor VARCHAR(255) DEFAULT '',
     numero_documento VARCHAR(100) DEFAULT '',
     observaciones TEXT DEFAULT '',
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_inventario_salidas (
+CREATE TABLE prod_inventario_salidas (
     id VARCHAR(36) PRIMARY KEY,
     item_id VARCHAR(36),
     cantidad DECIMAL(10,2) DEFAULT 0,
@@ -147,20 +160,20 @@ CREATE TABLE IF NOT EXISTS prod_inventario_salidas (
     rollo_id VARCHAR(36),
     costo_total DECIMAL(10,2) DEFAULT 0,
     detalle_fifo JSONB DEFAULT '[]',
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_inventario_ajustes (
+CREATE TABLE prod_inventario_ajustes (
     id VARCHAR(36) PRIMARY KEY,
     item_id VARCHAR(36),
-    tipo VARCHAR(20) NOT NULL,
+    tipo VARCHAR(20),
     cantidad DECIMAL(10,2) DEFAULT 0,
     motivo VARCHAR(255) DEFAULT '',
     observaciones TEXT DEFAULT '',
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS prod_inventario_rollos (
+CREATE TABLE prod_inventario_rollos (
     id VARCHAR(36) PRIMARY KEY,
     item_id VARCHAR(36),
     ingreso_id VARCHAR(36),
@@ -171,11 +184,10 @@ CREATE TABLE IF NOT EXISTS prod_inventario_rollos (
     tono VARCHAR(100) DEFAULT '',
     observaciones TEXT DEFAULT '',
     activo BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Personas de producción
-CREATE TABLE IF NOT EXISTS prod_personas_produccion (
+CREATE TABLE prod_personas_produccion (
     id VARCHAR(36) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     tipo VARCHAR(50) DEFAULT 'externo',
@@ -184,11 +196,10 @@ CREATE TABLE IF NOT EXISTS prod_personas_produccion (
     direccion TEXT DEFAULT '',
     servicios JSONB DEFAULT '[]',
     activo BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Movimientos de producción
-CREATE TABLE IF NOT EXISTS prod_movimientos_produccion (
+CREATE TABLE prod_movimientos_produccion (
     id VARCHAR(36) PRIMARY KEY,
     registro_id VARCHAR(36),
     servicio_id VARCHAR(36),
@@ -200,11 +211,10 @@ CREATE TABLE IF NOT EXISTS prod_movimientos_produccion (
     fecha_inicio DATE,
     fecha_fin DATE,
     observaciones TEXT DEFAULT '',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Mermas
-CREATE TABLE IF NOT EXISTS prod_mermas (
+CREATE TABLE prod_mermas (
     id VARCHAR(36) PRIMARY KEY,
     registro_id VARCHAR(36),
     movimiento_id VARCHAR(36),
@@ -212,31 +222,31 @@ CREATE TABLE IF NOT EXISTS prod_mermas (
     persona_id VARCHAR(36),
     cantidad INTEGER DEFAULT 0,
     motivo TEXT DEFAULT '',
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Guías de remisión
-CREATE TABLE IF NOT EXISTS prod_guias_remision (
+CREATE TABLE prod_guias_remision (
     id VARCHAR(36) PRIMARY KEY,
-    numero_guia VARCHAR(50) UNIQUE NOT NULL,
+    numero_guia VARCHAR(50) DEFAULT '',
     movimiento_id VARCHAR(36),
     registro_id VARCHAR(36),
     servicio_id VARCHAR(36),
     persona_id VARCHAR(36),
     cantidad INTEGER DEFAULT 0,
     observaciones TEXT DEFAULT '',
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 """
 
 def parse_datetime(value):
     if value is None:
-        return None
+        return datetime.now()
     if isinstance(value, datetime):
-        return value
+        return value.replace(tzinfo=None)
     if isinstance(value, str):
         try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.replace(tzinfo=None)
         except:
             return datetime.now()
     return datetime.now()
@@ -248,7 +258,8 @@ def parse_date(value):
         return value.date()
     if isinstance(value, str):
         try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00')).date()
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return dt.date()
         except:
             try:
                 return datetime.strptime(value, '%Y-%m-%d').date()
@@ -261,18 +272,14 @@ async def migrate():
     print("MIGRANDO DE MONGODB A POSTGRESQL")
     print("=" * 60)
     
-    # Conectar a MongoDB
     mongo_client = AsyncIOMotorClient(MONGO_URL)
     mongo_db = mongo_client[MONGO_DB]
-    
-    # Conectar a PostgreSQL
     pg_conn = await asyncpg.connect(POSTGRES_URL)
     
     print("\n📦 Creando tablas en PostgreSQL...")
     await pg_conn.execute(TABLES_SQL)
     print("   ✅ Tablas creadas")
     
-    # Migrar cada colección
     collections_config = [
         ("prod_marcas", ["id", "nombre", "created_at"]),
         ("prod_tipos", ["id", "nombre", "marca_ids", "created_at"]),
@@ -296,9 +303,7 @@ async def migrate():
         ("prod_guias_remision", ["id", "numero_guia", "movimiento_id", "registro_id", "servicio_id", "persona_id", "cantidad", "observaciones", "fecha"]),
     ]
     
-    # Campos que son JSONB
     jsonb_fields = ["marca_ids", "tipo_ids", "entalle_ids", "tela_ids", "etapas", "materiales", "servicios_ids", "tallas", "distribucion_colores", "detalle_fifo", "servicios"]
-    # Campos de fecha/timestamp
     datetime_fields = ["created_at", "fecha", "fecha_creacion"]
     date_fields = ["fecha_inicio", "fecha_fin"]
     
@@ -307,13 +312,11 @@ async def migrate():
         docs = await mongo_col.find({}).to_list(None)
         
         if not docs:
-            print(f"⚪ {collection_name}: vacía, saltando...")
+            print(f"⚪ {collection_name}: vacía")
             continue
         
-        print(f"\n🔄 Migrando {collection_name} ({len(docs)} documentos)")
-        
-        # Limpiar tabla existente
-        await pg_conn.execute(f"DELETE FROM {collection_name}")
+        print(f"\n🔄 Migrando {collection_name} ({len(docs)} docs)")
+        migrated = 0
         
         for doc in docs:
             values = []
@@ -327,14 +330,16 @@ async def migrate():
                 elif field in date_fields:
                     val = parse_date(val)
                 elif val is None:
-                    if field in ["descripcion", "observaciones", "motivo", "telefono", "email", "direccion", "proveedor", "numero_documento", "curva", "tono", "numero_rollo", "codigo_hex"]:
+                    if field in ["descripcion", "observaciones", "motivo", "telefono", "email", "direccion", "proveedor", "numero_documento", "curva", "tono", "numero_rollo", "codigo_hex", "numero_guia", "tipo"]:
                         val = ""
                     elif field in ["orden", "stock_minimo", "cantidad", "cantidad_enviada", "cantidad_recibida", "diferencia"]:
                         val = 0
                     elif field in ["tarifa", "stock_actual", "cantidad_disponible", "costo_unitario", "costo_total", "metraje", "metraje_disponible", "ancho", "costo_calculado"]:
                         val = 0.0
-                    elif field in ["urgente", "control_por_rollos", "activo"]:
-                        val = False if field != "activo" else True
+                    elif field in ["urgente", "control_por_rollos"]:
+                        val = False
+                    elif field == "activo":
+                        val = True
                 
                 values.append(val)
             
@@ -342,22 +347,18 @@ async def migrate():
             fields_str = ", ".join(fields)
             
             try:
-                await pg_conn.execute(
-                    f"INSERT INTO {collection_name} ({fields_str}) VALUES ({placeholders})",
-                    *values
-                )
+                await pg_conn.execute(f"INSERT INTO {collection_name} ({fields_str}) VALUES ({placeholders})", *values)
+                migrated += 1
             except Exception as e:
-                print(f"   ⚠️ Error insertando en {collection_name}: {e}")
-                print(f"      Doc: {doc.get('id', 'unknown')}")
+                print(f"   ⚠️ Error: {e}")
         
-        count = await pg_conn.fetchval(f"SELECT COUNT(*) FROM {collection_name}")
-        print(f"   ✅ {count} registros migrados")
+        print(f"   ✅ {migrated} registros migrados")
     
     await pg_conn.close()
     mongo_client.close()
     
     print("\n" + "=" * 60)
-    print("✅ MIGRACIÓN COMPLETADA")
+    print("✅ MIGRACIÓN A POSTGRESQL COMPLETADA")
     print("=" * 60)
 
 if __name__ == "__main__":
