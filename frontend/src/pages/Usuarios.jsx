@@ -343,8 +343,8 @@ export const Usuarios = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleResetPassword(user)}
-                          title="Resetear Contraseña"
+                          onClick={() => handleOpenPasswordDialog(user)}
+                          title="Cambiar Contraseña"
                           disabled={user.id === currentUser?.id}
                         >
                           <Key className="h-4 w-4 text-orange-500" />
