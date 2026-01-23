@@ -618,15 +618,6 @@ async def change_password(data: UserChangePassword, current_user: dict = Depends
     )
     
     return {"message": "Contraseña actualizada correctamente"}
-    
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        new_hash = get_password_hash(data.new_password)
-        await conn.execute(
-            "UPDATE prod_usuarios SET password_hash = $1, updated_at = NOW() WHERE id = $2",
-            new_hash, current_user['id']
-        )
-    return {"message": "Contraseña actualizada correctamente"}
 
 # ==================== ENDPOINTS USUARIOS (ADMIN) ====================
 
