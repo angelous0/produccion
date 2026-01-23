@@ -89,7 +89,20 @@ export const InventarioSalidas = () => {
   };
 
   const handleOpenDialog = () => {
+    setEditingSalida(null);
     resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (salida) => {
+    setEditingSalida(salida);
+    setFormData({
+      item_id: salida.item_id,
+      cantidad: salida.cantidad,
+      registro_id: salida.registro_id || '',
+      rollo_id: salida.rollo_id || '',
+      observaciones: salida.observaciones || '',
+    });
     setDialogOpen(true);
   };
 
