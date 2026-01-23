@@ -17,7 +17,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,10 +34,11 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const ColoresCatalogo = () => {
   const [items, setItems] = useState([]);
+  const [coloresGenerales, setColoresGenerales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', codigo_hex: '', color_general: '' });
+  const [formData, setFormData] = useState({ nombre: '', codigo_hex: '', color_general_id: '' });
 
   const fetchItems = async () => {
     try {

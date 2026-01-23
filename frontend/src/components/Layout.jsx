@@ -40,6 +40,7 @@ const navItems = [
   { to: '/hilos', icon: Scissors, label: 'Hilos' },
   { to: '/tallas-catalogo', icon: Ruler, label: 'Tallas' },
   { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
+  { to: '/colores-generales', icon: Palette, label: 'Colores Generales' },
   { to: '/modelos', icon: Box, label: 'Modelos' },
   { to: '/registros', icon: ClipboardList, label: 'Registros' },
 ];
