@@ -232,15 +232,26 @@ export const InventarioAjustes = () => {
                       </TableCell>
                       <TableCell>{ajuste.motivo || '-'}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(ajuste.id)}
-                          title="Eliminar"
-                          data-testid={`delete-ajuste-${ajuste.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEdit(ajuste)}
+                            title="Editar"
+                            data-testid={`edit-ajuste-${ajuste.id}`}
+                          >
+                            <Pencil className="h-4 w-4 text-blue-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(ajuste.id)}
+                            title="Eliminar"
+                            data-testid={`delete-ajuste-${ajuste.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -251,12 +262,15 @@ export const InventarioAjustes = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) setEditingAjuste(null);
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nuevo Ajuste</DialogTitle>
+            <DialogTitle>{editingAjuste ? 'Editar Ajuste' : 'Nuevo Ajuste'}</DialogTitle>
             <DialogDescription>
-              Registrar un ajuste de inventario
+              {editingAjuste ? 'Modificar motivo y observaciones' : 'Registrar un ajuste de inventario'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
