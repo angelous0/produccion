@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import {
   Table,
   TableBody,
@@ -17,10 +17,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -29,7 +31,9 @@ export const Marcas = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '' });
+  const [formData, setFormData] = useState({ nombre: '', orden: 0 });
+
+  const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(marcas, setMarcas, 'marcas');
 
   const fetchMarcas = async () => {
     try {
@@ -58,7 +62,7 @@ export const Marcas = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '' });
+      setFormData({ nombre: '', orden: 0 });
       fetchMarcas();
     } catch (error) {
       toast.error('Error al guardar marca');
@@ -67,7 +71,7 @@ export const Marcas = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre });
+    setFormData({ nombre: item.nombre, orden: item.orden || 0 });
     setDialogOpen(true);
   };
 
@@ -83,7 +87,7 @@ export const Marcas = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '' });
+    setFormData({ nombre: '', orden: 0 });
     setDialogOpen(true);
   };
 
@@ -92,7 +96,10 @@ export const Marcas = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Marcas</h2>
-          <p className="text-muted-foreground">Gestión de marcas de productos</p>
+          <p className="text-muted-foreground">
+            Gestión de marcas de productos
+            {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
+          </p>
         </div>
         <Button onClick={handleNew} data-testid="btn-nueva-marca">
           <Plus className="h-4 w-4 mr-2" />
@@ -105,6 +112,7 @@ export const Marcas = () => {
           <Table>
             <TableHeader>
               <TableRow className="data-table-header">
+                <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
@@ -112,42 +120,49 @@ export const Marcas = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : marcas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     No hay marcas registradas
                   </TableCell>
                 </TableRow>
               ) : (
-                marcas.map((item) => (
-                  <TableRow key={item.id} className="data-table-row" data-testid={`marca-row-${item.id}`}>
-                    <TableCell className="font-medium">{item.nombre}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`edit-marca-${item.id}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item.id)}
-                          data-testid={`delete-marca-${item.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <SortableTableWrapper
+                  items={marcas}
+                  sensors={sensors}
+                  handleDragEnd={handleDragEnd}
+                  modifiers={modifiers}
+                >
+                  {marcas.map((item) => (
+                    <SortableRow key={item.id} id={item.id}>
+                      <TableCell className="font-medium">{item.nombre}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(item)}
+                            data-testid={`edit-marca-${item.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(item.id)}
+                            data-testid={`delete-marca-${item.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))}
+                </SortableTableWrapper>
               )}
             </TableBody>
           </Table>
@@ -158,6 +173,9 @@ export const Marcas = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Marca' : 'Nueva Marca'}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? 'Modifica los datos de la marca' : 'Agrega una nueva marca al catálogo'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
@@ -166,7 +184,7 @@ export const Marcas = () => {
                 <Input
                   id="nombre"
                   value={formData.nombre}
-                  onChange={(e) => setFormData({ nombre: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                   placeholder="Nombre de la marca"
                   required
                   data-testid="input-nombre-marca"
