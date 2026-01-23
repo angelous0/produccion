@@ -313,12 +313,15 @@ export const InventarioIngresos = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className={selectedItem?.control_por_rollos ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg"}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) setEditingIngreso(null);
+      }}>
+        <DialogContent className={selectedItem?.control_por_rollos && !editingIngreso ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg"}>
           <DialogHeader>
-            <DialogTitle>Nuevo Ingreso</DialogTitle>
+            <DialogTitle>{editingIngreso ? 'Editar Ingreso' : 'Nuevo Ingreso'}</DialogTitle>
             <DialogDescription>
-              Registrar una entrada de inventario
+              {editingIngreso ? 'Modificar datos del ingreso' : 'Registrar una entrada de inventario'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
