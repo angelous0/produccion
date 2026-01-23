@@ -120,7 +120,24 @@ export const InventarioIngresos = () => {
   };
 
   const handleOpenDialog = () => {
+    setEditingIngreso(null);
     resetForm();
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (ingreso) => {
+    setEditingIngreso(ingreso);
+    const item = items.find(i => i.id === ingreso.item_id);
+    setSelectedItem(item);
+    setFormData({
+      item_id: ingreso.item_id,
+      cantidad: ingreso.cantidad,
+      costo_unitario: ingreso.costo_unitario,
+      proveedor: ingreso.proveedor || '',
+      numero_documento: ingreso.numero_documento || '',
+      observaciones: ingreso.observaciones || '',
+    });
+    setRollos([]);
     setDialogOpen(true);
   };
 
@@ -136,10 +153,23 @@ export const InventarioIngresos = () => {
           ancho: parseFloat(r.ancho) || 0,
         }));
       }
-      await axios.post(`${API}/inventario-ingresos`, payload);
-      toast.success('Ingreso registrado');
+      
+      if (editingIngreso) {
+        // Solo permitir editar campos no relacionados con cantidad
+        await axios.put(`${API}/inventario-ingresos/${editingIngreso.id}`, {
+          proveedor: formData.proveedor,
+          numero_documento: formData.numero_documento,
+          observaciones: formData.observaciones,
+          costo_unitario: formData.costo_unitario,
+        });
+        toast.success('Ingreso actualizado');
+      } else {
+        await axios.post(`${API}/inventario-ingresos`, payload);
+        toast.success('Ingreso registrado');
+      }
       setDialogOpen(false);
       resetForm();
+      setEditingIngreso(null);
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
