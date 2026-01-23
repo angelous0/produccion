@@ -959,6 +959,64 @@ export const RegistroForm = () => {
                     Marcar como Urgente
                   </Label>
                 </div>
+
+                {/* Hilos Asignados (solo en modo edición) */}
+                {isEditing && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          Hilos Específicos Asignados
+                        </Label>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <Select onValueChange={handleAddHilo}>
+                          <SelectTrigger className="flex-1" data-testid="select-agregar-hilo">
+                            <SelectValue placeholder="Agregar hilo específico..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {hilosEspecificos
+                              .filter(h => !hilosAsignados.find(ha => ha.hilo_especifico_id === h.id))
+                              .map((h) => (
+                                <SelectItem key={h.id} value={h.id}>
+                                  {h.nombre}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {hilosAsignados.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {hilosAsignados.map((ha) => (
+                            <Badge 
+                              key={ha.id} 
+                              variant="secondary" 
+                              className="flex items-center gap-1 px-3 py-1"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              {ha.hilo_especifico_nombre}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveHilo(ha.id)}
+                                className="ml-1 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No hay hilos específicos asignados a este registro
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
 
