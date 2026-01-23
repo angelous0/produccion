@@ -27,7 +27,8 @@ import {
   Play,
   BarChart3,
   Route,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from 'lucide-react';
 import { useState } from 'react';
 
