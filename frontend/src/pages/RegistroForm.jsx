@@ -1609,18 +1609,58 @@ export const RegistroForm = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="cantidad-movimiento">Cantidad de Prendas Entregadas</Label>
-              <Input
-                id="cantidad-movimiento"
-                type="number"
-                min="0"
-                value={movimientoFormData.cantidad}
-                onChange={(e) => setMovimientoFormData({ ...movimientoFormData, cantidad: parseInt(e.target.value) || 0 })}
-                className="font-mono"
-                data-testid="input-cantidad-movimiento"
-              />
+            {/* Cantidad enviada y recibida */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cantidad-enviada">Cantidad Enviada</Label>
+                <Input
+                  id="cantidad-enviada"
+                  type="number"
+                  min="0"
+                  value={movimientoFormData.cantidad_enviada}
+                  onChange={(e) => {
+                    const enviada = parseInt(e.target.value) || 0;
+                    setMovimientoFormData({ 
+                      ...movimientoFormData, 
+                      cantidad_enviada: enviada,
+                      // Por defecto, recibida = enviada
+                      cantidad_recibida: movimientoFormData.cantidad_recibida === movimientoFormData.cantidad_enviada 
+                        ? enviada 
+                        : movimientoFormData.cantidad_recibida
+                    });
+                  }}
+                  className="font-mono"
+                  data-testid="input-cantidad-enviada"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cantidad-recibida">Cantidad Recibida</Label>
+                <Input
+                  id="cantidad-recibida"
+                  type="number"
+                  min="0"
+                  value={movimientoFormData.cantidad_recibida}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, cantidad_recibida: parseInt(e.target.value) || 0 })}
+                  className="font-mono"
+                  data-testid="input-cantidad-recibida"
+                />
+              </div>
             </div>
+
+            {/* Mostrar diferencia/merma si existe */}
+            {calcularDiferenciaMovimiento() > 0 && (
+              <div className="p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-orange-700 dark:text-orange-300">Diferencia (Merma):</span>
+                  <span className="text-lg font-bold text-orange-700 dark:text-orange-300">
+                    {calcularDiferenciaMovimiento()} prendas
+                  </span>
+                </div>
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  Esta diferencia se registrará automáticamente en Calidad/Merma
+                </p>
+              </div>
+            )}
 
             {/* Tarifa editable */}
             <div className="space-y-2">
@@ -1644,7 +1684,7 @@ export const RegistroForm = () => {
             </div>
 
             {/* Mostrar costo calculado */}
-            {movimientoFormData.cantidad > 0 && movimientoFormData.tarifa_aplicada > 0 && (
+            {movimientoFormData.cantidad_recibida > 0 && movimientoFormData.tarifa_aplicada > 0 && (
               <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-green-700 dark:text-green-300">Costo calculado:</span>
@@ -1653,7 +1693,7 @@ export const RegistroForm = () => {
                   </span>
                 </div>
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {movimientoFormData.cantidad} prendas × {formatCurrency(movimientoFormData.tarifa_aplicada)}
+                  {movimientoFormData.cantidad_recibida} prendas × {formatCurrency(movimientoFormData.tarifa_aplicada)}
                 </p>
               </div>
             )}
