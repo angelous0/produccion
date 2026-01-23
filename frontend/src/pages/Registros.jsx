@@ -22,7 +22,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusClass } from '../lib/utils';
 import { MultiSelectColors } from '../components/MultiSelectColors';
