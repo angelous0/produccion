@@ -258,7 +258,7 @@ export const ReporteProductividad = () => {
                 <CardTitle className="text-lg">Productividad por Persona</CardTitle>
               </CardHeader>
               <CardContent>
-                {reporte.por_persona.length === 0 ? (
+                {(reporte.por_persona || []).length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No hay datos para mostrar
                   </div>
@@ -274,7 +274,7 @@ export const ReporteProductividad = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {reporte.por_persona.map((item) => (
+                        {(reporte.por_persona || []).map((item) => (
                           <TableRow key={item.persona_id}>
                             <TableCell>
                               <div className="flex items-center gap-2">
@@ -283,13 +283,13 @@ export const ReporteProductividad = () => {
                               </div>
                             </TableCell>
                             <TableCell className="text-center font-mono">
-                              {item.movimientos}
+                              {item.movimientos || 0}
                             </TableCell>
                             <TableCell className="text-right font-mono font-semibold">
-                              {item.total_cantidad.toLocaleString()}
+                              {(item.total_cantidad || 0).toLocaleString()}
                             </TableCell>
                             <TableCell className="text-right font-mono text-green-600 font-semibold">
-                              {formatCurrency(item.total_costo)}
+                              {formatCurrency(item.total_costo || 0)}
                             </TableCell>
                           </TableRow>
                         ))}
