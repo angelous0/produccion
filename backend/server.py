@@ -680,7 +680,7 @@ async def delete_talla_catalogo(talla_id: str):
 async def get_colores_generales():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_colores_generales ORDER BY nombre ASC")
+        rows = await conn.fetch("SELECT * FROM prod_colores_generales ORDER BY orden ASC, nombre ASC")
         return [row_to_dict(r) for r in rows]
 
 @api_router.post("/colores-generales")
@@ -692,9 +692,12 @@ async def create_color_general(input: ColorGeneralCreate):
         existing = await conn.fetchrow("SELECT id FROM prod_colores_generales WHERE LOWER(nombre) = LOWER($1)", input.nombre)
         if existing:
             raise HTTPException(status_code=400, detail="Ya existe un color general con ese nombre")
+        if color_general.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_colores_generales")
+            color_general.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_colores_generales (id, nombre, created_at) VALUES ($1, $2, $3)",
-            color_general.id, color_general.nombre, color_general.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_colores_generales (id, nombre, orden, created_at) VALUES ($1, $2, $3, $4)",
+            color_general.id, color_general.nombre, color_general.orden, color_general.created_at.replace(tzinfo=None)
         )
     return color_general
 
@@ -709,8 +712,8 @@ async def update_color_general(color_general_id: str, input: ColorGeneralCreate)
         existing = await conn.fetchrow("SELECT id FROM prod_colores_generales WHERE LOWER(nombre) = LOWER($1) AND id != $2", input.nombre, color_general_id)
         if existing:
             raise HTTPException(status_code=400, detail="Ya existe un color general con ese nombre")
-        await conn.execute("UPDATE prod_colores_generales SET nombre = $1 WHERE id = $2", input.nombre, color_general_id)
-        return {**row_to_dict(result), "nombre": input.nombre}
+        await conn.execute("UPDATE prod_colores_generales SET nombre = $1, orden = $2 WHERE id = $3", input.nombre, input.orden, color_general_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "orden": input.orden}
 
 @api_router.delete("/colores-generales/{color_general_id}")
 async def delete_color_general(color_general_id: str):
@@ -729,7 +732,7 @@ async def delete_color_general(color_general_id: str):
 async def get_colores_catalogo():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_colores_catalogo ORDER BY nombre ASC")
+        rows = await conn.fetch("SELECT * FROM prod_colores_catalogo ORDER BY orden ASC, nombre ASC")
         result = []
         for r in rows:
             d = row_to_dict(r)
@@ -747,9 +750,12 @@ async def create_color_catalogo(input: ColorCreate):
     color = Color(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        if color.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_colores_catalogo")
+            color.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_colores_catalogo (id, nombre, codigo_hex, color_general_id, created_at) VALUES ($1, $2, $3, $4, $5)",
-            color.id, color.nombre, color.codigo_hex, color.color_general_id, color.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_colores_catalogo (id, nombre, codigo_hex, color_general_id, orden, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            color.id, color.nombre, color.codigo_hex, color.color_general_id, color.orden, color.created_at.replace(tzinfo=None)
         )
     return color
 
@@ -760,9 +766,9 @@ async def update_color_catalogo(color_id: str, input: ColorCreate):
         result = await conn.fetchrow("SELECT * FROM prod_colores_catalogo WHERE id = $1", color_id)
         if not result:
             raise HTTPException(status_code=404, detail="Color no encontrado")
-        await conn.execute("UPDATE prod_colores_catalogo SET nombre = $1, codigo_hex = $2, color_general_id = $3 WHERE id = $4",
-                          input.nombre, input.codigo_hex, input.color_general_id, color_id)
-        return {**row_to_dict(result), "nombre": input.nombre, "codigo_hex": input.codigo_hex, "color_general_id": input.color_general_id}
+        await conn.execute("UPDATE prod_colores_catalogo SET nombre = $1, codigo_hex = $2, color_general_id = $3, orden = $4 WHERE id = $5",
+                          input.nombre, input.codigo_hex, input.color_general_id, input.orden, color_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "codigo_hex": input.codigo_hex, "color_general_id": input.color_general_id, "orden": input.orden}
 
 @api_router.delete("/colores-catalogo/{color_id}")
 async def delete_color_catalogo(color_id: str):
