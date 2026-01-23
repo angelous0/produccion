@@ -2247,7 +2247,7 @@ async def generar_numero_guia():
         try:
             ultimo_seq = int(ultima_guia['numero'].split('-')[-1])
             nuevo_seq = ultimo_seq + 1
-        except:
+        except (ValueError, IndexError):
             nuevo_seq = 1
     else:
         nuevo_seq = 1
