@@ -88,7 +88,14 @@ const documentosItems = [
 
 export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
+  const { user, logout, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,7 +117,7 @@ export const Layout = () => {
             <h1 className="text-xl font-bold tracking-tight">Producción Textil</h1>
           </div>
           
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
@@ -123,6 +130,44 @@ export const Layout = () => {
                 <Sun className="h-5 w-5" />
               )}
             </Button>
+            
+            {/* Menú de usuario */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-2" data-testid="user-menu-btn">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="hidden md:inline text-sm font-medium">
+                    {user?.nombre_completo || user?.username}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col">
+                    <span>{user?.nombre_completo || user?.username}</span>
+                    <span className="text-xs font-normal text-muted-foreground capitalize">
+                      {user?.rol === 'admin' ? 'Administrador' : user?.rol === 'lectura' ? 'Solo Lectura' : 'Usuario'}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isAdmin() && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/usuarios')} data-testid="menu-usuarios">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Gestionar Usuarios
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive" data-testid="menu-logout">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Cerrar Sesión
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
