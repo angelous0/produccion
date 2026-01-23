@@ -29,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Trash2, RefreshCw, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -48,6 +48,7 @@ export const InventarioAjustes = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingAjuste, setEditingAjuste] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [formData, setFormData] = useState({
     item_id: '',
