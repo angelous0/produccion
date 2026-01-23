@@ -206,10 +206,16 @@ export const Layout = () => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {isAdmin() && (
-                  <DropdownMenuItem onClick={() => navigate('/usuarios')} data-testid="menu-usuarios">
-                    <Shield className="h-4 w-4 mr-2" />
-                    Gestionar Usuarios
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/usuarios')} data-testid="menu-usuarios">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Gestionar Usuarios
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/historial-actividad')} data-testid="menu-historial">
+                      <History className="h-4 w-4 mr-2" />
+                      Historial de Actividad
+                    </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)} data-testid="menu-change-password">
                   <Key className="h-4 w-4 mr-2" />
