@@ -185,6 +185,48 @@ export const RegistroForm = () => {
     }
   };
 
+  // Cargar hilos asignados al registro
+  const fetchHilosAsignados = async () => {
+    if (!id) return;
+    try {
+      const response = await axios.get(`${API}/registro-hilos?registro_id=${id}`);
+      setHilosAsignados(response.data);
+    } catch (error) {
+      console.error('Error fetching hilos asignados:', error);
+    }
+  };
+
+  // Agregar hilo específico al registro
+  const handleAddHilo = async (hiloId) => {
+    if (!id || !hiloId) return;
+    const hiloYaAsignado = hilosAsignados.find(h => h.hilo_especifico_id === hiloId);
+    if (hiloYaAsignado) {
+      toast.error('Este hilo ya está asignado');
+      return;
+    }
+    try {
+      await axios.post(`${API}/registro-hilos`, {
+        registro_id: id,
+        hilo_especifico_id: hiloId,
+      });
+      toast.success('Hilo asignado');
+      fetchHilosAsignados();
+    } catch (error) {
+      toast.error('Error al asignar hilo');
+    }
+  };
+
+  // Eliminar hilo del registro
+  const handleRemoveHilo = async (hiloAsignadoId) => {
+    try {
+      await axios.delete(`${API}/registro-hilos/${hiloAsignadoId}`);
+      toast.success('Hilo removido');
+      fetchHilosAsignados();
+    } catch (error) {
+      toast.error('Error al eliminar hilo');
+    }
+  };
+
   // Cargar registro existente si es edición
   const fetchRegistro = async () => {
     if (!id) {
