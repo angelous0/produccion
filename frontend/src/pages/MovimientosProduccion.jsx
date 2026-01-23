@@ -204,8 +204,8 @@ export const MovimientosProduccion = () => {
       persona_id: '',
       fecha_inicio: new Date().toISOString().split('T')[0],
       fecha_fin: '',
-      cantidad: 0,
-      tarifa_aplicada: 0,
+      cantidad_enviada: 0,
+      cantidad_recibida: 0,
       observaciones: '',
     });
     setPersonasFiltradasCreate([]);
@@ -216,18 +216,15 @@ export const MovimientosProduccion = () => {
     setCreateFormData({ 
       ...createFormData, 
       servicio_id: servicioId,
-      persona_id: '',
-      tarifa_aplicada: 0  // Se pre-llenará cuando se seleccione persona
+      persona_id: ''
     });
     setPersonasFiltradasCreate(filtrarPersonasPorServicio(servicioId));
   };
 
   const handlePersonaChangeCreate = (personaId) => {
-    const tarifa = getTarifaPersonaServicio(personaId, createFormData.servicio_id);
     setCreateFormData({
       ...createFormData,
-      persona_id: personaId,
-      tarifa_aplicada: tarifa
+      persona_id: personaId
     });
   };
 
