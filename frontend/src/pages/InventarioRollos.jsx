@@ -62,14 +62,6 @@ export const InventarioRollos = () => {
     fetchData();
   };
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
   // Totales
   const totales = rollos.reduce((acc, r) => {
     acc.metrajeTotal += r.metraje || 0;
