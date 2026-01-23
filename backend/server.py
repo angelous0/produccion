@@ -403,7 +403,7 @@ def parse_jsonb(val):
 async def get_marcas():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_marcas ORDER BY created_at DESC")
+        rows = await conn.fetch("SELECT * FROM prod_marcas ORDER BY orden ASC, created_at DESC")
         return [row_to_dict(r) for r in rows]
 
 @api_router.post("/marcas")
@@ -411,9 +411,13 @@ async def create_marca(input: MarcaCreate):
     marca = Marca(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Auto-asignar orden si es 0
+        if marca.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_marcas")
+            marca.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_marcas (id, nombre, created_at) VALUES ($1, $2, $3)",
-            marca.id, marca.nombre, marca.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_marcas (id, nombre, orden, created_at) VALUES ($1, $2, $3, $4)",
+            marca.id, marca.nombre, marca.orden, marca.created_at.replace(tzinfo=None)
         )
     return marca
 
@@ -424,8 +428,8 @@ async def update_marca(marca_id: str, input: MarcaCreate):
         result = await conn.fetchrow("SELECT * FROM prod_marcas WHERE id = $1", marca_id)
         if not result:
             raise HTTPException(status_code=404, detail="Marca no encontrada")
-        await conn.execute("UPDATE prod_marcas SET nombre = $1 WHERE id = $2", input.nombre, marca_id)
-        return {**row_to_dict(result), "nombre": input.nombre}
+        await conn.execute("UPDATE prod_marcas SET nombre = $1, orden = $2 WHERE id = $3", input.nombre, input.orden, marca_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "orden": input.orden}
 
 @api_router.delete("/marcas/{marca_id}")
 async def delete_marca(marca_id: str):
@@ -443,9 +447,9 @@ async def get_tipos(marca_id: str = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
         if marca_id:
-            rows = await conn.fetch("SELECT * FROM prod_tipos WHERE marca_ids ? $1 ORDER BY created_at DESC", marca_id)
+            rows = await conn.fetch("SELECT * FROM prod_tipos WHERE marca_ids ? $1 ORDER BY orden ASC, created_at DESC", marca_id)
         else:
-            rows = await conn.fetch("SELECT * FROM prod_tipos ORDER BY created_at DESC")
+            rows = await conn.fetch("SELECT * FROM prod_tipos ORDER BY orden ASC, created_at DESC")
         result = []
         for r in rows:
             d = row_to_dict(r)
@@ -458,9 +462,12 @@ async def create_tipo(input: TipoCreate):
     tipo = Tipo(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        if tipo.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_tipos")
+            tipo.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_tipos (id, nombre, marca_ids, created_at) VALUES ($1, $2, $3, $4)",
-            tipo.id, tipo.nombre, json.dumps(tipo.marca_ids), tipo.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_tipos (id, nombre, marca_ids, orden, created_at) VALUES ($1, $2, $3, $4, $5)",
+            tipo.id, tipo.nombre, json.dumps(tipo.marca_ids), tipo.orden, tipo.created_at.replace(tzinfo=None)
         )
     return tipo
 
@@ -471,9 +478,9 @@ async def update_tipo(tipo_id: str, input: TipoCreate):
         result = await conn.fetchrow("SELECT * FROM prod_tipos WHERE id = $1", tipo_id)
         if not result:
             raise HTTPException(status_code=404, detail="Tipo no encontrado")
-        await conn.execute("UPDATE prod_tipos SET nombre = $1, marca_ids = $2 WHERE id = $3", 
-                          input.nombre, json.dumps(input.marca_ids), tipo_id)
-        return {**row_to_dict(result), "nombre": input.nombre, "marca_ids": input.marca_ids}
+        await conn.execute("UPDATE prod_tipos SET nombre = $1, marca_ids = $2, orden = $3 WHERE id = $4", 
+                          input.nombre, json.dumps(input.marca_ids), input.orden, tipo_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "marca_ids": input.marca_ids, "orden": input.orden}
 
 @api_router.delete("/tipos/{tipo_id}")
 async def delete_tipo(tipo_id: str):
@@ -489,9 +496,9 @@ async def get_entalles(tipo_id: str = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
         if tipo_id:
-            rows = await conn.fetch("SELECT * FROM prod_entalles WHERE tipo_ids ? $1 ORDER BY created_at DESC", tipo_id)
+            rows = await conn.fetch("SELECT * FROM prod_entalles WHERE tipo_ids ? $1 ORDER BY orden ASC, created_at DESC", tipo_id)
         else:
-            rows = await conn.fetch("SELECT * FROM prod_entalles ORDER BY created_at DESC")
+            rows = await conn.fetch("SELECT * FROM prod_entalles ORDER BY orden ASC, created_at DESC")
         result = []
         for r in rows:
             d = row_to_dict(r)
@@ -504,9 +511,12 @@ async def create_entalle(input: EntalleCreate):
     entalle = Entalle(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        if entalle.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_entalles")
+            entalle.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_entalles (id, nombre, tipo_ids, created_at) VALUES ($1, $2, $3, $4)",
-            entalle.id, entalle.nombre, json.dumps(entalle.tipo_ids), entalle.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_entalles (id, nombre, tipo_ids, orden, created_at) VALUES ($1, $2, $3, $4, $5)",
+            entalle.id, entalle.nombre, json.dumps(entalle.tipo_ids), entalle.orden, entalle.created_at.replace(tzinfo=None)
         )
     return entalle
 
@@ -517,9 +527,9 @@ async def update_entalle(entalle_id: str, input: EntalleCreate):
         result = await conn.fetchrow("SELECT * FROM prod_entalles WHERE id = $1", entalle_id)
         if not result:
             raise HTTPException(status_code=404, detail="Entalle no encontrado")
-        await conn.execute("UPDATE prod_entalles SET nombre = $1, tipo_ids = $2 WHERE id = $3",
-                          input.nombre, json.dumps(input.tipo_ids), entalle_id)
-        return {**row_to_dict(result), "nombre": input.nombre, "tipo_ids": input.tipo_ids}
+        await conn.execute("UPDATE prod_entalles SET nombre = $1, tipo_ids = $2, orden = $3 WHERE id = $4",
+                          input.nombre, json.dumps(input.tipo_ids), input.orden, entalle_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "tipo_ids": input.tipo_ids, "orden": input.orden}
 
 @api_router.delete("/entalles/{entalle_id}")
 async def delete_entalle(entalle_id: str):
@@ -535,9 +545,9 @@ async def get_telas(entalle_id: str = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
         if entalle_id:
-            rows = await conn.fetch("SELECT * FROM prod_telas WHERE entalle_ids ? $1 ORDER BY created_at DESC", entalle_id)
+            rows = await conn.fetch("SELECT * FROM prod_telas WHERE entalle_ids ? $1 ORDER BY orden ASC, created_at DESC", entalle_id)
         else:
-            rows = await conn.fetch("SELECT * FROM prod_telas ORDER BY created_at DESC")
+            rows = await conn.fetch("SELECT * FROM prod_telas ORDER BY orden ASC, created_at DESC")
         result = []
         for r in rows:
             d = row_to_dict(r)
@@ -550,9 +560,12 @@ async def create_tela(input: TelaCreate):
     tela = Tela(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        if tela.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_telas")
+            tela.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_telas (id, nombre, entalle_ids, created_at) VALUES ($1, $2, $3, $4)",
-            tela.id, tela.nombre, json.dumps(tela.entalle_ids), tela.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_telas (id, nombre, entalle_ids, orden, created_at) VALUES ($1, $2, $3, $4, $5)",
+            tela.id, tela.nombre, json.dumps(tela.entalle_ids), tela.orden, tela.created_at.replace(tzinfo=None)
         )
     return tela
 
@@ -563,9 +576,9 @@ async def update_tela(tela_id: str, input: TelaCreate):
         result = await conn.fetchrow("SELECT * FROM prod_telas WHERE id = $1", tela_id)
         if not result:
             raise HTTPException(status_code=404, detail="Tela no encontrada")
-        await conn.execute("UPDATE prod_telas SET nombre = $1, entalle_ids = $2 WHERE id = $3",
-                          input.nombre, json.dumps(input.entalle_ids), tela_id)
-        return {**row_to_dict(result), "nombre": input.nombre, "entalle_ids": input.entalle_ids}
+        await conn.execute("UPDATE prod_telas SET nombre = $1, entalle_ids = $2, orden = $3 WHERE id = $4",
+                          input.nombre, json.dumps(input.entalle_ids), input.orden, tela_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "entalle_ids": input.entalle_ids, "orden": input.orden}
 
 @api_router.delete("/telas/{tela_id}")
 async def delete_tela(tela_id: str):
@@ -581,9 +594,9 @@ async def get_hilos(tela_id: str = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
         if tela_id:
-            rows = await conn.fetch("SELECT * FROM prod_hilos WHERE tela_ids ? $1 ORDER BY created_at DESC", tela_id)
+            rows = await conn.fetch("SELECT * FROM prod_hilos WHERE tela_ids ? $1 ORDER BY orden ASC, created_at DESC", tela_id)
         else:
-            rows = await conn.fetch("SELECT * FROM prod_hilos ORDER BY created_at DESC")
+            rows = await conn.fetch("SELECT * FROM prod_hilos ORDER BY orden ASC, created_at DESC")
         result = []
         for r in rows:
             d = row_to_dict(r)
@@ -596,9 +609,12 @@ async def create_hilo(input: HiloCreate):
     hilo = Hilo(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        if hilo.orden == 0:
+            max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), 0) FROM prod_hilos")
+            hilo.orden = max_orden + 1
         await conn.execute(
-            "INSERT INTO prod_hilos (id, nombre, tela_ids, created_at) VALUES ($1, $2, $3, $4)",
-            hilo.id, hilo.nombre, json.dumps(hilo.tela_ids), hilo.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_hilos (id, nombre, tela_ids, orden, created_at) VALUES ($1, $2, $3, $4, $5)",
+            hilo.id, hilo.nombre, json.dumps(hilo.tela_ids), hilo.orden, hilo.created_at.replace(tzinfo=None)
         )
     return hilo
 
@@ -609,9 +625,9 @@ async def update_hilo(hilo_id: str, input: HiloCreate):
         result = await conn.fetchrow("SELECT * FROM prod_hilos WHERE id = $1", hilo_id)
         if not result:
             raise HTTPException(status_code=404, detail="Hilo no encontrado")
-        await conn.execute("UPDATE prod_hilos SET nombre = $1, tela_ids = $2 WHERE id = $3",
-                          input.nombre, json.dumps(input.tela_ids), hilo_id)
-        return {**row_to_dict(result), "nombre": input.nombre, "tela_ids": input.tela_ids}
+        await conn.execute("UPDATE prod_hilos SET nombre = $1, tela_ids = $2, orden = $3 WHERE id = $4",
+                          input.nombre, json.dumps(input.tela_ids), input.orden, hilo_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "tela_ids": input.tela_ids, "orden": input.orden}
 
 @api_router.delete("/hilos/{hilo_id}")
 async def delete_hilo(hilo_id: str):
