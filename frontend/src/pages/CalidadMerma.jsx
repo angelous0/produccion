@@ -243,7 +243,19 @@ export const CalidadMerma = () => {
                       {merma.fecha || merma.created_at?.split('T')[0] || '-'}
                     </TableCell>
                     <TableCell>
-                      <span className="font-medium">{merma.registro_n_corte || '-'}</span>
+                      {merma.registro_id ? (
+                        <Button
+                          variant="link"
+                          className="p-0 h-auto font-medium text-primary hover:underline"
+                          onClick={() => navigate(`/registros/editar/${merma.registro_id}`)}
+                          data-testid={`ver-registro-${merma.id}`}
+                        >
+                          {merma.registro_n_corte || 'Ver registro'}
+                          <ExternalLink className="h-3 w-3 ml-1" />
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{merma.servicio_nombre || '-'}</Badge>
