@@ -60,12 +60,12 @@ export const ReporteProductividad = () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filtroFechaDesde) params.append('fecha_desde', filtroFechaDesde);
-      if (filtroFechaHasta) params.append('fecha_hasta', filtroFechaHasta);
+      if (filtroFechaDesde) params.append('fecha_inicio', filtroFechaDesde);
+      if (filtroFechaHasta) params.append('fecha_fin', filtroFechaHasta);
       if (filtroServicio) params.append('servicio_id', filtroServicio);
       if (filtroPersona) params.append('persona_id', filtroPersona);
       
-      const response = await axios.get(`${API}/reporte-productividad?${params.toString()}`);
+      const response = await axios.get(`${API}/reportes/productividad?${params.toString()}`);
       setReporte(response.data);
     } catch (error) {
       toast.error('Error al cargar reporte');
