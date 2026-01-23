@@ -110,7 +110,7 @@ export const GuiasRemision = () => {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Guía de Remisión ${selectedGuia?.numero}</title>
+          <title>Guía de Remisión ${selectedGuia?.numero_guia}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
