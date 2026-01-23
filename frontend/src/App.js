@@ -28,6 +28,7 @@ import { ReporteProductividad } from "./pages/ReporteProductividad";
 import { RutasProduccion } from "./pages/RutasProduccion";
 import { CalidadMerma } from "./pages/CalidadMerma";
 import { GuiasRemision } from "./pages/GuiasRemision";
+import { RegistroHilos } from "./pages/RegistroHilos";
 
 function App() {
   return (
