@@ -2040,10 +2040,21 @@ async def get_movimientos_produccion(registro_id: str = None):
         m['servicio_nombre'] = servicio['nombre'] if servicio else ""
         m['persona_nombre'] = persona['nombre'] if persona else ""
         m['registro_n_corte'] = registro['n_corte'] if registro else ""
-        m['tarifa_servicio'] = servicio.get('tarifa', 0) if servicio else 0  # Tarifa referencial del servicio
-        # El costo se calcula con la tarifa_aplicada del movimiento (la que el usuario ingresó)
+        m['tarifa_servicio'] = servicio.get('tarifa', 0) if servicio else 0
+        
+        # Compatibilidad: si tiene 'cantidad' antigua, migrar a cantidad_enviada
+        if 'cantidad' in m and 'cantidad_enviada' not in m:
+            m['cantidad_enviada'] = m.get('cantidad', 0)
+            m['cantidad_recibida'] = m.get('cantidad', 0)
+        
+        # Calcular costo con cantidad recibida y tarifa aplicada
         tarifa_mov = m.get('tarifa_aplicada', 0)
-        m['costo'] = tarifa_mov * m.get('cantidad', 0)
+        cantidad_recibida = m.get('cantidad_recibida', 0)
+        m['costo'] = tarifa_mov * cantidad_recibida
+        
+        # Calcular diferencia (merma)
+        cantidad_enviada = m.get('cantidad_enviada', 0)
+        m['diferencia'] = cantidad_enviada - cantidad_recibida
         
         result.append(m)
     return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
