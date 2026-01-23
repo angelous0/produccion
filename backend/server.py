@@ -570,6 +570,15 @@ async def login(credentials: UserLogin):
         user_dict.pop('password_hash', None)
         user_dict['permisos'] = parse_jsonb(user_dict.get('permisos'))
         
+        # Registrar actividad de login
+        await registrar_actividad(
+            pool,
+            usuario_id=user['id'],
+            usuario_nombre=user['username'],
+            tipo_accion="login",
+            descripcion=f"Inicio de sesión exitoso"
+        )
+        
         return {
             "access_token": access_token,
             "token_type": "bearer",
@@ -587,6 +596,28 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 async def change_password(data: UserChangePassword, current_user: dict = Depends(get_current_user)):
     if not verify_password(data.current_password, current_user['password_hash']):
         raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        new_hash = get_password_hash(data.new_password)
+        await conn.execute(
+            "UPDATE prod_usuarios SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+            new_hash, current_user['id']
+        )
+    
+    # Registrar actividad
+    await registrar_actividad(
+        pool,
+        usuario_id=current_user['id'],
+        usuario_nombre=current_user['username'],
+        tipo_accion="cambio_password",
+        tabla_afectada="usuarios",
+        registro_id=current_user['id'],
+        registro_nombre=current_user['username'],
+        descripcion="Cambió su propia contraseña"
+    )
+    
+    return {"message": "Contraseña actualizada correctamente"}
     
     pool = await get_pool()
     async with pool.acquire() as conn:
