@@ -282,16 +282,27 @@ export const InventarioIngresos = () => {
                       <TableCell>{ingreso.proveedor || '-'}</TableCell>
                       <TableCell className="font-mono">{ingreso.numero_documento || '-'}</TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(ingreso.id)}
-                          title="Eliminar"
-                          disabled={ingreso.cantidad_disponible !== ingreso.cantidad}
-                          data-testid={`delete-ingreso-${ingreso.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEdit(ingreso)}
+                            title="Editar"
+                            data-testid={`edit-ingreso-${ingreso.id}`}
+                          >
+                            <Pencil className="h-4 w-4 text-blue-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(ingreso.id)}
+                            title={ingreso.cantidad_disponible !== ingreso.cantidad ? "No se puede eliminar: tiene salidas" : "Eliminar"}
+                            disabled={ingreso.cantidad_disponible !== ingreso.cantidad}
+                            data-testid={`delete-ingreso-${ingreso.id}`}
+                          >
+                            <Trash2 className={`h-4 w-4 ${ingreso.cantidad_disponible !== ingreso.cantidad ? 'text-gray-300' : 'text-destructive'}`} />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
