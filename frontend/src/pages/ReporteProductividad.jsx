@@ -189,7 +189,9 @@ export const ReporteProductividad = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Prendas</p>
-                  <p className="text-2xl font-bold">{reporte.totales.cantidad.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">
+                    {(reporte.por_persona || []).reduce((sum, p) => sum + (p.total_cantidad || 0), 0).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -202,7 +204,9 @@ export const ReporteProductividad = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Costo Total Mano de Obra</p>
-                  <p className="text-2xl font-bold">{formatCurrency(reporte.totales.costo)}</p>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency((reporte.por_persona || []).reduce((sum, p) => sum + (p.total_costo || 0), 0))}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -215,7 +219,7 @@ export const ReporteProductividad = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Movimientos</p>
-                  <p className="text-2xl font-bold">{reporte.totales.movimientos.toLocaleString()}</p>
+                  <p className="text-2xl font-bold">{(reporte.total_movimientos || 0).toLocaleString()}</p>
                 </div>
               </div>
             </CardContent>
