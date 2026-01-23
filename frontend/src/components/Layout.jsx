@@ -203,6 +203,30 @@ export const Layout = () => {
                 {item.label}
               </NavLink>
             ))}
+
+            {/* Separador Documentos */}
+            <div className="mt-4 mb-2 px-3">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Documentos
+              </span>
+            </div>
+            {documentosItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`
+                }
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
         </aside>
 
