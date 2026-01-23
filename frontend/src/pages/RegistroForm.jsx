@@ -663,7 +663,7 @@ export const RegistroForm = () => {
     try {
       const response = await axios.post(`${API}/guias-remision/desde-movimiento/${movimientoId}`);
       const guia = response.data;
-      toast.success(`Guía ${guia.numero} generada exitosamente`);
+      toast.success(`Guía ${guia.numero} lista para imprimir`);
       
       // Abrir en nueva ventana para imprimir
       const printWindow = window.open('', '_blank');
