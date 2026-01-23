@@ -885,10 +885,14 @@ async def get_registro_hilos(registro_id: str = None):
         for r in rows:
             d = row_to_dict(r)
             # Enriquecer con nombres
-            hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
+            if d.get('hilo_id'):
+                hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
+                d['hilo_nombre'] = hilo['nombre'] if hilo else None
+            if d.get('hilo_especifico_id'):
+                hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
+                d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
             color = await conn.fetchrow("SELECT nombre FROM prod_colores_catalogo WHERE id = $1", d.get('color_id')) if d.get('color_id') else None
             registro = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d.get('registro_id'))
-            d['hilo_nombre'] = hilo['nombre'] if hilo else None
             d['color_nombre'] = color['nombre'] if color else None
             d['registro_n_corte'] = registro['n_corte'] if registro else None
             result.append(d)
@@ -899,19 +903,27 @@ async def create_registro_hilo(input: RegistroHiloCreate):
     registro_hilo = RegistroHilo(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Verificar que registro y hilo existen
+        # Verificar que registro existe
         reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
         if not reg:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
-        hilo = await conn.fetchrow("SELECT id FROM prod_hilos WHERE id = $1", input.hilo_id)
-        if not hilo:
-            raise HTTPException(status_code=404, detail="Hilo no encontrado")
+        
+        # Verificar hilo o hilo específico
+        if input.hilo_id:
+            hilo = await conn.fetchrow("SELECT id FROM prod_hilos WHERE id = $1", input.hilo_id)
+            if not hilo:
+                raise HTTPException(status_code=404, detail="Hilo no encontrado")
+        if input.hilo_especifico_id:
+            hilo_esp = await conn.fetchrow("SELECT id FROM prod_hilos_especificos WHERE id = $1", input.hilo_especifico_id)
+            if not hilo_esp:
+                raise HTTPException(status_code=404, detail="Hilo específico no encontrado")
         
         await conn.execute(
-            """INSERT INTO prod_registro_hilos (id, registro_id, hilo_id, color_id, cantidad, observaciones, created_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)""",
-            registro_hilo.id, registro_hilo.registro_id, registro_hilo.hilo_id, registro_hilo.color_id,
-            registro_hilo.cantidad, registro_hilo.observaciones, registro_hilo.created_at.replace(tzinfo=None)
+            """INSERT INTO prod_registro_hilos (id, registro_id, hilo_id, hilo_especifico_id, color_id, cantidad, observaciones, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)""",
+            registro_hilo.id, registro_hilo.registro_id, registro_hilo.hilo_id, registro_hilo.hilo_especifico_id,
+            registro_hilo.color_id, registro_hilo.cantidad, registro_hilo.observaciones, 
+            registro_hilo.created_at.replace(tzinfo=None)
         )
     return registro_hilo
 
@@ -923,8 +935,8 @@ async def update_registro_hilo(hilo_registro_id: str, input: RegistroHiloCreate)
         if not result:
             raise HTTPException(status_code=404, detail="Hilo de registro no encontrado")
         await conn.execute(
-            """UPDATE prod_registro_hilos SET hilo_id=$1, color_id=$2, cantidad=$3, observaciones=$4 WHERE id=$5""",
-            input.hilo_id, input.color_id, input.cantidad, input.observaciones, hilo_registro_id
+            """UPDATE prod_registro_hilos SET hilo_id=$1, hilo_especifico_id=$2, color_id=$3, cantidad=$4, observaciones=$5 WHERE id=$6""",
+            input.hilo_id, input.hilo_especifico_id, input.color_id, input.cantidad, input.observaciones, hilo_registro_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
