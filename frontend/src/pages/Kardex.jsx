@@ -98,27 +98,33 @@ export const Kardex = () => {
   };
 
   const getTipoIcon = (tipo) => {
-    if (tipo.includes('Ingreso')) {
+    if (tipo === 'ingreso' || tipo === 'ajuste_entrada') {
       return <ArrowDownCircle className="h-4 w-4 text-green-600" />;
-    } else if (tipo.includes('Salida')) {
+    } else if (tipo === 'salida' || tipo === 'ajuste_salida') {
       return <ArrowUpCircle className="h-4 w-4 text-red-500" />;
-    } else if (tipo.includes('Ajuste')) {
-      return <RefreshCw className="h-4 w-4 text-blue-500" />;
     }
-    return null;
+    return <RefreshCw className="h-4 w-4 text-blue-500" />;
   };
 
   const getTipoBadge = (tipo) => {
-    if (tipo.includes('Ingreso')) {
-      return <Badge className="bg-green-600">{tipo}</Badge>;
-    } else if (tipo === 'Salida') {
-      return <Badge variant="destructive">{tipo}</Badge>;
-    } else if (tipo.includes('entrada')) {
-      return <Badge className="bg-blue-500">{tipo}</Badge>;
-    } else if (tipo.includes('salida')) {
-      return <Badge className="bg-orange-500">{tipo}</Badge>;
+    const labels = {
+      'ingreso': 'Ingreso',
+      'salida': 'Salida',
+      'ajuste_entrada': 'Ajuste +',
+      'ajuste_salida': 'Ajuste -'
+    };
+    const label = labels[tipo] || tipo;
+    
+    if (tipo === 'ingreso') {
+      return <Badge className="bg-green-600">{label}</Badge>;
+    } else if (tipo === 'salida') {
+      return <Badge variant="destructive">{label}</Badge>;
+    } else if (tipo === 'ajuste_entrada') {
+      return <Badge className="bg-blue-500">{label}</Badge>;
+    } else if (tipo === 'ajuste_salida') {
+      return <Badge className="bg-orange-500">{label}</Badge>;
     }
-    return <Badge>{tipo}</Badge>;
+    return <Badge>{label}</Badge>;
   };
 
   // Calcular totales - el backend devuelve cantidad (positiva/negativa) y tipo
