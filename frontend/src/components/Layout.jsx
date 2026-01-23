@@ -61,6 +61,10 @@ const maestrosItems = [
   { to: '/maestros/productividad', icon: BarChart3, label: 'Productividad' },
 ];
 
+const calidadItems = [
+  { to: '/calidad/merma', icon: AlertTriangle, label: 'Merma' },
+];
+
 export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
