@@ -286,6 +286,7 @@ export const PersonasProduccion = () => {
         nombre: persona.nombre,
         servicios: persona.servicios || [],
         telefono: persona.telefono || '',
+        direccion: persona.direccion || '',
         activo: !persona.activo,
         orden: persona.orden || 0,
       });
@@ -322,6 +323,7 @@ export const PersonasProduccion = () => {
               nombre: p.nombre,
               servicios: p.servicios || [],
               telefono: p.telefono || '',
+              direccion: p.direccion || '',
               activo: p.activo !== false,
               orden: p.orden,
             })
