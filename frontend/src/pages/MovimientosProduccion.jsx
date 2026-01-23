@@ -285,11 +285,11 @@ export const MovimientosProduccion = () => {
   });
 
   const getTotalCantidad = () => {
-    return movimientosFiltrados.reduce((sum, m) => sum + (m.cantidad || 0), 0);
+    return movimientosFiltrados.reduce((sum, m) => sum + (m.cantidad_recibida || m.cantidad || 0), 0);
   };
 
   const getTotalCosto = () => {
-    return movimientosFiltrados.reduce((sum, m) => sum + (m.costo || 0), 0);
+    return movimientosFiltrados.reduce((sum, m) => sum + (m.costo_calculado || m.costo || 0), 0);
   };
 
   const formatCurrency = (value) => {
