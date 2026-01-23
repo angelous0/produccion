@@ -325,7 +325,7 @@ export const ReporteProductividad = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {reporte.por_servicio.map((item) => (
+                        {(reporte.por_servicio || []).map((item) => (
                           <TableRow key={item.servicio_id}>
                             <TableCell>
                               <div className="flex items-center gap-2">
@@ -334,16 +334,16 @@ export const ReporteProductividad = () => {
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-mono text-muted-foreground">
-                              {item.tarifa > 0 ? formatCurrency(item.tarifa) : '-'}
+                              {(item.tarifa || 0) > 0 ? formatCurrency(item.tarifa) : '-'}
                             </TableCell>
                             <TableCell className="text-center font-mono">
-                              {item.movimientos}
+                              {item.movimientos || 0}
                             </TableCell>
                             <TableCell className="text-right font-mono font-semibold">
-                              {item.total_cantidad.toLocaleString()}
+                              {(item.total_cantidad || 0).toLocaleString()}
                             </TableCell>
                             <TableCell className="text-right font-mono text-green-600 font-semibold">
-                              {formatCurrency(item.total_costo)}
+                              {formatCurrency(item.total_costo || 0)}
                             </TableCell>
                           </TableRow>
                         ))}
