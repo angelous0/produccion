@@ -234,16 +234,6 @@ export const MovimientosProduccion = () => {
     return servicio?.tarifa || 0;
   };
 
-  // Helper para calcular costo del formulario de crear (usa tarifa_aplicada)
-  const calcularCostoCreate = () => {
-    return (createFormData.tarifa_aplicada || 0) * (createFormData.cantidad || 0);
-  };
-
-  // Helper para calcular costo del formulario de editar (usa tarifa_aplicada)
-  const calcularCostoEdit = () => {
-    return (formData.tarifa_aplicada || 0) * (formData.cantidad || 0);
-  };
-
   const handleCreateSubmit = async () => {
     if (!createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id) {
       toast.error('Selecciona registro, servicio y persona');
