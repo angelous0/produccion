@@ -1,6 +1,15 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { 
   LayoutDashboard, 
   Tag, 
@@ -28,7 +37,11 @@ import {
   BarChart3,
   Route,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  LogOut,
+  User,
+  Shield,
+  Key
 } from 'lucide-react';
 import { useState } from 'react';
 
