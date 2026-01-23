@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
@@ -170,6 +171,9 @@ export const ColoresGenerales = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Color General' : 'Nuevo Color General'}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? 'Modifica el nombre del color general' : 'Crea una nueva categoría de color para agrupar tonalidades'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
