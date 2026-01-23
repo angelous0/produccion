@@ -2,6 +2,8 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 import { 
   LayoutDashboard, 
   Tag, 
@@ -41,9 +51,14 @@ import {
   LogOut,
   User,
   Shield,
-  Key
+  Key,
+  Loader2
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import axios from 'axios';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
