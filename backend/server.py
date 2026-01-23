@@ -1962,8 +1962,15 @@ async def get_inventario_movimientos(item_id: str = None, fecha_inicio: str = No
         movimientos.sort(key=lambda x: x['fecha'] if x['fecha'] else datetime.min, reverse=True)
         return movimientos
 
+@api_router.get("/inventario-kardex/{item_id}")
+async def get_inventario_kardex_by_path(item_id: str):
+    return await _get_kardex(item_id)
+
 @api_router.get("/inventario-kardex")
 async def get_inventario_kardex(item_id: str):
+    return await _get_kardex(item_id)
+
+async def _get_kardex(item_id: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
         item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", item_id)
