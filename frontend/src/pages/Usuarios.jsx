@@ -140,12 +140,39 @@ export const Usuarios = () => {
   };
 
   const handleResetPassword = async (user) => {
-    if (!window.confirm(`¿Resetear contraseña de ${user.username}?`)) return;
+    if (!window.confirm(`¿Resetear contraseña de ${user.username} a "${user.username}123"?`)) return;
     try {
       const response = await axios.put(`${API}/usuarios/${user.id}/reset-password`);
       toast.success(response.data.message);
     } catch (error) {
       toast.error('Error al resetear contraseña');
+    }
+  };
+
+  const handleOpenPasswordDialog = (user) => {
+    setEditingUser(user);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordDialogOpen(true);
+  };
+
+  const handleSetPassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+    if (newPassword.length < 4) {
+      toast.error('La contraseña debe tener al menos 4 caracteres');
+      return;
+    }
+    try {
+      await axios.put(`${API}/usuarios/${editingUser.id}/set-password`, {
+        new_password: newPassword
+      });
+      toast.success(`Contraseña de ${editingUser.username} actualizada`);
+      setPasswordDialogOpen(false);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al cambiar contraseña');
     }
   };
 
