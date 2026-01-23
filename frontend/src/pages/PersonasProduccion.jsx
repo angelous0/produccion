@@ -13,9 +13,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
-import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical, DollarSign } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical, DollarSign, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -41,6 +46,63 @@ const formatCurrency = (value) => {
     style: 'currency',
     currency: 'PEN',
   }).format(value || 0);
+};
+
+// Componente para mostrar servicios con tarifa
+const ServiciosTarifaCell = ({ servicios }) => {
+  if (!servicios || servicios.length === 0) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  // Si es solo 1 servicio, mostrar directamente
+  if (servicios.length === 1) {
+    const s = servicios[0];
+    return (
+      <Badge variant="secondary" className="text-xs">
+        {s.servicio_nombre}
+        {s.tarifa > 0 && (
+          <span className="ml-1 text-green-600">({formatCurrency(s.tarifa)})</span>
+        )}
+      </Badge>
+    );
+  }
+
+  // Si hay varios servicios, mostrar un popover con tabla
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-auto py-1 px-2 text-xs">
+          <span>{servicios.length} servicios</span>
+          <ChevronDown className="ml-1 h-3 w-3" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="p-3 border-b bg-muted/30">
+          <p className="font-semibold text-sm">Servicios y Tarifas</p>
+        </div>
+        <div className="max-h-[250px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-background border-b">
+              <tr>
+                <th className="text-left p-2 font-medium">Servicio</th>
+                <th className="text-right p-2 font-medium">Tarifa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {servicios.map((s, idx) => (
+                <tr key={idx} className="border-b last:border-0 hover:bg-muted/30">
+                  <td className="p-2">{s.servicio_nombre}</td>
+                  <td className="p-2 text-right font-mono text-green-600">
+                    {s.tarifa > 0 ? formatCurrency(s.tarifa) : '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
 // Componente de fila sorteable
