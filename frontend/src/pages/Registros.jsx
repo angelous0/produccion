@@ -26,6 +26,7 @@ import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors } from 'luc
 import { toast } from 'sonner';
 import { getStatusClass } from '../lib/utils';
 import { MultiSelectColors } from '../components/MultiSelectColors';
+import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
