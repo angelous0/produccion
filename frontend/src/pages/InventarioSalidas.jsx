@@ -29,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Trash2, ArrowUpCircle, Link2, Layers } from 'lucide-react';
+import { Plus, Trash2, ArrowUpCircle, Link2, Layers, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 
@@ -41,6 +41,7 @@ export const InventarioSalidas = () => {
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSalida, setEditingSalida] = useState(null);
   const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [rollosDisponibles, setRollosDisponibles] = useState([]);
