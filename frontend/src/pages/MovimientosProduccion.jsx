@@ -589,52 +589,42 @@ export const MovimientosProduccion = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-cantidad">Cantidad de Prendas</Label>
-              <Input
-                id="edit-cantidad"
-                type="number"
-                min="0"
-                value={formData.cantidad}
-                onChange={(e) => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 0 })}
-                className="font-mono"
-                data-testid="edit-input-cantidad"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-cantidad-enviada">Cantidad Enviada</Label>
+                <Input
+                  id="edit-cantidad-enviada"
+                  type="number"
+                  min="0"
+                  value={formData.cantidad_enviada}
+                  onChange={(e) => setFormData({ ...formData, cantidad_enviada: parseInt(e.target.value) || 0 })}
+                  className="font-mono"
+                  data-testid="edit-input-cantidad-enviada"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-cantidad-recibida">Cantidad Recibida</Label>
+                <Input
+                  id="edit-cantidad-recibida"
+                  type="number"
+                  min="0"
+                  value={formData.cantidad_recibida}
+                  onChange={(e) => setFormData({ ...formData, cantidad_recibida: parseInt(e.target.value) || 0 })}
+                  className="font-mono"
+                  data-testid="edit-input-cantidad-recibida"
+                />
+              </div>
             </div>
 
-            {/* Tarifa editable */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-tarifa">Tarifa por Prenda (S/)</Label>
-              <Input
-                id="edit-tarifa"
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.tarifa_aplicada}
-                onChange={(e) => setFormData({ ...formData, tarifa_aplicada: parseFloat(e.target.value) || 0 })}
-                className="font-mono"
-                placeholder="0.00"
-                data-testid="edit-input-tarifa"
-              />
-              {formData.persona_id && formData.servicio_id && (
-                <p className="text-xs text-muted-foreground">
-                  Tarifa configurada para esta persona: {formatCurrency(getTarifaPersonaServicio(formData.persona_id, formData.servicio_id))}
-                </p>
-              )}
-            </div>
-
-            {/* Mostrar costo calculado en edición */}
-            {formData.cantidad > 0 && formData.tarifa_aplicada > 0 && (
-              <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+            {/* Mostrar diferencia (merma potencial) */}
+            {formData.cantidad_enviada > formData.cantidad_recibida && (
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-green-700 dark:text-green-300">Costo calculado:</span>
-                  <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                    {formatCurrency(calcularCostoEdit())}
+                  <span className="text-sm text-yellow-700 dark:text-yellow-300">Diferencia (merma):</span>
+                  <span className="text-lg font-bold text-yellow-700 dark:text-yellow-300">
+                    {formData.cantidad_enviada - formData.cantidad_recibida} prendas
                   </span>
                 </div>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {formData.cantidad} prendas × {formatCurrency(formData.tarifa_aplicada)}
-                </p>
               </div>
             )}
 
