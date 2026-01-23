@@ -20,7 +20,6 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
 import { Plus, Pencil, Trash2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
@@ -32,7 +31,7 @@ export const HilosEspecificos = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', codigo: '', color: '', descripcion: '', orden: 0 });
+  const [formData, setFormData] = useState({ nombre: '', orden: 0 });
 
   const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(items, setItems, 'hilos-especificos');
 
@@ -63,7 +62,7 @@ export const HilosEspecificos = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '', codigo: '', color: '', descripcion: '', orden: 0 });
+      setFormData({ nombre: '', orden: 0 });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar hilo específico');
@@ -72,13 +71,7 @@ export const HilosEspecificos = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({
-      nombre: item.nombre,
-      codigo: item.codigo || '',
-      color: item.color || '',
-      descripcion: item.descripcion || '',
-      orden: item.orden || 0
-    });
+    setFormData({ nombre: item.nombre, orden: item.orden || 0 });
     setDialogOpen(true);
   };
 
@@ -94,7 +87,7 @@ export const HilosEspecificos = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '', codigo: '', color: '', descripcion: '', orden: 0 });
+    setFormData({ nombre: '', orden: 0 });
     setDialogOpen(true);
   };
 
@@ -107,7 +100,7 @@ export const HilosEspecificos = () => {
             Hilos Específicos
           </h2>
           <p className="text-muted-foreground">
-            Catálogo de hilos especiales para registros de producción
+            Catálogo de hilos especiales para asignar a registros
             {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
           </p>
         </div>
@@ -123,23 +116,20 @@ export const HilosEspecificos = () => {
             <TableHeader>
               <TableRow className="data-table-header">
                 <TableHead className="w-[40px]"></TableHead>
-                <TableHead>Código</TableHead>
                 <TableHead>Nombre</TableHead>
-                <TableHead>Color</TableHead>
-                <TableHead>Descripción</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={3} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
                     No hay hilos específicos registrados
                   </TableCell>
                 </TableRow>
@@ -152,12 +142,7 @@ export const HilosEspecificos = () => {
                 >
                   {items.map((item) => (
                     <SortableRow key={item.id} id={item.id}>
-                      <TableCell className="font-mono text-sm">{item.codigo || '-'}</TableCell>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
-                      <TableCell>{item.color || '-'}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
-                        {item.descripcion || '-'}
-                      </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
@@ -192,33 +177,11 @@ export const HilosEspecificos = () => {
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Hilo Específico' : 'Nuevo Hilo Específico'}</DialogTitle>
             <DialogDescription>
-              {editingItem ? 'Modifica los datos del hilo específico' : 'Agrega un nuevo hilo específico al catálogo'}
+              {editingItem ? 'Modifica el nombre del hilo específico' : 'Agrega un nuevo hilo específico al catálogo'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="codigo">Código</Label>
-                  <Input
-                    id="codigo"
-                    value={formData.codigo}
-                    onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                    placeholder="Ej: HE-001"
-                    data-testid="input-codigo-hilo-especifico"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    placeholder="Ej: Rojo, Azul"
-                    data-testid="input-color-hilo-especifico"
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre *</Label>
                 <Input
@@ -228,17 +191,6 @@ export const HilosEspecificos = () => {
                   placeholder="Nombre del hilo específico"
                   required
                   data-testid="input-nombre-hilo-especifico"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción</Label>
-                <Textarea
-                  id="descripcion"
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  placeholder="Descripción o notas adicionales"
-                  rows={3}
-                  data-testid="input-descripcion-hilo-especifico"
                 />
               </div>
             </div>
