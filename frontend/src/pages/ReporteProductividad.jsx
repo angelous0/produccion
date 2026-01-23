@@ -368,40 +368,6 @@ export const ReporteProductividad = () => {
               </CardContent>
             </Card>
           </TabsContent>
-                      </TableHeader>
-                      <TableBody>
-                        {reporte.detalle.map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{item.persona_nombre}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{item.servicio_nombre}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                              {item.tarifa > 0 ? formatCurrency(item.tarifa) : '-'}
-                            </TableCell>
-                            <TableCell className="text-center font-mono text-sm">
-                              {item.movimientos}
-                            </TableCell>
-                            <TableCell className="text-right font-mono font-semibold">
-                              {item.total_cantidad.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-green-600">
-                              {formatCurrency(item.total_costo)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       ) : null}
     </div>
