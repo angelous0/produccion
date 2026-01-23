@@ -879,6 +879,26 @@ export const RegistroForm = () => {
                   </div>
 
                   <div className="space-y-2">
+                    <Label>Hilo Específico</Label>
+                    <Select
+                      value={formData.hilo_especifico_id || ""}
+                      onValueChange={(value) => setFormData({ ...formData, hilo_especifico_id: value === "none" ? "" : value })}
+                    >
+                      <SelectTrigger data-testid="select-hilo-especifico">
+                        <SelectValue placeholder="Sin hilo específico" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin hilo específico</SelectItem>
+                        {hilosEspecificos.map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       Estado
                       {usaRuta && rutaNombre && (
