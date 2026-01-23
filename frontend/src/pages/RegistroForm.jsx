@@ -53,6 +53,7 @@ export const RegistroForm = () => {
     curva: '',
     estado: 'Para Corte',
     urgente: false,
+    hilo_especifico_id: '',
   });
 
   // Datos del modelo seleccionado
