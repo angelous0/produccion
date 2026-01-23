@@ -143,6 +143,7 @@ export const PersonasProduccion = () => {
     nombre: '',
     servicios: [],  // [{servicio_id, tarifa}]
     telefono: '',
+    direccion: '',
     activo: true,
     orden: 0,
   });
