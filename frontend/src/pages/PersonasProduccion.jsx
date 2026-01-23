@@ -143,16 +143,7 @@ const SortableRow = ({ persona, onEdit, onDelete, onToggleActivo }) => {
         </div>
       </td>
       <td className="p-3">
-        <div className="flex flex-wrap gap-1">
-          {(persona.servicios_detalle || []).map((s, idx) => (
-            <Badge key={idx} variant="secondary" className="text-xs">
-              {s.servicio_nombre}
-              {s.tarifa > 0 && (
-                <span className="ml-1 text-green-600">({formatCurrency(s.tarifa)})</span>
-              )}
-            </Badge>
-          ))}
-        </div>
+        <ServiciosTarifaCell servicios={persona.servicios_detalle || []} />
       </td>
       <td className="p-3">
         {persona.telefono ? (
