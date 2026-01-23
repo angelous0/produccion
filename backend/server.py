@@ -1199,6 +1199,25 @@ async def create_ingreso(input: IngresoInventarioCreate):
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", cantidad, input.item_id)
         return ingreso
 
+class IngresoUpdateData(BaseModel):
+    proveedor: str = ""
+    numero_documento: str = ""
+    observaciones: str = ""
+    costo_unitario: float = 0
+
+@api_router.put("/inventario-ingresos/{ingreso_id}")
+async def update_ingreso(ingreso_id: str, input: IngresoUpdateData):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        ingreso = await conn.fetchrow("SELECT * FROM prod_inventario_ingresos WHERE id = $1", ingreso_id)
+        if not ingreso:
+            raise HTTPException(status_code=404, detail="Ingreso no encontrado")
+        await conn.execute(
+            """UPDATE prod_inventario_ingresos SET proveedor=$1, numero_documento=$2, observaciones=$3, costo_unitario=$4 WHERE id=$5""",
+            input.proveedor, input.numero_documento, input.observaciones, input.costo_unitario, ingreso_id
+        )
+        return {"message": "Ingreso actualizado", **input.model_dump()}
+
 @api_router.delete("/inventario-ingresos/{ingreso_id}")
 async def delete_ingreso(ingreso_id: str):
     pool = await get_pool()
