@@ -514,12 +514,38 @@ export const RegistroForm = () => {
     return 0;
   };
 
-  // Helper para calcular costo (usa tarifa_aplicada del formulario)
+  // Helper para calcular costo (usa cantidad_recibida y tarifa_aplicada)
   const calcularCostoMovimiento = () => {
-    return (movimientoFormData.tarifa_aplicada || 0) * (movimientoFormData.cantidad || 0);
+    return (movimientoFormData.tarifa_aplicada || 0) * (movimientoFormData.cantidad_recibida || 0);
+  };
+
+  // Helper para calcular diferencia/merma
+  const calcularDiferenciaMovimiento = () => {
+    return (movimientoFormData.cantidad_enviada || 0) - (movimientoFormData.cantidad_recibida || 0);
+  };
+
+  // Helper para calcular cantidad total del registro (tallas + colores)
+  const calcularCantidadTotalRegistro = () => {
+    // Si hay distribución de colores, sumar toda la matriz
+    if (distribucionColores && distribucionColores.length > 0) {
+      let total = 0;
+      distribucionColores.forEach(talla => {
+        (talla.colores || []).forEach(color => {
+          total += color.cantidad || 0;
+        });
+      });
+      return total;
+    }
+    // Si solo hay tallas, sumar cantidades de tallas
+    if (tallasSeleccionadas && tallasSeleccionadas.length > 0) {
+      return tallasSeleccionadas.reduce((sum, t) => sum + (t.cantidad || 0), 0);
+    }
+    return 0;
   };
 
   const handleOpenMovimientoDialog = (movimiento = null) => {
+    const cantidadTotal = calcularCantidadTotalRegistro();
+    
     if (movimiento) {
       // Modo edición
       setEditingMovimiento(movimiento);
@@ -528,30 +554,29 @@ export const RegistroForm = () => {
         persona_id: movimiento.persona_id,
         fecha_inicio: movimiento.fecha_inicio || '',
         fecha_fin: movimiento.fecha_fin || '',
-        cantidad: movimiento.cantidad || 0,
+        cantidad_enviada: movimiento.cantidad_enviada || movimiento.cantidad || 0,
+        cantidad_recibida: movimiento.cantidad_recibida || movimiento.cantidad || 0,
         tarifa_aplicada: movimiento.tarifa_aplicada || 0,
         observaciones: movimiento.observaciones || '',
       });
       // Filtrar personas por el servicio del movimiento (nueva estructura)
       const filtradas = personasProduccion.filter(p => {
-        // Verificar en servicios_detalle (formato con detalles)
         const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === movimiento.servicio_id);
-        // Verificar en servicios (formato nuevo)
         const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === movimiento.servicio_id);
-        // Formato antiguo (servicio_ids)
         const tieneEnIds = (p.servicio_ids || []).includes(movimiento.servicio_id);
         return tieneEnDetalle || tieneEnServicios || tieneEnIds;
       });
       setPersonasFiltradas(filtradas);
     } else {
-      // Modo creación
+      // Modo creación - pre-llenar cantidad con el total del registro
       setEditingMovimiento(null);
       setMovimientoFormData({
         servicio_id: '',
         persona_id: '',
         fecha_inicio: new Date().toISOString().split('T')[0],
         fecha_fin: '',
-        cantidad: 0,
+        cantidad_enviada: cantidadTotal,
+        cantidad_recibida: cantidadTotal,
         tarifa_aplicada: 0,
         observaciones: '',
       });
