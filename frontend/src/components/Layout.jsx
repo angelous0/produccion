@@ -66,6 +66,10 @@ const calidadItems = [
   { to: '/calidad/merma', icon: AlertTriangle, label: 'Merma' },
 ];
 
+const documentosItems = [
+  { to: '/guias', icon: FileText, label: 'Guías de Remisión' },
+];
+
 export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
