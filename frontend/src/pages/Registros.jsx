@@ -377,15 +377,6 @@ export const Registros = () => {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => navigate(`/registros/${item.id}/hilos`)}
-                            title="Hilos Específicos"
-                            data-testid={`hilos-registro-${item.id}`}
-                          >
-                            <Scissors className="h-4 w-4 text-orange-500" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
                             onClick={() => navigate(`/registros/editar/${item.id}`)}
                             title="Editar"
                             data-testid={`edit-registro-${item.id}`}
