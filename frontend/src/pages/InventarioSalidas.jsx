@@ -268,15 +268,26 @@ export const InventarioSalidas = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(salida.id)}
-                          title="Eliminar"
-                          data-testid={`delete-salida-${salida.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEdit(salida)}
+                            title="Editar"
+                            data-testid={`edit-salida-${salida.id}`}
+                          >
+                            <Pencil className="h-4 w-4 text-blue-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(salida.id)}
+                            title="Eliminar"
+                            data-testid={`delete-salida-${salida.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -287,12 +298,15 @@ export const InventarioSalidas = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) setEditingSalida(null);
+      }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Nueva Salida</DialogTitle>
+            <DialogTitle>{editingSalida ? 'Editar Salida' : 'Nueva Salida'}</DialogTitle>
             <DialogDescription>
-              Registrar una salida de inventario (FIFO)
+              {editingSalida ? 'Modificar observaciones de la salida' : 'Registrar una salida de inventario (FIFO)'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
