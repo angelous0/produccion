@@ -30,6 +30,7 @@ import { RutasProduccion } from "./pages/RutasProduccion";
 import { CalidadMerma } from "./pages/CalidadMerma";
 import { GuiasRemision } from "./pages/GuiasRemision";
 import { RegistroHilos } from "./pages/RegistroHilos";
+import { HilosEspecificos } from "./pages/HilosEspecificos";
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
             <Route path="entalles" element={<Entalles />} />
             <Route path="telas" element={<Telas />} />
             <Route path="hilos" element={<Hilos />} />
+            <Route path="hilos-especificos" element={<HilosEspecificos />} />
             <Route path="tallas-catalogo" element={<TallasCatalogo />} />
             <Route path="colores-catalogo" element={<ColoresCatalogo />} />
             <Route path="colores-generales" element={<ColoresGenerales />} />
