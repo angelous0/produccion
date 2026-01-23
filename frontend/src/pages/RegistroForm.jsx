@@ -660,7 +660,7 @@ export const RegistroForm = () => {
   };
 
   const getTotalCantidadMovimientos = () => {
-    return movimientosProduccion.reduce((sum, m) => sum + (m.cantidad || 0), 0);
+    return movimientosProduccion.reduce((sum, m) => sum + (m.cantidad_recibida || m.cantidad || 0), 0);
   };
 
   // Guardar registro
