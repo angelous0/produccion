@@ -106,10 +106,46 @@ export const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: '',
+  });
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      toast.error('Las contraseñas nuevas no coinciden');
+      return;
+    }
+    
+    if (passwordForm.new_password.length < 4) {
+      toast.error('La contraseña debe tener al menos 4 caracteres');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await axios.put(`${API}/auth/change-password`, {
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password,
+      });
+      toast.success('Contraseña actualizada correctamente');
+      setPasswordDialogOpen(false);
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al cambiar contraseña');
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
@@ -169,14 +205,16 @@ export const Layout = () => {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {isAdmin() && (
-                  <>
-                    <DropdownMenuItem onClick={() => navigate('/usuarios')} data-testid="menu-usuarios">
-                      <Shield className="h-4 w-4 mr-2" />
-                      Gestionar Usuarios
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
+                  <DropdownMenuItem onClick={() => navigate('/usuarios')} data-testid="menu-usuarios">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Gestionar Usuarios
+                  </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)} data-testid="menu-change-password">
+                  <Key className="h-4 w-4 mr-2" />
+                  Cambiar Contraseña
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive" data-testid="menu-logout">
                   <LogOut className="h-4 w-4 mr-2" />
                   Cerrar Sesión
@@ -186,6 +224,73 @@ export const Layout = () => {
           </div>
         </div>
       </header>
+
+      {/* Dialog Cambiar Contraseña */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cambiar Contraseña</DialogTitle>
+            <DialogDescription>
+              Ingresa tu contraseña actual y la nueva contraseña
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="current_password">Contraseña Actual</Label>
+                <Input
+                  id="current_password"
+                  type="password"
+                  value={passwordForm.current_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                  placeholder="Tu contraseña actual"
+                  required
+                  disabled={passwordLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new_password">Nueva Contraseña</Label>
+                <Input
+                  id="new_password"
+                  type="password"
+                  value={passwordForm.new_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                  placeholder="Tu nueva contraseña"
+                  required
+                  disabled={passwordLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm_password">Confirmar Nueva Contraseña</Label>
+                <Input
+                  id="confirm_password"
+                  type="password"
+                  value={passwordForm.confirm_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                  placeholder="Repite la nueva contraseña"
+                  required
+                  disabled={passwordLoading}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)} disabled={passwordLoading}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={passwordLoading}>
+                {passwordLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  'Guardar'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex">
         {/* Sidebar */}
