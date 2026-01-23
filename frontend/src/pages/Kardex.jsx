@@ -303,15 +303,15 @@ export const Kardex = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-right font-mono">
-                            {mov.entrada > 0 ? (
-                              <span className="text-green-600 font-semibold">+{mov.entrada}</span>
+                            {(mov.tipo === 'ingreso' || mov.tipo === 'ajuste_entrada') ? (
+                              <span className="text-green-600 font-semibold">+{Math.abs(mov.cantidad)}</span>
                             ) : (
                               <Minus className="h-4 w-4 text-muted-foreground mx-auto" />
                             )}
                           </TableCell>
                           <TableCell className="text-right font-mono">
-                            {mov.salida > 0 ? (
-                              <span className="text-red-500 font-semibold">-{mov.salida}</span>
+                            {(mov.tipo === 'salida' || mov.tipo === 'ajuste_salida') ? (
+                              <span className="text-red-500 font-semibold">-{Math.abs(mov.cantidad)}</span>
                             ) : (
                               <Minus className="h-4 w-4 text-muted-foreground mx-auto" />
                             )}
