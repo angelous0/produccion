@@ -1428,6 +1428,21 @@ async def create_ajuste(input: AjusteInventarioCreate):
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", incremento, input.item_id)
         return ajuste
 
+class AjusteUpdateData(BaseModel):
+    motivo: str = ""
+    observaciones: str = ""
+
+@api_router.put("/inventario-ajustes/{ajuste_id}")
+async def update_ajuste(ajuste_id: str, input: AjusteUpdateData):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        ajuste = await conn.fetchrow("SELECT * FROM prod_inventario_ajustes WHERE id = $1", ajuste_id)
+        if not ajuste:
+            raise HTTPException(status_code=404, detail="Ajuste no encontrado")
+        await conn.execute("UPDATE prod_inventario_ajustes SET motivo=$1, observaciones=$2 WHERE id=$3", 
+                          input.motivo, input.observaciones, ajuste_id)
+        return {"message": "Ajuste actualizado"}
+
 @api_router.delete("/inventario-ajustes/{ajuste_id}")
 async def delete_ajuste(ajuste_id: str):
     pool = await get_pool()
