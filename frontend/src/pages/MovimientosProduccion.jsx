@@ -758,51 +758,44 @@ export const MovimientosProduccion = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="create-cantidad">Cantidad de Prendas</Label>
-              <Input
-                id="create-cantidad"
-                type="number"
-                min="0"
-                value={createFormData.cantidad}
-                onChange={(e) => setCreateFormData({ ...createFormData, cantidad: parseInt(e.target.value) || 0 })}
-                className="font-mono"
-                data-testid="create-input-cantidad"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-cantidad-enviada">Cantidad Enviada</Label>
+                <Input
+                  id="create-cantidad-enviada"
+                  type="number"
+                  min="0"
+                  value={createFormData.cantidad_enviada}
+                  onChange={(e) => setCreateFormData({ ...createFormData, cantidad_enviada: parseInt(e.target.value) || 0 })}
+                  className="font-mono"
+                  data-testid="create-input-cantidad-enviada"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-cantidad-recibida">Cantidad Recibida</Label>
+                <Input
+                  id="create-cantidad-recibida"
+                  type="number"
+                  min="0"
+                  value={createFormData.cantidad_recibida}
+                  onChange={(e) => setCreateFormData({ ...createFormData, cantidad_recibida: parseInt(e.target.value) || 0 })}
+                  className="font-mono"
+                  data-testid="create-input-cantidad-recibida"
+                />
+              </div>
             </div>
 
-            {/* Tarifa editable */}
-            <div className="space-y-2">
-              <Label htmlFor="create-tarifa">Tarifa por Prenda (S/)</Label>
-              <Input
-                id="create-tarifa"
-                type="number"
-                min="0"
-                step="0.01"
-                value={createFormData.tarifa_aplicada}
-                onChange={(e) => setCreateFormData({ ...createFormData, tarifa_aplicada: parseFloat(e.target.value) || 0 })}
-                className="font-mono"
-                placeholder="0.00"
-                data-testid="create-input-tarifa"
-              />
-              {createFormData.persona_id && createFormData.servicio_id && (
-                <p className="text-xs text-muted-foreground">
-                  Tarifa configurada para esta persona: {formatCurrency(getTarifaPersonaServicio(createFormData.persona_id, createFormData.servicio_id))}
-                </p>
-              )}
-            </div>
-
-            {/* Mostrar costo calculado */}
-            {createFormData.cantidad > 0 && createFormData.tarifa_aplicada > 0 && (
-              <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+            {/* Mostrar diferencia (merma potencial) */}
+            {createFormData.cantidad_enviada > createFormData.cantidad_recibida && (
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-green-700 dark:text-green-300">Costo calculado:</span>
-                  <span className="text-lg font-bold text-green-700 dark:text-green-300">
-                    {formatCurrency(calcularCostoCreate())}
+                  <span className="text-sm text-yellow-700 dark:text-yellow-300">Diferencia (merma):</span>
+                  <span className="text-lg font-bold text-yellow-700 dark:text-yellow-300">
+                    {createFormData.cantidad_enviada - createFormData.cantidad_recibida} prendas
                   </span>
                 </div>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                  {createFormData.cantidad} prendas × {formatCurrency(createFormData.tarifa_aplicada)}
+                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                  Se registrará automáticamente como merma
                 </p>
               </div>
             )}
