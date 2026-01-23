@@ -17,10 +17,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -30,6 +32,8 @@ export const TallasCatalogo = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', orden: 0 });
+
+  const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(items, setItems, 'tallas-catalogo');
 
   const fetchItems = async () => {
     try {
@@ -92,7 +96,10 @@ export const TallasCatalogo = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Catálogo de Tallas</h2>
-          <p className="text-muted-foreground">Gestión de tallas disponibles</p>
+          <p className="text-muted-foreground">
+            Gestión de tallas disponibles
+            {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
+          </p>
         </div>
         <Button onClick={handleNew} data-testid="btn-nueva-talla">
           <Plus className="h-4 w-4 mr-2" />
@@ -105,7 +112,7 @@ export const TallasCatalogo = () => {
           <Table>
             <TableHeader>
               <TableRow className="data-table-header">
-                <TableHead className="w-[80px]">Orden</TableHead>
+                <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
@@ -124,32 +131,38 @@ export const TallasCatalogo = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} className="data-table-row" data-testid={`talla-row-${item.id}`}>
-                    <TableCell className="font-mono text-muted-foreground">{item.orden}</TableCell>
-                    <TableCell className="font-medium">{item.nombre}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`edit-talla-${item.id}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item.id)}
-                          data-testid={`delete-talla-${item.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <SortableTableWrapper
+                  items={items}
+                  sensors={sensors}
+                  handleDragEnd={handleDragEnd}
+                  modifiers={modifiers}
+                >
+                  {items.map((item) => (
+                    <SortableRow key={item.id} id={item.id}>
+                      <TableCell className="font-medium">{item.nombre}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(item)}
+                            data-testid={`edit-talla-${item.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(item.id)}
+                            data-testid={`delete-talla-${item.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))}
+                </SortableTableWrapper>
               )}
             </TableBody>
           </Table>
@@ -160,6 +173,9 @@ export const TallasCatalogo = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Talla' : 'Nueva Talla'}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? 'Modifica los datos de la talla' : 'Agrega una nueva talla al catálogo'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
@@ -172,17 +188,6 @@ export const TallasCatalogo = () => {
                   placeholder="Ej: 28, 30, S, M, L"
                   required
                   data-testid="input-nombre-talla"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="orden">Orden</Label>
-                <Input
-                  id="orden"
-                  type="number"
-                  value={formData.orden}
-                  onChange={(e) => setFormData({ ...formData, orden: parseInt(e.target.value) || 0 })}
-                  placeholder="0"
-                  data-testid="input-orden-talla"
                 />
               </div>
             </div>
