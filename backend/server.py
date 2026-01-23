@@ -1855,6 +1855,193 @@ async def get_reporte_productividad(fecha_inicio: str = None, fecha_fin: str = N
             "total_movimientos": len(rows)
         }
 
+# ==================== ENDPOINTS KARDEX E INVENTARIO MOVIMIENTOS ====================
+
+@api_router.get("/inventario-movimientos")
+async def get_inventario_movimientos(item_id: str = None, fecha_inicio: str = None, fecha_fin: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        movimientos = []
+        
+        # Obtener ingresos
+        query_ing = "SELECT * FROM prod_inventario_ingresos WHERE 1=1"
+        params_ing = []
+        if item_id:
+            params_ing.append(item_id)
+            query_ing += f" AND item_id = ${len(params_ing)}"
+        if fecha_inicio:
+            params_ing.append(fecha_inicio)
+            query_ing += f" AND fecha >= ${len(params_ing)}::timestamp"
+        if fecha_fin:
+            params_ing.append(fecha_fin)
+            query_ing += f" AND fecha <= ${len(params_ing)}::timestamp"
+        
+        ingresos = await conn.fetch(query_ing, *params_ing)
+        for ing in ingresos:
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", ing['item_id'])
+            movimientos.append({
+                "id": ing['id'],
+                "tipo": "ingreso",
+                "item_id": ing['item_id'],
+                "item_nombre": item['nombre'] if item else "",
+                "item_codigo": item['codigo'] if item else "",
+                "cantidad": float(ing['cantidad']),
+                "costo_unitario": float(ing['costo_unitario']),
+                "costo_total": float(ing['cantidad']) * float(ing['costo_unitario']),
+                "fecha": ing['fecha'],
+                "proveedor": ing['proveedor'],
+                "numero_documento": ing['numero_documento'],
+                "observaciones": ing['observaciones']
+            })
+        
+        # Obtener salidas
+        query_sal = "SELECT * FROM prod_inventario_salidas WHERE 1=1"
+        params_sal = []
+        if item_id:
+            params_sal.append(item_id)
+            query_sal += f" AND item_id = ${len(params_sal)}"
+        if fecha_inicio:
+            params_sal.append(fecha_inicio)
+            query_sal += f" AND fecha >= ${len(params_sal)}::timestamp"
+        if fecha_fin:
+            params_sal.append(fecha_fin)
+            query_sal += f" AND fecha <= ${len(params_sal)}::timestamp"
+        
+        salidas = await conn.fetch(query_sal, *params_sal)
+        for sal in salidas:
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", sal['item_id'])
+            registro = None
+            if sal['registro_id']:
+                registro = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", sal['registro_id'])
+            movimientos.append({
+                "id": sal['id'],
+                "tipo": "salida",
+                "item_id": sal['item_id'],
+                "item_nombre": item['nombre'] if item else "",
+                "item_codigo": item['codigo'] if item else "",
+                "cantidad": float(sal['cantidad']),
+                "costo_unitario": 0,
+                "costo_total": float(sal['costo_total']),
+                "fecha": sal['fecha'],
+                "registro_id": sal['registro_id'],
+                "registro_n_corte": registro['n_corte'] if registro else None,
+                "observaciones": sal['observaciones']
+            })
+        
+        # Obtener ajustes
+        query_aj = "SELECT * FROM prod_inventario_ajustes WHERE 1=1"
+        params_aj = []
+        if item_id:
+            params_aj.append(item_id)
+            query_aj += f" AND item_id = ${len(params_aj)}"
+        if fecha_inicio:
+            params_aj.append(fecha_inicio)
+            query_aj += f" AND fecha >= ${len(params_aj)}::timestamp"
+        if fecha_fin:
+            params_aj.append(fecha_fin)
+            query_aj += f" AND fecha <= ${len(params_aj)}::timestamp"
+        
+        ajustes = await conn.fetch(query_aj, *params_aj)
+        for aj in ajustes:
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", aj['item_id'])
+            movimientos.append({
+                "id": aj['id'],
+                "tipo": f"ajuste_{aj['tipo']}",
+                "item_id": aj['item_id'],
+                "item_nombre": item['nombre'] if item else "",
+                "item_codigo": item['codigo'] if item else "",
+                "cantidad": float(aj['cantidad']),
+                "costo_unitario": 0,
+                "costo_total": 0,
+                "fecha": aj['fecha'],
+                "motivo": aj['motivo'],
+                "observaciones": aj['observaciones']
+            })
+        
+        # Ordenar por fecha
+        movimientos.sort(key=lambda x: x['fecha'] if x['fecha'] else datetime.min, reverse=True)
+        return movimientos
+
+@api_router.get("/inventario-kardex")
+async def get_inventario_kardex(item_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        
+        movimientos = []
+        
+        # Ingresos
+        ingresos = await conn.fetch("SELECT * FROM prod_inventario_ingresos WHERE item_id = $1", item_id)
+        for ing in ingresos:
+            movimientos.append({
+                "id": ing['id'],
+                "tipo": "ingreso",
+                "fecha": ing['fecha'],
+                "cantidad": float(ing['cantidad']),
+                "costo_unitario": float(ing['costo_unitario']),
+                "costo_total": float(ing['cantidad']) * float(ing['costo_unitario']),
+                "proveedor": ing['proveedor'],
+                "numero_documento": ing['numero_documento'],
+                "observaciones": ing['observaciones']
+            })
+        
+        # Salidas
+        salidas = await conn.fetch("SELECT * FROM prod_inventario_salidas WHERE item_id = $1", item_id)
+        for sal in salidas:
+            registro = None
+            if sal['registro_id']:
+                registro = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", sal['registro_id'])
+            movimientos.append({
+                "id": sal['id'],
+                "tipo": "salida",
+                "fecha": sal['fecha'],
+                "cantidad": -float(sal['cantidad']),
+                "costo_unitario": 0,
+                "costo_total": float(sal['costo_total']),
+                "registro_id": sal['registro_id'],
+                "registro_n_corte": registro['n_corte'] if registro else None,
+                "observaciones": sal['observaciones']
+            })
+        
+        # Ajustes
+        ajustes = await conn.fetch("SELECT * FROM prod_inventario_ajustes WHERE item_id = $1", item_id)
+        for aj in ajustes:
+            cantidad = float(aj['cantidad']) if aj['tipo'] == 'entrada' else -float(aj['cantidad'])
+            movimientos.append({
+                "id": aj['id'],
+                "tipo": f"ajuste_{aj['tipo']}",
+                "fecha": aj['fecha'],
+                "cantidad": cantidad,
+                "costo_unitario": 0,
+                "costo_total": 0,
+                "motivo": aj['motivo'],
+                "observaciones": aj['observaciones']
+            })
+        
+        # Ordenar por fecha
+        movimientos.sort(key=lambda x: x['fecha'] if x['fecha'] else datetime.min)
+        
+        # Calcular saldo acumulado
+        saldo = 0
+        for mov in movimientos:
+            if mov['tipo'] == 'ingreso':
+                saldo += mov['cantidad']
+            elif mov['tipo'] == 'salida':
+                saldo += mov['cantidad']  # ya es negativo
+            elif mov['tipo'] == 'ajuste_entrada':
+                saldo += abs(mov['cantidad'])
+            elif mov['tipo'] == 'ajuste_salida':
+                saldo -= abs(mov['cantidad'])
+            mov['saldo'] = saldo
+        
+        return {
+            "item": row_to_dict(item),
+            "movimientos": movimientos,
+            "saldo_actual": float(item['stock_actual'])
+        }
+
 # ==================== STARTUP/SHUTDOWN ====================
 
 @app.on_event("startup")
