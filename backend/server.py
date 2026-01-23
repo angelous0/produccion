@@ -33,6 +33,7 @@ api_router = APIRouter(prefix="/api")
 
 class MarcaBase(BaseModel):
     nombre: str
+    orden: int = 0
 
 class MarcaCreate(MarcaBase):
     pass
@@ -45,6 +46,7 @@ class Marca(MarcaBase):
 class TipoBase(BaseModel):
     nombre: str
     marca_ids: List[str] = []
+    orden: int = 0
 
 class TipoCreate(TipoBase):
     pass
@@ -57,6 +59,7 @@ class Tipo(TipoBase):
 class EntalleBase(BaseModel):
     nombre: str
     tipo_ids: List[str] = []
+    orden: int = 0
 
 class EntalleCreate(EntalleBase):
     pass
@@ -69,6 +72,7 @@ class Entalle(EntalleBase):
 class TelaBase(BaseModel):
     nombre: str
     entalle_ids: List[str] = []
+    orden: int = 0
 
 class TelaCreate(TelaBase):
     pass
@@ -81,6 +85,7 @@ class Tela(TelaBase):
 class HiloBase(BaseModel):
     nombre: str
     tela_ids: List[str] = []
+    orden: int = 0
 
 class HiloCreate(HiloBase):
     pass
@@ -104,6 +109,7 @@ class Talla(TallaBase):
 
 class ColorGeneralBase(BaseModel):
     nombre: str
+    orden: int = 0
 
 class ColorGeneralCreate(ColorGeneralBase):
     pass
@@ -117,11 +123,28 @@ class ColorBase(BaseModel):
     nombre: str
     codigo_hex: str = ""
     color_general_id: Optional[str] = None
+    orden: int = 0
 
 class ColorCreate(ColorBase):
     pass
 
 class Color(ColorBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Hilos Específicos (catálogo independiente vinculado a registros)
+class HiloEspecificoBase(BaseModel):
+    nombre: str
+    codigo: str = ""
+    color: str = ""
+    descripcion: str = ""
+    orden: int = 0
+
+class HiloEspecificoCreate(HiloEspecificoBase):
+    pass
+
+class HiloEspecifico(HiloEspecificoBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
