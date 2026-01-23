@@ -58,6 +58,7 @@ function App() {
             <Route path="maestros/rutas" element={<RutasProduccion />} />
             <Route path="maestros/movimientos" element={<MovimientosProduccion />} />
             <Route path="maestros/productividad" element={<ReporteProductividad />} />
+            <Route path="calidad/merma" element={<CalidadMerma />} />
           </Route>
         </Routes>
       </BrowserRouter>
