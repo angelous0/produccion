@@ -308,7 +308,7 @@ export const ReporteProductividad = () => {
                 <CardTitle className="text-lg">Productividad por Servicio</CardTitle>
               </CardHeader>
               <CardContent>
-                {reporte.por_servicio.length === 0 ? (
+                {(reporte.por_servicio || []).length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No hay datos para mostrar
                   </div>
