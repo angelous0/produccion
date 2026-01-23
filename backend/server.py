@@ -105,6 +105,7 @@ class Talla(TallaBase):
 class ColorBase(BaseModel):
     nombre: str
     codigo_hex: str = ""
+    color_general: str = ""
 
 class ColorCreate(ColorBase):
     pass
