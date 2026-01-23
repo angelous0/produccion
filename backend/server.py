@@ -510,6 +510,246 @@ def parse_jsonb(val):
         return json.loads(val)
     return val
 
+# ==================== ENDPOINTS AUTENTICACIÓN ====================
+
+@api_router.post("/auth/login")
+async def login(credentials: UserLogin):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT * FROM prod_usuarios WHERE username = $1 AND activo = true",
+            credentials.username
+        )
+        if not user or not verify_password(credentials.password, user['password_hash']):
+            raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+        
+        # Crear token
+        access_token = create_access_token(data={"sub": user['id']})
+        
+        user_dict = row_to_dict(user)
+        user_dict.pop('password_hash', None)
+        user_dict['permisos'] = parse_jsonb(user_dict.get('permisos'))
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user_dict
+        }
+
+@api_router.get("/auth/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    user = dict(current_user)
+    user.pop('password_hash', None)
+    user['permisos'] = parse_jsonb(user.get('permisos'))
+    return user
+
+@api_router.put("/auth/change-password")
+async def change_password(data: UserChangePassword, current_user: dict = Depends(get_current_user)):
+    if not verify_password(data.current_password, current_user['password_hash']):
+        raise HTTPException(status_code=400, detail="Contraseña actual incorrecta")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        new_hash = get_password_hash(data.new_password)
+        await conn.execute(
+            "UPDATE prod_usuarios SET password_hash = $1, updated_at = NOW() WHERE id = $2",
+            new_hash, current_user['id']
+        )
+    return {"message": "Contraseña actualizada correctamente"}
+
+# ==================== ENDPOINTS USUARIOS (ADMIN) ====================
+
+@api_router.get("/usuarios")
+async def get_usuarios(current_user: dict = Depends(get_current_user)):
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden ver usuarios")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_usuarios ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            user = row_to_dict(r)
+            user.pop('password_hash', None)
+            user['permisos'] = parse_jsonb(user.get('permisos'))
+            result.append(user)
+        return result
+
+@api_router.post("/usuarios")
+async def create_usuario(input: UserCreate, current_user: dict = Depends(get_current_user)):
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden crear usuarios")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Verificar que no exista
+        existing = await conn.fetchrow("SELECT id FROM prod_usuarios WHERE username = $1", input.username)
+        if existing:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+        
+        if input.email:
+            existing_email = await conn.fetchrow("SELECT id FROM prod_usuarios WHERE email = $1", input.email)
+            if existing_email:
+                raise HTTPException(status_code=400, detail="El email ya está registrado")
+        
+        user_id = str(uuid.uuid4())
+        password_hash = get_password_hash(input.password)
+        
+        await conn.execute(
+            """INSERT INTO prod_usuarios (id, username, email, password_hash, nombre_completo, rol, permisos, activo, created_at, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())""",
+            user_id, input.username, input.email, password_hash, input.nombre_completo, 
+            input.rol, json.dumps(input.permisos)
+        )
+        
+        return {"id": user_id, "username": input.username, "message": "Usuario creado correctamente"}
+
+@api_router.put("/usuarios/{user_id}")
+async def update_usuario(user_id: str, input: UserUpdate, current_user: dict = Depends(get_current_user)):
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden editar usuarios")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM prod_usuarios WHERE id = $1", user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # Construir actualización dinámica
+        updates = []
+        params = []
+        param_count = 0
+        
+        if input.email is not None:
+            param_count += 1
+            updates.append(f"email = ${param_count}")
+            params.append(input.email)
+        if input.nombre_completo is not None:
+            param_count += 1
+            updates.append(f"nombre_completo = ${param_count}")
+            params.append(input.nombre_completo)
+        if input.rol is not None:
+            param_count += 1
+            updates.append(f"rol = ${param_count}")
+            params.append(input.rol)
+        if input.permisos is not None:
+            param_count += 1
+            updates.append(f"permisos = ${param_count}")
+            params.append(json.dumps(input.permisos))
+        if input.activo is not None:
+            param_count += 1
+            updates.append(f"activo = ${param_count}")
+            params.append(input.activo)
+        
+        if updates:
+            param_count += 1
+            updates.append(f"updated_at = NOW()")
+            params.append(user_id)
+            query = f"UPDATE prod_usuarios SET {', '.join(updates)} WHERE id = ${param_count}"
+            await conn.execute(query, *params)
+        
+        return {"message": "Usuario actualizado correctamente"}
+
+@api_router.delete("/usuarios/{user_id}")
+async def delete_usuario(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden eliminar usuarios")
+    
+    if user_id == current_user['id']:
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_usuarios WHERE id = $1", user_id)
+    return {"message": "Usuario eliminado"}
+
+@api_router.put("/usuarios/{user_id}/reset-password")
+async def reset_password_usuario(user_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden resetear contraseñas")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT username FROM prod_usuarios WHERE id = $1", user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        # Nueva contraseña = username + "123"
+        new_password = user['username'] + "123"
+        new_hash = get_password_hash(new_password)
+        await conn.execute("UPDATE prod_usuarios SET password_hash = $1, updated_at = NOW() WHERE id = $2", new_hash, user_id)
+        
+        return {"message": f"Contraseña reseteada. Nueva contraseña: {new_password}"}
+
+@api_router.get("/permisos/estructura")
+async def get_estructura_permisos():
+    """Retorna la estructura de permisos disponibles agrupados por categoría"""
+    return {
+        "categorias": [
+            {
+                "nombre": "Producción",
+                "icono": "Play",
+                "tablas": [
+                    {"key": "registros", "nombre": "Registros", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "movimientos_produccion", "nombre": "Movimientos de Producción", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "guias_remision", "nombre": "Guías de Remisión", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                ]
+            },
+            {
+                "nombre": "Inventario",
+                "icono": "Package",
+                "tablas": [
+                    {"key": "inventario", "nombre": "Items de Inventario", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "inventario_ingresos", "nombre": "Ingresos", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "inventario_salidas", "nombre": "Salidas", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "inventario_ajustes", "nombre": "Ajustes", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "inventario_rollos", "nombre": "Rollos de Tela", "acciones": ["ver", "crear", "editar"]},
+                ]
+            },
+            {
+                "nombre": "Maestros",
+                "icono": "Database",
+                "tablas": [
+                    {"key": "marcas", "nombre": "Marcas", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "tipos", "nombre": "Tipos", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "entalles", "nombre": "Entalles", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "telas", "nombre": "Telas", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "hilos", "nombre": "Hilos", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "hilos_especificos", "nombre": "Hilos Específicos", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "tallas", "nombre": "Tallas", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "colores", "nombre": "Colores", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "colores_generales", "nombre": "Colores Generales", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "modelos", "nombre": "Modelos", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                ]
+            },
+            {
+                "nombre": "Configuración",
+                "icono": "Settings",
+                "tablas": [
+                    {"key": "servicios_produccion", "nombre": "Servicios", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "personas_produccion", "nombre": "Personas", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "rutas_produccion", "nombre": "Rutas de Producción", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                ]
+            },
+            {
+                "nombre": "Calidad",
+                "icono": "AlertTriangle",
+                "tablas": [
+                    {"key": "merma", "nombre": "Merma", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                ]
+            },
+            {
+                "nombre": "Reportes",
+                "icono": "BarChart",
+                "tablas": [
+                    {"key": "kardex", "nombre": "Kardex", "acciones": ["ver"]},
+                    {"key": "reporte_productividad", "nombre": "Productividad", "acciones": ["ver"]},
+                    {"key": "reporte_movimientos", "nombre": "Reporte Movimientos", "acciones": ["ver"]},
+                ]
+            },
+        ]
+    }
+
 # ==================== ENDPOINTS MARCA ====================
 
 @api_router.get("/marcas")
