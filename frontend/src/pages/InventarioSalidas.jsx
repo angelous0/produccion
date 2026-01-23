@@ -135,16 +135,25 @@ export const InventarioSalidas = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...formData };
-      if (!payload.registro_id) {
-        delete payload.registro_id;
+      if (editingSalida) {
+        // Solo permitir editar observaciones
+        await axios.put(`${API}/inventario-salidas/${editingSalida.id}`, {
+          observaciones: formData.observaciones,
+        });
+        toast.success('Salida actualizada');
+      } else {
+        const payload = { ...formData };
+        if (!payload.registro_id) {
+          delete payload.registro_id;
+        }
+        if (!payload.rollo_id) {
+          delete payload.rollo_id;
+        }
+        await axios.post(`${API}/inventario-salidas`, payload);
+        toast.success('Salida registrada');
       }
-      if (!payload.rollo_id) {
-        delete payload.rollo_id;
-      }
-      await axios.post(`${API}/inventario-salidas`, payload);
-      toast.success('Salida registrada');
       setDialogOpen(false);
+      setEditingSalida(null);
       resetForm();
       fetchData();
     } catch (error) {
