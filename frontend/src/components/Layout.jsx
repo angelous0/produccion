@@ -181,10 +181,10 @@ export const Layout = () => {
             ))}
 
             {/* Separador Calidad */}
-            <div className="mt-4 mb-2 px-3">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="mt-4 mb-2">
+              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Calidad
-              </span>
+              </p>
             </div>
             {calidadItems.map((item) => (
               <NavLink
@@ -192,23 +192,20 @@ export const Layout = () => {
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`
+                  `sidebar-item ${isActive ? 'active' : ''}`
                 }
+                data-testid={`nav-${item.label.toLowerCase()}`}
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-5 w-5" />
                 {item.label}
               </NavLink>
             ))}
 
             {/* Separador Documentos */}
-            <div className="mt-4 mb-2 px-3">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="mt-4 mb-2">
+              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Documentos
-              </span>
+              </p>
             </div>
             {documentosItems.map((item) => (
               <NavLink
@@ -216,14 +213,11 @@ export const Layout = () => {
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                  }`
+                  `sidebar-item ${isActive ? 'active' : ''}`
                 }
+                data-testid={`nav-${item.label.toLowerCase()}`}
               >
-                <item.icon className="h-4 w-4" />
+                <item.icon className="h-5 w-5" />
                 {item.label}
               </NavLink>
             ))}
