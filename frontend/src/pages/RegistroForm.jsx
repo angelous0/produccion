@@ -1119,6 +1119,16 @@ export const RegistroForm = () => {
                                         type="button"
                                         variant="ghost"
                                         size="icon"
+                                        onClick={() => handleGenerarGuia(mov.id)}
+                                        title="Generar Guía de Remisión"
+                                        data-testid={`guia-movimiento-${mov.id}`}
+                                      >
+                                        <FileText className="h-4 w-4 text-blue-500" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
                                         onClick={() => handleDeleteMovimiento(mov.id)}
                                         data-testid={`delete-movimiento-${mov.id}`}
                                       >
