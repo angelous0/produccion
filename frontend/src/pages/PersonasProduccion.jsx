@@ -187,6 +187,7 @@ export const PersonasProduccion = () => {
         nombre: persona.nombre,
         servicios: serviciosForm,
         telefono: persona.telefono || '',
+        direccion: persona.direccion || '',
         activo: persona.activo !== false,
         orden: persona.orden || 0,
       });
@@ -197,6 +198,7 @@ export const PersonasProduccion = () => {
         nombre: '',
         servicios: [],
         telefono: '',
+        direccion: '',
         activo: true,
         orden: maxOrden + 1,
       });
