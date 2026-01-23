@@ -104,8 +104,9 @@ export const RegistroForm = () => {
     persona_id: '',
     fecha_inicio: '',
     fecha_fin: '',
-    cantidad: 0,
-    tarifa_aplicada: 0,  // Tarifa editable
+    cantidad_enviada: 0,
+    cantidad_recibida: 0,
+    tarifa_aplicada: 0,
     observaciones: '',
   });
 
