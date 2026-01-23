@@ -121,12 +121,17 @@ export const Kardex = () => {
     return <Badge>{tipo}</Badge>;
   };
 
-  // Calcular totales
+  // Calcular totales - el backend devuelve cantidad (positiva/negativa) y tipo
   const totales = kardexData?.movimientos?.reduce((acc, m) => {
-    acc.entradas += m.entrada || 0;
-    acc.salidas += m.salida || 0;
-    acc.costoEntradas += m.entrada > 0 ? m.costo_total : 0;
-    acc.costoSalidas += m.salida > 0 ? m.costo_total : 0;
+    if (m.tipo === 'ingreso') {
+      acc.entradas += Math.abs(m.cantidad || 0);
+      acc.costoEntradas += m.costo_total || 0;
+    } else if (m.tipo === 'salida' || m.tipo === 'ajuste_salida') {
+      acc.salidas += Math.abs(m.cantidad || 0);
+      acc.costoSalidas += m.costo_total || 0;
+    } else if (m.tipo === 'ajuste_entrada') {
+      acc.entradas += Math.abs(m.cantidad || 0);
+    }
     return acc;
   }, { entradas: 0, salidas: 0, costoEntradas: 0, costoSalidas: 0 }) || { entradas: 0, salidas: 0, costoEntradas: 0, costoSalidas: 0 };
 
