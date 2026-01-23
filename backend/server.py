@@ -2249,7 +2249,8 @@ async def get_reporte_productividad(
     for m in movimientos:
         persona_id_m = m.get('persona_id')
         servicio_id_m = m.get('servicio_id')
-        cantidad = m.get('cantidad', 0)
+        # Compatibilidad con campo antiguo 'cantidad'
+        cantidad = m.get('cantidad_recibida', m.get('cantidad', 0))
         
         # Usar tarifa_aplicada del movimiento (la que el usuario ingresó)
         tarifa = m.get('tarifa_aplicada', 0)
