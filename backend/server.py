@@ -859,7 +859,8 @@ async def delete_hilo_especifico(hilo_id: str):
 
 class RegistroHiloBase(BaseModel):
     registro_id: str
-    hilo_id: str
+    hilo_id: Optional[str] = None
+    hilo_especifico_id: Optional[str] = None
     color_id: Optional[str] = None
     cantidad: float = 0
     observaciones: str = ""
