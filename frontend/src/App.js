@@ -26,6 +26,7 @@ import { PersonasProduccion } from "./pages/PersonasProduccion";
 import { MovimientosProduccion } from "./pages/MovimientosProduccion";
 import { ReporteProductividad } from "./pages/ReporteProductividad";
 import { RutasProduccion } from "./pages/RutasProduccion";
+import { CalidadMerma } from "./pages/CalidadMerma";
 
 function App() {
   return (
