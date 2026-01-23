@@ -241,7 +241,7 @@ export const CalidadMerma = () => {
                 mermasFiltradas.map((merma) => (
                   <TableRow key={merma.id} data-testid={`merma-row-${merma.id}`}>
                     <TableCell className="font-mono text-sm">
-                      {merma.fecha || merma.created_at?.split('T')[0] || '-'}
+                      {formatDate(merma.fecha || merma.created_at)}
                     </TableCell>
                     <TableCell>
                       {merma.registro_id ? (
