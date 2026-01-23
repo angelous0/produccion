@@ -115,8 +115,8 @@ export const MovimientosProduccion = () => {
       persona_id: movimiento.persona_id,
       fecha_inicio: movimiento.fecha_inicio || '',
       fecha_fin: movimiento.fecha_fin || '',
-      cantidad: movimiento.cantidad || 0,
-      tarifa_aplicada: movimiento.tarifa_aplicada || 0,
+      cantidad_enviada: movimiento.cantidad_enviada || movimiento.cantidad || 0,
+      cantidad_recibida: movimiento.cantidad_recibida || movimiento.cantidad || 0,
       observaciones: movimiento.observaciones || '',
     });
     // Filtrar personas por el servicio del movimiento (nueva estructura)
