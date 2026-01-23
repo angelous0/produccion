@@ -1281,6 +1281,10 @@ async def get_registros():
                 d['entalle_nombre'] = entalle['nombre'] if entalle else None
                 d['tela_nombre'] = tela['nombre'] if tela else None
                 d['hilo_nombre'] = hilo['nombre'] if hilo else None
+            # Enriquecer hilo específico
+            if d.get('hilo_especifico_id'):
+                hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
+                d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
             result.append(d)
         return result
 
@@ -1307,6 +1311,10 @@ async def get_registro(registro_id: str):
             d['entalle_nombre'] = entalle['nombre'] if entalle else None
             d['tela_nombre'] = tela['nombre'] if tela else None
             d['hilo_nombre'] = hilo['nombre'] if hilo else None
+        # Enriquecer hilo específico
+        if d.get('hilo_especifico_id'):
+            hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
+            d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
         return d
 
 @api_router.post("/registros")
@@ -1317,10 +1325,10 @@ async def create_registro(input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
         dist_json = json.dumps([d.model_dump() for d in registro.distribucion_colores])
         await conn.execute(
-            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, tallas, distribucion_colores, fecha_creacion) 
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion) 
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
             registro.id, registro.n_corte, registro.modelo_id, registro.curva, registro.estado, registro.urgente,
-            tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None)
+            registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None)
         )
     return registro
 
@@ -1334,8 +1342,8 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in input.tallas])
         dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, tallas=$6, distribucion_colores=$7 WHERE id=$8""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, tallas_json, dist_json, registro_id
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8 WHERE id=$9""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, registro_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
