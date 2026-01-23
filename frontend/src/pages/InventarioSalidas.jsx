@@ -32,6 +32,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Plus, Trash2, ArrowUpCircle, Link2, Layers, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
+import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
