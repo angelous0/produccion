@@ -663,8 +663,32 @@ async def delete_usuario(user_id: str, current_user: dict = Depends(get_current_
         await conn.execute("DELETE FROM prod_usuarios WHERE id = $1", user_id)
     return {"message": "Usuario eliminado"}
 
+class AdminSetPassword(BaseModel):
+    new_password: str
+
+@api_router.put("/usuarios/{user_id}/set-password")
+async def set_password_usuario(user_id: str, data: AdminSetPassword, current_user: dict = Depends(get_current_user)):
+    """Admin establece una contraseña específica para un usuario"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden cambiar contraseñas")
+    
+    if len(data.new_password) < 4:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 4 caracteres")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT username FROM prod_usuarios WHERE id = $1", user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        
+        new_hash = get_password_hash(data.new_password)
+        await conn.execute("UPDATE prod_usuarios SET password_hash = $1, updated_at = NOW() WHERE id = $2", new_hash, user_id)
+        
+        return {"message": "Contraseña actualizada correctamente"}
+
 @api_router.put("/usuarios/{user_id}/reset-password")
 async def reset_password_usuario(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Resetea la contraseña a username + '123'"""
     if current_user['rol'] != 'admin':
         raise HTTPException(status_code=403, detail="Solo administradores pueden resetear contraseñas")
     
