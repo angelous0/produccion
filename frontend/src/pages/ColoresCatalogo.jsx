@@ -107,6 +107,7 @@ export const ColoresCatalogo = () => {
               <TableRow className="data-table-header">
                 <TableHead className="w-[60px]">Vista</TableHead>
                 <TableHead>Nombre</TableHead>
+                <TableHead>Color General</TableHead>
                 <TableHead>Código Hex</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
@@ -114,13 +115,13 @@ export const ColoresCatalogo = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8">
+                  <TableCell colSpan={5} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                     No hay colores registrados
                   </TableCell>
                 </TableRow>
@@ -134,6 +135,7 @@ export const ColoresCatalogo = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{item.nombre}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.color_general || '-'}</TableCell>
                     <TableCell className="font-mono text-sm">{item.codigo_hex || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
