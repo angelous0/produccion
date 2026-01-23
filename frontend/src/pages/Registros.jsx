@@ -270,14 +270,6 @@ export const Registros = () => {
     }
   };
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
-  };
-
   const getTotalPiezas = (registro) => {
     if (!registro.tallas) return 0;
     return registro.tallas.reduce((sum, t) => sum + (t.cantidad || 0), 0);
