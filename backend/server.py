@@ -1,32 +1,36 @@
 from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
+import asyncpg
 import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
+import json
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# PostgreSQL connection
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://admin:admin@72.60.241.216:9091/datos?sslmode=disable')
 
-# Create the main app without a prefix
+# Connection pool
+pool = None
+
+async def get_pool():
+    global pool
+    if pool is None:
+        pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+    return pool
+
 app = FastAPI()
-
-# Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
 # ==================== MODELOS PYDANTIC ====================
 
-# Marca
 class MarcaBase(BaseModel):
     nombre: str
 
@@ -38,7 +42,6 @@ class Marca(MarcaBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Tipo - relacionado con Marcas (muchos a muchos)
 class TipoBase(BaseModel):
     nombre: str
     marca_ids: List[str] = []
@@ -51,7 +54,6 @@ class Tipo(TipoBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Entalle - relacionado con Tipos (muchos a muchos)
 class EntalleBase(BaseModel):
     nombre: str
     tipo_ids: List[str] = []
@@ -64,7 +66,6 @@ class Entalle(EntalleBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Tela - relacionado con Entalles (muchos a muchos)
 class TelaBase(BaseModel):
     nombre: str
     entalle_ids: List[str] = []
@@ -77,7 +78,6 @@ class Tela(TelaBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Hilo - relacionado con Telas (muchos a muchos)
 class HiloBase(BaseModel):
     nombre: str
     tela_ids: List[str] = []
@@ -90,9 +90,6 @@ class Hilo(HiloBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# ==================== TALLAS Y COLORES (TABLAS MAESTRAS) ====================
-
-# Talla (tabla maestra)
 class TallaBase(BaseModel):
     nombre: str
     orden: int = 0
@@ -105,7 +102,6 @@ class Talla(TallaBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# Color (tabla maestra)
 class ColorBase(BaseModel):
     nombre: str
     codigo_hex: str = ""
@@ -117,8 +113,6 @@ class Color(ColorBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-# ==================== RUTA DE PRODUCCIÓN ====================
 
 class EtapaRuta(BaseModel):
     servicio_id: str
@@ -137,9 +131,6 @@ class RutaProduccion(RutaProduccionBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-# ==================== MODELO ====================
-
-# Estructura para materiales del modelo (BOM)
 class MaterialModelo(BaseModel):
     item_id: str
     cantidad_estimada: float = 0
@@ -153,7 +144,7 @@ class ModeloBase(BaseModel):
     hilo_id: str
     ruta_produccion_id: Optional[str] = None
     materiales: List[MaterialModelo] = []
-    servicios_ids: List[str] = []  # Servicios requeridos para este modelo
+    servicios_ids: List[str] = []
 
 class ModeloCreate(ModeloBase):
     pass
@@ -163,35 +154,11 @@ class Modelo(ModeloBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class ModeloConRelaciones(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str
-    nombre: str
-    marca_id: str
-    tipo_id: str
-    entalle_id: str
-    tela_id: str
-    hilo_id: str
-    ruta_produccion_id: Optional[str] = None
-    materiales: List[MaterialModelo] = []
-    servicios_ids: List[str] = []
-    marca_nombre: Optional[str] = None
-    tipo_nombre: Optional[str] = None
-    entalle_nombre: Optional[str] = None
-    tela_nombre: Optional[str] = None
-    hilo_nombre: Optional[str] = None
-    ruta_nombre: Optional[str] = None
-    created_at: datetime
-
-# ==================== REGISTRO DE PRODUCCIÓN ====================
-
-# Estructura para cantidades por talla
 class TallaCantidadItem(BaseModel):
     talla_id: str
     talla_nombre: str = ""
     cantidad: int = 0
 
-# Estructura para distribución de colores por talla
 class ColorDistribucion(BaseModel):
     color_id: str
     color_nombre: str = ""
@@ -203,7 +170,6 @@ class TallaConColores(BaseModel):
     cantidad_total: int = 0
     colores: List[ColorDistribucion] = []
 
-# Registro de producción
 class RegistroBase(BaseModel):
     n_corte: str
     modelo_id: str
@@ -222,790 +188,74 @@ class Registro(RegistroBase):
     tallas: List[TallaCantidadItem] = []
     distribucion_colores: List[TallaConColores] = []
 
-class RegistroConRelaciones(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str
-    n_corte: str
-    modelo_id: str
-    curva: str
-    estado: str
-    urgente: bool
-    fecha_creacion: datetime
-    tallas: List[TallaCantidadItem] = []
-    distribucion_colores: List[TallaConColores] = []
-    modelo_nombre: Optional[str] = None
-    marca_nombre: Optional[str] = None
-    tipo_nombre: Optional[str] = None
-    entalle_nombre: Optional[str] = None
-    tela_nombre: Optional[str] = None
-    hilo_nombre: Optional[str] = None
-
-# Lista de estados disponibles
 ESTADOS_PRODUCCION = [
-    "Para Corte",
-    "Corte",
-    "Para Costura",
-    "Costura",
-    "Para Atraque",
-    "Atraque",
-    "Para Lavandería",
-    "Muestra Lavanderia",
-    "Lavandería",
-    "Para Acabado",
-    "Acabado",
-    "Almacén PT",
-    "Tienda"
+    "Para Corte", "Corte", "Para Costura", "Costura", "Para Atraque", "Atraque",
+    "Para Lavandería", "Muestra Lavanderia", "Lavandería", "Para Acabado",
+    "Acabado", "Almacén PT", "Tienda"
 ]
 
-# ==================== ENDPOINTS MARCA ====================
+class ServicioBase(BaseModel):
+    nombre: str
+    descripcion: str = ""
+    tarifa: float = 0
 
-@api_router.get("/marcas", response_model=List[Marca])
-async def get_marcas():
-    marcas = await db.prod_marcas.find({}, {"_id": 0}).to_list(1000)
-    for m in marcas:
-        if isinstance(m.get('created_at'), str):
-            m['created_at'] = datetime.fromisoformat(m['created_at'])
-    return marcas
+class ServicioCreate(ServicioBase):
+    pass
 
-@api_router.post("/marcas", response_model=Marca)
-async def create_marca(input: MarcaCreate):
-    marca = Marca(**input.model_dump())
-    doc = marca.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_marcas.insert_one(doc)
-    return marca
+class Servicio(ServicioBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-@api_router.put("/marcas/{marca_id}", response_model=Marca)
-async def update_marca(marca_id: str, input: MarcaCreate):
-    result = await db.prod_marcas.find_one({"id": marca_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Marca no encontrada")
-    await db.prod_marcas.update_one({"id": marca_id}, {"$set": {"nombre": input.nombre}})
-    result['nombre'] = input.nombre
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Marca(**result)
+class PersonaServicio(BaseModel):
+    servicio_id: str
+    tarifa: float = 0
 
-@api_router.delete("/marcas/{marca_id}")
-async def delete_marca(marca_id: str):
-    result = await db.prod_marcas.delete_one({"id": marca_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Marca no encontrada")
-    return {"message": "Marca eliminada"}
+class PersonaBase(BaseModel):
+    nombre: str
+    tipo: str = "externo"
+    telefono: str = ""
+    email: str = ""
+    direccion: str = ""
+    servicios: List[PersonaServicio] = []
+    activo: bool = True
 
-# ==================== ENDPOINTS TIPO ====================
+class PersonaCreate(PersonaBase):
+    pass
 
-@api_router.get("/tipos", response_model=List[Tipo])
-async def get_tipos(marca_id: str = None):
-    query = {}
-    if marca_id:
-        query = {"marca_ids": marca_id}
-    tipos = await db.prod_tipos.find(query, {"_id": 0}).to_list(1000)
-    for t in tipos:
-        if isinstance(t.get('created_at'), str):
-            t['created_at'] = datetime.fromisoformat(t['created_at'])
-        if 'marca_ids' not in t:
-            t['marca_ids'] = []
-    return tipos
+class Persona(PersonaBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-@api_router.post("/tipos", response_model=Tipo)
-async def create_tipo(input: TipoCreate):
-    tipo = Tipo(**input.model_dump())
-    doc = tipo.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_tipos.insert_one(doc)
-    return tipo
+class MovimientoBase(BaseModel):
+    registro_id: str
+    servicio_id: str
+    persona_id: str
+    cantidad_enviada: int = 0
+    cantidad_recibida: int = 0
+    fecha_inicio: Optional[str] = None
+    fecha_fin: Optional[str] = None
+    observaciones: str = ""
 
-@api_router.put("/tipos/{tipo_id}", response_model=Tipo)
-async def update_tipo(tipo_id: str, input: TipoCreate):
-    result = await db.prod_tipos.find_one({"id": tipo_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Tipo no encontrado")
-    update_data = input.model_dump()
-    await db.prod_tipos.update_one({"id": tipo_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Tipo(**result)
+class MovimientoCreate(MovimientoBase):
+    pass
 
-@api_router.delete("/tipos/{tipo_id}")
-async def delete_tipo(tipo_id: str):
-    result = await db.prod_tipos.delete_one({"id": tipo_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Tipo no encontrado")
-    return {"message": "Tipo eliminado"}
-
-# ==================== ENDPOINTS ENTALLE ====================
-
-@api_router.get("/entalles", response_model=List[Entalle])
-async def get_entalles(tipo_id: str = None):
-    query = {}
-    if tipo_id:
-        query = {"tipo_ids": tipo_id}
-    entalles = await db.prod_entalles.find(query, {"_id": 0}).to_list(1000)
-    for e in entalles:
-        if isinstance(e.get('created_at'), str):
-            e['created_at'] = datetime.fromisoformat(e['created_at'])
-        if 'tipo_ids' not in e:
-            e['tipo_ids'] = []
-    return entalles
-
-@api_router.post("/entalles", response_model=Entalle)
-async def create_entalle(input: EntalleCreate):
-    entalle = Entalle(**input.model_dump())
-    doc = entalle.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_entalles.insert_one(doc)
-    return entalle
-
-@api_router.put("/entalles/{entalle_id}", response_model=Entalle)
-async def update_entalle(entalle_id: str, input: EntalleCreate):
-    result = await db.prod_entalles.find_one({"id": entalle_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Entalle no encontrado")
-    update_data = input.model_dump()
-    await db.prod_entalles.update_one({"id": entalle_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Entalle(**result)
-
-@api_router.delete("/entalles/{entalle_id}")
-async def delete_entalle(entalle_id: str):
-    result = await db.prod_entalles.delete_one({"id": entalle_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Entalle no encontrado")
-    return {"message": "Entalle eliminado"}
-
-# ==================== ENDPOINTS TELA ====================
-
-@api_router.get("/telas", response_model=List[Tela])
-async def get_telas(entalle_id: str = None):
-    query = {}
-    if entalle_id:
-        query = {"entalle_ids": entalle_id}
-    telas = await db.prod_telas.find(query, {"_id": 0}).to_list(1000)
-    for t in telas:
-        if isinstance(t.get('created_at'), str):
-            t['created_at'] = datetime.fromisoformat(t['created_at'])
-        if 'entalle_ids' not in t:
-            t['entalle_ids'] = []
-    return telas
-
-@api_router.post("/telas", response_model=Tela)
-async def create_tela(input: TelaCreate):
-    tela = Tela(**input.model_dump())
-    doc = tela.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_telas.insert_one(doc)
-    return tela
-
-@api_router.put("/telas/{tela_id}", response_model=Tela)
-async def update_tela(tela_id: str, input: TelaCreate):
-    result = await db.prod_telas.find_one({"id": tela_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Tela no encontrada")
-    update_data = input.model_dump()
-    await db.prod_telas.update_one({"id": tela_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Tela(**result)
-
-@api_router.delete("/telas/{tela_id}")
-async def delete_tela(tela_id: str):
-    result = await db.prod_telas.delete_one({"id": tela_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Tela no encontrada")
-    return {"message": "Tela eliminada"}
-
-# ==================== ENDPOINTS HILO ====================
-
-@api_router.get("/hilos", response_model=List[Hilo])
-async def get_hilos(tela_id: str = None):
-    query = {}
-    if tela_id:
-        query = {"tela_ids": tela_id}
-    hilos = await db.prod_hilos.find(query, {"_id": 0}).to_list(1000)
-    for h in hilos:
-        if isinstance(h.get('created_at'), str):
-            h['created_at'] = datetime.fromisoformat(h['created_at'])
-        if 'tela_ids' not in h:
-            h['tela_ids'] = []
-    return hilos
-
-@api_router.post("/hilos", response_model=Hilo)
-async def create_hilo(input: HiloCreate):
-    hilo = Hilo(**input.model_dump())
-    doc = hilo.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_hilos.insert_one(doc)
-    return hilo
-
-@api_router.put("/hilos/{hilo_id}", response_model=Hilo)
-async def update_hilo(hilo_id: str, input: HiloCreate):
-    result = await db.prod_hilos.find_one({"id": hilo_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Hilo no encontrado")
-    update_data = input.model_dump()
-    await db.prod_hilos.update_one({"id": hilo_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Hilo(**result)
-
-@api_router.delete("/hilos/{hilo_id}")
-async def delete_hilo(hilo_id: str):
-    result = await db.prod_hilos.delete_one({"id": hilo_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Hilo no encontrado")
-    return {"message": "Hilo eliminado"}
-
-# ==================== ENDPOINTS TALLA (TABLA MAESTRA) ====================
-
-@api_router.get("/tallas-catalogo", response_model=List[Talla])
-async def get_tallas_catalogo():
-    tallas = await db.prod_tallas_catalogo.find({}, {"_id": 0}).to_list(1000)
-    for t in tallas:
-        if isinstance(t.get('created_at'), str):
-            t['created_at'] = datetime.fromisoformat(t['created_at'])
-    return sorted(tallas, key=lambda x: x.get('orden', 0))
-
-@api_router.post("/tallas-catalogo", response_model=Talla)
-async def create_talla_catalogo(input: TallaCreate):
-    talla = Talla(**input.model_dump())
-    doc = talla.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_tallas_catalogo.insert_one(doc)
-    return talla
-
-@api_router.put("/tallas-catalogo/{talla_id}", response_model=Talla)
-async def update_talla_catalogo(talla_id: str, input: TallaCreate):
-    result = await db.prod_tallas_catalogo.find_one({"id": talla_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Talla no encontrada")
-    await db.prod_tallas_catalogo.update_one({"id": talla_id}, {"$set": input.model_dump()})
-    result.update(input.model_dump())
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Talla(**result)
-
-@api_router.delete("/tallas-catalogo/{talla_id}")
-async def delete_talla_catalogo(talla_id: str):
-    result = await db.prod_tallas_catalogo.delete_one({"id": talla_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Talla no encontrada")
-    return {"message": "Talla eliminada"}
-
-# ==================== ENDPOINTS COLOR (TABLA MAESTRA) ====================
-
-@api_router.get("/colores-catalogo", response_model=List[Color])
-async def get_colores_catalogo():
-    colores = await db.prod_colores_catalogo.find({}, {"_id": 0}).to_list(1000)
-    for c in colores:
-        if isinstance(c.get('created_at'), str):
-            c['created_at'] = datetime.fromisoformat(c['created_at'])
-    return colores
-
-@api_router.post("/colores-catalogo", response_model=Color)
-async def create_color_catalogo(input: ColorCreate):
-    color = Color(**input.model_dump())
-    doc = color.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_colores_catalogo.insert_one(doc)
-    return color
-
-@api_router.put("/colores-catalogo/{color_id}", response_model=Color)
-async def update_color_catalogo(color_id: str, input: ColorCreate):
-    result = await db.prod_colores_catalogo.find_one({"id": color_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Color no encontrado")
-    await db.prod_colores_catalogo.update_one({"id": color_id}, {"$set": input.model_dump()})
-    result.update(input.model_dump())
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Color(**result)
-
-@api_router.delete("/colores-catalogo/{color_id}")
-async def delete_color_catalogo(color_id: str):
-    result = await db.prod_colores_catalogo.delete_one({"id": color_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Color no encontrado")
-    return {"message": "Color eliminado"}
-
-# ==================== ENDPOINTS RUTA DE PRODUCCIÓN ====================
-
-@api_router.get("/rutas-produccion")
-async def get_rutas_produccion():
-    rutas = await db.prod_rutas_produccion.find({}, {"_id": 0}).to_list(1000)
-    # Enriquecer con nombres de servicios
-    for ruta in rutas:
-        if isinstance(ruta.get('created_at'), str):
-            ruta['created_at'] = datetime.fromisoformat(ruta['created_at'])
-        etapas_con_nombres = []
-        for etapa in ruta.get('etapas', []):
-            servicio = await db.prod_servicios_produccion.find_one({"id": etapa.get('servicio_id')}, {"_id": 0, "nombre": 1})
-            etapas_con_nombres.append({
-                **etapa,
-                "servicio_nombre": servicio['nombre'] if servicio else None
-            })
-        ruta['etapas'] = etapas_con_nombres
-    return rutas
-
-@api_router.get("/rutas-produccion/{ruta_id}")
-async def get_ruta_produccion(ruta_id: str):
-    ruta = await db.prod_rutas_produccion.find_one({"id": ruta_id}, {"_id": 0})
-    if not ruta:
-        raise HTTPException(status_code=404, detail="Ruta no encontrada")
-    if isinstance(ruta.get('created_at'), str):
-        ruta['created_at'] = datetime.fromisoformat(ruta['created_at'])
-    # Enriquecer con nombres de servicios
-    etapas_con_nombres = []
-    for etapa in ruta.get('etapas', []):
-        servicio = await db.prod_servicios_produccion.find_one({"id": etapa.get('servicio_id')}, {"_id": 0, "nombre": 1})
-        etapas_con_nombres.append({
-            **etapa,
-            "servicio_nombre": servicio['nombre'] if servicio else None
-        })
-    ruta['etapas'] = etapas_con_nombres
-    return ruta
-
-@api_router.post("/rutas-produccion", response_model=RutaProduccion)
-async def create_ruta_produccion(input: RutaProduccionCreate):
-    ruta = RutaProduccion(**input.model_dump())
-    doc = ruta.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_rutas_produccion.insert_one(doc)
-    return ruta
-
-@api_router.put("/rutas-produccion/{ruta_id}", response_model=RutaProduccion)
-async def update_ruta_produccion(ruta_id: str, input: RutaProduccionCreate):
-    result = await db.prod_rutas_produccion.find_one({"id": ruta_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Ruta no encontrada")
-    update_data = input.model_dump()
-    await db.prod_rutas_produccion.update_one({"id": ruta_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return RutaProduccion(**result)
-
-@api_router.delete("/rutas-produccion/{ruta_id}")
-async def delete_ruta_produccion(ruta_id: str):
-    # Verificar si hay modelos usando esta ruta
-    modelos_count = await db.prod_modelos.count_documents({"ruta_produccion_id": ruta_id})
-    if modelos_count > 0:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"No se puede eliminar: {modelos_count} modelo(s) usan esta ruta"
-        )
-    result = await db.prod_rutas_produccion.delete_one({"id": ruta_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Ruta no encontrada")
-    return {"message": "Ruta eliminada"}
-
-# ==================== ENDPOINTS MODELO ====================
-
-@api_router.get("/modelos", response_model=List[ModeloConRelaciones])
-async def get_modelos():
-    modelos = await db.prod_modelos.find({}, {"_id": 0}).to_list(1000)
-    result = []
-    for m in modelos:
-        if isinstance(m.get('created_at'), str):
-            m['created_at'] = datetime.fromisoformat(m['created_at'])
-        
-        marca = await db.prod_marcas.find_one({"id": m.get('marca_id')}, {"_id": 0, "nombre": 1})
-        tipo = await db.prod_tipos.find_one({"id": m.get('tipo_id')}, {"_id": 0, "nombre": 1})
-        entalle = await db.prod_entalles.find_one({"id": m.get('entalle_id')}, {"_id": 0, "nombre": 1})
-        tela = await db.prod_telas.find_one({"id": m.get('tela_id')}, {"_id": 0, "nombre": 1})
-        hilo = await db.prod_hilos.find_one({"id": m.get('hilo_id')}, {"_id": 0, "nombre": 1})
-        ruta = await db.prod_rutas_produccion.find_one({"id": m.get('ruta_produccion_id')}, {"_id": 0, "nombre": 1}) if m.get('ruta_produccion_id') else None
-        
-        m['marca_nombre'] = marca['nombre'] if marca else None
-        m['tipo_nombre'] = tipo['nombre'] if tipo else None
-        m['entalle_nombre'] = entalle['nombre'] if entalle else None
-        m['tela_nombre'] = tela['nombre'] if tela else None
-        m['hilo_nombre'] = hilo['nombre'] if hilo else None
-        m['ruta_nombre'] = ruta['nombre'] if ruta else None
-        m.setdefault('materiales', [])
-        m.setdefault('servicios_ids', [])
-        
-        result.append(ModeloConRelaciones(**m))
-    return result
-
-@api_router.post("/modelos", response_model=Modelo)
-async def create_modelo(input: ModeloCreate):
-    modelo = Modelo(**input.model_dump())
-    doc = modelo.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_modelos.insert_one(doc)
-    return modelo
-
-@api_router.get("/modelos/{modelo_id}")
-async def get_modelo_detalle(modelo_id: str):
-    m = await db.prod_modelos.find_one({"id": modelo_id}, {"_id": 0})
-    if not m:
-        raise HTTPException(status_code=404, detail="Modelo no encontrado")
-    
-    if isinstance(m.get('created_at'), str):
-        m['created_at'] = datetime.fromisoformat(m['created_at'])
-    
-    # Enriquecer relaciones básicas
-    marca = await db.prod_marcas.find_one({"id": m.get('marca_id')}, {"_id": 0, "nombre": 1})
-    tipo = await db.prod_tipos.find_one({"id": m.get('tipo_id')}, {"_id": 0, "nombre": 1})
-    entalle = await db.prod_entalles.find_one({"id": m.get('entalle_id')}, {"_id": 0, "nombre": 1})
-    tela = await db.prod_telas.find_one({"id": m.get('tela_id')}, {"_id": 0, "nombre": 1})
-    hilo = await db.prod_hilos.find_one({"id": m.get('hilo_id')}, {"_id": 0, "nombre": 1})
-    
-    m['marca_nombre'] = marca['nombre'] if marca else None
-    m['tipo_nombre'] = tipo['nombre'] if tipo else None
-    m['entalle_nombre'] = entalle['nombre'] if entalle else None
-    m['tela_nombre'] = tela['nombre'] if tela else None
-    m['hilo_nombre'] = hilo['nombre'] if hilo else None
-    
-    # Enriquecer ruta de producción
-    if m.get('ruta_produccion_id'):
-        ruta = await db.prod_rutas_produccion.find_one({"id": m['ruta_produccion_id']}, {"_id": 0})
-        if ruta:
-            m['ruta_nombre'] = ruta.get('nombre')
-            # Agregar etapas con nombres
-            etapas_detalle = []
-            for etapa in sorted(ruta.get('etapas', []), key=lambda x: x.get('orden', 0)):
-                servicio = await db.prod_servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
-                etapas_detalle.append({
-                    "servicio_id": etapa['servicio_id'],
-                    "servicio_nombre": servicio['nombre'] if servicio else None,
-                    "orden": etapa.get('orden', 0)
-                })
-            m['ruta_etapas'] = etapas_detalle
-    
-    # Enriquecer materiales
-    materiales_detalle = []
-    for mat in m.get('materiales', []):
-        item = await db.prod_inventario.find_one({"id": mat.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1, "unidad_medida": 1})
-        materiales_detalle.append({
-            "item_id": mat.get('item_id'),
-            "item_nombre": item['nombre'] if item else None,
-            "item_codigo": item.get('codigo') if item else None,
-            "unidad_medida": item.get('unidad_medida') if item else None,
-            "cantidad_estimada": mat.get('cantidad_estimada', 0)
-        })
-    m['materiales_detalle'] = materiales_detalle
-    
-    # Enriquecer servicios
-    servicios_detalle = []
-    for srv_id in m.get('servicios_ids', []):
-        servicio = await db.prod_servicios_produccion.find_one({"id": srv_id}, {"_id": 0, "nombre": 1})
-        servicios_detalle.append({
-            "servicio_id": srv_id,
-            "servicio_nombre": servicio['nombre'] if servicio else None
-        })
-    m['servicios_detalle'] = servicios_detalle
-    
-    return m
-
-@api_router.put("/modelos/{modelo_id}", response_model=Modelo)
-async def update_modelo(modelo_id: str, input: ModeloCreate):
-    result = await db.prod_modelos.find_one({"id": modelo_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Modelo no encontrado")
-    update_data = input.model_dump()
-    await db.prod_modelos.update_one({"id": modelo_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return Modelo(**result)
-
-@api_router.delete("/modelos/{modelo_id}")
-async def delete_modelo(modelo_id: str):
-    result = await db.prod_modelos.delete_one({"id": modelo_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Modelo no encontrado")
-    return {"message": "Modelo eliminado"}
-
-# ==================== ENDPOINTS REGISTRO ====================
-
-@api_router.get("/estados")
-async def get_estados():
-    return {"estados": ESTADOS_PRODUCCION}
-
-@api_router.get("/registros", response_model=List[RegistroConRelaciones])
-async def get_registros():
-    registros = await db.prod_registros.find({}, {"_id": 0}).to_list(1000)
-    result = []
-    for r in registros:
-        if isinstance(r.get('fecha_creacion'), str):
-            r['fecha_creacion'] = datetime.fromisoformat(r['fecha_creacion'])
-        
-        modelo = await db.prod_modelos.find_one({"id": r.get('modelo_id')}, {"_id": 0})
-        if modelo:
-            r['modelo_nombre'] = modelo.get('nombre')
-            
-            marca = await db.prod_marcas.find_one({"id": modelo.get('marca_id')}, {"_id": 0, "nombre": 1})
-            tipo = await db.prod_tipos.find_one({"id": modelo.get('tipo_id')}, {"_id": 0, "nombre": 1})
-            entalle = await db.prod_entalles.find_one({"id": modelo.get('entalle_id')}, {"_id": 0, "nombre": 1})
-            tela = await db.prod_telas.find_one({"id": modelo.get('tela_id')}, {"_id": 0, "nombre": 1})
-            hilo = await db.prod_hilos.find_one({"id": modelo.get('hilo_id')}, {"_id": 0, "nombre": 1})
-            
-            r['marca_nombre'] = marca['nombre'] if marca else None
-            r['tipo_nombre'] = tipo['nombre'] if tipo else None
-            r['entalle_nombre'] = entalle['nombre'] if entalle else None
-            r['tela_nombre'] = tela['nombre'] if tela else None
-            r['hilo_nombre'] = hilo['nombre'] if hilo else None
-        
-        # Asegurar campos de tallas y colores
-        if 'tallas' not in r:
-            r['tallas'] = []
-        if 'distribucion_colores' not in r:
-            r['distribucion_colores'] = []
-        
-        # Actualizar nombres de tallas desde el catálogo
-        for talla in r['tallas']:
-            talla_cat = await db.prod_tallas_catalogo.find_one({"id": talla.get('talla_id')}, {"_id": 0, "nombre": 1})
-            if talla_cat:
-                talla['talla_nombre'] = talla_cat['nombre']
-        
-        # Actualizar nombres de colores en distribución desde el catálogo
-        for dist in r['distribucion_colores']:
-            # Actualizar nombre de talla
-            talla_cat = await db.prod_tallas_catalogo.find_one({"id": dist.get('talla_id')}, {"_id": 0, "nombre": 1})
-            if talla_cat:
-                dist['talla_nombre'] = talla_cat['nombre']
-            # Actualizar nombres de colores
-            for color in dist.get('colores', []):
-                color_cat = await db.prod_colores_catalogo.find_one({"id": color.get('color_id')}, {"_id": 0, "nombre": 1})
-                if color_cat:
-                    color['color_nombre'] = color_cat['nombre']
-            
-        result.append(RegistroConRelaciones(**r))
-    return result
-
-@api_router.get("/registros/{registro_id}", response_model=RegistroConRelaciones)
-async def get_registro(registro_id: str):
-    r = await db.prod_registros.find_one({"id": registro_id}, {"_id": 0})
-    if not r:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    
-    if isinstance(r.get('fecha_creacion'), str):
-        r['fecha_creacion'] = datetime.fromisoformat(r['fecha_creacion'])
-    
-    modelo = await db.prod_modelos.find_one({"id": r.get('modelo_id')}, {"_id": 0})
-    if modelo:
-        r['modelo_nombre'] = modelo.get('nombre')
-        
-        marca = await db.prod_marcas.find_one({"id": modelo.get('marca_id')}, {"_id": 0, "nombre": 1})
-        tipo = await db.prod_tipos.find_one({"id": modelo.get('tipo_id')}, {"_id": 0, "nombre": 1})
-        entalle = await db.prod_entalles.find_one({"id": modelo.get('entalle_id')}, {"_id": 0, "nombre": 1})
-        tela = await db.prod_telas.find_one({"id": modelo.get('tela_id')}, {"_id": 0, "nombre": 1})
-        hilo = await db.prod_hilos.find_one({"id": modelo.get('hilo_id')}, {"_id": 0, "nombre": 1})
-        
-        r['marca_nombre'] = marca['nombre'] if marca else None
-        r['tipo_nombre'] = tipo['nombre'] if tipo else None
-        r['entalle_nombre'] = entalle['nombre'] if entalle else None
-        r['tela_nombre'] = tela['nombre'] if tela else None
-        r['hilo_nombre'] = hilo['nombre'] if hilo else None
-    
-    if 'tallas' not in r:
-        r['tallas'] = []
-    if 'distribucion_colores' not in r:
-        r['distribucion_colores'] = []
-    
-    # Actualizar nombres de tallas desde el catálogo
-    for talla in r['tallas']:
-        talla_cat = await db.prod_tallas_catalogo.find_one({"id": talla.get('talla_id')}, {"_id": 0, "nombre": 1})
-        if talla_cat:
-            talla['talla_nombre'] = talla_cat['nombre']
-    
-    # Actualizar nombres de colores en distribución desde el catálogo
-    for dist in r['distribucion_colores']:
-        talla_cat = await db.prod_tallas_catalogo.find_one({"id": dist.get('talla_id')}, {"_id": 0, "nombre": 1})
-        if talla_cat:
-            dist['talla_nombre'] = talla_cat['nombre']
-        for color in dist.get('colores', []):
-            color_cat = await db.prod_colores_catalogo.find_one({"id": color.get('color_id')}, {"_id": 0, "nombre": 1})
-            if color_cat:
-                color['color_nombre'] = color_cat['nombre']
-    
-    return RegistroConRelaciones(**r)
-
-@api_router.post("/registros", response_model=Registro)
-async def create_registro(input: RegistroCreate):
-    registro = Registro(**input.model_dump())
-    doc = registro.model_dump()
-    doc['fecha_creacion'] = doc['fecha_creacion'].isoformat()
-    await db.prod_registros.insert_one(doc)
-    return registro
-
-@api_router.put("/registros/{registro_id}", response_model=Registro)
-async def update_registro(registro_id: str, input: RegistroCreate):
-    result = await db.prod_registros.find_one({"id": registro_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    
-    update_data = input.model_dump()
-    estado_anterior = result.get('estado')
-    estado_nuevo = update_data.get('estado')
-    
-    # Si el estado cambió, validar según la ruta de producción
-    if estado_anterior != estado_nuevo:
-        modelo = await db.prod_modelos.find_one({"id": result.get('modelo_id')}, {"_id": 0})
-        if modelo and modelo.get('ruta_produccion_id'):
-            ruta = await db.prod_rutas_produccion.find_one({"id": modelo['ruta_produccion_id']}, {"_id": 0})
-            if ruta and ruta.get('etapas'):
-                etapas = sorted(ruta['etapas'], key=lambda x: x.get('orden', 0))
-                # Encontrar índice del estado anterior
-                idx_anterior = -1
-                servicio_anterior_id = None
-                for i, etapa in enumerate(etapas):
-                    servicio = await db.prod_servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
-                    if servicio and servicio['nombre'] == estado_anterior:
-                        idx_anterior = i
-                        servicio_anterior_id = etapa['servicio_id']
-                        break
-                
-                # Encontrar índice del estado nuevo
-                idx_nuevo = -1
-                for i, etapa in enumerate(etapas):
-                    servicio = await db.prod_servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
-                    if servicio and servicio['nombre'] == estado_nuevo:
-                        idx_nuevo = i
-                        break
-                
-                # Validar que solo puede avanzar al siguiente estado
-                if idx_anterior >= 0 and idx_nuevo >= 0:
-                    if idx_nuevo != idx_anterior + 1:
-                        raise HTTPException(
-                            status_code=400, 
-                            detail="Solo puede avanzar al siguiente estado en la ruta"
-                        )
-                    
-                    # Validar que hay movimiento con fechas para el servicio anterior
-                    if servicio_anterior_id:
-                        movimiento = await db.prod_movimientos_produccion.find_one({
-                            "registro_id": registro_id,
-                            "servicio_id": servicio_anterior_id,
-                            "fecha_inicio": {"$nin": [None, ""]},
-                            "fecha_fin": {"$nin": [None, ""]}
-                        }, {"_id": 0})
-                        if not movimiento:
-                            servicio_nombre = await db.prod_servicios_produccion.find_one({"id": servicio_anterior_id}, {"_id": 0, "nombre": 1})
-                            nombre = servicio_nombre['nombre'] if servicio_nombre else estado_anterior
-                            raise HTTPException(
-                                status_code=400, 
-                                detail=f"Debe registrar un movimiento con fechas para '{nombre}' antes de cambiar de estado"
-                            )
-    
-    await db.prod_registros.update_one({"id": registro_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('fecha_creacion'), str):
-        result['fecha_creacion'] = datetime.fromisoformat(result['fecha_creacion'])
-    return Registro(**result)
-
-# Endpoint para obtener estados disponibles para un registro (basado en ruta del modelo)
-@api_router.get("/registros/{registro_id}/estados-disponibles")
-async def get_estados_disponibles_registro(registro_id: str):
-    registro = await db.prod_registros.find_one({"id": registro_id}, {"_id": 0})
-    if not registro:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    
-    modelo = await db.prod_modelos.find_one({"id": registro.get('modelo_id')}, {"_id": 0})
-    if not modelo or not modelo.get('ruta_produccion_id'):
-        # Si no tiene ruta, devolver estados globales
-        return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro.get('estado')}
-    
-    ruta = await db.prod_rutas_produccion.find_one({"id": modelo['ruta_produccion_id']}, {"_id": 0})
-    if not ruta or not ruta.get('etapas'):
-        return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro.get('estado')}
-    
-    # Obtener nombres de servicios como estados
-    etapas = sorted(ruta['etapas'], key=lambda x: x.get('orden', 0))
-    estados = []
-    estado_actual_idx = -1
-    for i, etapa in enumerate(etapas):
-        servicio = await db.prod_servicios_produccion.find_one({"id": etapa['servicio_id']}, {"_id": 0, "nombre": 1})
-        if servicio:
-            estados.append(servicio['nombre'])
-            if servicio['nombre'] == registro.get('estado'):
-                estado_actual_idx = i
-    
-    # El siguiente estado disponible es el actual + 1
-    siguiente_estado = estados[estado_actual_idx + 1] if estado_actual_idx >= 0 and estado_actual_idx < len(estados) - 1 else None
-    
-    return {
-        "estados": estados, 
-        "usa_ruta": True, 
-        "ruta_nombre": ruta.get('nombre'),
-        "estado_actual": registro.get('estado'),
-        "estado_actual_idx": estado_actual_idx,
-        "siguiente_estado": siguiente_estado
-    }
-
-@api_router.delete("/registros/{registro_id}")
-async def delete_registro(registro_id: str):
-    result = await db.prod_registros.delete_one({"id": registro_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    return {"message": "Registro eliminado"}
-
-# ==================== ENDPOINTS ESTADÍSTICAS ====================
-
-@api_router.get("/stats")
-async def get_stats():
-    marcas_count = await db.prod_marcas.count_documents({})
-    tipos_count = await db.prod_tipos.count_documents({})
-    entalles_count = await db.prod_entalles.count_documents({})
-    telas_count = await db.prod_telas.count_documents({})
-    hilos_count = await db.prod_hilos.count_documents({})
-    modelos_count = await db.prod_modelos.count_documents({})
-    registros_count = await db.prod_registros.count_documents({})
-    registros_urgentes = await db.prod_registros.count_documents({"urgente": True})
-    tallas_count = await db.prod_tallas_catalogo.count_documents({})
-    colores_count = await db.prod_colores_catalogo.count_documents({})
-    
-    # Stats de inventario
-    inventario_items = await db.prod_inventario.count_documents({})
-    ingresos_count = await db.prod_inventario_ingresos.count_documents({})
-    salidas_count = await db.prod_inventario_salidas.count_documents({})
-    ajustes_count = await db.prod_inventario_ajustes.count_documents({})
-    
-    estados_count = {}
-    for estado in ESTADOS_PRODUCCION:
-        count = await db.prod_registros.count_documents({"estado": estado})
-        estados_count[estado] = count
-    
-    return {
-        "marcas": marcas_count,
-        "tipos": tipos_count,
-        "entalles": entalles_count,
-        "telas": telas_count,
-        "hilos": hilos_count,
-        "modelos": modelos_count,
-        "registros": registros_count,
-        "registros_urgentes": registros_urgentes,
-        "tallas": tallas_count,
-        "colores": colores_count,
-        "estados_count": estados_count,
-        "inventario_items": inventario_items,
-        "ingresos_count": ingresos_count,
-        "salidas_count": salidas_count,
-        "ajustes_count": ajustes_count
-    }
-
-# ==================== INVENTARIO FIFO ====================
-
-# Categorías de inventario
-CATEGORIAS_INVENTARIO = ["Telas", "Avios", "Otros"]
-
-# Modelos de Inventario
+class Movimiento(MovimientoBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    diferencia: int = 0
+    costo_calculado: float = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ItemInventarioBase(BaseModel):
     codigo: str
     nombre: str
     descripcion: str = ""
-    categoria: str = "Otros"  # Telas, Avios, Otros
+    categoria: str = "Otros"
     unidad_medida: str = "unidad"
     stock_minimo: int = 0
-    control_por_rollos: bool = False  # Solo para Telas
+    control_por_rollos: bool = False
 
 class ItemInventarioCreate(ItemInventarioBase):
     pass
@@ -1013,66 +263,32 @@ class ItemInventarioCreate(ItemInventarioBase):
 class ItemInventario(ItemInventarioBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    stock_actual: float = 0  # Cambiado a float para metraje
+    stock_actual: float = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class ItemInventarioConStock(ItemInventario):
-    lotes: List[dict] = []
-
-# Modelo de Rollo (para telas con control por rollos)
-class RolloBase(BaseModel):
-    item_id: str
-    ingreso_id: str
-    numero_rollo: str
-    metraje: float
-    ancho: float = 0.0
-    tono: str = ""
-    observaciones: str = ""
-
-class RolloCreate(RolloBase):
-    pass
-
-class Rollo(RolloBase):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    metraje_disponible: float = 0.0  # Para FIFO de rollos
-    activo: bool = True
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class RolloConDetalles(Rollo):
-    item_nombre: str = ""
-    item_codigo: str = ""
-
-# Ingreso de Inventario (Entrada)
 class IngresoInventarioBase(BaseModel):
     item_id: str
-    cantidad: float  # Cambiado a float para metraje
+    cantidad: float
     costo_unitario: float = 0.0
     proveedor: str = ""
     numero_documento: str = ""
     observaciones: str = ""
 
 class IngresoInventarioCreate(IngresoInventarioBase):
-    rollos: List[dict] = []  # Lista de rollos si el item tiene control_por_rollos
+    rollos: List[dict] = []
 
 class IngresoInventario(IngresoInventarioBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    cantidad_disponible: float = 0  # Para FIFO, cantidad aún disponible de este lote
+    cantidad_disponible: float = 0
 
-class IngresoConDetalles(IngresoInventario):
-    item_nombre: str = ""
-    item_codigo: str = ""
-    rollos_count: int = 0
-
-# Salida de Inventario (vinculada a Registro)
 class SalidaInventarioBase(BaseModel):
     item_id: str
-    cantidad: float  # Cambiado a float para metraje
+    cantidad: float
     registro_id: Optional[str] = None
     observaciones: str = ""
-    rollo_id: Optional[str] = None  # Si es salida de un rollo específico
+    rollo_id: Optional[str] = None
 
 class SalidaInventarioCreate(SalidaInventarioBase):
     pass
@@ -1081,20 +297,13 @@ class SalidaInventario(SalidaInventarioBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    costo_total: float = 0.0  # Calculado según FIFO
-    detalle_fifo: List[dict] = []  # Detalle de qué lotes se usaron
+    costo_total: float = 0.0
+    detalle_fifo: List[dict] = []
 
-class SalidaConDetalles(SalidaInventario):
-    item_nombre: str = ""
-    item_codigo: str = ""
-    registro_n_corte: Optional[str] = None
-    rollo_numero: Optional[str] = None
-
-# Ajuste de Inventario
 class AjusteInventarioBase(BaseModel):
     item_id: str
-    tipo: str  # "entrada" o "salida"
-    cantidad: float  # Cambiado a float
+    tipo: str
+    cantidad: float
     motivo: str = ""
     observaciones: str = ""
 
@@ -1106,800 +315,21 @@ class AjusteInventario(AjusteInventarioBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class AjusteConDetalles(AjusteInventario):
-    item_nombre: str = ""
-    item_codigo: str = ""
-
-# ==================== ENDPOINTS ITEMS INVENTARIO ====================
-
-@api_router.get("/inventario", response_model=List[ItemInventario])
-async def get_inventario():
-    items = await db.prod_inventario.find({}, {"_id": 0}).to_list(1000)
-    for item in items:
-        if isinstance(item.get('created_at'), str):
-            item['created_at'] = datetime.fromisoformat(item['created_at'])
-    return items
-
-@api_router.get("/inventario-categorias")
-async def get_categorias():
-    """Obtener lista de categorías disponibles"""
-    return {"categorias": CATEGORIAS_INVENTARIO}
-
-@api_router.get("/inventario/{item_id}")
-async def get_item_inventario(item_id: str):
-    item = await db.prod_inventario.find_one({"id": item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Item no encontrado")
-    
-    if isinstance(item.get('created_at'), str):
-        item['created_at'] = datetime.fromisoformat(item['created_at'])
-    
-    # Obtener lotes disponibles (FIFO)
-    ingresos = await db.prod_inventario_ingresos.find(
-        {"item_id": item_id, "cantidad_disponible": {"$gt": 0}},
-        {"_id": 0}
-    ).sort("fecha", 1).to_list(100)
-    
-    for ing in ingresos:
-        if isinstance(ing.get('fecha'), str):
-            ing['fecha'] = datetime.fromisoformat(ing['fecha'])
-    
-    item['lotes'] = ingresos
-    
-    # Si tiene control por rollos, obtener rollos activos
-    if item.get('control_por_rollos'):
-        rollos = await db.prod_inventario_rollos.find(
-            {"item_id": item_id, "activo": True, "metraje_disponible": {"$gt": 0}},
-            {"_id": 0}
-        ).to_list(500)
-        for rollo in rollos:
-            if isinstance(rollo.get('created_at'), str):
-                rollo['created_at'] = datetime.fromisoformat(rollo['created_at'])
-        item['rollos'] = rollos
-    
-    return item
-
-@api_router.post("/inventario", response_model=ItemInventario)
-async def create_item_inventario(input: ItemInventarioCreate):
-    # Verificar código único
-    existing = await db.prod_inventario.find_one({"codigo": input.codigo})
-    if existing:
-        raise HTTPException(status_code=400, detail="El código ya existe")
-    
-    item = ItemInventario(**input.model_dump())
-    doc = item.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_inventario.insert_one(doc)
-    return item
-
-@api_router.put("/inventario/{item_id}", response_model=ItemInventario)
-async def update_item_inventario(item_id: str, input: ItemInventarioCreate):
-    result = await db.prod_inventario.find_one({"id": item_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Item no encontrado")
-    
-    # Verificar código único si cambió
-    if input.codigo != result.get('codigo'):
-        existing = await db.prod_inventario.find_one({"codigo": input.codigo, "id": {"$ne": item_id}})
-        if existing:
-            raise HTTPException(status_code=400, detail="El código ya existe")
-    
-    update_data = input.model_dump()
-    await db.prod_inventario.update_one({"id": item_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return ItemInventario(**result)
-
-@api_router.delete("/inventario/{item_id}")
-async def delete_item_inventario(item_id: str):
-    result = await db.prod_inventario.delete_one({"id": item_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Item no encontrado")
-    # También eliminar movimientos relacionados
-    await db.prod_inventario_ingresos.delete_many({"item_id": item_id})
-    await db.prod_inventario_salidas.delete_many({"item_id": item_id})
-    await db.prod_inventario_ajustes.delete_many({"item_id": item_id})
-    return {"message": "Item eliminado"}
-
-# ==================== ENDPOINTS INGRESOS ====================
-
-@api_router.get("/inventario-ingresos", response_model=List[IngresoConDetalles])
-async def get_ingresos():
-    ingresos = await db.prod_inventario_ingresos.find({}, {"_id": 0}).to_list(1000)
-    result = []
-    for ing in ingresos:
-        if isinstance(ing.get('fecha'), str):
-            ing['fecha'] = datetime.fromisoformat(ing['fecha'])
-        
-        item = await db.prod_inventario.find_one({"id": ing.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-        ing['item_nombre'] = item['nombre'] if item else ""
-        ing['item_codigo'] = item['codigo'] if item else ""
-        
-        # Contar rollos de este ingreso
-        rollos_count = await db.prod_inventario_rollos.count_documents({"ingreso_id": ing['id']})
-        ing['rollos_count'] = rollos_count
-        
-        result.append(IngresoConDetalles(**ing))
-    return sorted(result, key=lambda x: x.fecha, reverse=True)
-
-@api_router.post("/inventario-ingresos", response_model=IngresoInventario)
-async def create_ingreso(input: IngresoInventarioCreate):
-    # Verificar que el item existe
-    item = await db.prod_inventario.find_one({"id": input.item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
-    
-    # Si tiene control por rollos, la cantidad se calcula de los rollos
-    rollos_data = input.rollos if hasattr(input, 'rollos') else []
-    
-    if item.get('control_por_rollos') and rollos_data:
-        # Calcular cantidad total desde los rollos
-        cantidad_total = sum(r.get('metraje', 0) for r in rollos_data)
-        ingreso_data = input.model_dump()
-        ingreso_data['cantidad'] = cantidad_total
-        ingreso_data.pop('rollos', None)
-        ingreso = IngresoInventario(**ingreso_data)
-    else:
-        ingreso_data = input.model_dump()
-        ingreso_data.pop('rollos', None)
-        ingreso = IngresoInventario(**ingreso_data)
-    
-    ingreso.cantidad_disponible = ingreso.cantidad
-    
-    doc = ingreso.model_dump()
-    doc['fecha'] = doc['fecha'].isoformat()
-    await db.prod_inventario_ingresos.insert_one(doc)
-    
-    # Si hay rollos, crearlos
-    if item.get('control_por_rollos') and rollos_data:
-        for rollo_data in rollos_data:
-            rollo = Rollo(
-                item_id=input.item_id,
-                ingreso_id=ingreso.id,
-                numero_rollo=rollo_data.get('numero_rollo', ''),
-                metraje=rollo_data.get('metraje', 0),
-                ancho=rollo_data.get('ancho', 0),
-                tono=rollo_data.get('tono', ''),
-                observaciones=rollo_data.get('observaciones', ''),
-                metraje_disponible=rollo_data.get('metraje', 0)
-            )
-            rollo_doc = rollo.model_dump()
-            rollo_doc['created_at'] = rollo_doc['created_at'].isoformat()
-            await db.prod_inventario_rollos.insert_one(rollo_doc)
-    
-    # Actualizar stock del item
-    await db.prod_inventario.update_one(
-        {"id": input.item_id},
-        {"$inc": {"stock_actual": ingreso.cantidad}}
-    )
-    
-    return ingreso
-
-@api_router.delete("/inventario-ingresos/{ingreso_id}")
-async def delete_ingreso(ingreso_id: str):
-    ingreso = await db.prod_inventario_ingresos.find_one({"id": ingreso_id}, {"_id": 0})
-    if not ingreso:
-        raise HTTPException(status_code=404, detail="Ingreso no encontrado")
-    
-    # Solo se puede eliminar si la cantidad disponible es igual a la cantidad original
-    if ingreso.get('cantidad_disponible', 0) != ingreso.get('cantidad', 0):
-        raise HTTPException(status_code=400, detail="No se puede eliminar un ingreso que ya tiene salidas")
-    
-    # Eliminar rollos asociados
-    await db.prod_inventario_rollos.delete_many({"ingreso_id": ingreso_id})
-    
-    await db.prod_inventario_ingresos.delete_one({"id": ingreso_id})
-    
-    # Restar del stock
-    await db.prod_inventario.update_one(
-        {"id": ingreso['item_id']},
-        {"$inc": {"stock_actual": -ingreso['cantidad']}}
-    )
-    
-    return {"message": "Ingreso eliminado"}
-
-# ==================== ENDPOINTS ROLLOS ====================
-
-@api_router.get("/inventario-rollos")
-async def get_rollos(item_id: str = None, activo: bool = None):
-    query = {}
-    if item_id:
-        query['item_id'] = item_id
-    if activo is not None:
-        query['activo'] = activo
-        if activo:
-            query['metraje_disponible'] = {"$gt": 0}
-    
-    rollos = await db.prod_inventario_rollos.find(query, {"_id": 0}).to_list(1000)
-    result = []
-    for rollo in rollos:
-        if isinstance(rollo.get('created_at'), str):
-            rollo['created_at'] = datetime.fromisoformat(rollo['created_at'])
-        
-        item = await db.prod_inventario.find_one({"id": rollo.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-        rollo['item_nombre'] = item['nombre'] if item else ""
-        rollo['item_codigo'] = item['codigo'] if item else ""
-        
-        result.append(rollo)
-    return sorted(result, key=lambda x: x['created_at'], reverse=True)
-
-@api_router.get("/inventario-rollos/{rollo_id}")
-async def get_rollo(rollo_id: str):
-    rollo = await db.prod_inventario_rollos.find_one({"id": rollo_id}, {"_id": 0})
-    if not rollo:
-        raise HTTPException(status_code=404, detail="Rollo no encontrado")
-    
-    if isinstance(rollo.get('created_at'), str):
-        rollo['created_at'] = datetime.fromisoformat(rollo['created_at'])
-    
-    item = await db.prod_inventario.find_one({"id": rollo.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-    rollo['item_nombre'] = item['nombre'] if item else ""
-    rollo['item_codigo'] = item['codigo'] if item else ""
-    
-    return rollo
-
-# ==================== ENDPOINTS SALIDAS ====================
-
-@api_router.get("/inventario-salidas", response_model=List[SalidaConDetalles])
-async def get_salidas(registro_id: str = None):
-    query = {}
-    if registro_id:
-        query['registro_id'] = registro_id
-    
-    salidas = await db.prod_inventario_salidas.find(query, {"_id": 0}).to_list(1000)
-    result = []
-    for sal in salidas:
-        if isinstance(sal.get('fecha'), str):
-            sal['fecha'] = datetime.fromisoformat(sal['fecha'])
-        
-        item = await db.prod_inventario.find_one({"id": sal.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-        sal['item_nombre'] = item['nombre'] if item else ""
-        sal['item_codigo'] = item['codigo'] if item else ""
-        
-        if sal.get('registro_id'):
-            registro = await db.prod_registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
-            sal['registro_n_corte'] = registro['n_corte'] if registro else None
-        
-        # Si tiene rollo_id, obtener número de rollo
-        if sal.get('rollo_id'):
-            rollo = await db.prod_inventario_rollos.find_one({"id": sal.get('rollo_id')}, {"_id": 0, "numero_rollo": 1})
-            sal['rollo_numero'] = rollo['numero_rollo'] if rollo else None
-        
-        result.append(SalidaConDetalles(**sal))
-    return sorted(result, key=lambda x: x.fecha, reverse=True)
-
-@api_router.post("/inventario-salidas", response_model=SalidaInventario)
-async def create_salida(input: SalidaInventarioCreate):
-    # Verificar que el item existe
-    item = await db.prod_inventario.find_one({"id": input.item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
-    
-    # Verificar stock suficiente
-    if item.get('stock_actual', 0) < input.cantidad:
-        raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item.get('stock_actual', 0)}")
-    
-    # Si hay registro_id, verificar que existe
-    if input.registro_id:
-        registro = await db.prod_registros.find_one({"id": input.registro_id})
-        if not registro:
-            raise HTTPException(status_code=404, detail="Registro no encontrado")
-    
-    # Si es salida de un rollo específico
-    if input.rollo_id:
-        rollo = await db.prod_inventario_rollos.find_one({"id": input.rollo_id}, {"_id": 0})
-        if not rollo:
-            raise HTTPException(status_code=404, detail="Rollo no encontrado")
-        if rollo.get('metraje_disponible', 0) < input.cantidad:
-            raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo.get('metraje_disponible', 0)}")
-        
-        # Obtener el ingreso del rollo para el costo
-        ingreso = await db.prod_inventario_ingresos.find_one({"id": rollo['ingreso_id']}, {"_id": 0})
-        costo_unitario = ingreso.get('costo_unitario', 0) if ingreso else 0
-        costo_total = input.cantidad * costo_unitario
-        
-        detalle_fifo = [{
-            "rollo_id": input.rollo_id,
-            "cantidad": input.cantidad,
-            "costo_unitario": costo_unitario,
-            "numero_rollo": rollo.get('numero_rollo', '')
-        }]
-        
-        # Actualizar metraje disponible del rollo
-        await db.prod_inventario_rollos.update_one(
-            {"id": input.rollo_id},
-            {"$inc": {"metraje_disponible": -input.cantidad}}
-        )
-        
-        # Actualizar cantidad disponible del ingreso
-        await db.prod_inventario_ingresos.update_one(
-            {"id": rollo['ingreso_id']},
-            {"$inc": {"cantidad_disponible": -input.cantidad}}
-        )
-    else:
-        # FIFO normal: obtener lotes ordenados por fecha y consumir
-        ingresos = await db.prod_inventario_ingresos.find(
-            {"item_id": input.item_id, "cantidad_disponible": {"$gt": 0}},
-            {"_id": 0}
-        ).sort("fecha", 1).to_list(100)
-        
-        cantidad_restante = input.cantidad
-        costo_total = 0.0
-        detalle_fifo = []
-        
-        for ingreso in ingresos:
-            if cantidad_restante <= 0:
-                break
-            
-            disponible = ingreso.get('cantidad_disponible', 0)
-            consumir = min(disponible, cantidad_restante)
-            
-            costo_unitario = ingreso.get('costo_unitario', 0)
-            costo_total += consumir * costo_unitario
-            
-            detalle_fifo.append({
-                "ingreso_id": ingreso['id'],
-                "cantidad": consumir,
-                "costo_unitario": costo_unitario,
-                "fecha_ingreso": ingreso.get('fecha')
-            })
-            
-            # Actualizar cantidad disponible del ingreso
-            await db.prod_inventario_ingresos.update_one(
-                {"id": ingreso['id']},
-                {"$inc": {"cantidad_disponible": -consumir}}
-            )
-            
-            cantidad_restante -= consumir
-        
-        if cantidad_restante > 0:
-            raise HTTPException(status_code=400, detail="No hay suficiente stock en los lotes")
-    
-    salida = SalidaInventario(**input.model_dump())
-    salida.costo_total = costo_total
-    salida.detalle_fifo = detalle_fifo
-    
-    doc = salida.model_dump()
-    doc['fecha'] = doc['fecha'].isoformat()
-    await db.prod_inventario_salidas.insert_one(doc)
-    
-    # Actualizar stock del item
-    await db.prod_inventario.update_one(
-        {"id": input.item_id},
-        {"$inc": {"stock_actual": -input.cantidad}}
-    )
-    
-    return salida
-
-@api_router.delete("/inventario-salidas/{salida_id}")
-async def delete_salida(salida_id: str):
-    salida = await db.prod_inventario_salidas.find_one({"id": salida_id}, {"_id": 0})
-    if not salida:
-        raise HTTPException(status_code=404, detail="Salida no encontrada")
-    
-    # Revertir FIFO: devolver cantidades a los lotes
-    for detalle in salida.get('detalle_fifo', []):
-        if detalle.get('rollo_id'):
-            # Si era salida de rollo, restaurar metraje del rollo
-            await db.prod_inventario_rollos.update_one(
-                {"id": detalle['rollo_id']},
-                {"$inc": {"metraje_disponible": detalle['cantidad']}}
-            )
-            # Obtener el ingreso_id del rollo
-            rollo = await db.prod_inventario_rollos.find_one({"id": detalle['rollo_id']}, {"_id": 0, "ingreso_id": 1})
-            if rollo:
-                await db.prod_inventario_ingresos.update_one(
-                    {"id": rollo['ingreso_id']},
-                    {"$inc": {"cantidad_disponible": detalle['cantidad']}}
-                )
-        elif detalle.get('ingreso_id'):
-            await db.prod_inventario_ingresos.update_one(
-                {"id": detalle['ingreso_id']},
-                {"$inc": {"cantidad_disponible": detalle['cantidad']}}
-            )
-    
-    await db.prod_inventario_salidas.delete_one({"id": salida_id})
-    
-    # Restaurar stock
-    await db.prod_inventario.update_one(
-        {"id": salida['item_id']},
-        {"$inc": {"stock_actual": salida['cantidad']}}
-    )
-    
-    return {"message": "Salida eliminada y stock restaurado"}
-
-# ==================== ENDPOINTS AJUSTES ====================
-
-@api_router.get("/inventario-ajustes", response_model=List[AjusteConDetalles])
-async def get_ajustes():
-    ajustes = await db.prod_inventario_ajustes.find({}, {"_id": 0}).to_list(1000)
-    result = []
-    for aj in ajustes:
-        if isinstance(aj.get('fecha'), str):
-            aj['fecha'] = datetime.fromisoformat(aj['fecha'])
-        
-        item = await db.prod_inventario.find_one({"id": aj.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-        aj['item_nombre'] = item['nombre'] if item else ""
-        aj['item_codigo'] = item['codigo'] if item else ""
-        
-        result.append(AjusteConDetalles(**aj))
-    return sorted(result, key=lambda x: x.fecha, reverse=True)
-
-@api_router.post("/inventario-ajustes", response_model=AjusteInventario)
-async def create_ajuste(input: AjusteInventarioCreate):
-    # Verificar que el item existe
-    item = await db.prod_inventario.find_one({"id": input.item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
-    
-    # Verificar tipo válido
-    if input.tipo not in ["entrada", "salida"]:
-        raise HTTPException(status_code=400, detail="Tipo debe ser 'entrada' o 'salida'")
-    
-    # Si es salida, verificar stock suficiente
-    if input.tipo == "salida":
-        if item.get('stock_actual', 0) < input.cantidad:
-            raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item.get('stock_actual', 0)}")
-    
-    ajuste = AjusteInventario(**input.model_dump())
-    doc = ajuste.model_dump()
-    doc['fecha'] = doc['fecha'].isoformat()
-    await db.prod_inventario_ajustes.insert_one(doc)
-    
-    # Actualizar stock según tipo
-    incremento = input.cantidad if input.tipo == "entrada" else -input.cantidad
-    await db.prod_inventario.update_one(
-        {"id": input.item_id},
-        {"$inc": {"stock_actual": incremento}}
-    )
-    
-    return ajuste
-
-@api_router.delete("/inventario-ajustes/{ajuste_id}")
-async def delete_ajuste(ajuste_id: str):
-    ajuste = await db.prod_inventario_ajustes.find_one({"id": ajuste_id}, {"_id": 0})
-    if not ajuste:
-        raise HTTPException(status_code=404, detail="Ajuste no encontrado")
-    
-    # Revertir el ajuste
-    incremento = -ajuste['cantidad'] if ajuste['tipo'] == "entrada" else ajuste['cantidad']
-    
-    # Verificar que no quede negativo si era entrada
-    if ajuste['tipo'] == "entrada":
-        item = await db.prod_inventario.find_one({"id": ajuste['item_id']}, {"_id": 0})
-        if item and item.get('stock_actual', 0) < ajuste['cantidad']:
-            raise HTTPException(status_code=400, detail="No se puede eliminar: dejaría el stock negativo")
-    
-    await db.prod_inventario_ajustes.delete_one({"id": ajuste_id})
-    
-    await db.prod_inventario.update_one(
-        {"id": ajuste['item_id']},
-        {"$inc": {"stock_actual": incremento}}
-    )
-    
-    return {"message": "Ajuste eliminado"}
-
-# ==================== ENDPOINTS REPORTES INVENTARIO ====================
-
-@api_router.get("/inventario-movimientos")
-async def get_movimientos(
-    item_id: str = None,
-    tipo: str = None,  # "ingreso", "salida", "ajuste"
-    fecha_desde: str = None,
-    fecha_hasta: str = None
-):
-    """Reporte general de todos los movimientos de inventario"""
-    movimientos = []
-    
-    # Filtrar ingresos
-    if not tipo or tipo == "ingreso":
-        query_ingresos = {}
-        if item_id:
-            query_ingresos['item_id'] = item_id
-        
-        ingresos = await db.prod_inventario_ingresos.find(query_ingresos, {"_id": 0}).to_list(5000)
-        for ing in ingresos:
-            if isinstance(ing.get('fecha'), str):
-                ing['fecha'] = datetime.fromisoformat(ing['fecha'])
-            
-            # Filtrar por fecha
-            if fecha_desde:
-                fecha_d = datetime.fromisoformat(fecha_desde)
-                if ing['fecha'] < fecha_d:
-                    continue
-            if fecha_hasta:
-                fecha_h = datetime.fromisoformat(fecha_hasta)
-                if ing['fecha'] > fecha_h:
-                    continue
-            
-            item = await db.prod_inventario.find_one({"id": ing.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-            movimientos.append({
-                "id": ing['id'],
-                "fecha": ing['fecha'].isoformat(),
-                "tipo": "ingreso",
-                "item_id": ing['item_id'],
-                "item_codigo": item['codigo'] if item else "",
-                "item_nombre": item['nombre'] if item else "",
-                "cantidad": ing['cantidad'],
-                "costo_unitario": ing.get('costo_unitario', 0),
-                "costo_total": ing['cantidad'] * ing.get('costo_unitario', 0),
-                "proveedor": ing.get('proveedor', ''),
-                "documento": ing.get('numero_documento', ''),
-                "observaciones": ing.get('observaciones', ''),
-                "registro_n_corte": None
-            })
-    
-    # Filtrar salidas
-    if not tipo or tipo == "salida":
-        query_salidas = {}
-        if item_id:
-            query_salidas['item_id'] = item_id
-        
-        salidas = await db.prod_inventario_salidas.find(query_salidas, {"_id": 0}).to_list(5000)
-        for sal in salidas:
-            if isinstance(sal.get('fecha'), str):
-                sal['fecha'] = datetime.fromisoformat(sal['fecha'])
-            
-            if fecha_desde:
-                fecha_d = datetime.fromisoformat(fecha_desde)
-                if sal['fecha'] < fecha_d:
-                    continue
-            if fecha_hasta:
-                fecha_h = datetime.fromisoformat(fecha_hasta)
-                if sal['fecha'] > fecha_h:
-                    continue
-            
-            item = await db.prod_inventario.find_one({"id": sal.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-            registro_n_corte = None
-            if sal.get('registro_id'):
-                registro = await db.prod_registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
-                registro_n_corte = registro['n_corte'] if registro else None
-            
-            movimientos.append({
-                "id": sal['id'],
-                "fecha": sal['fecha'].isoformat(),
-                "tipo": "salida",
-                "item_id": sal['item_id'],
-                "item_codigo": item['codigo'] if item else "",
-                "item_nombre": item['nombre'] if item else "",
-                "cantidad": -sal['cantidad'],  # Negativo para salidas
-                "costo_unitario": sal.get('costo_total', 0) / sal['cantidad'] if sal['cantidad'] > 0 else 0,
-                "costo_total": sal.get('costo_total', 0),
-                "proveedor": "",
-                "documento": "",
-                "observaciones": sal.get('observaciones', ''),
-                "registro_n_corte": registro_n_corte
-            })
-    
-    # Filtrar ajustes
-    if not tipo or tipo == "ajuste":
-        query_ajustes = {}
-        if item_id:
-            query_ajustes['item_id'] = item_id
-        
-        ajustes = await db.prod_inventario_ajustes.find(query_ajustes, {"_id": 0}).to_list(5000)
-        for aj in ajustes:
-            if isinstance(aj.get('fecha'), str):
-                aj['fecha'] = datetime.fromisoformat(aj['fecha'])
-            
-            if fecha_desde:
-                fecha_d = datetime.fromisoformat(fecha_desde)
-                if aj['fecha'] < fecha_d:
-                    continue
-            if fecha_hasta:
-                fecha_h = datetime.fromisoformat(fecha_hasta)
-                if aj['fecha'] > fecha_h:
-                    continue
-            
-            item = await db.prod_inventario.find_one({"id": aj.get('item_id')}, {"_id": 0, "nombre": 1, "codigo": 1})
-            cantidad = aj['cantidad'] if aj['tipo'] == "entrada" else -aj['cantidad']
-            
-            movimientos.append({
-                "id": aj['id'],
-                "fecha": aj['fecha'].isoformat(),
-                "tipo": f"ajuste_{aj['tipo']}",
-                "item_id": aj['item_id'],
-                "item_codigo": item['codigo'] if item else "",
-                "item_nombre": item['nombre'] if item else "",
-                "cantidad": cantidad,
-                "costo_unitario": 0,
-                "costo_total": 0,
-                "proveedor": "",
-                "documento": "",
-                "observaciones": f"{aj.get('motivo', '')} - {aj.get('observaciones', '')}".strip(' - '),
-                "registro_n_corte": None
-            })
-    
-    # Ordenar por fecha descendente
-    movimientos.sort(key=lambda x: x['fecha'], reverse=True)
-    return movimientos
-
-
-@api_router.get("/inventario-kardex/{item_id}")
-async def get_kardex(item_id: str):
-    """Kardex de un item específico - historial con saldos"""
-    
-    # Verificar que el item existe
-    item = await db.prod_inventario.find_one({"id": item_id}, {"_id": 0})
-    if not item:
-        raise HTTPException(status_code=404, detail="Item no encontrado")
-    
-    movimientos = []
-    
-    # Obtener ingresos
-    ingresos = await db.prod_inventario_ingresos.find({"item_id": item_id}, {"_id": 0}).to_list(5000)
-    for ing in ingresos:
-        if isinstance(ing.get('fecha'), str):
-            ing['fecha'] = datetime.fromisoformat(ing['fecha'])
-        movimientos.append({
-            "fecha": ing['fecha'],
-            "tipo": "Ingreso",
-            "documento": ing.get('numero_documento', '') or ing.get('proveedor', ''),
-            "entrada": ing['cantidad'],
-            "salida": 0,
-            "costo_unitario": ing.get('costo_unitario', 0),
-            "costo_total": ing['cantidad'] * ing.get('costo_unitario', 0),
-            "observaciones": ing.get('observaciones', ''),
-            "id": ing['id']
-        })
-    
-    # Obtener salidas
-    salidas = await db.prod_inventario_salidas.find({"item_id": item_id}, {"_id": 0}).to_list(5000)
-    for sal in salidas:
-        if isinstance(sal.get('fecha'), str):
-            sal['fecha'] = datetime.fromisoformat(sal['fecha'])
-        
-        documento = ""
-        if sal.get('registro_id'):
-            registro = await db.prod_registros.find_one({"id": sal.get('registro_id')}, {"_id": 0, "n_corte": 1})
-            documento = f"Corte #{registro['n_corte']}" if registro else ""
-        
-        movimientos.append({
-            "fecha": sal['fecha'],
-            "tipo": "Salida",
-            "documento": documento,
-            "entrada": 0,
-            "salida": sal['cantidad'],
-            "costo_unitario": sal.get('costo_total', 0) / sal['cantidad'] if sal['cantidad'] > 0 else 0,
-            "costo_total": sal.get('costo_total', 0),
-            "observaciones": sal.get('observaciones', ''),
-            "id": sal['id']
-        })
-    
-    # Obtener ajustes
-    ajustes = await db.prod_inventario_ajustes.find({"item_id": item_id}, {"_id": 0}).to_list(5000)
-    for aj in ajustes:
-        if isinstance(aj.get('fecha'), str):
-            aj['fecha'] = datetime.fromisoformat(aj['fecha'])
-        
-        es_entrada = aj['tipo'] == "entrada"
-        movimientos.append({
-            "fecha": aj['fecha'],
-            "tipo": f"Ajuste ({aj['tipo']})",
-            "documento": aj.get('motivo', ''),
-            "entrada": aj['cantidad'] if es_entrada else 0,
-            "salida": aj['cantidad'] if not es_entrada else 0,
-            "costo_unitario": 0,
-            "costo_total": 0,
-            "observaciones": aj.get('observaciones', ''),
-            "id": aj['id']
-        })
-    
-    # Ordenar por fecha ascendente para calcular saldos
-    movimientos.sort(key=lambda x: x['fecha'])
-    
-    # Calcular saldos
-    saldo = 0
-    for mov in movimientos:
-        saldo += mov['entrada'] - mov['salida']
-        mov['saldo'] = saldo
-        mov['fecha'] = mov['fecha'].isoformat()
-    
-    return {
-        "item": {
-            "id": item['id'],
-            "codigo": item['codigo'],
-            "nombre": item['nombre'],
-            "unidad_medida": item.get('unidad_medida', 'unidad'),
-            "stock_actual": item.get('stock_actual', 0)
-        },
-        "movimientos": movimientos
-    }
-
-# ==================== SERVICIOS DE PRODUCCIÓN ====================
-
-class ServicioProduccionBase(BaseModel):
-    nombre: str
-    secuencia: int = 0
-
-class ServicioProduccionCreate(ServicioProduccionBase):
-    pass
-
-class ServicioProduccion(ServicioProduccionBase):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-@api_router.get("/servicios-produccion", response_model=List[ServicioProduccion])
-async def get_servicios_produccion():
-    servicios = await db.prod_servicios_produccion.find({}, {"_id": 0}).to_list(1000)
-    for s in servicios:
-        if isinstance(s.get('created_at'), str):
-            s['created_at'] = datetime.fromisoformat(s['created_at'])
-    return sorted(servicios, key=lambda x: x.get('secuencia', 0))
-
-@api_router.post("/servicios-produccion", response_model=ServicioProduccion)
-async def create_servicio_produccion(input: ServicioProduccionCreate):
-    servicio = ServicioProduccion(**input.model_dump())
-    doc = servicio.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_servicios_produccion.insert_one(doc)
-    return servicio
-
-@api_router.put("/servicios-produccion/{servicio_id}", response_model=ServicioProduccion)
-async def update_servicio_produccion(servicio_id: str, input: ServicioProduccionCreate):
-    result = await db.prod_servicios_produccion.find_one({"id": servicio_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    await db.prod_servicios_produccion.update_one({"id": servicio_id}, {"$set": input.model_dump()})
-    result.update(input.model_dump())
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return ServicioProduccion(**result)
-
-@api_router.delete("/servicios-produccion/{servicio_id}")
-async def delete_servicio_produccion(servicio_id: str):
-    # Verificar si tiene movimientos asociados
-    movimientos_count = await db.prod_movimientos_produccion.count_documents({"servicio_id": servicio_id})
-    if movimientos_count > 0:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"No se puede eliminar: tiene {movimientos_count} movimiento(s) de producción asociado(s)"
-        )
-    
-    # Verificar si tiene personas asignadas (nuevo formato)
-    personas_count = await db.prod_personas_produccion.count_documents({"servicios.servicio_id": servicio_id})
-    # También verificar formato antiguo
-    personas_count_old = await db.prod_personas_produccion.count_documents({"servicio_ids": servicio_id})
-    total_personas = personas_count + personas_count_old
-    if total_personas > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"No se puede eliminar: tiene {total_personas} persona(s) asignada(s)"
-        )
-    
-    result = await db.prod_servicios_produccion.delete_one({"id": servicio_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    return {"message": "Servicio eliminado"}
-
-# ==================== PERSONAS DE PRODUCCIÓN ====================
-
-class ServicioPersona(BaseModel):
+class MermaBase(BaseModel):
+    registro_id: str
+    movimiento_id: str
     servicio_id: str
-    tarifa: float = 0.0  # Tarifa específica de esta persona para este servicio
+    persona_id: str
+    cantidad: int = 0
+    motivo: str = ""
 
-class PersonaProduccionBase(BaseModel):
-    nombre: str
-    servicios: List[ServicioPersona] = []  # Lista de servicios con tarifa por cada uno
-    telefono: str = ""
-    direccion: str = ""  # Dirección para guías de remisión
-    activo: bool = True
-    orden: int = 0  # Para ordenar manualmente
-
-class PersonaProduccionCreate(PersonaProduccionBase):
+class MermaCreate(MermaBase):
     pass
 
-class PersonaProduccion(PersonaProduccionBase):
+class Merma(MermaBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class PersonaConServicios(PersonaProduccion):
-    servicios_detalle: List[dict] = []  # Con nombre del servicio incluido
-
-# ==================== GUÍAS DE REMISIÓN ====================
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class GuiaRemisionBase(BaseModel):
     movimiento_id: str
@@ -1907,7 +337,6 @@ class GuiaRemisionBase(BaseModel):
     servicio_id: str
     persona_id: str
     cantidad: int = 0
-    fecha_emision: str = ""
     observaciones: str = ""
 
 class GuiaRemisionCreate(GuiaRemisionBase):
@@ -1916,618 +345,1536 @@ class GuiaRemisionCreate(GuiaRemisionBase):
 class GuiaRemision(GuiaRemisionBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    numero: str = ""  # Número automático de guía
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    numero_guia: str = ""
+    fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# ==================== HELPERS ====================
+
+def row_to_dict(row):
+    if row is None:
+        return None
+    return dict(row)
+
+def parse_jsonb(val):
+    if val is None:
+        return []
+    if isinstance(val, str):
+        return json.loads(val)
+    return val
+
+# ==================== ENDPOINTS MARCA ====================
+
+@api_router.get("/marcas")
+async def get_marcas():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_marcas ORDER BY created_at DESC")
+        return [row_to_dict(r) for r in rows]
+
+@api_router.post("/marcas")
+async def create_marca(input: MarcaCreate):
+    marca = Marca(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_marcas (id, nombre, created_at) VALUES ($1, $2, $3)",
+            marca.id, marca.nombre, marca.created_at.replace(tzinfo=None)
+        )
+    return marca
+
+@api_router.put("/marcas/{marca_id}")
+async def update_marca(marca_id: str, input: MarcaCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_marcas WHERE id = $1", marca_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Marca no encontrada")
+        await conn.execute("UPDATE prod_marcas SET nombre = $1 WHERE id = $2", input.nombre, marca_id)
+        return {**row_to_dict(result), "nombre": input.nombre}
+
+@api_router.delete("/marcas/{marca_id}")
+async def delete_marca(marca_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute("DELETE FROM prod_marcas WHERE id = $1", marca_id)
+        if result == "DELETE 0":
+            raise HTTPException(status_code=404, detail="Marca no encontrada")
+        return {"message": "Marca eliminada"}
+
+# ==================== ENDPOINTS TIPO ====================
+
+@api_router.get("/tipos")
+async def get_tipos(marca_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if marca_id:
+            rows = await conn.fetch("SELECT * FROM prod_tipos WHERE marca_ids ? $1 ORDER BY created_at DESC", marca_id)
+        else:
+            rows = await conn.fetch("SELECT * FROM prod_tipos ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['marca_ids'] = parse_jsonb(d.get('marca_ids'))
+            result.append(d)
+        return result
+
+@api_router.post("/tipos")
+async def create_tipo(input: TipoCreate):
+    tipo = Tipo(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_tipos (id, nombre, marca_ids, created_at) VALUES ($1, $2, $3, $4)",
+            tipo.id, tipo.nombre, json.dumps(tipo.marca_ids), tipo.created_at.replace(tzinfo=None)
+        )
+    return tipo
+
+@api_router.put("/tipos/{tipo_id}")
+async def update_tipo(tipo_id: str, input: TipoCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_tipos WHERE id = $1", tipo_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Tipo no encontrado")
+        await conn.execute("UPDATE prod_tipos SET nombre = $1, marca_ids = $2 WHERE id = $3", 
+                          input.nombre, json.dumps(input.marca_ids), tipo_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "marca_ids": input.marca_ids}
+
+@api_router.delete("/tipos/{tipo_id}")
+async def delete_tipo(tipo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_tipos WHERE id = $1", tipo_id)
+        return {"message": "Tipo eliminado"}
+
+# ==================== ENDPOINTS ENTALLE ====================
+
+@api_router.get("/entalles")
+async def get_entalles(tipo_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if tipo_id:
+            rows = await conn.fetch("SELECT * FROM prod_entalles WHERE tipo_ids ? $1 ORDER BY created_at DESC", tipo_id)
+        else:
+            rows = await conn.fetch("SELECT * FROM prod_entalles ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['tipo_ids'] = parse_jsonb(d.get('tipo_ids'))
+            result.append(d)
+        return result
+
+@api_router.post("/entalles")
+async def create_entalle(input: EntalleCreate):
+    entalle = Entalle(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_entalles (id, nombre, tipo_ids, created_at) VALUES ($1, $2, $3, $4)",
+            entalle.id, entalle.nombre, json.dumps(entalle.tipo_ids), entalle.created_at.replace(tzinfo=None)
+        )
+    return entalle
+
+@api_router.put("/entalles/{entalle_id}")
+async def update_entalle(entalle_id: str, input: EntalleCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_entalles WHERE id = $1", entalle_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Entalle no encontrado")
+        await conn.execute("UPDATE prod_entalles SET nombre = $1, tipo_ids = $2 WHERE id = $3",
+                          input.nombre, json.dumps(input.tipo_ids), entalle_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "tipo_ids": input.tipo_ids}
+
+@api_router.delete("/entalles/{entalle_id}")
+async def delete_entalle(entalle_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_entalles WHERE id = $1", entalle_id)
+        return {"message": "Entalle eliminado"}
+
+# ==================== ENDPOINTS TELA ====================
+
+@api_router.get("/telas")
+async def get_telas(entalle_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if entalle_id:
+            rows = await conn.fetch("SELECT * FROM prod_telas WHERE entalle_ids ? $1 ORDER BY created_at DESC", entalle_id)
+        else:
+            rows = await conn.fetch("SELECT * FROM prod_telas ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['entalle_ids'] = parse_jsonb(d.get('entalle_ids'))
+            result.append(d)
+        return result
+
+@api_router.post("/telas")
+async def create_tela(input: TelaCreate):
+    tela = Tela(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_telas (id, nombre, entalle_ids, created_at) VALUES ($1, $2, $3, $4)",
+            tela.id, tela.nombre, json.dumps(tela.entalle_ids), tela.created_at.replace(tzinfo=None)
+        )
+    return tela
+
+@api_router.put("/telas/{tela_id}")
+async def update_tela(tela_id: str, input: TelaCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_telas WHERE id = $1", tela_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Tela no encontrada")
+        await conn.execute("UPDATE prod_telas SET nombre = $1, entalle_ids = $2 WHERE id = $3",
+                          input.nombre, json.dumps(input.entalle_ids), tela_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "entalle_ids": input.entalle_ids}
+
+@api_router.delete("/telas/{tela_id}")
+async def delete_tela(tela_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_telas WHERE id = $1", tela_id)
+        return {"message": "Tela eliminada"}
+
+# ==================== ENDPOINTS HILO ====================
+
+@api_router.get("/hilos")
+async def get_hilos(tela_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if tela_id:
+            rows = await conn.fetch("SELECT * FROM prod_hilos WHERE tela_ids ? $1 ORDER BY created_at DESC", tela_id)
+        else:
+            rows = await conn.fetch("SELECT * FROM prod_hilos ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['tela_ids'] = parse_jsonb(d.get('tela_ids'))
+            result.append(d)
+        return result
+
+@api_router.post("/hilos")
+async def create_hilo(input: HiloCreate):
+    hilo = Hilo(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_hilos (id, nombre, tela_ids, created_at) VALUES ($1, $2, $3, $4)",
+            hilo.id, hilo.nombre, json.dumps(hilo.tela_ids), hilo.created_at.replace(tzinfo=None)
+        )
+    return hilo
+
+@api_router.put("/hilos/{hilo_id}")
+async def update_hilo(hilo_id: str, input: HiloCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_hilos WHERE id = $1", hilo_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Hilo no encontrado")
+        await conn.execute("UPDATE prod_hilos SET nombre = $1, tela_ids = $2 WHERE id = $3",
+                          input.nombre, json.dumps(input.tela_ids), hilo_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "tela_ids": input.tela_ids}
+
+@api_router.delete("/hilos/{hilo_id}")
+async def delete_hilo(hilo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_hilos WHERE id = $1", hilo_id)
+        return {"message": "Hilo eliminado"}
+
+# ==================== ENDPOINTS TALLA CATALOGO ====================
+
+@api_router.get("/tallas-catalogo")
+async def get_tallas_catalogo():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_tallas_catalogo ORDER BY orden ASC")
+        return [row_to_dict(r) for r in rows]
+
+@api_router.post("/tallas-catalogo")
+async def create_talla_catalogo(input: TallaCreate):
+    talla = Talla(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_tallas_catalogo (id, nombre, orden, created_at) VALUES ($1, $2, $3, $4)",
+            talla.id, talla.nombre, talla.orden, talla.created_at.replace(tzinfo=None)
+        )
+    return talla
+
+@api_router.put("/tallas-catalogo/{talla_id}")
+async def update_talla_catalogo(talla_id: str, input: TallaCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_tallas_catalogo WHERE id = $1", talla_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Talla no encontrada")
+        await conn.execute("UPDATE prod_tallas_catalogo SET nombre = $1, orden = $2 WHERE id = $3",
+                          input.nombre, input.orden, talla_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "orden": input.orden}
+
+@api_router.delete("/tallas-catalogo/{talla_id}")
+async def delete_talla_catalogo(talla_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_tallas_catalogo WHERE id = $1", talla_id)
+        return {"message": "Talla eliminada"}
+
+# ==================== ENDPOINTS COLOR CATALOGO ====================
+
+@api_router.get("/colores-catalogo")
+async def get_colores_catalogo():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_colores_catalogo ORDER BY nombre ASC")
+        return [row_to_dict(r) for r in rows]
+
+@api_router.post("/colores-catalogo")
+async def create_color_catalogo(input: ColorCreate):
+    color = Color(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_colores_catalogo (id, nombre, codigo_hex, created_at) VALUES ($1, $2, $3, $4)",
+            color.id, color.nombre, color.codigo_hex, color.created_at.replace(tzinfo=None)
+        )
+    return color
+
+@api_router.put("/colores-catalogo/{color_id}")
+async def update_color_catalogo(color_id: str, input: ColorCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_colores_catalogo WHERE id = $1", color_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Color no encontrado")
+        await conn.execute("UPDATE prod_colores_catalogo SET nombre = $1, codigo_hex = $2 WHERE id = $3",
+                          input.nombre, input.codigo_hex, color_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "codigo_hex": input.codigo_hex}
+
+@api_router.delete("/colores-catalogo/{color_id}")
+async def delete_color_catalogo(color_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_colores_catalogo WHERE id = $1", color_id)
+        return {"message": "Color eliminado"}
+
+# ==================== ENDPOINTS RUTAS PRODUCCION ====================
+
+@api_router.get("/rutas-produccion")
+async def get_rutas_produccion():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_rutas_produccion ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['etapas'] = parse_jsonb(d.get('etapas'))
+            # Enriquecer con nombres de servicios
+            for etapa in d['etapas']:
+                srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", etapa.get('servicio_id'))
+                etapa['servicio_nombre'] = srv['nombre'] if srv else None
+            result.append(d)
+        return result
+
+@api_router.get("/rutas-produccion/{ruta_id}")
+async def get_ruta_produccion(ruta_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM prod_rutas_produccion WHERE id = $1", ruta_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Ruta no encontrada")
+        d = row_to_dict(row)
+        d['etapas'] = parse_jsonb(d.get('etapas'))
+        for etapa in d['etapas']:
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", etapa.get('servicio_id'))
+            etapa['servicio_nombre'] = srv['nombre'] if srv else None
+        return d
+
+@api_router.post("/rutas-produccion")
+async def create_ruta_produccion(input: RutaProduccionCreate):
+    ruta = RutaProduccion(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        etapas_json = json.dumps([e.model_dump() for e in ruta.etapas])
+        await conn.execute(
+            "INSERT INTO prod_rutas_produccion (id, nombre, descripcion, etapas, created_at) VALUES ($1, $2, $3, $4, $5)",
+            ruta.id, ruta.nombre, ruta.descripcion, etapas_json, ruta.created_at.replace(tzinfo=None)
+        )
+    return ruta
+
+@api_router.put("/rutas-produccion/{ruta_id}")
+async def update_ruta_produccion(ruta_id: str, input: RutaProduccionCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_rutas_produccion WHERE id = $1", ruta_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Ruta no encontrada")
+        etapas_json = json.dumps([e.model_dump() for e in input.etapas])
+        await conn.execute("UPDATE prod_rutas_produccion SET nombre = $1, descripcion = $2, etapas = $3 WHERE id = $4",
+                          input.nombre, input.descripcion, etapas_json, ruta_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "descripcion": input.descripcion, "etapas": [e.model_dump() for e in input.etapas]}
+
+@api_router.delete("/rutas-produccion/{ruta_id}")
+async def delete_ruta_produccion(ruta_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        count = await conn.fetchval("SELECT COUNT(*) FROM prod_modelos WHERE ruta_produccion_id = $1", ruta_id)
+        if count > 0:
+            raise HTTPException(status_code=400, detail=f"No se puede eliminar: {count} modelo(s) usan esta ruta")
+        await conn.execute("DELETE FROM prod_rutas_produccion WHERE id = $1", ruta_id)
+        return {"message": "Ruta eliminada"}
+
+# ==================== ENDPOINTS SERVICIOS PRODUCCION ====================
+
+@api_router.get("/servicios-produccion")
+async def get_servicios_produccion():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_servicios_produccion ORDER BY nombre ASC")
+        return [row_to_dict(r) for r in rows]
+
+@api_router.post("/servicios-produccion")
+async def create_servicio_produccion(input: ServicioCreate):
+    servicio = Servicio(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO prod_servicios_produccion (id, nombre, descripcion, tarifa, created_at) VALUES ($1, $2, $3, $4, $5)",
+            servicio.id, servicio.nombre, servicio.descripcion, servicio.tarifa, servicio.created_at.replace(tzinfo=None)
+        )
+    return servicio
+
+@api_router.put("/servicios-produccion/{servicio_id}")
+async def update_servicio_produccion(servicio_id: str, input: ServicioCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_servicios_produccion WHERE id = $1", servicio_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Servicio no encontrado")
+        await conn.execute("UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3 WHERE id = $4",
+                          input.nombre, input.descripcion, input.tarifa, servicio_id)
+        return {**row_to_dict(result), **input.model_dump()}
+
+@api_router.delete("/servicios-produccion/{servicio_id}")
+async def delete_servicio_produccion(servicio_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        mov_count = await conn.fetchval("SELECT COUNT(*) FROM prod_movimientos_produccion WHERE servicio_id = $1", servicio_id)
+        if mov_count > 0:
+            raise HTTPException(status_code=400, detail=f"No se puede eliminar: {mov_count} movimiento(s) usan este servicio")
+        await conn.execute("DELETE FROM prod_servicios_produccion WHERE id = $1", servicio_id)
+        return {"message": "Servicio eliminado"}
+
+# ==================== ENDPOINTS PERSONAS PRODUCCION ====================
 
 @api_router.get("/personas-produccion")
 async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
-    query = {}
-    if servicio_id:
-        query['servicios.servicio_id'] = servicio_id
-    if activo is not None:
-        query['activo'] = activo
-    
-    personas = await db.prod_personas_produccion.find(query, {"_id": 0}).to_list(1000)
-    result = []
-    for p in personas:
-        if isinstance(p.get('created_at'), str):
-            p['created_at'] = datetime.fromisoformat(p['created_at'])
-        
-        # Obtener detalles de servicios (nombre + tarifa)
-        servicios_detalle = []
-        servicios_nombres = []
-        # Soportar tanto el nuevo formato (servicios) como el antiguo (servicio_ids)
-        servicios_list = p.get('servicios', [])
-        if not servicios_list and p.get('servicio_ids'):
-            # Migrar formato antiguo
-            servicios_list = [{"servicio_id": sid, "tarifa": 0} for sid in p.get('servicio_ids', [])]
-        
-        for s in servicios_list:
-            sid = s.get('servicio_id') if isinstance(s, dict) else s
-            tarifa = s.get('tarifa', 0) if isinstance(s, dict) else 0
-            servicio = await db.prod_servicios_produccion.find_one({"id": sid}, {"_id": 0, "nombre": 1})
-            if servicio:
-                servicios_detalle.append({
-                    "servicio_id": sid,
-                    "servicio_nombre": servicio['nombre'],
-                    "tarifa": tarifa
-                })
-                servicios_nombres.append(servicio['nombre'])
-        
-        p['servicios_detalle'] = servicios_detalle
-        p['servicios_nombres'] = servicios_nombres  # Para compatibilidad
-        
-        result.append(p)
-    return sorted(result, key=lambda x: (x.get('orden', 0), x.get('nombre', '')))
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_personas_produccion WHERE 1=1"
+        params = []
+        if activo is not None:
+            params.append(activo)
+            query += f" AND activo = ${len(params)}"
+        query += " ORDER BY nombre ASC"
+        rows = await conn.fetch(query, *params)
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['servicios'] = parse_jsonb(d.get('servicios'))
+            if servicio_id:
+                if any(s.get('servicio_id') == servicio_id for s in d['servicios']):
+                    result.append(d)
+            else:
+                result.append(d)
+        return result
 
-@api_router.post("/personas-produccion", response_model=PersonaProduccion)
-async def create_persona_produccion(input: PersonaProduccionCreate):
-    persona = PersonaProduccion(**input.model_dump())
-    doc = persona.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_personas_produccion.insert_one(doc)
+@api_router.post("/personas-produccion")
+async def create_persona_produccion(input: PersonaCreate):
+    persona = Persona(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        servicios_json = json.dumps([s.model_dump() for s in persona.servicios])
+        await conn.execute(
+            "INSERT INTO prod_personas_produccion (id, nombre, tipo, telefono, email, direccion, servicios, activo, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            persona.id, persona.nombre, persona.tipo, persona.telefono, persona.email, persona.direccion, servicios_json, persona.activo, persona.created_at.replace(tzinfo=None)
+        )
     return persona
 
-@api_router.put("/personas-produccion/{persona_id}", response_model=PersonaProduccion)
-async def update_persona_produccion(persona_id: str, input: PersonaProduccionCreate):
-    result = await db.prod_personas_produccion.find_one({"id": persona_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
-    await db.prod_personas_produccion.update_one({"id": persona_id}, {"$set": input.model_dump()})
-    result.update(input.model_dump())
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return PersonaProduccion(**result)
+@api_router.put("/personas-produccion/{persona_id}")
+async def update_persona_produccion(persona_id: str, input: PersonaCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_personas_produccion WHERE id = $1", persona_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Persona no encontrada")
+        servicios_json = json.dumps([s.model_dump() for s in input.servicios])
+        await conn.execute(
+            "UPDATE prod_personas_produccion SET nombre=$1, tipo=$2, telefono=$3, email=$4, direccion=$5, servicios=$6, activo=$7 WHERE id=$8",
+            input.nombre, input.tipo, input.telefono, input.email, input.direccion, servicios_json, input.activo, persona_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
 
 @api_router.delete("/personas-produccion/{persona_id}")
 async def delete_persona_produccion(persona_id: str):
-    # Verificar si tiene movimientos asociados
-    movimientos_count = await db.prod_movimientos_produccion.count_documents({"persona_id": persona_id})
-    if movimientos_count > 0:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"No se puede eliminar: tiene {movimientos_count} movimiento(s) de producción asociado(s)"
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        mov_count = await conn.fetchval("SELECT COUNT(*) FROM prod_movimientos_produccion WHERE persona_id = $1", persona_id)
+        if mov_count > 0:
+            raise HTTPException(status_code=400, detail=f"No se puede eliminar: {mov_count} movimiento(s) asignados")
+        await conn.execute("DELETE FROM prod_personas_produccion WHERE id = $1", persona_id)
+        return {"message": "Persona eliminada"}
+
+# ==================== ENDPOINTS MODELOS ====================
+
+@api_router.get("/modelos")
+async def get_modelos():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_modelos ORDER BY created_at DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['materiales'] = parse_jsonb(d.get('materiales'))
+            d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
+            # Enriquecer con nombres
+            marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", d.get('marca_id'))
+            tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", d.get('tipo_id'))
+            entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", d.get('entalle_id'))
+            tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", d.get('tela_id'))
+            hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
+            ruta = await conn.fetchrow("SELECT nombre FROM prod_rutas_produccion WHERE id = $1", d.get('ruta_produccion_id')) if d.get('ruta_produccion_id') else None
+            d['marca_nombre'] = marca['nombre'] if marca else None
+            d['tipo_nombre'] = tipo['nombre'] if tipo else None
+            d['entalle_nombre'] = entalle['nombre'] if entalle else None
+            d['tela_nombre'] = tela['nombre'] if tela else None
+            d['hilo_nombre'] = hilo['nombre'] if hilo else None
+            d['ruta_nombre'] = ruta['nombre'] if ruta else None
+            result.append(d)
+        return result
+
+@api_router.get("/modelos/{modelo_id}")
+async def get_modelo_detalle(modelo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Modelo no encontrado")
+        d = row_to_dict(row)
+        d['materiales'] = parse_jsonb(d.get('materiales'))
+        d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
+        # Enriquecer
+        marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", d.get('marca_id'))
+        tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", d.get('tipo_id'))
+        entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", d.get('entalle_id'))
+        tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", d.get('tela_id'))
+        hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
+        d['marca_nombre'] = marca['nombre'] if marca else None
+        d['tipo_nombre'] = tipo['nombre'] if tipo else None
+        d['entalle_nombre'] = entalle['nombre'] if entalle else None
+        d['tela_nombre'] = tela['nombre'] if tela else None
+        d['hilo_nombre'] = hilo['nombre'] if hilo else None
+        # Ruta con etapas
+        if d.get('ruta_produccion_id'):
+            ruta = await conn.fetchrow("SELECT * FROM prod_rutas_produccion WHERE id = $1", d['ruta_produccion_id'])
+            if ruta:
+                d['ruta_nombre'] = ruta['nombre']
+                etapas = parse_jsonb(ruta['etapas'])
+                etapas_detalle = []
+                for etapa in sorted(etapas, key=lambda x: x.get('orden', 0)):
+                    srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", etapa.get('servicio_id'))
+                    etapas_detalle.append({
+                        "servicio_id": etapa.get('servicio_id'),
+                        "servicio_nombre": srv['nombre'] if srv else None,
+                        "orden": etapa.get('orden', 0)
+                    })
+                d['ruta_etapas'] = etapas_detalle
+        # Materiales detalle
+        materiales_detalle = []
+        for mat in d.get('materiales', []):
+            item = await conn.fetchrow("SELECT nombre, codigo, unidad_medida FROM prod_inventario WHERE id = $1", mat.get('item_id'))
+            materiales_detalle.append({
+                "item_id": mat.get('item_id'),
+                "item_nombre": item['nombre'] if item else None,
+                "item_codigo": item['codigo'] if item else None,
+                "unidad_medida": item['unidad_medida'] if item else None,
+                "cantidad_estimada": mat.get('cantidad_estimada', 0)
+            })
+        d['materiales_detalle'] = materiales_detalle
+        # Servicios detalle
+        servicios_detalle = []
+        for srv_id in d.get('servicios_ids', []):
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", srv_id)
+            servicios_detalle.append({
+                "servicio_id": srv_id,
+                "servicio_nombre": srv['nombre'] if srv else None
+            })
+        d['servicios_detalle'] = servicios_detalle
+        return d
+
+@api_router.post("/modelos")
+async def create_modelo(input: ModeloCreate):
+    modelo = Modelo(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        materiales_json = json.dumps([m.model_dump() for m in modelo.materiales])
+        servicios_json = json.dumps(modelo.servicios_ids)
+        await conn.execute(
+            """INSERT INTO prod_modelos (id, nombre, marca_id, tipo_id, entalle_id, tela_id, hilo_id, 
+               ruta_produccion_id, materiales, servicios_ids, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+            modelo.id, modelo.nombre, modelo.marca_id, modelo.tipo_id, modelo.entalle_id, modelo.tela_id,
+            modelo.hilo_id, modelo.ruta_produccion_id, materiales_json, servicios_json, modelo.created_at.replace(tzinfo=None)
         )
-    
-    result = await db.prod_personas_produccion.delete_one({"id": persona_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
-    return {"message": "Persona eliminada"}
+    return modelo
 
-# ==================== MOVIMIENTOS DE PRODUCCIÓN ====================
+@api_router.put("/modelos/{modelo_id}")
+async def update_modelo(modelo_id: str, input: ModeloCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Modelo no encontrado")
+        materiales_json = json.dumps([m.model_dump() for m in input.materiales])
+        servicios_json = json.dumps(input.servicios_ids)
+        await conn.execute(
+            """UPDATE prod_modelos SET nombre=$1, marca_id=$2, tipo_id=$3, entalle_id=$4, tela_id=$5, hilo_id=$6,
+               ruta_produccion_id=$7, materiales=$8, servicios_ids=$9 WHERE id=$10""",
+            input.nombre, input.marca_id, input.tipo_id, input.entalle_id, input.tela_id, input.hilo_id,
+            input.ruta_produccion_id, materiales_json, servicios_json, modelo_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
 
-class MovimientoProduccionBase(BaseModel):
-    registro_id: str
-    servicio_id: str
-    persona_id: str
-    fecha_inicio: Optional[str] = None
-    fecha_fin: Optional[str] = None
-    cantidad_enviada: int = 0
-    cantidad_recibida: int = 0
-    tarifa_aplicada: float = 0.0  # Tarifa editable (puede diferir de la del servicio)
-    observaciones: str = ""
+@api_router.delete("/modelos/{modelo_id}")
+async def delete_modelo(modelo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_modelos WHERE id = $1", modelo_id)
+        return {"message": "Modelo eliminado"}
 
-class MovimientoProduccionCreate(MovimientoProduccionBase):
-    pass
+# ==================== ENDPOINTS REGISTROS ====================
 
-class MovimientoProduccion(MovimientoProduccionBase):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+@api_router.get("/estados")
+async def get_estados():
+    return {"estados": ESTADOS_PRODUCCION}
 
-class MovimientoConDetalles(MovimientoProduccion):
-    servicio_nombre: str = ""
-    persona_nombre: str = ""
-    registro_n_corte: str = ""
-    costo: float = 0.0  # Calculado: cantidad_recibida * tarifa_aplicada
-    diferencia: int = 0  # cantidad_enviada - cantidad_recibida (merma)
+@api_router.get("/registros")
+async def get_registros():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_registros ORDER BY fecha_creacion DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['tallas'] = parse_jsonb(d.get('tallas'))
+            d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
+            # Enriquecer modelo
+            modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
+            if modelo:
+                d['modelo_nombre'] = modelo['nombre']
+                marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", modelo['marca_id'])
+                tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", modelo['tipo_id'])
+                entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", modelo['entalle_id'])
+                tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", modelo['tela_id'])
+                hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", modelo['hilo_id'])
+                d['marca_nombre'] = marca['nombre'] if marca else None
+                d['tipo_nombre'] = tipo['nombre'] if tipo else None
+                d['entalle_nombre'] = entalle['nombre'] if entalle else None
+                d['tela_nombre'] = tela['nombre'] if tela else None
+                d['hilo_nombre'] = hilo['nombre'] if hilo else None
+            result.append(d)
+        return result
 
-# ==================== CALIDAD / MERMA ====================
+@api_router.get("/registros/{registro_id}")
+async def get_registro(registro_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not row:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        d = row_to_dict(row)
+        d['tallas'] = parse_jsonb(d.get('tallas'))
+        d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
+        modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
+        if modelo:
+            d['modelo_nombre'] = modelo['nombre']
+            marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", modelo['marca_id'])
+            tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", modelo['tipo_id'])
+            entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", modelo['entalle_id'])
+            tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", modelo['tela_id'])
+            hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", modelo['hilo_id'])
+            d['marca_nombre'] = marca['nombre'] if marca else None
+            d['tipo_nombre'] = tipo['nombre'] if tipo else None
+            d['entalle_nombre'] = entalle['nombre'] if entalle else None
+            d['tela_nombre'] = tela['nombre'] if tela else None
+            d['hilo_nombre'] = hilo['nombre'] if hilo else None
+        return d
 
-class MermaBase(BaseModel):
-    registro_id: str
-    movimiento_id: str
-    servicio_id: str
-    persona_id: str
-    cantidad: int = 0
-    motivo: str = ""
-    fecha: Optional[str] = None
+@api_router.post("/registros")
+async def create_registro(input: RegistroCreate):
+    registro = Registro(**input.model_dump())
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
+        dist_json = json.dumps([d.model_dump() for d in registro.distribucion_colores])
+        await conn.execute(
+            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, tallas, distribucion_colores, fecha_creacion) 
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            registro.id, registro.n_corte, registro.modelo_id, registro.curva, registro.estado, registro.urgente,
+            tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None)
+        )
+    return registro
 
-class MermaCreate(MermaBase):
-    pass
+@api_router.put("/registros/{registro_id}")
+async def update_registro(registro_id: str, input: RegistroCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        tallas_json = json.dumps([t.model_dump() for t in input.tallas])
+        dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
+        await conn.execute(
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, tallas=$6, distribucion_colores=$7 WHERE id=$8""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, tallas_json, dist_json, registro_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
 
-class Merma(MermaBase):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+@api_router.delete("/registros/{registro_id}")
+async def delete_registro(registro_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_registros WHERE id = $1", registro_id)
+        return {"message": "Registro eliminado"}
+
+@api_router.get("/registros/{registro_id}/estados-disponibles")
+async def get_estados_disponibles_registro(registro_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro['estado']}
+
+# ==================== ENDPOINTS INVENTARIO ====================
+
+CATEGORIAS_INVENTARIO = ["Telas", "Avios", "Otros"]
+
+@api_router.get("/inventario-categorias")
+async def get_categorias():
+    return {"categorias": CATEGORIAS_INVENTARIO}
+
+@api_router.get("/inventario")
+async def get_inventario():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_inventario ORDER BY nombre ASC")
+        return [row_to_dict(r) for r in rows]
+
+@api_router.get("/inventario/{item_id}")
+async def get_item_inventario(item_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        d = row_to_dict(item)
+        # Lotes disponibles
+        ingresos = await conn.fetch(
+            "SELECT * FROM prod_inventario_ingresos WHERE item_id = $1 AND cantidad_disponible > 0 ORDER BY fecha ASC", item_id
+        )
+        d['lotes'] = [row_to_dict(i) for i in ingresos]
+        # Rollos si aplica
+        if d.get('control_por_rollos'):
+            rollos = await conn.fetch(
+                "SELECT * FROM prod_inventario_rollos WHERE item_id = $1 AND activo = true AND metraje_disponible > 0", item_id
+            )
+            d['rollos'] = [row_to_dict(r) for r in rollos]
+        return d
+
+@api_router.post("/inventario")
+async def create_item_inventario(input: ItemInventarioCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT id FROM prod_inventario WHERE codigo = $1", input.codigo)
+        if existing:
+            raise HTTPException(status_code=400, detail="El código ya existe")
+        item = ItemInventario(**input.model_dump())
+        await conn.execute(
+            """INSERT INTO prod_inventario (id, codigo, nombre, descripcion, categoria, unidad_medida, stock_minimo, stock_actual, control_por_rollos, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            item.id, item.codigo, item.nombre, item.descripcion, item.categoria, item.unidad_medida,
+            item.stock_minimo, item.stock_actual, item.control_por_rollos, item.created_at.replace(tzinfo=None)
+        )
+        return item
+
+@api_router.put("/inventario/{item_id}")
+async def update_item_inventario(item_id: str, input: ItemInventarioCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", item_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        if input.codigo != result['codigo']:
+            existing = await conn.fetchrow("SELECT id FROM prod_inventario WHERE codigo = $1 AND id != $2", input.codigo, item_id)
+            if existing:
+                raise HTTPException(status_code=400, detail="El código ya existe")
+        await conn.execute(
+            """UPDATE prod_inventario SET codigo=$1, nombre=$2, descripcion=$3, categoria=$4, unidad_medida=$5, stock_minimo=$6, control_por_rollos=$7 WHERE id=$8""",
+            input.codigo, input.nombre, input.descripcion, input.categoria, input.unidad_medida, input.stock_minimo, input.control_por_rollos, item_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
+
+@api_router.delete("/inventario/{item_id}")
+async def delete_item_inventario(item_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_inventario_ingresos WHERE item_id = $1", item_id)
+        await conn.execute("DELETE FROM prod_inventario_salidas WHERE item_id = $1", item_id)
+        await conn.execute("DELETE FROM prod_inventario_ajustes WHERE item_id = $1", item_id)
+        await conn.execute("DELETE FROM prod_inventario_rollos WHERE item_id = $1", item_id)
+        await conn.execute("DELETE FROM prod_inventario WHERE id = $1", item_id)
+        return {"message": "Item eliminado"}
+
+# ==================== ENDPOINTS INGRESOS INVENTARIO ====================
+
+@api_router.get("/inventario-ingresos")
+async def get_ingresos():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_inventario_ingresos ORDER BY fecha DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
+            d['item_nombre'] = item['nombre'] if item else ""
+            d['item_codigo'] = item['codigo'] if item else ""
+            rollos_count = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_rollos WHERE ingreso_id = $1", d['id'])
+            d['rollos_count'] = rollos_count
+            result.append(d)
+        return result
+
+@api_router.post("/inventario-ingresos")
+async def create_ingreso(input: IngresoInventarioCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+        
+        rollos_data = input.rollos if hasattr(input, 'rollos') else []
+        cantidad = input.cantidad
+        
+        if item['control_por_rollos'] and rollos_data:
+            cantidad = sum(r.get('metraje', 0) for r in rollos_data)
+        
+        ingreso = IngresoInventario(
+            item_id=input.item_id, cantidad=cantidad, costo_unitario=input.costo_unitario,
+            proveedor=input.proveedor, numero_documento=input.numero_documento, observaciones=input.observaciones
+        )
+        ingreso.cantidad_disponible = cantidad
+        
+        await conn.execute(
+            """INSERT INTO prod_inventario_ingresos (id, item_id, cantidad, cantidad_disponible, costo_unitario, proveedor, numero_documento, observaciones, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            ingreso.id, ingreso.item_id, ingreso.cantidad, ingreso.cantidad_disponible, ingreso.costo_unitario,
+            ingreso.proveedor, ingreso.numero_documento, ingreso.observaciones, ingreso.fecha.replace(tzinfo=None)
+        )
+        
+        # Crear rollos si aplica
+        if item['control_por_rollos'] and rollos_data:
+            for rollo_data in rollos_data:
+                rollo_id = str(uuid.uuid4())
+                await conn.execute(
+                    """INSERT INTO prod_inventario_rollos (id, item_id, ingreso_id, numero_rollo, metraje, metraje_disponible, ancho, tono, observaciones, activo, created_at)
+                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+                    rollo_id, input.item_id, ingreso.id, rollo_data.get('numero_rollo', ''), rollo_data.get('metraje', 0),
+                    rollo_data.get('metraje', 0), rollo_data.get('ancho', 0), rollo_data.get('tono', ''),
+                    rollo_data.get('observaciones', ''), True, datetime.now()
+                )
+        
+        # Actualizar stock
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", cantidad, input.item_id)
+        return ingreso
+
+@api_router.delete("/inventario-ingresos/{ingreso_id}")
+async def delete_ingreso(ingreso_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        ingreso = await conn.fetchrow("SELECT * FROM prod_inventario_ingresos WHERE id = $1", ingreso_id)
+        if not ingreso:
+            raise HTTPException(status_code=404, detail="Ingreso no encontrado")
+        if ingreso['cantidad_disponible'] != ingreso['cantidad']:
+            raise HTTPException(status_code=400, detail="No se puede eliminar un ingreso que ya tiene salidas")
+        await conn.execute("DELETE FROM prod_inventario_rollos WHERE ingreso_id = $1", ingreso_id)
+        await conn.execute("DELETE FROM prod_inventario_ingresos WHERE id = $1", ingreso_id)
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", ingreso['cantidad'], ingreso['item_id'])
+        return {"message": "Ingreso eliminado"}
+
+# ==================== ENDPOINTS SALIDAS INVENTARIO ====================
+
+@api_router.get("/inventario-salidas")
+async def get_salidas(registro_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        if registro_id:
+            rows = await conn.fetch("SELECT * FROM prod_inventario_salidas WHERE registro_id = $1 ORDER BY fecha DESC", registro_id)
+        else:
+            rows = await conn.fetch("SELECT * FROM prod_inventario_salidas ORDER BY fecha DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            d['detalle_fifo'] = parse_jsonb(d.get('detalle_fifo'))
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
+            d['item_nombre'] = item['nombre'] if item else ""
+            d['item_codigo'] = item['codigo'] if item else ""
+            if d.get('registro_id'):
+                reg = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d['registro_id'])
+                d['registro_n_corte'] = reg['n_corte'] if reg else None
+            if d.get('rollo_id'):
+                rollo = await conn.fetchrow("SELECT numero_rollo FROM prod_inventario_rollos WHERE id = $1", d['rollo_id'])
+                d['rollo_numero'] = rollo['numero_rollo'] if rollo else None
+            result.append(d)
+        return result
+
+@api_router.post("/inventario-salidas")
+async def create_salida(input: SalidaInventarioCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+        if float(item['stock_actual']) < input.cantidad:
+            raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item['stock_actual']}")
+        
+        if input.registro_id:
+            reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
+            if not reg:
+                raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        costo_total = 0.0
+        detalle_fifo = []
+        
+        if input.rollo_id:
+            rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
+            if not rollo:
+                raise HTTPException(status_code=404, detail="Rollo no encontrado")
+            if float(rollo['metraje_disponible']) < input.cantidad:
+                raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo['metraje_disponible']}")
+            ingreso = await conn.fetchrow("SELECT costo_unitario FROM prod_inventario_ingresos WHERE id = $1", rollo['ingreso_id'])
+            costo_unitario = float(ingreso['costo_unitario']) if ingreso else 0
+            costo_total = input.cantidad * costo_unitario
+            detalle_fifo = [{"rollo_id": input.rollo_id, "cantidad": input.cantidad, "costo_unitario": costo_unitario}]
+            await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1 WHERE id = $2", input.cantidad, input.rollo_id)
+            await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
+        else:
+            ingresos = await conn.fetch(
+                "SELECT * FROM prod_inventario_ingresos WHERE item_id = $1 AND cantidad_disponible > 0 ORDER BY fecha ASC", input.item_id
+            )
+            cantidad_restante = input.cantidad
+            for ing in ingresos:
+                if cantidad_restante <= 0:
+                    break
+                disponible = float(ing['cantidad_disponible'])
+                consumir = min(disponible, cantidad_restante)
+                costo_unitario = float(ing['costo_unitario'])
+                costo_total += consumir * costo_unitario
+                detalle_fifo.append({"ingreso_id": ing['id'], "cantidad": consumir, "costo_unitario": costo_unitario})
+                await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", consumir, ing['id'])
+                cantidad_restante -= consumir
+        
+        salida = SalidaInventario(**input.model_dump())
+        salida.costo_total = costo_total
+        salida.detalle_fifo = detalle_fifo
+        
+        await conn.execute(
+            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            salida.id, salida.item_id, salida.cantidad, salida.registro_id, salida.observaciones,
+            salida.rollo_id, salida.costo_total, json.dumps(salida.detalle_fifo), salida.fecha.replace(tzinfo=None)
+        )
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
+        return salida
+
+@api_router.delete("/inventario-salidas/{salida_id}")
+async def delete_salida(salida_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        salida = await conn.fetchrow("SELECT * FROM prod_inventario_salidas WHERE id = $1", salida_id)
+        if not salida:
+            raise HTTPException(status_code=404, detail="Salida no encontrada")
+        detalle_fifo = parse_jsonb(salida['detalle_fifo'])
+        for detalle in detalle_fifo:
+            if detalle.get('rollo_id'):
+                await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible + $1 WHERE id = $2", detalle['cantidad'], detalle['rollo_id'])
+                rollo = await conn.fetchrow("SELECT ingreso_id FROM prod_inventario_rollos WHERE id = $1", detalle['rollo_id'])
+                if rollo:
+                    await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible + $1 WHERE id = $2", detalle['cantidad'], rollo['ingreso_id'])
+            elif detalle.get('ingreso_id'):
+                await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible + $1 WHERE id = $2", detalle['cantidad'], detalle['ingreso_id'])
+        await conn.execute("DELETE FROM prod_inventario_salidas WHERE id = $1", salida_id)
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", float(salida['cantidad']), salida['item_id'])
+        return {"message": "Salida eliminada y stock restaurado"}
+
+# ==================== ENDPOINTS ROLLOS ====================
+
+@api_router.get("/inventario-rollos")
+async def get_rollos(item_id: str = None, activo: bool = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_inventario_rollos WHERE 1=1"
+        params = []
+        if item_id:
+            params.append(item_id)
+            query += f" AND item_id = ${len(params)}"
+        if activo is not None:
+            params.append(activo)
+            query += f" AND activo = ${len(params)}"
+            if activo:
+                query += " AND metraje_disponible > 0"
+        query += " ORDER BY created_at DESC"
+        rows = await conn.fetch(query, *params)
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
+            d['item_nombre'] = item['nombre'] if item else ""
+            d['item_codigo'] = item['codigo'] if item else ""
+            result.append(d)
+        return result
+
+@api_router.get("/inventario-rollos/{rollo_id}")
+async def get_rollo(rollo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", rollo_id)
+        if not rollo:
+            raise HTTPException(status_code=404, detail="Rollo no encontrado")
+        d = row_to_dict(rollo)
+        item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
+        d['item_nombre'] = item['nombre'] if item else ""
+        d['item_codigo'] = item['codigo'] if item else ""
+        return d
+
+# ==================== ENDPOINTS AJUSTES INVENTARIO ====================
+
+@api_router.get("/inventario-ajustes")
+async def get_ajustes():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT * FROM prod_inventario_ajustes ORDER BY fecha DESC")
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
+            d['item_nombre'] = item['nombre'] if item else ""
+            d['item_codigo'] = item['codigo'] if item else ""
+            result.append(d)
+        return result
+
+@api_router.post("/inventario-ajustes")
+async def create_ajuste(input: AjusteInventarioCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+        if input.tipo not in ["entrada", "salida"]:
+            raise HTTPException(status_code=400, detail="Tipo debe ser 'entrada' o 'salida'")
+        if input.tipo == "salida" and float(item['stock_actual']) < input.cantidad:
+            raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item['stock_actual']}")
+        
+        ajuste = AjusteInventario(**input.model_dump())
+        await conn.execute(
+            """INSERT INTO prod_inventario_ajustes (id, item_id, tipo, cantidad, motivo, observaciones, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7)""",
+            ajuste.id, ajuste.item_id, ajuste.tipo, ajuste.cantidad, ajuste.motivo, ajuste.observaciones, ajuste.fecha.replace(tzinfo=None)
+        )
+        incremento = input.cantidad if input.tipo == "entrada" else -input.cantidad
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", incremento, input.item_id)
+        return ajuste
+
+@api_router.delete("/inventario-ajustes/{ajuste_id}")
+async def delete_ajuste(ajuste_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        ajuste = await conn.fetchrow("SELECT * FROM prod_inventario_ajustes WHERE id = $1", ajuste_id)
+        if not ajuste:
+            raise HTTPException(status_code=404, detail="Ajuste no encontrado")
+        incremento = -float(ajuste['cantidad']) if ajuste['tipo'] == "entrada" else float(ajuste['cantidad'])
+        if ajuste['tipo'] == "entrada":
+            item = await conn.fetchrow("SELECT stock_actual FROM prod_inventario WHERE id = $1", ajuste['item_id'])
+            if item and float(item['stock_actual']) < float(ajuste['cantidad']):
+                raise HTTPException(status_code=400, detail="No se puede eliminar: dejaría el stock negativo")
+        await conn.execute("DELETE FROM prod_inventario_ajustes WHERE id = $1", ajuste_id)
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", incremento, ajuste['item_id'])
+        return {"message": "Ajuste eliminado"}
+
+# ==================== ENDPOINTS MOVIMIENTOS PRODUCCION ====================
 
 @api_router.get("/movimientos-produccion")
-async def get_movimientos_produccion(registro_id: str = None):
-    query = {}
-    if registro_id:
-        query['registro_id'] = registro_id
-    
-    movimientos = await db.prod_movimientos_produccion.find(query, {"_id": 0}).to_list(5000)
-    result = []
-    for m in movimientos:
-        if isinstance(m.get('created_at'), str):
-            m['created_at'] = datetime.fromisoformat(m['created_at'])
-        
-        # Obtener nombres
-        servicio = await db.prod_servicios_produccion.find_one({"id": m.get('servicio_id')}, {"_id": 0, "nombre": 1, "tarifa": 1})
-        persona = await db.prod_personas_produccion.find_one({"id": m.get('persona_id')}, {"_id": 0, "nombre": 1})
-        registro = await db.prod_registros.find_one({"id": m.get('registro_id')}, {"_id": 0, "n_corte": 1})
-        
-        m['servicio_nombre'] = servicio['nombre'] if servicio else ""
-        m['persona_nombre'] = persona['nombre'] if persona else ""
-        m['registro_n_corte'] = registro['n_corte'] if registro else ""
-        m['tarifa_servicio'] = servicio.get('tarifa', 0) if servicio else 0
-        
-        # Compatibilidad: si tiene 'cantidad' antigua, migrar a cantidad_enviada
-        if 'cantidad' in m and 'cantidad_enviada' not in m:
-            m['cantidad_enviada'] = m.get('cantidad', 0)
-            m['cantidad_recibida'] = m.get('cantidad', 0)
-        
-        # Calcular costo con cantidad recibida y tarifa aplicada
-        tarifa_mov = m.get('tarifa_aplicada', 0)
-        cantidad_recibida = m.get('cantidad_recibida', 0)
-        m['costo'] = tarifa_mov * cantidad_recibida
-        
-        # Calcular diferencia (merma)
-        cantidad_enviada = m.get('cantidad_enviada', 0)
-        m['diferencia'] = cantidad_enviada - cantidad_recibida
-        
-        result.append(m)
-    return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
+async def get_movimientos(registro_id: str = None, servicio_id: str = None, persona_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_movimientos_produccion WHERE 1=1"
+        params = []
+        if registro_id:
+            params.append(registro_id)
+            query += f" AND registro_id = ${len(params)}"
+        if servicio_id:
+            params.append(servicio_id)
+            query += f" AND servicio_id = ${len(params)}"
+        if persona_id:
+            params.append(persona_id)
+            query += f" AND persona_id = ${len(params)}"
+        query += " ORDER BY created_at DESC"
+        rows = await conn.fetch(query, *params)
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", d.get('servicio_id'))
+            per = await conn.fetchrow("SELECT nombre FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
+            reg = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d.get('registro_id'))
+            d['servicio_nombre'] = srv['nombre'] if srv else None
+            d['persona_nombre'] = per['nombre'] if per else None
+            d['registro_n_corte'] = reg['n_corte'] if reg else None
+            # Convertir fechas a string
+            if d.get('fecha_inicio'):
+                d['fecha_inicio'] = str(d['fecha_inicio'])
+            if d.get('fecha_fin'):
+                d['fecha_fin'] = str(d['fecha_fin'])
+            result.append(d)
+        return result
 
-@api_router.post("/movimientos-produccion", response_model=MovimientoProduccion)
-async def create_movimiento_produccion(input: MovimientoProduccionCreate):
-    # Verificar que el registro existe
-    registro = await db.prod_registros.find_one({"id": input.registro_id})
-    if not registro:
-        raise HTTPException(status_code=404, detail="Registro no encontrado")
-    
-    # Verificar que el servicio existe
-    servicio = await db.prod_servicios_produccion.find_one({"id": input.servicio_id})
-    if not servicio:
-        raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    
-    # Verificar que la persona existe y tiene el servicio asignado
-    persona = await db.prod_personas_produccion.find_one({"id": input.persona_id}, {"_id": 0})
-    if not persona:
-        raise HTTPException(status_code=404, detail="Persona no encontrada")
-    
-    # Verificar que la persona tiene el servicio (nuevo formato o antiguo)
-    servicios_persona = persona.get('servicios', [])
-    servicio_ids_persona = [s.get('servicio_id') if isinstance(s, dict) else s for s in servicios_persona]
-    # También soportar formato antiguo
-    if not servicio_ids_persona:
-        servicio_ids_persona = persona.get('servicio_ids', [])
-    
-    if input.servicio_id not in servicio_ids_persona:
-        raise HTTPException(status_code=400, detail="La persona no tiene asignado este servicio")
-    
-    movimiento = MovimientoProduccion(**input.model_dump())
-    doc = movimiento.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_movimientos_produccion.insert_one(doc)
-    
-    # Si hay diferencia entre enviada y recibida, crear registro de merma
-    diferencia = input.cantidad_enviada - input.cantidad_recibida
-    if diferencia > 0:
-        merma = Merma(
-            registro_id=input.registro_id,
-            movimiento_id=movimiento.id,
-            servicio_id=input.servicio_id,
-            persona_id=input.persona_id,
-            cantidad=diferencia,
-            motivo="Diferencia automática entre cantidad enviada y recibida",
-            fecha=input.fecha_fin or input.fecha_inicio
+@api_router.post("/movimientos-produccion")
+async def create_movimiento(input: MovimientoCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        srv = await conn.fetchrow("SELECT id FROM prod_servicios_produccion WHERE id = $1", input.servicio_id)
+        if not srv:
+            raise HTTPException(status_code=404, detail="Servicio no encontrado")
+        per = await conn.fetchrow("SELECT servicios FROM prod_personas_produccion WHERE id = $1", input.persona_id)
+        if not per:
+            raise HTTPException(status_code=404, detail="Persona no encontrada")
+        
+        # Calcular tarifa
+        servicios = parse_jsonb(per['servicios'])
+        tarifa = 0
+        for s in servicios:
+            if s.get('servicio_id') == input.servicio_id:
+                tarifa = s.get('tarifa', 0)
+                break
+        
+        diferencia = input.cantidad_enviada - input.cantidad_recibida
+        costo_calculado = input.cantidad_recibida * tarifa
+        
+        movimiento = Movimiento(**input.model_dump())
+        movimiento.diferencia = diferencia
+        movimiento.costo_calculado = costo_calculado
+        
+        fecha_inicio = None
+        fecha_fin = None
+        if input.fecha_inicio:
+            try:
+                fecha_inicio = datetime.strptime(input.fecha_inicio, '%Y-%m-%d').date()
+            except:
+                pass
+        if input.fecha_fin:
+            try:
+                fecha_fin = datetime.strptime(input.fecha_fin, '%Y-%m-%d').date()
+            except:
+                pass
+        
+        await conn.execute(
+            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, fecha_inicio, fecha_fin, observaciones, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
+            movimiento.id, movimiento.registro_id, movimiento.servicio_id, movimiento.persona_id,
+            movimiento.cantidad_enviada, movimiento.cantidad_recibida, diferencia, costo_calculado,
+            fecha_inicio, fecha_fin, movimiento.observaciones, movimiento.created_at.replace(tzinfo=None)
         )
-        merma_doc = merma.model_dump()
-        merma_doc['created_at'] = merma_doc['created_at'].isoformat()
-        await db.prod_mermas.insert_one(merma_doc)
-    
-    return movimiento
+        
+        # Crear merma si hay diferencia
+        if diferencia > 0:
+            merma_id = str(uuid.uuid4())
+            await conn.execute(
+                """INSERT INTO prod_mermas (id, registro_id, movimiento_id, servicio_id, persona_id, cantidad, motivo, fecha)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8)""",
+                merma_id, input.registro_id, movimiento.id, input.servicio_id, input.persona_id,
+                diferencia, "Diferencia automática", datetime.now()
+            )
+        
+        return movimiento
 
-@api_router.put("/movimientos-produccion/{movimiento_id}", response_model=MovimientoProduccion)
-async def update_movimiento_produccion(movimiento_id: str, input: MovimientoProduccionCreate):
-    result = await db.prod_movimientos_produccion.find_one({"id": movimiento_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
-    
-    # Eliminar merma anterior asociada a este movimiento (si existe)
-    await db.prod_mermas.delete_many({"movimiento_id": movimiento_id})
-    
-    update_data = input.model_dump()
-    await db.prod_movimientos_produccion.update_one({"id": movimiento_id}, {"$set": update_data})
-    result.update(update_data)
-    
-    # Si hay nueva diferencia, crear nueva merma
-    diferencia = input.cantidad_enviada - input.cantidad_recibida
-    if diferencia > 0:
-        merma = Merma(
-            registro_id=input.registro_id,
-            movimiento_id=movimiento_id,
-            servicio_id=input.servicio_id,
-            persona_id=input.persona_id,
-            cantidad=diferencia,
-            motivo="Diferencia automática entre cantidad enviada y recibida",
-            fecha=input.fecha_fin or input.fecha_inicio
+@api_router.put("/movimientos-produccion/{movimiento_id}")
+async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+        
+        per = await conn.fetchrow("SELECT servicios FROM prod_personas_produccion WHERE id = $1", input.persona_id)
+        servicios = parse_jsonb(per['servicios']) if per else []
+        tarifa = 0
+        for s in servicios:
+            if s.get('servicio_id') == input.servicio_id:
+                tarifa = s.get('tarifa', 0)
+                break
+        
+        diferencia = input.cantidad_enviada - input.cantidad_recibida
+        costo_calculado = input.cantidad_recibida * tarifa
+        
+        # Eliminar mermas anteriores
+        await conn.execute("DELETE FROM prod_mermas WHERE movimiento_id = $1", movimiento_id)
+        
+        fecha_inicio = None
+        fecha_fin = None
+        if input.fecha_inicio:
+            try:
+                fecha_inicio = datetime.strptime(input.fecha_inicio, '%Y-%m-%d').date()
+            except:
+                pass
+        if input.fecha_fin:
+            try:
+                fecha_fin = datetime.strptime(input.fecha_fin, '%Y-%m-%d').date()
+            except:
+                pass
+        
+        await conn.execute(
+            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, fecha_inicio=$8, fecha_fin=$9, observaciones=$10 WHERE id=$11""",
+            input.registro_id, input.servicio_id, input.persona_id, input.cantidad_enviada, input.cantidad_recibida,
+            diferencia, costo_calculado, fecha_inicio, fecha_fin, input.observaciones, movimiento_id
         )
-        merma_doc = merma.model_dump()
-        merma_doc['created_at'] = merma_doc['created_at'].isoformat()
-        await db.prod_mermas.insert_one(merma_doc)
-    
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return MovimientoProduccion(**result)
+        
+        # Crear nueva merma si hay diferencia
+        if diferencia > 0:
+            merma_id = str(uuid.uuid4())
+            await conn.execute(
+                """INSERT INTO prod_mermas (id, registro_id, movimiento_id, servicio_id, persona_id, cantidad, motivo, fecha)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8)""",
+                merma_id, input.registro_id, movimiento_id, input.servicio_id, input.persona_id,
+                diferencia, "Diferencia automática", datetime.now()
+            )
+        
+        return {**row_to_dict(result), **input.model_dump(), "diferencia": diferencia, "costo_calculado": costo_calculado}
 
 @api_router.delete("/movimientos-produccion/{movimiento_id}")
-async def delete_movimiento_produccion(movimiento_id: str):
-    # Eliminar mermas asociadas
-    await db.prod_mermas.delete_many({"movimiento_id": movimiento_id})
-    result = await db.prod_movimientos_produccion.delete_one({"id": movimiento_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
-    return {"message": "Movimiento eliminado"}
+async def delete_movimiento(movimiento_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_mermas WHERE movimiento_id = $1", movimiento_id)
+        await conn.execute("DELETE FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
+        return {"message": "Movimiento eliminado"}
 
-# ==================== ENDPOINTS CALIDAD/MERMA ====================
+# ==================== ENDPOINTS MERMAS ====================
 
 @api_router.get("/mermas")
 async def get_mermas(registro_id: str = None, servicio_id: str = None, persona_id: str = None):
-    query = {}
-    if registro_id:
-        query['registro_id'] = registro_id
-    if servicio_id:
-        query['servicio_id'] = servicio_id
-    if persona_id:
-        query['persona_id'] = persona_id
-    
-    mermas = await db.prod_mermas.find(query, {"_id": 0}).to_list(5000)
-    result = []
-    for m in mermas:
-        if isinstance(m.get('created_at'), str):
-            m['created_at'] = datetime.fromisoformat(m['created_at'])
-        
-        # Enriquecer con nombres
-        servicio = await db.prod_servicios_produccion.find_one({"id": m.get('servicio_id')}, {"_id": 0, "nombre": 1})
-        persona = await db.prod_personas_produccion.find_one({"id": m.get('persona_id')}, {"_id": 0, "nombre": 1})
-        registro = await db.prod_registros.find_one({"id": m.get('registro_id')}, {"_id": 0, "n_corte": 1})
-        
-        m['servicio_nombre'] = servicio['nombre'] if servicio else ""
-        m['persona_nombre'] = persona['nombre'] if persona else ""
-        m['registro_n_corte'] = registro['n_corte'] if registro else ""
-        
-        result.append(m)
-    return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_mermas WHERE 1=1"
+        params = []
+        if registro_id:
+            params.append(registro_id)
+            query += f" AND registro_id = ${len(params)}"
+        if servicio_id:
+            params.append(servicio_id)
+            query += f" AND servicio_id = ${len(params)}"
+        if persona_id:
+            params.append(persona_id)
+            query += f" AND persona_id = ${len(params)}"
+        query += " ORDER BY fecha DESC"
+        rows = await conn.fetch(query, *params)
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", d.get('servicio_id'))
+            per = await conn.fetchrow("SELECT nombre FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
+            reg = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d.get('registro_id'))
+            d['servicio_nombre'] = srv['nombre'] if srv else None
+            d['persona_nombre'] = per['nombre'] if per else None
+            d['registro_n_corte'] = reg['n_corte'] if reg else None
+            result.append(d)
+        return result
 
-@api_router.post("/mermas", response_model=Merma)
+@api_router.post("/mermas")
 async def create_merma(input: MermaCreate):
-    merma = Merma(**input.model_dump())
-    doc = merma.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_mermas.insert_one(doc)
-    return merma
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        merma = Merma(**input.model_dump())
+        await conn.execute(
+            """INSERT INTO prod_mermas (id, registro_id, movimiento_id, servicio_id, persona_id, cantidad, motivo, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)""",
+            merma.id, merma.registro_id, merma.movimiento_id, merma.servicio_id, merma.persona_id,
+            merma.cantidad, merma.motivo, merma.fecha.replace(tzinfo=None)
+        )
+        return merma
 
 @api_router.put("/mermas/{merma_id}")
 async def update_merma(merma_id: str, input: MermaCreate):
-    result = await db.prod_mermas.find_one({"id": merma_id}, {"_id": 0})
-    if not result:
-        raise HTTPException(status_code=404, detail="Merma no encontrada")
-    update_data = input.model_dump()
-    await db.prod_mermas.update_one({"id": merma_id}, {"$set": update_data})
-    result.update(update_data)
-    if isinstance(result.get('created_at'), str):
-        result['created_at'] = datetime.fromisoformat(result['created_at'])
-    return result
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow("SELECT * FROM prod_mermas WHERE id = $1", merma_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Merma no encontrada")
+        await conn.execute(
+            """UPDATE prod_mermas SET registro_id=$1, movimiento_id=$2, servicio_id=$3, persona_id=$4, cantidad=$5, motivo=$6 WHERE id=$7""",
+            input.registro_id, input.movimiento_id, input.servicio_id, input.persona_id, input.cantidad, input.motivo, merma_id
+        )
+        return {**row_to_dict(result), **input.model_dump()}
 
 @api_router.delete("/mermas/{merma_id}")
 async def delete_merma(merma_id: str):
-    result = await db.prod_mermas.delete_one({"id": merma_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Merma no encontrada")
-    return {"message": "Merma eliminada"}
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_mermas WHERE id = $1", merma_id)
+        return {"message": "Merma eliminada"}
 
-# ==================== GUÍAS DE REMISIÓN ====================
-
-async def generar_numero_guia():
-    """Genera número de guía automático: GR-YYYYMMDD-XXXX"""
-    from datetime import datetime
-    hoy = datetime.now().strftime("%Y%m%d")
-    
-    # Buscar el último número del día
-    ultima_guia = await db.prod_guias_remision.find_one(
-        {"numero": {"$regex": f"^GR-{hoy}-"}},
-        sort=[("numero", -1)]
-    )
-    
-    if ultima_guia:
-        # Extraer el número secuencial y aumentar
-        try:
-            ultimo_seq = int(ultima_guia['numero'].split('-')[-1])
-            nuevo_seq = ultimo_seq + 1
-        except (ValueError, IndexError):
-            nuevo_seq = 1
-    else:
-        nuevo_seq = 1
-    
-    return f"GR-{hoy}-{nuevo_seq:04d}"
+# ==================== ENDPOINTS GUIAS REMISION ====================
 
 @api_router.get("/guias-remision")
-async def get_guias_remision(
-    registro_id: str = None, 
-    persona_id: str = None,
-    fecha_desde: str = None,
-    fecha_hasta: str = None
-):
-    query = {}
-    if registro_id:
-        query['registro_id'] = registro_id
-    if persona_id:
-        query['persona_id'] = persona_id
-    if fecha_desde:
-        query['fecha_emision'] = {"$gte": fecha_desde}
-    if fecha_hasta:
-        if 'fecha_emision' in query:
-            query['fecha_emision']['$lte'] = fecha_hasta
-        else:
-            query['fecha_emision'] = {"$lte": fecha_hasta}
-    
-    guias = await db.prod_guias_remision.find(query, {"_id": 0}).to_list(5000)
-    result = []
-    for g in guias:
-        if isinstance(g.get('created_at'), str):
-            g['created_at'] = datetime.fromisoformat(g['created_at'])
-        
-        # Enriquecer con datos relacionados
-        servicio = await db.prod_servicios_produccion.find_one({"id": g.get('servicio_id')}, {"_id": 0, "nombre": 1})
-        persona = await db.prod_personas_produccion.find_one({"id": g.get('persona_id')}, {"_id": 0, "nombre": 1, "telefono": 1, "direccion": 1})
-        registro = await db.prod_registros.find_one({"id": g.get('registro_id')}, {"_id": 0, "n_corte": 1, "modelo_id": 1})
-        modelo = None
-        if registro and registro.get('modelo_id'):
-            modelo = await db.prod_modelos.find_one({"id": registro['modelo_id']}, {"_id": 0, "nombre": 1})
-        
-        g['servicio_nombre'] = servicio['nombre'] if servicio else ""
-        g['persona_nombre'] = persona['nombre'] if persona else ""
-        g['persona_telefono'] = persona.get('telefono', '') if persona else ""
-        g['persona_direccion'] = persona.get('direccion', '') if persona else ""
-        g['registro_n_corte'] = registro['n_corte'] if registro else ""
-        g['modelo_nombre'] = modelo['nombre'] if modelo else ""
-        
-        result.append(g)
-    return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
+async def get_guias_remision(registro_id: str = None, persona_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_guias_remision WHERE 1=1"
+        params = []
+        if registro_id:
+            params.append(registro_id)
+            query += f" AND registro_id = ${len(params)}"
+        if persona_id:
+            params.append(persona_id)
+            query += f" AND persona_id = ${len(params)}"
+        query += " ORDER BY fecha DESC"
+        rows = await conn.fetch(query, *params)
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", d.get('servicio_id'))
+            per = await conn.fetchrow("SELECT nombre, telefono, direccion FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
+            reg = await conn.fetchrow("SELECT n_corte, modelo_id FROM prod_registros WHERE id = $1", d.get('registro_id'))
+            d['servicio_nombre'] = srv['nombre'] if srv else None
+            d['persona_nombre'] = per['nombre'] if per else None
+            d['persona_telefono'] = per['telefono'] if per else None
+            d['persona_direccion'] = per['direccion'] if per else None
+            d['registro_n_corte'] = reg['n_corte'] if reg else None
+            if reg and reg['modelo_id']:
+                modelo = await conn.fetchrow("SELECT nombre FROM prod_modelos WHERE id = $1", reg['modelo_id'])
+                d['modelo_nombre'] = modelo['nombre'] if modelo else None
+            result.append(d)
+        return result
 
 @api_router.get("/guias-remision/{guia_id}")
 async def get_guia_remision(guia_id: str):
-    guia = await db.prod_guias_remision.find_one({"id": guia_id}, {"_id": 0})
-    if not guia:
-        raise HTTPException(status_code=404, detail="Guía no encontrada")
-    
-    if isinstance(guia.get('created_at'), str):
-        guia['created_at'] = datetime.fromisoformat(guia['created_at'])
-    
-    # Enriquecer con datos completos
-    servicio = await db.prod_servicios_produccion.find_one({"id": guia.get('servicio_id')}, {"_id": 0, "nombre": 1})
-    persona = await db.prod_personas_produccion.find_one({"id": guia.get('persona_id')}, {"_id": 0})
-    registro = await db.prod_registros.find_one({"id": guia.get('registro_id')}, {"_id": 0})
-    modelo = None
-    if registro and registro.get('modelo_id'):
-        modelo = await db.prod_modelos.find_one({"id": registro['modelo_id']}, {"_id": 0, "nombre": 1})
-    
-    guia['servicio_nombre'] = servicio['nombre'] if servicio else ""
-    guia['persona_nombre'] = persona['nombre'] if persona else ""
-    guia['persona_telefono'] = persona.get('telefono', '') if persona else ""
-    guia['persona_direccion'] = persona.get('direccion', '') if persona else ""
-    guia['registro_n_corte'] = registro['n_corte'] if registro else ""
-    guia['modelo_nombre'] = modelo['nombre'] if modelo else ""
-    
-    return guia
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        guia = await conn.fetchrow("SELECT * FROM prod_guias_remision WHERE id = $1", guia_id)
+        if not guia:
+            raise HTTPException(status_code=404, detail="Guía no encontrada")
+        d = row_to_dict(guia)
+        srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", d.get('servicio_id'))
+        per = await conn.fetchrow("SELECT * FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
+        reg = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", d.get('registro_id'))
+        d['servicio_nombre'] = srv['nombre'] if srv else None
+        if per:
+            d['persona_nombre'] = per['nombre']
+            d['persona_telefono'] = per['telefono']
+            d['persona_direccion'] = per['direccion']
+        if reg:
+            d['registro_n_corte'] = reg['n_corte']
+            d['tallas'] = parse_jsonb(reg['tallas'])
+            d['distribucion_colores'] = parse_jsonb(reg['distribucion_colores'])
+            if reg['modelo_id']:
+                modelo = await conn.fetchrow("SELECT nombre FROM prod_modelos WHERE id = $1", reg['modelo_id'])
+                d['modelo_nombre'] = modelo['nombre'] if modelo else None
+        return d
 
 @api_router.post("/guias-remision")
 async def create_guia_remision(input: GuiaRemisionCreate):
-    # Generar número automático
-    numero = await generar_numero_guia()
-    
-    guia = GuiaRemision(**input.model_dump(), numero=numero)
-    doc = guia.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_guias_remision.insert_one(doc)
-    
-    # Devolver con datos enriquecidos
-    return await get_guia_remision(guia.id)
-
-@api_router.post("/guias-remision/desde-movimiento/{movimiento_id}")
-async def create_guia_desde_movimiento(movimiento_id: str, observaciones: str = ""):
-    """Crea o actualiza una guía de remisión a partir de un movimiento existente"""
-    movimiento = await db.prod_movimientos_produccion.find_one({"id": movimiento_id}, {"_id": 0})
-    if not movimiento:
-        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
-    
-    # Verificar si ya existe una guía para este movimiento
-    guia_existente = await db.prod_guias_remision.find_one({"movimiento_id": movimiento_id}, {"_id": 0})
-    
-    if guia_existente:
-        # Actualizar guía existente con datos actuales del movimiento
-        update_data = {
-            "registro_id": movimiento.get('registro_id', ''),
-            "servicio_id": movimiento.get('servicio_id', ''),
-            "persona_id": movimiento.get('persona_id', ''),
-            "cantidad": movimiento.get('cantidad_enviada', movimiento.get('cantidad', 0)),
-            "fecha_emision": movimiento.get('fecha_inicio', guia_existente.get('fecha_emision', '')),
-        }
-        if observaciones:
-            update_data['observaciones'] = observaciones
-            
-        await db.prod_guias_remision.update_one(
-            {"id": guia_existente['id']}, 
-            {"$set": update_data}
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        guia = GuiaRemision(**input.model_dump())
+        # Generar número de guía
+        ultima = await conn.fetchrow("SELECT numero_guia FROM prod_guias_remision WHERE numero_guia != '' ORDER BY numero_guia DESC LIMIT 1")
+        if ultima and ultima['numero_guia']:
+            try:
+                num = int(ultima['numero_guia'].replace('GR-', '')) + 1
+            except:
+                num = 1
+        else:
+            num = 1
+        guia.numero_guia = f"GR-{num:06d}"
+        
+        await conn.execute(
+            """INSERT INTO prod_guias_remision (id, numero_guia, movimiento_id, registro_id, servicio_id, persona_id, cantidad, observaciones, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            guia.id, guia.numero_guia, guia.movimiento_id, guia.registro_id, guia.servicio_id,
+            guia.persona_id, guia.cantidad, guia.observaciones, guia.fecha.replace(tzinfo=None)
         )
-        return await get_guia_remision(guia_existente['id'])
-    
-    # Crear nueva guía con número automático
-    numero = await generar_numero_guia()
-    
-    guia = GuiaRemision(
-        movimiento_id=movimiento_id,
-        registro_id=movimiento.get('registro_id', ''),
-        servicio_id=movimiento.get('servicio_id', ''),
-        persona_id=movimiento.get('persona_id', ''),
-        cantidad=movimiento.get('cantidad_enviada', movimiento.get('cantidad', 0)),
-        fecha_emision=movimiento.get('fecha_inicio', datetime.now().strftime("%Y-%m-%d")),
-        observaciones=observaciones,
-        numero=numero
-    )
-    
-    doc = guia.model_dump()
-    doc['created_at'] = doc['created_at'].isoformat()
-    await db.prod_guias_remision.insert_one(doc)
-    
-    return await get_guia_remision(guia.id)
+        return guia
+
+@api_router.post("/guias-remision/from-movimiento/{movimiento_id}")
+async def create_guia_from_movimiento(movimiento_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        mov = await conn.fetchrow("SELECT * FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
+        if not mov:
+            raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+        
+        # Ver si ya existe guía para este movimiento
+        guia_existente = await conn.fetchrow("SELECT * FROM prod_guias_remision WHERE movimiento_id = $1", movimiento_id)
+        
+        if guia_existente:
+            # Actualizar guía existente
+            await conn.execute(
+                """UPDATE prod_guias_remision SET servicio_id=$1, persona_id=$2, cantidad=$3, fecha=$4 WHERE id=$5""",
+                mov['servicio_id'], mov['persona_id'], mov['cantidad_enviada'], datetime.now(), guia_existente['id']
+            )
+            updated = await conn.fetchrow("SELECT * FROM prod_guias_remision WHERE id = $1", guia_existente['id'])
+            return {"message": "Guía actualizada", "guia": row_to_dict(updated), "updated": True}
+        
+        # Crear nueva guía
+        guia_id = str(uuid.uuid4())
+        ultima = await conn.fetchrow("SELECT numero_guia FROM prod_guias_remision WHERE numero_guia != '' ORDER BY numero_guia DESC LIMIT 1")
+        if ultima and ultima['numero_guia']:
+            try:
+                num = int(ultima['numero_guia'].replace('GR-', '')) + 1
+            except:
+                num = 1
+        else:
+            num = 1
+        numero_guia = f"GR-{num:06d}"
+        
+        await conn.execute(
+            """INSERT INTO prod_guias_remision (id, numero_guia, movimiento_id, registro_id, servicio_id, persona_id, cantidad, observaciones, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            guia_id, numero_guia, movimiento_id, mov['registro_id'], mov['servicio_id'],
+            mov['persona_id'], mov['cantidad_enviada'], "", datetime.now()
+        )
+        guia = await conn.fetchrow("SELECT * FROM prod_guias_remision WHERE id = $1", guia_id)
+        return {"message": "Guía creada", "guia": row_to_dict(guia), "updated": False}
 
 @api_router.delete("/guias-remision/{guia_id}")
 async def delete_guia_remision(guia_id: str):
-    result = await db.prod_guias_remision.delete_one({"id": guia_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Guía no encontrada")
-    return {"message": "Guía eliminada"}
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM prod_guias_remision WHERE id = $1", guia_id)
+        return {"message": "Guía eliminada"}
 
-# ==================== REPORTE DE PRODUCTIVIDAD ====================
+# ==================== ENDPOINTS ESTADISTICAS ====================
 
-@api_router.get("/reporte-productividad")
-async def get_reporte_productividad(
-    fecha_desde: str = None,
-    fecha_hasta: str = None,
-    servicio_id: str = None,
-    persona_id: str = None
-):
-    query = {}
-    if servicio_id:
-        query['servicio_id'] = servicio_id
-    if persona_id:
-        query['persona_id'] = persona_id
-    
-    movimientos = await db.prod_movimientos_produccion.find(query, {"_id": 0}).to_list(10000)
-    
-    # Filtrar por fecha
-    if fecha_desde or fecha_hasta:
-        movimientos_filtrados = []
-        for m in movimientos:
-            fecha = m.get('fecha_inicio') or m.get('fecha_fin')
-            if not fecha:
-                continue
-            if fecha_desde and fecha < fecha_desde:
-                continue
-            if fecha_hasta and fecha > fecha_hasta:
-                continue
-            movimientos_filtrados.append(m)
-        movimientos = movimientos_filtrados
-    
-    # Calcular totales por persona
-    totales_persona = {}
-    # Calcular totales por servicio
-    totales_servicio = {}
-    # Calcular totales por persona-servicio
-    detalle_persona_servicio = {}
-    
-    for m in movimientos:
-        persona_id_m = m.get('persona_id')
-        servicio_id_m = m.get('servicio_id')
-        # Compatibilidad con campo antiguo 'cantidad'
-        cantidad = m.get('cantidad_recibida', m.get('cantidad', 0))
+@api_router.get("/stats")
+async def get_stats():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        marcas = await conn.fetchval("SELECT COUNT(*) FROM prod_marcas")
+        tipos = await conn.fetchval("SELECT COUNT(*) FROM prod_tipos")
+        entalles = await conn.fetchval("SELECT COUNT(*) FROM prod_entalles")
+        telas = await conn.fetchval("SELECT COUNT(*) FROM prod_telas")
+        hilos = await conn.fetchval("SELECT COUNT(*) FROM prod_hilos")
+        modelos = await conn.fetchval("SELECT COUNT(*) FROM prod_modelos")
+        registros = await conn.fetchval("SELECT COUNT(*) FROM prod_registros")
+        registros_urgentes = await conn.fetchval("SELECT COUNT(*) FROM prod_registros WHERE urgente = true")
+        tallas = await conn.fetchval("SELECT COUNT(*) FROM prod_tallas_catalogo")
+        colores = await conn.fetchval("SELECT COUNT(*) FROM prod_colores_catalogo")
+        inventario_items = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario")
+        ingresos = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_ingresos")
+        salidas = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_salidas")
+        ajustes = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_ajustes")
         
-        # Usar tarifa_aplicada del movimiento (la que el usuario ingresó)
-        tarifa = m.get('tarifa_aplicada', 0)
-        costo = cantidad * tarifa
+        estados_count = {}
+        for estado in ESTADOS_PRODUCCION:
+            count = await conn.fetchval("SELECT COUNT(*) FROM prod_registros WHERE estado = $1", estado)
+            estados_count[estado] = count
         
-        # Obtener datos del servicio para mostrar nombre
-        servicio = await db.prod_servicios_produccion.find_one({"id": servicio_id_m}, {"_id": 0, "tarifa": 1, "nombre": 1})
-        
-        # Por persona
-        if persona_id_m not in totales_persona:
-            persona = await db.prod_personas_produccion.find_one({"id": persona_id_m}, {"_id": 0, "nombre": 1})
-            totales_persona[persona_id_m] = {
-                "persona_id": persona_id_m,
-                "persona_nombre": persona['nombre'] if persona else "Desconocido",
-                "total_cantidad": 0,
-                "total_costo": 0,
-                "movimientos": 0
-            }
-        totales_persona[persona_id_m]['total_cantidad'] += cantidad
-        totales_persona[persona_id_m]['total_costo'] += costo
-        totales_persona[persona_id_m]['movimientos'] += 1
-        
-        # Por servicio
-        if servicio_id_m not in totales_servicio:
-            totales_servicio[servicio_id_m] = {
-                "servicio_id": servicio_id_m,
-                "servicio_nombre": servicio['nombre'] if servicio else "Desconocido",
-                "tarifa": servicio.get('tarifa', 0) if servicio else 0,  # Tarifa referencial
-                "total_cantidad": 0,
-                "total_costo": 0,
-                "movimientos": 0
-            }
-        totales_servicio[servicio_id_m]['total_cantidad'] += cantidad
-        totales_servicio[servicio_id_m]['total_costo'] += costo
-        totales_servicio[servicio_id_m]['movimientos'] += 1
-        
-        # Detalle persona-servicio
-        key = f"{persona_id_m}_{servicio_id_m}"
-        if key not in detalle_persona_servicio:
-            persona = await db.prod_personas_produccion.find_one({"id": persona_id_m}, {"_id": 0, "nombre": 1})
-            detalle_persona_servicio[key] = {
-                "persona_id": persona_id_m,
-                "persona_nombre": persona['nombre'] if persona else "Desconocido",
-                "servicio_id": servicio_id_m,
-                "servicio_nombre": servicio['nombre'] if servicio else "Desconocido",
-                "tarifa": tarifa,
-                "total_cantidad": 0,
-                "total_costo": 0,
-                "movimientos": 0
-            }
-        detalle_persona_servicio[key]['total_cantidad'] += cantidad
-        detalle_persona_servicio[key]['total_costo'] += costo
-        detalle_persona_servicio[key]['movimientos'] += 1
-    
-    # Calcular totales generales
-    total_general_cantidad = sum(p['total_cantidad'] for p in totales_persona.values())
-    total_general_costo = sum(p['total_costo'] for p in totales_persona.values())
-    total_general_movimientos = sum(p['movimientos'] for p in totales_persona.values())
-    
-    return {
-        "por_persona": sorted(list(totales_persona.values()), key=lambda x: x['total_cantidad'], reverse=True),
-        "por_servicio": sorted(list(totales_servicio.values()), key=lambda x: x['total_cantidad'], reverse=True),
-        "detalle": sorted(list(detalle_persona_servicio.values()), key=lambda x: (x['persona_nombre'], x['servicio_nombre'])),
-        "totales": {
-            "cantidad": total_general_cantidad,
-            "costo": total_general_costo,
-            "movimientos": total_general_movimientos
+        return {
+            "marcas": marcas, "tipos": tipos, "entalles": entalles, "telas": telas, "hilos": hilos,
+            "modelos": modelos, "registros": registros, "registros_urgentes": registros_urgentes,
+            "tallas": tallas, "colores": colores, "inventario_items": inventario_items,
+            "ingresos_count": ingresos, "salidas_count": salidas, "ajustes_count": ajustes,
+            "estados_count": estados_count
         }
-    }
 
-# Root endpoint
-@api_router.get("/")
-async def root():
-    return {"message": "API Módulo Producción Textil"}
+# ==================== REPORTE PRODUCTIVIDAD ====================
 
-# Include the router in the main app
-app.include_router(api_router)
+@api_router.get("/reportes/productividad")
+async def get_reporte_productividad(fecha_inicio: str = None, fecha_fin: str = None, servicio_id: str = None, persona_id: str = None):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM prod_movimientos_produccion WHERE fecha_fin IS NOT NULL"
+        params = []
+        if fecha_inicio:
+            params.append(fecha_inicio)
+            query += f" AND fecha_fin >= ${len(params)}::date"
+        if fecha_fin:
+            params.append(fecha_fin)
+            query += f" AND fecha_fin <= ${len(params)}::date"
+        if servicio_id:
+            params.append(servicio_id)
+            query += f" AND servicio_id = ${len(params)}"
+        if persona_id:
+            params.append(persona_id)
+            query += f" AND persona_id = ${len(params)}"
+        
+        rows = await conn.fetch(query, *params)
+        
+        por_servicio = {}
+        por_persona = {}
+        
+        for m in rows:
+            srv_id = m['servicio_id']
+            per_id = m['persona_id']
+            cantidad = m['cantidad_recibida'] or 0
+            costo = float(m['costo_calculado'] or 0)
+            
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", srv_id)
+            srv_nombre = srv['nombre'] if srv else 'Desconocido'
+            
+            if srv_id not in por_servicio:
+                por_servicio[srv_id] = {"servicio_id": srv_id, "servicio_nombre": srv_nombre, "total_cantidad": 0, "total_costo": 0, "movimientos": 0}
+            por_servicio[srv_id]['total_cantidad'] += cantidad
+            por_servicio[srv_id]['total_costo'] += costo
+            por_servicio[srv_id]['movimientos'] += 1
+            
+            per = await conn.fetchrow("SELECT nombre FROM prod_personas_produccion WHERE id = $1", per_id)
+            per_nombre = per['nombre'] if per else 'Desconocido'
+            
+            if per_id not in por_persona:
+                por_persona[per_id] = {"persona_id": per_id, "persona_nombre": per_nombre, "total_cantidad": 0, "total_costo": 0, "movimientos": 0}
+            por_persona[per_id]['total_cantidad'] += cantidad
+            por_persona[per_id]['total_costo'] += costo
+            por_persona[per_id]['movimientos'] += 1
+        
+        return {
+            "por_servicio": list(por_servicio.values()),
+            "por_persona": list(por_persona.values()),
+            "total_movimientos": len(rows)
+        }
+
+# ==================== STARTUP/SHUTDOWN ====================
+
+@app.on_event("startup")
+async def startup():
+    await get_pool()
+
+@app.on_event("shutdown")
+async def shutdown():
+    global pool
+    if pool:
+        await pool.close()
+
+# ==================== CORS & ROUTER ====================
 
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+app.include_router(api_router)
