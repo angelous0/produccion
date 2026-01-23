@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import asyncpg
@@ -8,14 +9,27 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 import json
+from passlib.context import CryptContext
+from jose import JWTError, jwt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # PostgreSQL connection
 DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://admin:admin@72.60.241.216:9091/datos?sslmode=disable')
+
+# JWT Configuration
+SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'tu-clave-secreta-muy-segura-cambiar-en-produccion-2024')
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_HOURS = 24
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Security
+security = HTTPBearer(auto_error=False)
 
 # Connection pool
 pool = None
@@ -29,7 +43,105 @@ async def get_pool():
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+# ==================== AUTENTICACIÓN ====================
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Token inválido")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow("SELECT * FROM prod_usuarios WHERE id = $1 AND activo = true", user_id)
+        if not user:
+            raise HTTPException(status_code=401, detail="Usuario no encontrado o inactivo")
+        return dict(user)
+
+async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Obtiene el usuario actual si hay token, sino retorna None"""
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(credentials)
+    except:
+        return None
+
+def check_permission(user: dict, tabla: str, accion: str) -> bool:
+    """Verifica si el usuario tiene permiso para una acción en una tabla"""
+    if not user:
+        return False
+    
+    rol = user.get('rol', 'lectura')
+    
+    # Admin tiene todos los permisos
+    if rol == 'admin':
+        return True
+    
+    # Lectura solo puede ver
+    if rol == 'lectura':
+        return accion == 'ver'
+    
+    # Usuario: verificar permisos personalizados
+    permisos = user.get('permisos', {})
+    if isinstance(permisos, str):
+        permisos = json.loads(permisos) if permisos else {}
+    
+    tabla_permisos = permisos.get(tabla, {})
+    return tabla_permisos.get(accion, False)
+
+def require_permission(tabla: str, accion: str):
+    """Decorador para requerir permisos en endpoints"""
+    async def permission_checker(current_user: dict = Depends(get_current_user)):
+        if not check_permission(current_user, tabla, accion):
+            raise HTTPException(status_code=403, detail=f"No tienes permiso para {accion} en {tabla}")
+        return current_user
+    return permission_checker
+
 # ==================== MODELOS PYDANTIC ====================
+
+# Modelos de Usuario
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserCreate(BaseModel):
+    username: str
+    email: Optional[str] = None
+    password: str
+    nombre_completo: Optional[str] = None
+    rol: str = "usuario"
+    permisos: dict = {}
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    nombre_completo: Optional[str] = None
+    rol: Optional[str] = None
+    permisos: Optional[dict] = None
+    activo: Optional[bool] = None
+
+class UserChangePassword(BaseModel):
+    current_password: str
+    new_password: str
 
 class MarcaBase(BaseModel):
     nombre: str
