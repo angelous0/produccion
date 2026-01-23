@@ -1981,7 +1981,8 @@ class MovimientoProduccionBase(BaseModel):
     persona_id: str
     fecha_inicio: Optional[str] = None
     fecha_fin: Optional[str] = None
-    cantidad: int = 0
+    cantidad_enviada: int = 0
+    cantidad_recibida: int = 0
     tarifa_aplicada: float = 0.0  # Tarifa editable (puede diferir de la del servicio)
     observaciones: str = ""
 
@@ -1997,7 +1998,27 @@ class MovimientoConDetalles(MovimientoProduccion):
     servicio_nombre: str = ""
     persona_nombre: str = ""
     registro_n_corte: str = ""
-    costo: float = 0.0  # Calculado: cantidad * tarifa_aplicada
+    costo: float = 0.0  # Calculado: cantidad_recibida * tarifa_aplicada
+    diferencia: int = 0  # cantidad_enviada - cantidad_recibida (merma)
+
+# ==================== CALIDAD / MERMA ====================
+
+class MermaBase(BaseModel):
+    registro_id: str
+    movimiento_id: str
+    servicio_id: str
+    persona_id: str
+    cantidad: int = 0
+    motivo: str = ""
+    fecha: Optional[str] = None
+
+class MermaCreate(MermaBase):
+    pass
+
+class Merma(MermaBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 @api_router.get("/movimientos-produccion")
 async def get_movimientos_produccion(registro_id: str = None):
