@@ -772,7 +772,30 @@ async def delete_usuario(user_id: str, current_user: dict = Depends(get_current_
     
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM prod_usuarios WHERE id = $1", user_id)
+        # Obtener datos del usuario antes de eliminar
+        user = await conn.fetchrow("SELECT * FROM prod_usuarios WHERE id = $1", user_id)
+        if user:
+            datos_anteriores = limpiar_datos_sensibles({
+                "username": user['username'],
+                "email": user['email'],
+                "nombre_completo": user['nombre_completo'],
+                "rol": user['rol']
+            })
+            
+            await conn.execute("DELETE FROM prod_usuarios WHERE id = $1", user_id)
+            
+            # Registrar actividad
+            await registrar_actividad(
+                pool,
+                usuario_id=current_user['id'],
+                usuario_nombre=current_user['username'],
+                tipo_accion="eliminar",
+                tabla_afectada="usuarios",
+                registro_id=user_id,
+                registro_nombre=user['username'],
+                descripcion=f"Eliminó usuario '{user['username']}'",
+                datos_anteriores=datos_anteriores
+            )
     return {"message": "Usuario eliminado"}
 
 class AdminSetPassword(BaseModel):
@@ -795,6 +818,18 @@ async def set_password_usuario(user_id: str, data: AdminSetPassword, current_use
         
         new_hash = get_password_hash(data.new_password)
         await conn.execute("UPDATE prod_usuarios SET password_hash = $1, updated_at = NOW() WHERE id = $2", new_hash, user_id)
+        
+        # Registrar actividad
+        await registrar_actividad(
+            pool,
+            usuario_id=current_user['id'],
+            usuario_nombre=current_user['username'],
+            tipo_accion="cambio_password_admin",
+            tabla_afectada="usuarios",
+            registro_id=user_id,
+            registro_nombre=user['username'],
+            descripcion=f"Cambió contraseña de '{user['username']}'"
+        )
         
         return {"message": "Contraseña actualizada correctamente"}
 
