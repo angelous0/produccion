@@ -29,7 +29,7 @@ export const ColoresCatalogo = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', codigo_hex: '' });
+  const [formData, setFormData] = useState({ nombre: '', codigo_hex: '', color_general: '' });
 
   const fetchItems = async () => {
     try {
