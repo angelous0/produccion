@@ -158,18 +158,15 @@ export const MovimientosProduccion = () => {
     setFormData({ 
       ...formData, 
       servicio_id: servicioId,
-      persona_id: '',
-      tarifa_aplicada: 0  // Se pre-llenará cuando se seleccione persona
+      persona_id: ''
     });
     setPersonasFiltradas(filtrarPersonasPorServicio(servicioId));
   };
 
   const handlePersonaChangeEdit = (personaId) => {
-    const tarifa = getTarifaPersonaServicio(personaId, formData.servicio_id);
     setFormData({
       ...formData,
-      persona_id: personaId,
-      tarifa_aplicada: tarifa
+      persona_id: personaId
     });
   };
 
