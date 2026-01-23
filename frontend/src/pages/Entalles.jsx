@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2, Check, ChevronsUpDown } from 'lucide-react';
@@ -36,6 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../components/ui/popover';
+import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -45,8 +47,10 @@ export const Entalles = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', tipo_ids: [] });
+  const [formData, setFormData] = useState({ nombre: '', tipo_ids: [], orden: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(items, setItems, 'entalles');
 
   const fetchItems = async () => {
     try {
@@ -85,7 +89,7 @@ export const Entalles = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '', tipo_ids: [] });
+      setFormData({ nombre: '', tipo_ids: [], orden: 0 });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar entalle');
@@ -94,7 +98,7 @@ export const Entalles = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre, tipo_ids: item.tipo_ids || [] });
+    setFormData({ nombre: item.nombre, tipo_ids: item.tipo_ids || [], orden: item.orden || 0 });
     setDialogOpen(true);
   };
 
@@ -110,7 +114,7 @@ export const Entalles = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '', tipo_ids: [] });
+    setFormData({ nombre: '', tipo_ids: [], orden: 0 });
     setDialogOpen(true);
   };
 
@@ -128,7 +132,10 @@ export const Entalles = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Entalles</h2>
-          <p className="text-muted-foreground">Gestión de entalles de productos</p>
+          <p className="text-muted-foreground">
+            Gestión de entalles de productos
+            {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
+          </p>
         </div>
         <Button onClick={handleNew} data-testid="btn-nuevo-entalle">
           <Plus className="h-4 w-4 mr-2" />
@@ -141,6 +148,7 @@ export const Entalles = () => {
           <Table>
             <TableHeader>
               <TableRow className="data-table-header">
+                <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Tipos</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
@@ -149,55 +157,52 @@ export const Entalles = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8">
+                  <TableCell colSpan={4} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     No hay entalles registrados
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} className="data-table-row" data-testid={`entalle-row-${item.id}`}>
-                    <TableCell className="font-medium">{item.nombre}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {(item.tipo_ids || []).map(tipoId => {
-                          const tipo = tipos.find(t => t.id === tipoId);
-                          return tipo ? (
-                            <Badge key={tipoId} variant="secondary" className="text-xs">
-                              {tipo.nombre}
-                            </Badge>
-                          ) : null;
-                        })}
-                        {(!item.tipo_ids || item.tipo_ids.length === 0) && (
-                          <span className="text-muted-foreground text-sm">Sin tipos</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(item)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <SortableTableWrapper
+                  items={items}
+                  sensors={sensors}
+                  handleDragEnd={handleDragEnd}
+                  modifiers={modifiers}
+                >
+                  {items.map((item) => (
+                    <SortableRow key={item.id} id={item.id}>
+                      <TableCell className="font-medium">{item.nombre}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(item.tipo_ids || []).map(tipoId => {
+                            const tipo = tipos.find(t => t.id === tipoId);
+                            return tipo ? (
+                              <Badge key={tipoId} variant="secondary" className="text-xs">{tipo.nombre}</Badge>
+                            ) : null;
+                          })}
+                          {(!item.tipo_ids || item.tipo_ids.length === 0) && (
+                            <span className="text-muted-foreground text-sm">Sin tipos</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))}
+                </SortableTableWrapper>
               )}
             </TableBody>
           </Table>
@@ -208,6 +213,9 @@ export const Entalles = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Entalle' : 'Nuevo Entalle'}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? 'Modifica los datos del entalle' : 'Agrega un nuevo entalle al catálogo'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
@@ -225,11 +233,7 @@ export const Entalles = () => {
                 <Label>Tipos disponibles</Label>
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between h-auto min-h-10"
-                    >
+                    <Button variant="outline" role="combobox" className="w-full justify-between h-auto min-h-10">
                       <div className="flex flex-wrap gap-1 flex-1">
                         {formData.tipo_ids?.length === 0 ? (
                           <span className="text-muted-foreground">Seleccionar tipos...</span>
@@ -237,9 +241,7 @@ export const Entalles = () => {
                           formData.tipo_ids.map(id => {
                             const tipo = tipos.find(t => t.id === id);
                             return tipo ? (
-                              <Badge key={id} variant="secondary" className="text-xs">
-                                {tipo.nombre}
-                              </Badge>
+                              <Badge key={id} variant="secondary" className="text-xs">{tipo.nombre}</Badge>
                             ) : null;
                           })
                         )}
@@ -254,16 +256,10 @@ export const Entalles = () => {
                         <CommandEmpty>No se encontraron tipos.</CommandEmpty>
                         <CommandGroup>
                           {tipos.map((tipo) => (
-                            <CommandItem
-                              key={tipo.id}
-                              value={tipo.nombre}
-                              onSelect={() => toggleTipo(tipo.id)}
-                            >
+                            <CommandItem key={tipo.id} value={tipo.nombre} onSelect={() => toggleTipo(tipo.id)}>
                               <div className={cn(
                                 "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
-                                formData.tipo_ids?.includes(tipo.id)
-                                  ? "bg-primary border-primary text-primary-foreground"
-                                  : "opacity-50"
+                                formData.tipo_ids?.includes(tipo.id) ? "bg-primary border-primary text-primary-foreground" : "opacity-50"
                               )}>
                                 {formData.tipo_ids?.includes(tipo.id) && <Check className="h-3 w-3" />}
                               </div>
@@ -278,12 +274,8 @@ export const Entalles = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                {editingItem ? 'Actualizar' : 'Crear'}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit">{editingItem ? 'Actualizar' : 'Crear'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

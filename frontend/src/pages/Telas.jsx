@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2, Check, ChevronsUpDown } from 'lucide-react';
@@ -36,6 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '../components/ui/popover';
+import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -45,8 +47,10 @@ export const Telas = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', entalle_ids: [] });
+  const [formData, setFormData] = useState({ nombre: '', entalle_ids: [], orden: 0 });
   const [popoverOpen, setPopoverOpen] = useState(false);
+
+  const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(items, setItems, 'telas');
 
   const fetchItems = async () => {
     try {
@@ -85,7 +89,7 @@ export const Telas = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '', entalle_ids: [] });
+      setFormData({ nombre: '', entalle_ids: [], orden: 0 });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar tela');
@@ -94,7 +98,7 @@ export const Telas = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre, entalle_ids: item.entalle_ids || [] });
+    setFormData({ nombre: item.nombre, entalle_ids: item.entalle_ids || [], orden: item.orden || 0 });
     setDialogOpen(true);
   };
 
@@ -110,7 +114,7 @@ export const Telas = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '', entalle_ids: [] });
+    setFormData({ nombre: '', entalle_ids: [], orden: 0 });
     setDialogOpen(true);
   };
 
@@ -128,7 +132,10 @@ export const Telas = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Telas</h2>
-          <p className="text-muted-foreground">Gestión de telas de productos</p>
+          <p className="text-muted-foreground">
+            Gestión de telas de productos
+            {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
+          </p>
         </div>
         <Button onClick={handleNew} data-testid="btn-nueva-tela">
           <Plus className="h-4 w-4 mr-2" />
@@ -141,6 +148,7 @@ export const Telas = () => {
           <Table>
             <TableHeader>
               <TableRow className="data-table-header">
+                <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Entalles</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
@@ -149,47 +157,52 @@ export const Telas = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8">
+                  <TableCell colSpan={4} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     No hay telas registradas
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item) => (
-                  <TableRow key={item.id} className="data-table-row">
-                    <TableCell className="font-medium">{item.nombre}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {(item.entalle_ids || []).map(entalleId => {
-                          const entalle = entalles.find(e => e.id === entalleId);
-                          return entalle ? (
-                            <Badge key={entalleId} variant="secondary" className="text-xs">
-                              {entalle.nombre}
-                            </Badge>
-                          ) : null;
-                        })}
-                        {(!item.entalle_ids || item.entalle_ids.length === 0) && (
-                          <span className="text-muted-foreground text-sm">Sin entalles</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                <SortableTableWrapper
+                  items={items}
+                  sensors={sensors}
+                  handleDragEnd={handleDragEnd}
+                  modifiers={modifiers}
+                >
+                  {items.map((item) => (
+                    <SortableRow key={item.id} id={item.id}>
+                      <TableCell className="font-medium">{item.nombre}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(item.entalle_ids || []).map(entalleId => {
+                            const entalle = entalles.find(e => e.id === entalleId);
+                            return entalle ? (
+                              <Badge key={entalleId} variant="secondary" className="text-xs">{entalle.nombre}</Badge>
+                            ) : null;
+                          })}
+                          {(!item.entalle_ids || item.entalle_ids.length === 0) && (
+                            <span className="text-muted-foreground text-sm">Sin entalles</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))}
+                </SortableTableWrapper>
               )}
             </TableBody>
           </Table>
@@ -200,6 +213,9 @@ export const Telas = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Tela' : 'Nueva Tela'}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? 'Modifica los datos de la tela' : 'Agrega una nueva tela al catálogo'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
