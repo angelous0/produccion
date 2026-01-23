@@ -51,23 +51,38 @@ export const ColoresCatalogo = () => {
     }
   };
 
+  const fetchColoresGenerales = async () => {
+    try {
+      const response = await axios.get(`${API}/colores-generales`);
+      setColoresGenerales(response.data);
+    } catch (error) {
+      console.error('Error al cargar colores generales');
+    }
+  };
+
   useEffect(() => {
     fetchItems();
+    fetchColoresGenerales();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        nombre: formData.nombre,
+        codigo_hex: formData.codigo_hex,
+        color_general_id: formData.color_general_id || null,
+      };
       if (editingItem) {
-        await axios.put(`${API}/colores-catalogo/${editingItem.id}`, formData);
+        await axios.put(`${API}/colores-catalogo/${editingItem.id}`, payload);
         toast.success('Color actualizado');
       } else {
-        await axios.post(`${API}/colores-catalogo`, formData);
+        await axios.post(`${API}/colores-catalogo`, payload);
         toast.success('Color creado');
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '', codigo_hex: '', color_general: '' });
+      setFormData({ nombre: '', codigo_hex: '', color_general_id: '' });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar color');
@@ -76,7 +91,7 @@ export const ColoresCatalogo = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre, codigo_hex: item.codigo_hex || '', color_general: item.color_general || '' });
+    setFormData({ nombre: item.nombre, codigo_hex: item.codigo_hex || '', color_general_id: item.color_general_id || '' });
     setDialogOpen(true);
   };
 
@@ -92,7 +107,7 @@ export const ColoresCatalogo = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '', codigo_hex: '', color_general: '' });
+    setFormData({ nombre: '', codigo_hex: '', color_general_id: '' });
     setDialogOpen(true);
   };
 
@@ -144,7 +159,7 @@ export const ColoresCatalogo = () => {
                       />
                     </TableCell>
                     <TableCell className="font-medium">{item.nombre}</TableCell>
-                    <TableCell className="text-muted-foreground">{item.color_general || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.color_general_nombre || '-'}</TableCell>
                     <TableCell className="font-mono text-sm">{item.codigo_hex || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
@@ -178,6 +193,9 @@ export const ColoresCatalogo = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingItem ? 'Editar Color' : 'Nuevo Color'}</DialogTitle>
+            <DialogDescription>
+              {editingItem ? 'Modifica los datos del color específico' : 'Agrega un nuevo color al catálogo'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
@@ -193,14 +211,22 @@ export const ColoresCatalogo = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="color_general">Color General</Label>
-                <Input
-                  id="color_general"
-                  value={formData.color_general}
-                  onChange={(e) => setFormData({ ...formData, color_general: e.target.value })}
-                  placeholder="Ej: Celeste, Azul, Rojo"
-                  data-testid="input-color-general"
-                />
+                <Label htmlFor="color_general_id">Color General</Label>
+                <Select
+                  value={formData.color_general_id}
+                  onValueChange={(value) => setFormData({ ...formData, color_general_id: value })}
+                >
+                  <SelectTrigger data-testid="select-color-general">
+                    <SelectValue placeholder="Seleccionar color general" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {coloresGenerales.map((cg) => (
+                      <SelectItem key={cg.id} value={cg.id}>
+                        {cg.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
                   Agrupa colores similares (Celeste Claro, Celeste Oscuro → "Celeste")
                 </p>
