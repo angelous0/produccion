@@ -1049,70 +1049,89 @@ export const RegistroForm = () => {
                               <TableHead>Servicio</TableHead>
                               <TableHead>Persona</TableHead>
                               <TableHead className="text-center">Fechas</TableHead>
-                              <TableHead className="text-right">Cantidad</TableHead>
+                              <TableHead className="text-right">Enviada</TableHead>
+                              <TableHead className="text-right">Recibida</TableHead>
+                              <TableHead className="text-right">Merma</TableHead>
                               <TableHead className="w-[100px] text-right">Acciones</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {movimientosProduccion.map((mov) => (
-                              <TableRow key={mov.id} data-testid={`movimiento-row-${mov.id}`}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <Cog className="h-4 w-4 text-blue-500" />
-                                    <span className="font-medium">{mov.servicio_nombre}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                    <span>{mov.persona_nombre}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <div className="text-xs">
-                                    {mov.fecha_inicio && (
-                                      <div className="flex items-center justify-center gap-1">
-                                        <Calendar className="h-3 w-3" />
-                                        {mov.fecha_inicio}
-                                      </div>
+                            {movimientosProduccion.map((mov) => {
+                              const enviada = mov.cantidad_enviada || mov.cantidad || 0;
+                              const recibida = mov.cantidad_recibida || mov.cantidad || 0;
+                              const diferencia = enviada - recibida;
+                              return (
+                                <TableRow key={mov.id} data-testid={`movimiento-row-${mov.id}`}>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Cog className="h-4 w-4 text-blue-500" />
+                                      <span className="font-medium">{mov.servicio_nombre}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <Users className="h-4 w-4 text-muted-foreground" />
+                                      <span>{mov.persona_nombre}</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="text-xs">
+                                      {mov.fecha_inicio && (
+                                        <div className="flex items-center justify-center gap-1">
+                                          <Calendar className="h-3 w-3" />
+                                          {mov.fecha_inicio}
+                                        </div>
+                                      )}
+                                      {mov.fecha_fin && (
+                                        <div className="text-muted-foreground">
+                                          → {mov.fecha_fin}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {enviada}
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono font-semibold">
+                                    {recibida}
+                                  </TableCell>
+                                  <TableCell className="text-right font-mono">
+                                    {diferencia > 0 ? (
+                                      <Badge variant="destructive" className="text-xs">
+                                        -{diferencia}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
                                     )}
-                                    {mov.fecha_fin && (
-                                      <div className="text-muted-foreground">
-                                        → {mov.fecha_fin}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-semibold">
-                                  {mov.cantidad}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex justify-end gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleOpenMovimientoDialog(mov)}
-                                      data-testid={`edit-movimiento-${mov.id}`}
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleDeleteMovimiento(mov.id)}
-                                      data-testid={`delete-movimiento-${mov.id}`}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-1">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleOpenMovimientoDialog(mov)}
+                                        data-testid={`edit-movimiento-${mov.id}`}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDeleteMovimiento(mov.id)}
+                                        data-testid={`delete-movimiento-${mov.id}`}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={4} className="font-semibold">Total Prendas</TableCell>
-                              <TableCell className="text-right font-mono font-bold text-primary">
+                              <TableCell colSpan={5} className="font-semibold">Total Recibidas</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-primary" colSpan={2}>
                                 {getTotalCantidadMovimientos()}
                               </TableCell>
                             </TableRow>
