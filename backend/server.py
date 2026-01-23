@@ -1052,12 +1052,22 @@ async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
         if activo is not None:
             params.append(activo)
             query += f" AND activo = ${len(params)}"
-        query += " ORDER BY nombre ASC"
+        query += " ORDER BY orden ASC, nombre ASC"
         rows = await conn.fetch(query, *params)
         result = []
         for r in rows:
             d = row_to_dict(r)
             d['servicios'] = parse_jsonb(d.get('servicios'))
+            # Enriquecer con nombre del servicio
+            servicios_detalle = []
+            for s in d['servicios']:
+                srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", s.get('servicio_id'))
+                servicios_detalle.append({
+                    "servicio_id": s.get('servicio_id'),
+                    "servicio_nombre": srv['nombre'] if srv else None,
+                    "tarifa": s.get('tarifa', 0)
+                })
+            d['servicios_detalle'] = servicios_detalle
             if servicio_id:
                 if any(s.get('servicio_id') == servicio_id for s in d['servicios']):
                     result.append(d)
