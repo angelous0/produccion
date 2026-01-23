@@ -27,6 +27,7 @@ import { MovimientosProduccion } from "./pages/MovimientosProduccion";
 import { ReporteProductividad } from "./pages/ReporteProductividad";
 import { RutasProduccion } from "./pages/RutasProduccion";
 import { CalidadMerma } from "./pages/CalidadMerma";
+import { GuiasRemision } from "./pages/GuiasRemision";
 
 function App() {
   return (
