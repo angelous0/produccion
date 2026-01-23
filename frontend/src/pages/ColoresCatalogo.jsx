@@ -173,15 +173,28 @@ export const ColoresCatalogo = () => {
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="nombre">Nombre</Label>
+                <Label htmlFor="nombre">Nombre Específico</Label>
                 <Input
                   id="nombre"
                   value={formData.nombre}
                   onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  placeholder="Ej: Azul Marino, Negro, Blanco"
+                  placeholder="Ej: Celeste Claro, Celeste Oscuro"
                   required
                   data-testid="input-nombre-color"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="color_general">Color General</Label>
+                <Input
+                  id="color_general"
+                  value={formData.color_general}
+                  onChange={(e) => setFormData({ ...formData, color_general: e.target.value })}
+                  placeholder="Ej: Celeste, Azul, Rojo"
+                  data-testid="input-color-general"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Agrupa colores similares (Celeste Claro, Celeste Oscuro → "Celeste")
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="codigo_hex">Código Hex (opcional)</Label>
