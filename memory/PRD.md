@@ -123,14 +123,37 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Validación: requiere movimiento con fechas antes de cambiar estado
   - Endpoint: `GET /api/registros/{id}/estados-disponibles`
 
-## Backlog
+### Enero 2025 - Migración a PostgreSQL
+- ✅ **Migración completa de MongoDB a PostgreSQL**
+  - Todas las tablas ahora con prefijo `prod_`
+  - Backend refactorizado usando `asyncpg` y `databases`
+  - Esquema SQL creado para todas las entidades
+  - Datos migrados exitosamente
 
-### P0 - Crítico
-- [ ] Completar diálogo de salida masiva de rollos (`SalidaRollosDialog.jsx`)
-  - Filtrar rollos por ancho y tono
+### Enero 2025 - Colores Generales y Mejoras
+- ✅ **Refactorización de Colores Generales**:
+  - Nueva tabla `prod_colores_generales` para categorías de colores
+  - CRUD completo en `/colores-generales` con validación de duplicados
+  - Validación: no se puede eliminar si hay colores usando el color general
+  - `prod_colores_catalogo` ahora tiene `color_general_id` (FK)
+  - Formulario de colores usa **Select** en lugar de Input de texto
+  - API retorna `color_general_nombre` en listado
+- ✅ **Edición en módulo Inventario**:
+  - Editar Ingresos (proveedor, documento, observaciones, costo unitario)
+  - Editar Salidas (registro vinculado, observaciones)
+  - Editar Ajustes (motivo, observaciones)
+- ✅ **Hilos Específicos por Registro**:
+  - Nueva tabla `prod_registro_hilos`
+  - Página `/registros/:id/hilos` para gestionar hilos por registro
+  - Botón "Hilos" en tabla de registros
+- ✅ **Diálogo de Salida de Múltiples Rollos** (`SalidaRollosDialog.jsx`):
+  - Selector de tela (items con control_por_rollos)
+  - Filtros por ancho y tono
   - Selección múltiple con checkboxes
-  - Uso parcial o total por rollo
-  - Endpoint batch: `/api/inventario/salidas/batch-rollos`
+  - Opción de uso parcial por rollo
+  - Procesamiento batch de salidas
+
+## Backlog
 
 ### P1 - Importante
 - [ ] Autenticación de usuarios
@@ -138,9 +161,10 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - [ ] Exportar registros a Excel
 
 ### P2 - Mejoras
+- [ ] Dashboard de Producción con gráficos
 - [ ] Reportes de producción con costos de materiales
 - [ ] Gráficos de estados
 - [ ] Historial de cambios de estado
 - [ ] Exportar Kardex y Reportes a PDF/Excel
 - [ ] Dropdowns en cascada para creación de Modelos
-- [ ] Auditoría de accesibilidad en todos los componentes Dialog
+- [ ] Reportes de Merma por período o persona
