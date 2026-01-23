@@ -477,10 +477,10 @@ export const MovimientosProduccion = () => {
                         {mov.fecha_fin || '-'}
                       </TableCell>
                       <TableCell className="text-right font-mono font-semibold">
-                        {mov.cantidad.toLocaleString()}
+                        {(mov.cantidad_recibida ?? mov.cantidad ?? 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right font-mono text-green-600">
-                        {mov.costo > 0 ? formatCurrency(mov.costo) : '-'}
+                        {(mov.costo_calculado || mov.costo || 0) > 0 ? formatCurrency(mov.costo_calculado || mov.costo) : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
