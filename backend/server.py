@@ -1884,6 +1884,7 @@ class PersonaProduccionBase(BaseModel):
     nombre: str
     servicios: List[ServicioPersona] = []  # Lista de servicios con tarifa por cada uno
     telefono: str = ""
+    direccion: str = ""  # Dirección para guías de remisión
     activo: bool = True
     orden: int = 0  # Para ordenar manualmente
 
@@ -1897,6 +1898,26 @@ class PersonaProduccion(PersonaProduccionBase):
 
 class PersonaConServicios(PersonaProduccion):
     servicios_detalle: List[dict] = []  # Con nombre del servicio incluido
+
+# ==================== GUÍAS DE REMISIÓN ====================
+
+class GuiaRemisionBase(BaseModel):
+    movimiento_id: str
+    registro_id: str
+    servicio_id: str
+    persona_id: str
+    cantidad: int = 0
+    fecha_emision: str = ""
+    observaciones: str = ""
+
+class GuiaRemisionCreate(GuiaRemisionBase):
+    pass
+
+class GuiaRemision(GuiaRemisionBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    numero: str = ""  # Número automático de guía
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 @api_router.get("/personas-produccion")
 async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
