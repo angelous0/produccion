@@ -639,8 +639,8 @@ async def create_color_catalogo(input: ColorCreate):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "INSERT INTO prod_colores_catalogo (id, nombre, codigo_hex, created_at) VALUES ($1, $2, $3, $4)",
-            color.id, color.nombre, color.codigo_hex, color.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_colores_catalogo (id, nombre, codigo_hex, color_general, created_at) VALUES ($1, $2, $3, $4, $5)",
+            color.id, color.nombre, color.codigo_hex, color.color_general, color.created_at.replace(tzinfo=None)
         )
     return color
 
@@ -651,9 +651,9 @@ async def update_color_catalogo(color_id: str, input: ColorCreate):
         result = await conn.fetchrow("SELECT * FROM prod_colores_catalogo WHERE id = $1", color_id)
         if not result:
             raise HTTPException(status_code=404, detail="Color no encontrado")
-        await conn.execute("UPDATE prod_colores_catalogo SET nombre = $1, codigo_hex = $2 WHERE id = $3",
-                          input.nombre, input.codigo_hex, color_id)
-        return {**row_to_dict(result), "nombre": input.nombre, "codigo_hex": input.codigo_hex}
+        await conn.execute("UPDATE prod_colores_catalogo SET nombre = $1, codigo_hex = $2, color_general = $3 WHERE id = $4",
+                          input.nombre, input.codigo_hex, input.color_general, color_id)
+        return {**row_to_dict(result), "nombre": input.nombre, "codigo_hex": input.codigo_hex, "color_general": input.color_general}
 
 @api_router.delete("/colores-catalogo/{color_id}")
 async def delete_color_catalogo(color_id: str):
