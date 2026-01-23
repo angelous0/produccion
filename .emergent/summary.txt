@@ -1,164 +1,756 @@
 <analysis>**original_problem_statement:**
-El usuario inicialmente solicitó un módulo de producción textil y luego un módulo de inventario FIFO. En esta sesión, el usuario cambió la prioridad para agregar una nueva suite de funcionalidades de **gestión de producción**:
+El usuario solicitó una serie de funcionalidades para construir una suite de gestión de producción textil. Las principales solicitudes implementadas en esta sesión fueron:
 
-1.  **Maestros de Producción**:
-    *   Crear un CRUD para **Servicios de Producción** (,  para orden manual).
-    *   Crear un CRUD para **Personas de Producción** (, , ).
-    *   Implementar reordenamiento manual (drag & drop) para las listas de Servicios y Personas.
-
-2.  **Movimientos de Producción**:
-    *   Crear una tabla para registrar los movimientos asociados a un  de producción.
-    *   Cada movimiento debe tener , , , , y .
-    *   En el formulario de , al agregar un movimiento, el selector de  debe filtrarse según el  seleccionado.
-    *   Agregar una página dedicada () para ver y filtrar todos los movimientos de producción, mostrando la información del registro asociado (ej. Modelo - N° Corte).
-    *   Implementar la funcionalidad para **editar** movimientos existentes.
-
-3.  **Costos y Productividad**:
-    *   Implementar un sistema de tarifas para calcular el costo de la mano de obra. La lógica evolucionó:
-        1.  Inicialmente, la tarifa estaba en el .
-        2.  Luego se hizo editable en cada  (con la tarifa del servicio como valor referencial).
-        3.  **Requisito final y actual**: La tarifa debe definirse en la ficha de la **Persona**, asignando una tarifa específica para cada **Servicio** que esa persona realiza. (Ej: Juan Pérez - Corte: /bin/bash.50, Juan Pérez - Costura: /bin/bash.60).
-    *   Crear un **Reporte de Productividad** () que muestre totales de prendas y costos, agrupados por persona y por servicio, con filtros de fecha.
+1.  **Refactorización de Tarifas**: Finalizar la lógica donde la tarifa de mano de obra se define por la combinación , eliminando el campo de tarifa obsoleto del modelo de .
+2.  **Rutas de Producción y BOM**:
+    *   Crear un CRUD para , que son secuencias de servicios (etapas).
+    *   Modificar los  para que puedan tener asociada una , una lista de materiales (BOM) y una lista de servicios requeridos.
+3.  **Lógica de Movimientos de Producción**:
+    *   **Estado del Registro**: El selector de estado en un  de producción debía ser manual, pero informado por la ruta del modelo.
+    *   **Filtrado de Servicios**: En el formulario de , al agregar un movimiento, el selector de  debe mostrar únicamente los servicios configurados en el  asociado.
+4.  **Módulo de Calidad/Merma**:
+    *   En los movimientos, reemplazar el campo  por  y .
+    *   Si hay una diferencia entre ambas cantidades, registrarla automáticamente como una .
+    *   Crear una nueva página  para visualizar y filtrar todos los registros de merma.
+5.  **Módulo de Guías de Remisión**:
+    *   Permitir generar una  (con número correlativo automático) para cada movimiento de producción.
+    *   El botón para generar la guía debe **actualizar** una guía existente si ya fue creada para ese movimiento, en lugar de fallar.
+    *   Crear una nueva página  para listar, filtrar y visualizar/imprimir las guías.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-Se ha implementado un módulo completo de **Movimientos de Producción**. Esto incluye:
-*   **Backend**: Nuevos modelos y endpoints en  para , , y .
-*   **Frontend - Maestros**:
-    *   Páginas CRUD en  y  con funcionalidad de arrastrar y soltar (drag & drop) para reordenamiento, usando .
-    *   Se corrigió un bug que impedía eliminar registros desde estas páginas.
-*   **Frontend - Movimientos**:
-    *   Integración en  para listar, crear y editar movimientos asociados a un registro. Incluye el filtro dinámico de personas por servicio.
-    *   Una nueva página dedicada  que muestra una tabla de todos los movimientos con filtros avanzados (por registro, servicio, persona, fechas) y acciones de crear/editar/eliminar.
-*   **Frontend - Reportes**:
-    *   Una nueva página  con tarjetas de resumen, filtros y tablas que desglosan la producción y los costos por persona y por servicio.
-*   **Lógica de Costos**: El sistema de costos fue refactorizado varias veces. La última implementación (a medio terminar) asocia la tarifa a la combinación Persona-Servicio.
+La aplicación ahora cuenta con un sistema robusto de gestión de producción. Se completó la refactorización de la lógica de tarifas para que dependan de la combinación Persona-Servicio. Se implementaron desde cero los módulos de **Rutas de Producción**, **Calidad/Merma** y **Guías de Remisión**, cada uno con sus respectivos modelos de backend, endpoints y páginas de frontend dedicadas para su gestión (CRUD, listado, filtros). El módulo de **Modelos** fue significativamente mejorado para incorporar la asignación de rutas, lista de materiales (BOM) y servicios requeridos. El formulario de **Registro** de producción ahora filtra los servicios disponibles según la configuración del modelo y gestiona movimientos con cantidades enviadas/recibidas, creando mermas y guías de remisión de forma automática o manual.
 
 **Last working item**:
-- Last item agent was working: El agente estaba a mitad de una refactorización crucial de la lógica de tarifas. El requisito del usuario es que la tarifa se defina por **persona y por servicio** (ej. una persona tiene una tarifa para Corte y otra para Costura). El agente ya modificó:
-    1.  **Backend ()**: Se cambió el modelo  para que en lugar de una lista de , contenga una lista de objetos .
-    2.  **Frontend ()**: Se sobrescribió la página para permitir la gestión de esta nueva estructura de tarifas por servicio dentro del formulario de cada persona.
-    3.  El agente estaba a punto de modificar  para que, al crear un movimiento, obtuviera la tarifa correcta según la persona y el servicio seleccionados.
-- Status: IN PROGRESS
-- Agent Testing Done: N
+- Last item agent was working: El agente implementó la lógica para que al generar una **Guía de Remisión** para un movimiento que ya tenía una, el sistema **actualice la guía existente** en lugar de crear una nueva o mostrar un error. Esto implicó modificar el endpoint  en el backend y ajustar el mensaje de confirmación () en el frontend ().
+- Status: USER VERIFICATION PENDING
+- Agent Testing Done: Y
 - Which testing method agent to use? both
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: **Accesibilidad en Componentes ** (P2)
-    - **Description**: Un reporte de pruebas anterior () señaló que a los componentes  les faltaba  y . Esto fue corregido en algunos lugares, pero no se ha realizado una verificación exhaustiva en toda la aplicación.
-    - **Debug checklist**: Revisar todas las implementaciones de  en el proyecto y asegurarse de que incluyan  y .
-    - **Why fix this issue and what will be achieved with the fix?**: Mejora la accesibilidad y cumple con las buenas prácticas de desarrollo.
-    - **Status**: IN PROGRESS
-    - **Is recurring issue?**: Y
-    - **Should Test frontend/backend/both after fix?**: frontend
-    - **Blocked on other issue**: no
+  - Issue 1: **Funcionalidad del Diálogo de Salida de Múltiples Rollos** (P0)
+  - Issue 2: **Accesibilidad en Componentes ** (P2)
+  
+  Issues Detail:
+  - Issue 1: 
+     - Attempted fixes: Ninguno en esta sesión. El agente ha omitido esta tarea en dos sesiones consecutivas a pesar de ser un requisito crítico del usuario.
+     - Next debug checklist: 
+        1. Revisar el componente .
+        2. Implementar la carga de rollos disponibles para un ítem de inventario.
+        3. Implementar filtros por ancho y tono.
+        4. Implementar la lógica de selección múltiple de rollos.
+        5. Crear el endpoint de backend () para procesar la salida masiva.
+     - Why fix this issue and what will be achieved with the fix?: Es un requisito clave del usuario para hacer eficiente el proceso de salida de inventario, solicitado explícitamente en una sesión anterior y aún no abordado.
+     - Status:  NOT STARTED
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: No
+  - Issue 2: 
+     - Attempted fixes: Se corrigió en algunos diálogos en sesiones anteriores, pero no se ha realizado una auditoría completa.
+     - Next debug checklist: Revisar todas las implementaciones de  en el proyecto (/app/frontend/src/pages/PersonasProduccion.jsx:  Dialog,
+/app/frontend/src/pages/PersonasProduccion.jsx:  DialogContent,
+/app/frontend/src/pages/PersonasProduccion.jsx:  DialogHeader,
+/app/frontend/src/pages/PersonasProduccion.jsx:  DialogTitle,
+/app/frontend/src/pages/PersonasProduccion.jsx:  DialogDescription,
+/app/frontend/src/pages/PersonasProduccion.jsx:  DialogFooter,
+/app/frontend/src/pages/PersonasProduccion.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/PersonasProduccion.jsx:  const handleOpenDialog = (persona = null) => {
+/app/frontend/src/pages/PersonasProduccion.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/PersonasProduccion.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/PersonasProduccion.jsx:        <Button onClick={() => handleOpenDialog()} data-testid="btn-nueva-persona">
+/app/frontend/src/pages/PersonasProduccion.jsx:                          onEdit={handleOpenDialog}
+/app/frontend/src/pages/PersonasProduccion.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/PersonasProduccion.jsx:        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+/app/frontend/src/pages/PersonasProduccion.jsx:          <DialogHeader>
+/app/frontend/src/pages/PersonasProduccion.jsx:            <DialogTitle>
+/app/frontend/src/pages/PersonasProduccion.jsx:            </DialogTitle>
+/app/frontend/src/pages/PersonasProduccion.jsx:            <DialogDescription>
+/app/frontend/src/pages/PersonasProduccion.jsx:            </DialogDescription>
+/app/frontend/src/pages/PersonasProduccion.jsx:          </DialogHeader>
+/app/frontend/src/pages/PersonasProduccion.jsx:          <DialogFooter>
+/app/frontend/src/pages/PersonasProduccion.jsx:            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/PersonasProduccion.jsx:          </DialogFooter>
+/app/frontend/src/pages/PersonasProduccion.jsx:        </DialogContent>
+/app/frontend/src/pages/PersonasProduccion.jsx:      </Dialog>
+/app/frontend/src/pages/InventarioIngresos.jsx:  Dialog,
+/app/frontend/src/pages/InventarioIngresos.jsx:  DialogContent,
+/app/frontend/src/pages/InventarioIngresos.jsx:  DialogHeader,
+/app/frontend/src/pages/InventarioIngresos.jsx:  DialogTitle,
+/app/frontend/src/pages/InventarioIngresos.jsx:  DialogDescription,
+/app/frontend/src/pages/InventarioIngresos.jsx:  DialogFooter,
+/app/frontend/src/pages/InventarioIngresos.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/InventarioIngresos.jsx:  const handleOpenDialog = () => {
+/app/frontend/src/pages/InventarioIngresos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/InventarioIngresos.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/InventarioIngresos.jsx:        <Button onClick={handleOpenDialog} data-testid="btn-nuevo-ingreso">
+/app/frontend/src/pages/InventarioIngresos.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/InventarioIngresos.jsx:        <DialogContent className={selectedItem?.control_por_rollos ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg"}>
+/app/frontend/src/pages/InventarioIngresos.jsx:          <DialogHeader>
+/app/frontend/src/pages/InventarioIngresos.jsx:            <DialogTitle>Nuevo Ingreso</DialogTitle>
+/app/frontend/src/pages/InventarioIngresos.jsx:            <DialogDescription>
+/app/frontend/src/pages/InventarioIngresos.jsx:            </DialogDescription>
+/app/frontend/src/pages/InventarioIngresos.jsx:          </DialogHeader>
+/app/frontend/src/pages/InventarioIngresos.jsx:            <DialogFooter>
+/app/frontend/src/pages/InventarioIngresos.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/InventarioIngresos.jsx:            </DialogFooter>
+/app/frontend/src/pages/InventarioIngresos.jsx:        </DialogContent>
+/app/frontend/src/pages/InventarioIngresos.jsx:      </Dialog>
+/app/frontend/src/pages/RegistroForm.jsx:  Dialog,
+/app/frontend/src/pages/RegistroForm.jsx:  DialogContent,
+/app/frontend/src/pages/RegistroForm.jsx:  DialogHeader,
+/app/frontend/src/pages/RegistroForm.jsx:  DialogTitle,
+/app/frontend/src/pages/RegistroForm.jsx:  DialogDescription,
+/app/frontend/src/pages/RegistroForm.jsx:  DialogFooter,
+/app/frontend/src/pages/RegistroForm.jsx:import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
+/app/frontend/src/pages/RegistroForm.jsx:  const [coloresDialogOpen, setColoresDialogOpen] = useState(false);
+/app/frontend/src/pages/RegistroForm.jsx:  const [salidaDialogOpen, setSalidaDialogOpen] = useState(false);
+/app/frontend/src/pages/RegistroForm.jsx:  const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
+/app/frontend/src/pages/RegistroForm.jsx:  const [movimientoDialogOpen, setMovimientoDialogOpen] = useState(false);
+/app/frontend/src/pages/RegistroForm.jsx:  const handleOpenColoresDialog = () => {
+/app/frontend/src/pages/RegistroForm.jsx:    setColoresDialogOpen(true);
+/app/frontend/src/pages/RegistroForm.jsx:    setColoresDialogOpen(false);
+/app/frontend/src/pages/RegistroForm.jsx:  const handleOpenSalidaDialog = () => {
+/app/frontend/src/pages/RegistroForm.jsx:    setSalidaDialogOpen(true);
+/app/frontend/src/pages/RegistroForm.jsx:      setSalidaDialogOpen(false);
+/app/frontend/src/pages/RegistroForm.jsx:  const handleOpenMovimientoDialog = (movimiento = null) => {
+/app/frontend/src/pages/RegistroForm.jsx:    setMovimientoDialogOpen(true);
+/app/frontend/src/pages/RegistroForm.jsx:      setMovimientoDialogOpen(false);
+/app/frontend/src/pages/RegistroForm.jsx:                      onClick={handleOpenColoresDialog}
+/app/frontend/src/pages/RegistroForm.jsx:                      onClick={() => setRollosDialogOpen(true)}
+/app/frontend/src/pages/RegistroForm.jsx:                      onClick={handleOpenSalidaDialog}
+/app/frontend/src/pages/RegistroForm.jsx:                    onClick={() => handleOpenMovimientoDialog()}
+/app/frontend/src/pages/RegistroForm.jsx:                                        onClick={() => handleOpenMovimientoDialog(mov)}
+/app/frontend/src/pages/RegistroForm.jsx:      {/* Dialog para distribuir colores */}
+/app/frontend/src/pages/RegistroForm.jsx:      <Dialog open={coloresDialogOpen} onOpenChange={setColoresDialogOpen}>
+/app/frontend/src/pages/RegistroForm.jsx:        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+/app/frontend/src/pages/RegistroForm.jsx:          <DialogHeader>
+/app/frontend/src/pages/RegistroForm.jsx:            <DialogTitle>Distribución de Colores</DialogTitle>
+/app/frontend/src/pages/RegistroForm.jsx:            <DialogDescription>
+/app/frontend/src/pages/RegistroForm.jsx:            </DialogDescription>
+/app/frontend/src/pages/RegistroForm.jsx:          </DialogHeader>
+/app/frontend/src/pages/RegistroForm.jsx:          <DialogFooter>
+/app/frontend/src/pages/RegistroForm.jsx:            <Button type="button" variant="outline" onClick={() => setColoresDialogOpen(false)}>
+/app/frontend/src/pages/RegistroForm.jsx:          </DialogFooter>
+/app/frontend/src/pages/RegistroForm.jsx:        </DialogContent>
+/app/frontend/src/pages/RegistroForm.jsx:      </Dialog>
+/app/frontend/src/pages/RegistroForm.jsx:      {/* Dialog para crear salida de inventario */}
+/app/frontend/src/pages/RegistroForm.jsx:      <Dialog open={salidaDialogOpen} onOpenChange={setSalidaDialogOpen}>
+/app/frontend/src/pages/RegistroForm.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/RegistroForm.jsx:          <DialogHeader>
+/app/frontend/src/pages/RegistroForm.jsx:            <DialogTitle>Nueva Salida de Inventario</DialogTitle>
+/app/frontend/src/pages/RegistroForm.jsx:            <DialogDescription>
+/app/frontend/src/pages/RegistroForm.jsx:            </DialogDescription>
+/app/frontend/src/pages/RegistroForm.jsx:          </DialogHeader>
+/app/frontend/src/pages/RegistroForm.jsx:          <DialogFooter>
+/app/frontend/src/pages/RegistroForm.jsx:            <Button type="button" variant="outline" onClick={() => setSalidaDialogOpen(false)}>
+/app/frontend/src/pages/RegistroForm.jsx:          </DialogFooter>
+/app/frontend/src/pages/RegistroForm.jsx:        </DialogContent>
+/app/frontend/src/pages/RegistroForm.jsx:      </Dialog>
+/app/frontend/src/pages/RegistroForm.jsx:      {/* Dialog para salida masiva de rollos */}
+/app/frontend/src/pages/RegistroForm.jsx:      <SalidaRollosDialog
+/app/frontend/src/pages/RegistroForm.jsx:        open={rollosDialogOpen}
+/app/frontend/src/pages/RegistroForm.jsx:        onOpenChange={setRollosDialogOpen}
+/app/frontend/src/pages/RegistroForm.jsx:      {/* Dialog para crear/editar movimiento de producción */}
+/app/frontend/src/pages/RegistroForm.jsx:      <Dialog open={movimientoDialogOpen} onOpenChange={setMovimientoDialogOpen}>
+/app/frontend/src/pages/RegistroForm.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/RegistroForm.jsx:          <DialogHeader>
+/app/frontend/src/pages/RegistroForm.jsx:            <DialogTitle>{editingMovimiento ? 'Editar Movimiento' : 'Nuevo Movimiento de Producción'}</DialogTitle>
+/app/frontend/src/pages/RegistroForm.jsx:            <DialogDescription>
+/app/frontend/src/pages/RegistroForm.jsx:            </DialogDescription>
+/app/frontend/src/pages/RegistroForm.jsx:          </DialogHeader>
+/app/frontend/src/pages/RegistroForm.jsx:          <DialogFooter>
+/app/frontend/src/pages/RegistroForm.jsx:            <Button type="button" variant="outline" onClick={() => setMovimientoDialogOpen(false)}>
+/app/frontend/src/pages/RegistroForm.jsx:          </DialogFooter>
+/app/frontend/src/pages/RegistroForm.jsx:        </DialogContent>
+/app/frontend/src/pages/RegistroForm.jsx:      </Dialog>
+/app/frontend/src/pages/Modelos.jsx:  Dialog,
+/app/frontend/src/pages/Modelos.jsx:  DialogContent,
+/app/frontend/src/pages/Modelos.jsx:  DialogHeader,
+/app/frontend/src/pages/Modelos.jsx:  DialogTitle,
+/app/frontend/src/pages/Modelos.jsx:  DialogDescription,
+/app/frontend/src/pages/Modelos.jsx:  DialogFooter,
+/app/frontend/src/pages/Modelos.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Modelos.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Modelos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Modelos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Modelos.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Modelos.jsx:        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+/app/frontend/src/pages/Modelos.jsx:          <DialogHeader>
+/app/frontend/src/pages/Modelos.jsx:            <DialogTitle>{editingItem ? 'Editar Modelo' : 'Nuevo Modelo'}</DialogTitle>
+/app/frontend/src/pages/Modelos.jsx:            <DialogDescription>
+/app/frontend/src/pages/Modelos.jsx:            </DialogDescription>
+/app/frontend/src/pages/Modelos.jsx:          </DialogHeader>
+/app/frontend/src/pages/Modelos.jsx:            <DialogFooter className="mt-6">
+/app/frontend/src/pages/Modelos.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/Modelos.jsx:            </DialogFooter>
+/app/frontend/src/pages/Modelos.jsx:        </DialogContent>
+/app/frontend/src/pages/Modelos.jsx:      </Dialog>
+/app/frontend/src/pages/GuiasRemision.jsx:  Dialog,
+/app/frontend/src/pages/GuiasRemision.jsx:  DialogContent,
+/app/frontend/src/pages/GuiasRemision.jsx:  DialogHeader,
+/app/frontend/src/pages/GuiasRemision.jsx:  DialogTitle,
+/app/frontend/src/pages/GuiasRemision.jsx:  DialogDescription,
+/app/frontend/src/pages/GuiasRemision.jsx:  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+/app/frontend/src/pages/GuiasRemision.jsx:      setViewDialogOpen(true);
+/app/frontend/src/pages/GuiasRemision.jsx:      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+/app/frontend/src/pages/GuiasRemision.jsx:        <DialogContent className="max-w-2xl">
+/app/frontend/src/pages/GuiasRemision.jsx:          <DialogHeader>
+/app/frontend/src/pages/GuiasRemision.jsx:            <DialogTitle className="flex items-center gap-2">
+/app/frontend/src/pages/GuiasRemision.jsx:            </DialogTitle>
+/app/frontend/src/pages/GuiasRemision.jsx:            <DialogDescription>
+/app/frontend/src/pages/GuiasRemision.jsx:            </DialogDescription>
+/app/frontend/src/pages/GuiasRemision.jsx:          </DialogHeader>
+/app/frontend/src/pages/GuiasRemision.jsx:                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+/app/frontend/src/pages/GuiasRemision.jsx:        </DialogContent>
+/app/frontend/src/pages/GuiasRemision.jsx:      </Dialog>
+/app/frontend/src/pages/Inventario.jsx:  Dialog,
+/app/frontend/src/pages/Inventario.jsx:  DialogContent,
+/app/frontend/src/pages/Inventario.jsx:  DialogHeader,
+/app/frontend/src/pages/Inventario.jsx:  DialogTitle,
+/app/frontend/src/pages/Inventario.jsx:  DialogDescription,
+/app/frontend/src/pages/Inventario.jsx:  DialogFooter,
+/app/frontend/src/pages/Inventario.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Inventario.jsx:  const handleOpenDialog = (item = null) => {
+/app/frontend/src/pages/Inventario.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Inventario.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Inventario.jsx:        <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-item">
+/app/frontend/src/pages/Inventario.jsx:                            onClick={() => handleOpenDialog(item)}
+/app/frontend/src/pages/Inventario.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Inventario.jsx:        <DialogContent>
+/app/frontend/src/pages/Inventario.jsx:          <DialogHeader>
+/app/frontend/src/pages/Inventario.jsx:            <DialogTitle>{editingItem ? 'Editar Item' : 'Nuevo Item'}</DialogTitle>
+/app/frontend/src/pages/Inventario.jsx:            <DialogDescription>
+/app/frontend/src/pages/Inventario.jsx:            </DialogDescription>
+/app/frontend/src/pages/Inventario.jsx:          </DialogHeader>
+/app/frontend/src/pages/Inventario.jsx:            <DialogFooter>
+/app/frontend/src/pages/Inventario.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/Inventario.jsx:            </DialogFooter>
+/app/frontend/src/pages/Inventario.jsx:        </DialogContent>
+/app/frontend/src/pages/Inventario.jsx:      </Dialog>
+/app/frontend/src/pages/Tipos.jsx:  Dialog,
+/app/frontend/src/pages/Tipos.jsx:  DialogContent,
+/app/frontend/src/pages/Tipos.jsx:  DialogHeader,
+/app/frontend/src/pages/Tipos.jsx:  DialogTitle,
+/app/frontend/src/pages/Tipos.jsx:  DialogFooter,
+/app/frontend/src/pages/Tipos.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Tipos.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Tipos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Tipos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Tipos.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Tipos.jsx:        <DialogContent>
+/app/frontend/src/pages/Tipos.jsx:          <DialogHeader>
+/app/frontend/src/pages/Tipos.jsx:            <DialogTitle>{editingItem ? 'Editar Tipo' : 'Nuevo Tipo'}</DialogTitle>
+/app/frontend/src/pages/Tipos.jsx:          </DialogHeader>
+/app/frontend/src/pages/Tipos.jsx:            <DialogFooter>
+/app/frontend/src/pages/Tipos.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/Tipos.jsx:            </DialogFooter>
+/app/frontend/src/pages/Tipos.jsx:        </DialogContent>
+/app/frontend/src/pages/Tipos.jsx:      </Dialog>
+/app/frontend/src/pages/ServiciosProduccion.jsx:  Dialog,
+/app/frontend/src/pages/ServiciosProduccion.jsx:  DialogContent,
+/app/frontend/src/pages/ServiciosProduccion.jsx:  DialogHeader,
+/app/frontend/src/pages/ServiciosProduccion.jsx:  DialogTitle,
+/app/frontend/src/pages/ServiciosProduccion.jsx:  DialogDescription,
+/app/frontend/src/pages/ServiciosProduccion.jsx:  DialogFooter,
+/app/frontend/src/pages/ServiciosProduccion.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/ServiciosProduccion.jsx:  const handleOpenDialog = (servicio = null) => {
+/app/frontend/src/pages/ServiciosProduccion.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/ServiciosProduccion.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/ServiciosProduccion.jsx:        <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-servicio">
+/app/frontend/src/pages/ServiciosProduccion.jsx:                          onEdit={handleOpenDialog}
+/app/frontend/src/pages/ServiciosProduccion.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/ServiciosProduccion.jsx:        <DialogContent>
+/app/frontend/src/pages/ServiciosProduccion.jsx:          <DialogHeader>
+/app/frontend/src/pages/ServiciosProduccion.jsx:            <DialogTitle>
+/app/frontend/src/pages/ServiciosProduccion.jsx:            </DialogTitle>
+/app/frontend/src/pages/ServiciosProduccion.jsx:            <DialogDescription>
+/app/frontend/src/pages/ServiciosProduccion.jsx:            </DialogDescription>
+/app/frontend/src/pages/ServiciosProduccion.jsx:          </DialogHeader>
+/app/frontend/src/pages/ServiciosProduccion.jsx:          <DialogFooter>
+/app/frontend/src/pages/ServiciosProduccion.jsx:            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/ServiciosProduccion.jsx:          </DialogFooter>
+/app/frontend/src/pages/ServiciosProduccion.jsx:        </DialogContent>
+/app/frontend/src/pages/ServiciosProduccion.jsx:      </Dialog>
+/app/frontend/src/pages/InventarioAjustes.jsx:  Dialog,
+/app/frontend/src/pages/InventarioAjustes.jsx:  DialogContent,
+/app/frontend/src/pages/InventarioAjustes.jsx:  DialogHeader,
+/app/frontend/src/pages/InventarioAjustes.jsx:  DialogTitle,
+/app/frontend/src/pages/InventarioAjustes.jsx:  DialogDescription,
+/app/frontend/src/pages/InventarioAjustes.jsx:  DialogFooter,
+/app/frontend/src/pages/InventarioAjustes.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/InventarioAjustes.jsx:  const handleOpenDialog = () => {
+/app/frontend/src/pages/InventarioAjustes.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/InventarioAjustes.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/InventarioAjustes.jsx:        <Button onClick={handleOpenDialog} data-testid="btn-nuevo-ajuste">
+/app/frontend/src/pages/InventarioAjustes.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/InventarioAjustes.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/InventarioAjustes.jsx:          <DialogHeader>
+/app/frontend/src/pages/InventarioAjustes.jsx:            <DialogTitle>Nuevo Ajuste</DialogTitle>
+/app/frontend/src/pages/InventarioAjustes.jsx:            <DialogDescription>
+/app/frontend/src/pages/InventarioAjustes.jsx:            </DialogDescription>
+/app/frontend/src/pages/InventarioAjustes.jsx:          </DialogHeader>
+/app/frontend/src/pages/InventarioAjustes.jsx:            <DialogFooter>
+/app/frontend/src/pages/InventarioAjustes.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/InventarioAjustes.jsx:            </DialogFooter>
+/app/frontend/src/pages/InventarioAjustes.jsx:        </DialogContent>
+/app/frontend/src/pages/InventarioAjustes.jsx:      </Dialog>
+/app/frontend/src/pages/Telas.jsx:  Dialog,
+/app/frontend/src/pages/Telas.jsx:  DialogContent,
+/app/frontend/src/pages/Telas.jsx:  DialogHeader,
+/app/frontend/src/pages/Telas.jsx:  DialogTitle,
+/app/frontend/src/pages/Telas.jsx:  DialogFooter,
+/app/frontend/src/pages/Telas.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Telas.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Telas.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Telas.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Telas.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Telas.jsx:        <DialogContent>
+/app/frontend/src/pages/Telas.jsx:          <DialogHeader>
+/app/frontend/src/pages/Telas.jsx:            <DialogTitle>{editingItem ? 'Editar Tela' : 'Nueva Tela'}</DialogTitle>
+/app/frontend/src/pages/Telas.jsx:          </DialogHeader>
+/app/frontend/src/pages/Telas.jsx:            <DialogFooter>
+/app/frontend/src/pages/Telas.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+/app/frontend/src/pages/Telas.jsx:            </DialogFooter>
+/app/frontend/src/pages/Telas.jsx:        </DialogContent>
+/app/frontend/src/pages/Telas.jsx:      </Dialog>
+/app/frontend/src/pages/ColoresCatalogo.jsx:  Dialog,
+/app/frontend/src/pages/ColoresCatalogo.jsx:  DialogContent,
+/app/frontend/src/pages/ColoresCatalogo.jsx:  DialogHeader,
+/app/frontend/src/pages/ColoresCatalogo.jsx:  DialogTitle,
+/app/frontend/src/pages/ColoresCatalogo.jsx:  DialogFooter,
+/app/frontend/src/pages/ColoresCatalogo.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/ColoresCatalogo.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/ColoresCatalogo.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/ColoresCatalogo.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/ColoresCatalogo.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/ColoresCatalogo.jsx:        <DialogContent>
+/app/frontend/src/pages/ColoresCatalogo.jsx:          <DialogHeader>
+/app/frontend/src/pages/ColoresCatalogo.jsx:            <DialogTitle>{editingItem ? 'Editar Color' : 'Nuevo Color'}</DialogTitle>
+/app/frontend/src/pages/ColoresCatalogo.jsx:          </DialogHeader>
+/app/frontend/src/pages/ColoresCatalogo.jsx:            <DialogFooter>
+/app/frontend/src/pages/ColoresCatalogo.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/ColoresCatalogo.jsx:            </DialogFooter>
+/app/frontend/src/pages/ColoresCatalogo.jsx:        </DialogContent>
+/app/frontend/src/pages/ColoresCatalogo.jsx:      </Dialog>
+/app/frontend/src/pages/InventarioSalidas.jsx:  Dialog,
+/app/frontend/src/pages/InventarioSalidas.jsx:  DialogContent,
+/app/frontend/src/pages/InventarioSalidas.jsx:  DialogHeader,
+/app/frontend/src/pages/InventarioSalidas.jsx:  DialogTitle,
+/app/frontend/src/pages/InventarioSalidas.jsx:  DialogDescription,
+/app/frontend/src/pages/InventarioSalidas.jsx:  DialogFooter,
+/app/frontend/src/pages/InventarioSalidas.jsx:import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
+/app/frontend/src/pages/InventarioSalidas.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/InventarioSalidas.jsx:  const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
+/app/frontend/src/pages/InventarioSalidas.jsx:  const handleOpenDialog = () => {
+/app/frontend/src/pages/InventarioSalidas.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/InventarioSalidas.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/InventarioSalidas.jsx:          <Button variant="outline" onClick={() => setRollosDialogOpen(true)} data-testid="btn-salida-rollos">
+/app/frontend/src/pages/InventarioSalidas.jsx:          <Button onClick={handleOpenDialog} data-testid="btn-nueva-salida">
+/app/frontend/src/pages/InventarioSalidas.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/InventarioSalidas.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/InventarioSalidas.jsx:          <DialogHeader>
+/app/frontend/src/pages/InventarioSalidas.jsx:            <DialogTitle>Nueva Salida</DialogTitle>
+/app/frontend/src/pages/InventarioSalidas.jsx:            <DialogDescription>
+/app/frontend/src/pages/InventarioSalidas.jsx:            </DialogDescription>
+/app/frontend/src/pages/InventarioSalidas.jsx:          </DialogHeader>
+/app/frontend/src/pages/InventarioSalidas.jsx:            <DialogFooter>
+/app/frontend/src/pages/InventarioSalidas.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/InventarioSalidas.jsx:            </DialogFooter>
+/app/frontend/src/pages/InventarioSalidas.jsx:        </DialogContent>
+/app/frontend/src/pages/InventarioSalidas.jsx:      </Dialog>
+/app/frontend/src/pages/InventarioSalidas.jsx:      {/* Dialog para salida masiva de rollos */}
+/app/frontend/src/pages/InventarioSalidas.jsx:      <SalidaRollosDialog
+/app/frontend/src/pages/InventarioSalidas.jsx:        open={rollosDialogOpen}
+/app/frontend/src/pages/InventarioSalidas.jsx:        onOpenChange={setRollosDialogOpen}
+/app/frontend/src/pages/RutasProduccion.jsx:  Dialog,
+/app/frontend/src/pages/RutasProduccion.jsx:  DialogContent,
+/app/frontend/src/pages/RutasProduccion.jsx:  DialogHeader,
+/app/frontend/src/pages/RutasProduccion.jsx:  DialogTitle,
+/app/frontend/src/pages/RutasProduccion.jsx:  DialogDescription,
+/app/frontend/src/pages/RutasProduccion.jsx:  DialogFooter,
+/app/frontend/src/pages/RutasProduccion.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/RutasProduccion.jsx:  const handleOpenDialog = (ruta = null) => {
+/app/frontend/src/pages/RutasProduccion.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/RutasProduccion.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/RutasProduccion.jsx:        <Button onClick={() => handleOpenDialog()} data-testid="btn-nueva-ruta">
+/app/frontend/src/pages/RutasProduccion.jsx:                          onClick={() => handleOpenDialog(ruta)}
+/app/frontend/src/pages/RutasProduccion.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/RutasProduccion.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/RutasProduccion.jsx:          <DialogHeader>
+/app/frontend/src/pages/RutasProduccion.jsx:            <DialogTitle>
+/app/frontend/src/pages/RutasProduccion.jsx:            </DialogTitle>
+/app/frontend/src/pages/RutasProduccion.jsx:            <DialogDescription>
+/app/frontend/src/pages/RutasProduccion.jsx:            </DialogDescription>
+/app/frontend/src/pages/RutasProduccion.jsx:          </DialogHeader>
+/app/frontend/src/pages/RutasProduccion.jsx:            <DialogFooter>
+/app/frontend/src/pages/RutasProduccion.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/RutasProduccion.jsx:            </DialogFooter>
+/app/frontend/src/pages/RutasProduccion.jsx:        </DialogContent>
+/app/frontend/src/pages/RutasProduccion.jsx:      </Dialog>
+/app/frontend/src/pages/Marcas.jsx:  Dialog,
+/app/frontend/src/pages/Marcas.jsx:  DialogContent,
+/app/frontend/src/pages/Marcas.jsx:  DialogHeader,
+/app/frontend/src/pages/Marcas.jsx:  DialogTitle,
+/app/frontend/src/pages/Marcas.jsx:  DialogFooter,
+/app/frontend/src/pages/Marcas.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Marcas.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Marcas.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Marcas.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Marcas.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Marcas.jsx:        <DialogContent>
+/app/frontend/src/pages/Marcas.jsx:          <DialogHeader>
+/app/frontend/src/pages/Marcas.jsx:            <DialogTitle>{editingItem ? 'Editar Marca' : 'Nueva Marca'}</DialogTitle>
+/app/frontend/src/pages/Marcas.jsx:          </DialogHeader>
+/app/frontend/src/pages/Marcas.jsx:            <DialogFooter>
+/app/frontend/src/pages/Marcas.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/Marcas.jsx:            </DialogFooter>
+/app/frontend/src/pages/Marcas.jsx:        </DialogContent>
+/app/frontend/src/pages/Marcas.jsx:      </Dialog>
+/app/frontend/src/pages/Entalles.jsx:  Dialog,
+/app/frontend/src/pages/Entalles.jsx:  DialogContent,
+/app/frontend/src/pages/Entalles.jsx:  DialogHeader,
+/app/frontend/src/pages/Entalles.jsx:  DialogTitle,
+/app/frontend/src/pages/Entalles.jsx:  DialogFooter,
+/app/frontend/src/pages/Entalles.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Entalles.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Entalles.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Entalles.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Entalles.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Entalles.jsx:        <DialogContent>
+/app/frontend/src/pages/Entalles.jsx:          <DialogHeader>
+/app/frontend/src/pages/Entalles.jsx:            <DialogTitle>{editingItem ? 'Editar Entalle' : 'Nuevo Entalle'}</DialogTitle>
+/app/frontend/src/pages/Entalles.jsx:          </DialogHeader>
+/app/frontend/src/pages/Entalles.jsx:            <DialogFooter>
+/app/frontend/src/pages/Entalles.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/Entalles.jsx:            </DialogFooter>
+/app/frontend/src/pages/Entalles.jsx:        </DialogContent>
+/app/frontend/src/pages/Entalles.jsx:      </Dialog>
+/app/frontend/src/pages/TallasCatalogo.jsx:  Dialog,
+/app/frontend/src/pages/TallasCatalogo.jsx:  DialogContent,
+/app/frontend/src/pages/TallasCatalogo.jsx:  DialogHeader,
+/app/frontend/src/pages/TallasCatalogo.jsx:  DialogTitle,
+/app/frontend/src/pages/TallasCatalogo.jsx:  DialogFooter,
+/app/frontend/src/pages/TallasCatalogo.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/TallasCatalogo.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/TallasCatalogo.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/TallasCatalogo.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/TallasCatalogo.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/TallasCatalogo.jsx:        <DialogContent>
+/app/frontend/src/pages/TallasCatalogo.jsx:          <DialogHeader>
+/app/frontend/src/pages/TallasCatalogo.jsx:            <DialogTitle>{editingItem ? 'Editar Talla' : 'Nueva Talla'}</DialogTitle>
+/app/frontend/src/pages/TallasCatalogo.jsx:          </DialogHeader>
+/app/frontend/src/pages/TallasCatalogo.jsx:            <DialogFooter>
+/app/frontend/src/pages/TallasCatalogo.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/TallasCatalogo.jsx:            </DialogFooter>
+/app/frontend/src/pages/TallasCatalogo.jsx:        </DialogContent>
+/app/frontend/src/pages/TallasCatalogo.jsx:      </Dialog>
+/app/frontend/src/pages/Hilos.jsx:  Dialog,
+/app/frontend/src/pages/Hilos.jsx:  DialogContent,
+/app/frontend/src/pages/Hilos.jsx:  DialogHeader,
+/app/frontend/src/pages/Hilos.jsx:  DialogTitle,
+/app/frontend/src/pages/Hilos.jsx:  DialogFooter,
+/app/frontend/src/pages/Hilos.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/Hilos.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/Hilos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Hilos.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/Hilos.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/Hilos.jsx:        <DialogContent>
+/app/frontend/src/pages/Hilos.jsx:          <DialogHeader>
+/app/frontend/src/pages/Hilos.jsx:            <DialogTitle>{editingItem ? 'Editar Hilo' : 'Nuevo Hilo'}</DialogTitle>
+/app/frontend/src/pages/Hilos.jsx:          </DialogHeader>
+/app/frontend/src/pages/Hilos.jsx:            <DialogFooter>
+/app/frontend/src/pages/Hilos.jsx:              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/Hilos.jsx:            </DialogFooter>
+/app/frontend/src/pages/Hilos.jsx:        </DialogContent>
+/app/frontend/src/pages/Hilos.jsx:      </Dialog>
+/app/frontend/src/pages/Registros.jsx:  Dialog,
+/app/frontend/src/pages/Registros.jsx:  DialogContent,
+/app/frontend/src/pages/Registros.jsx:  DialogHeader,
+/app/frontend/src/pages/Registros.jsx:  DialogTitle,
+/app/frontend/src/pages/Registros.jsx:  DialogDescription,
+/app/frontend/src/pages/Registros.jsx:  DialogFooter,
+/app/frontend/src/pages/Registros.jsx:  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+/app/frontend/src/pages/Registros.jsx:  const [coloresDialogOpen, setColoresDialogOpen] = useState(false);
+/app/frontend/src/pages/Registros.jsx:  const handleOpenColoresDialog = (item) => {
+/app/frontend/src/pages/Registros.jsx:    setColoresDialogOpen(true);
+/app/frontend/src/pages/Registros.jsx:      setColoresDialogOpen(false);
+/app/frontend/src/pages/Registros.jsx:    setViewDialogOpen(true);
+/app/frontend/src/pages/Registros.jsx:                            onClick={() => handleOpenColoresDialog(item)}
+/app/frontend/src/pages/Registros.jsx:      {/* Dialog para distribuir colores */}
+/app/frontend/src/pages/Registros.jsx:      <Dialog open={coloresDialogOpen} onOpenChange={setColoresDialogOpen}>
+/app/frontend/src/pages/Registros.jsx:        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+/app/frontend/src/pages/Registros.jsx:          <DialogHeader>
+/app/frontend/src/pages/Registros.jsx:            <DialogTitle>Distribución de Colores - Corte #{colorEditItem?.n_corte}</DialogTitle>
+/app/frontend/src/pages/Registros.jsx:            <DialogDescription>
+/app/frontend/src/pages/Registros.jsx:            </DialogDescription>
+/app/frontend/src/pages/Registros.jsx:          </DialogHeader>
+/app/frontend/src/pages/Registros.jsx:          <DialogFooter>
+/app/frontend/src/pages/Registros.jsx:            <Button type="button" variant="outline" onClick={() => setColoresDialogOpen(false)}>
+/app/frontend/src/pages/Registros.jsx:          </DialogFooter>
+/app/frontend/src/pages/Registros.jsx:        </DialogContent>
+/app/frontend/src/pages/Registros.jsx:      </Dialog>
+/app/frontend/src/pages/Registros.jsx:      {/* Dialog para ver detalle */}
+/app/frontend/src/pages/Registros.jsx:      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+/app/frontend/src/pages/Registros.jsx:        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+/app/frontend/src/pages/Registros.jsx:          <DialogHeader>
+/app/frontend/src/pages/Registros.jsx:            <DialogTitle>Detalle del Registro</DialogTitle>
+/app/frontend/src/pages/Registros.jsx:            <DialogDescription>
+/app/frontend/src/pages/Registros.jsx:            </DialogDescription>
+/app/frontend/src/pages/Registros.jsx:          </DialogHeader>
+/app/frontend/src/pages/Registros.jsx:          <DialogFooter>
+/app/frontend/src/pages/Registros.jsx:            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+/app/frontend/src/pages/Registros.jsx:          </DialogFooter>
+/app/frontend/src/pages/Registros.jsx:        </DialogContent>
+/app/frontend/src/pages/Registros.jsx:      </Dialog>
+/app/frontend/src/pages/MovimientosProduccion.jsx:  Dialog,
+/app/frontend/src/pages/MovimientosProduccion.jsx:  DialogContent,
+/app/frontend/src/pages/MovimientosProduccion.jsx:  DialogHeader,
+/app/frontend/src/pages/MovimientosProduccion.jsx:  DialogTitle,
+/app/frontend/src/pages/MovimientosProduccion.jsx:  DialogDescription,
+/app/frontend/src/pages/MovimientosProduccion.jsx:  DialogFooter,
+/app/frontend/src/pages/MovimientosProduccion.jsx:  // Dialog para crear nuevo
+/app/frontend/src/pages/MovimientosProduccion.jsx:  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+/app/frontend/src/pages/MovimientosProduccion.jsx:  // Dialog de edición
+/app/frontend/src/pages/MovimientosProduccion.jsx:  const [dialogOpen, setDialogOpen] = useState(false);
+/app/frontend/src/pages/MovimientosProduccion.jsx:    setDialogOpen(true);
+/app/frontend/src/pages/MovimientosProduccion.jsx:      setDialogOpen(false);
+/app/frontend/src/pages/MovimientosProduccion.jsx:  const handleOpenCreateDialog = () => {
+/app/frontend/src/pages/MovimientosProduccion.jsx:    setCreateDialogOpen(true);
+/app/frontend/src/pages/MovimientosProduccion.jsx:      setCreateDialogOpen(false);
+/app/frontend/src/pages/MovimientosProduccion.jsx:        <Button onClick={handleOpenCreateDialog} data-testid="btn-nuevo-movimiento-page">
+/app/frontend/src/pages/MovimientosProduccion.jsx:      {/* Dialog de Edición */}
+/app/frontend/src/pages/MovimientosProduccion.jsx:      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+/app/frontend/src/pages/MovimientosProduccion.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/MovimientosProduccion.jsx:          <DialogHeader>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            <DialogTitle>Editar Movimiento</DialogTitle>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            <DialogDescription>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            </DialogDescription>
+/app/frontend/src/pages/MovimientosProduccion.jsx:          </DialogHeader>
+/app/frontend/src/pages/MovimientosProduccion.jsx:          <DialogFooter>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+/app/frontend/src/pages/MovimientosProduccion.jsx:          </DialogFooter>
+/app/frontend/src/pages/MovimientosProduccion.jsx:        </DialogContent>
+/app/frontend/src/pages/MovimientosProduccion.jsx:      </Dialog>
+/app/frontend/src/pages/MovimientosProduccion.jsx:      {/* Dialog para Crear Nuevo Movimiento */}
+/app/frontend/src/pages/MovimientosProduccion.jsx:      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+/app/frontend/src/pages/MovimientosProduccion.jsx:        <DialogContent className="max-w-lg">
+/app/frontend/src/pages/MovimientosProduccion.jsx:          <DialogHeader>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            <DialogTitle>Nuevo Movimiento de Producción</DialogTitle>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            <DialogDescription>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            </DialogDescription>
+/app/frontend/src/pages/MovimientosProduccion.jsx:          </DialogHeader>
+/app/frontend/src/pages/MovimientosProduccion.jsx:          <DialogFooter>
+/app/frontend/src/pages/MovimientosProduccion.jsx:            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+/app/frontend/src/pages/MovimientosProduccion.jsx:          </DialogFooter>
+/app/frontend/src/pages/MovimientosProduccion.jsx:        </DialogContent>
+/app/frontend/src/pages/MovimientosProduccion.jsx:      </Dialog>
+/app/frontend/src/components/ui/alert-dialog.jsx:import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialog = AlertDialogPrimitive.Root
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogTrigger = AlertDialogPrimitive.Trigger
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogPortal = AlertDialogPrimitive.Portal
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/alert-dialog.jsx:  <AlertDialogPrimitive.Overlay
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogContent = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/alert-dialog.jsx:  <AlertDialogPortal>
+/app/frontend/src/components/ui/alert-dialog.jsx:    <AlertDialogOverlay />
+/app/frontend/src/components/ui/alert-dialog.jsx:    <AlertDialogPrimitive.Content
+/app/frontend/src/components/ui/alert-dialog.jsx:  </AlertDialogPortal>
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogHeader = ({
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogHeader.displayName = "AlertDialogHeader"
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogFooter = ({
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogFooter.displayName = "AlertDialogFooter"
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogTitle = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/alert-dialog.jsx:  <AlertDialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold", className)} {...props} />
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogDescription = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/alert-dialog.jsx:  <AlertDialogPrimitive.Description
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogDescription.displayName =
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogPrimitive.Description.displayName
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogAction = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/alert-dialog.jsx:  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants(), className)} {...props} />
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
+/app/frontend/src/components/ui/alert-dialog.jsx:const AlertDialogCancel = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/alert-dialog.jsx:  <AlertDialogPrimitive.Cancel
+/app/frontend/src/components/ui/alert-dialog.jsx:AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialog,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogPortal,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogOverlay,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogTrigger,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogContent,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogHeader,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogFooter,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogTitle,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogDescription,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogAction,
+/app/frontend/src/components/ui/alert-dialog.jsx:  AlertDialogCancel,
+/app/frontend/src/components/ui/dialog.jsx:import * as DialogPrimitive from "@radix-ui/react-dialog"
+/app/frontend/src/components/ui/dialog.jsx:const Dialog = DialogPrimitive.Root
+/app/frontend/src/components/ui/dialog.jsx:const DialogTrigger = DialogPrimitive.Trigger
+/app/frontend/src/components/ui/dialog.jsx:const DialogPortal = DialogPrimitive.Portal
+/app/frontend/src/components/ui/dialog.jsx:const DialogClose = DialogPrimitive.Close
+/app/frontend/src/components/ui/dialog.jsx:const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/dialog.jsx:  <DialogPrimitive.Overlay
+/app/frontend/src/components/ui/dialog.jsx:DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
+/app/frontend/src/components/ui/dialog.jsx:const DialogContent = React.forwardRef(({ className, children, ...props }, ref) => (
+/app/frontend/src/components/ui/dialog.jsx:  <DialogPortal>
+/app/frontend/src/components/ui/dialog.jsx:    <DialogOverlay />
+/app/frontend/src/components/ui/dialog.jsx:    <DialogPrimitive.Content
+/app/frontend/src/components/ui/dialog.jsx:      <DialogPrimitive.Close
+/app/frontend/src/components/ui/dialog.jsx:      </DialogPrimitive.Close>
+/app/frontend/src/components/ui/dialog.jsx:    </DialogPrimitive.Content>
+/app/frontend/src/components/ui/dialog.jsx:  </DialogPortal>
+/app/frontend/src/components/ui/dialog.jsx:DialogContent.displayName = DialogPrimitive.Content.displayName
+/app/frontend/src/components/ui/dialog.jsx:const DialogHeader = ({
+/app/frontend/src/components/ui/dialog.jsx:DialogHeader.displayName = "DialogHeader"
+/app/frontend/src/components/ui/dialog.jsx:const DialogFooter = ({
+/app/frontend/src/components/ui/dialog.jsx:DialogFooter.displayName = "DialogFooter"
+/app/frontend/src/components/ui/dialog.jsx:const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/dialog.jsx:  <DialogPrimitive.Title
+/app/frontend/src/components/ui/dialog.jsx:DialogTitle.displayName = DialogPrimitive.Title.displayName
+/app/frontend/src/components/ui/dialog.jsx:const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
+/app/frontend/src/components/ui/dialog.jsx:  <DialogPrimitive.Description
+/app/frontend/src/components/ui/dialog.jsx:DialogDescription.displayName = DialogPrimitive.Description.displayName
+/app/frontend/src/components/ui/dialog.jsx:  Dialog,
+/app/frontend/src/components/ui/dialog.jsx:  DialogPortal,
+/app/frontend/src/components/ui/dialog.jsx:  DialogOverlay,
+/app/frontend/src/components/ui/dialog.jsx:  DialogTrigger,
+/app/frontend/src/components/ui/dialog.jsx:  DialogClose,
+/app/frontend/src/components/ui/dialog.jsx:  DialogContent,
+/app/frontend/src/components/ui/dialog.jsx:  DialogHeader,
+/app/frontend/src/components/ui/dialog.jsx:  DialogFooter,
+/app/frontend/src/components/ui/dialog.jsx:  DialogTitle,
+/app/frontend/src/components/ui/dialog.jsx:  DialogDescription,
+/app/frontend/src/components/ui/command.jsx:import { Dialog, DialogContent } from "@/components/ui/dialog"
+/app/frontend/src/components/ui/command.jsx:const CommandDialog = ({
+/app/frontend/src/components/ui/command.jsx:    <Dialog {...props}>
+/app/frontend/src/components/ui/command.jsx:      <DialogContent className="overflow-hidden p-0">
+/app/frontend/src/components/ui/command.jsx:      </DialogContent>
+/app/frontend/src/components/ui/command.jsx:    </Dialog>
+/app/frontend/src/components/ui/command.jsx:  CommandDialog,
+/app/frontend/src/components/SalidaRollosDialog.jsx:  Dialog,
+/app/frontend/src/components/SalidaRollosDialog.jsx:  DialogContent,
+/app/frontend/src/components/SalidaRollosDialog.jsx:  DialogHeader,
+/app/frontend/src/components/SalidaRollosDialog.jsx:  DialogTitle,
+/app/frontend/src/components/SalidaRollosDialog.jsx:  DialogDescription,
+/app/frontend/src/components/SalidaRollosDialog.jsx:  DialogFooter,
+/app/frontend/src/components/SalidaRollosDialog.jsx:export const SalidaRollosDialog = ({ 
+/app/frontend/src/components/SalidaRollosDialog.jsx:    <Dialog open={open} onOpenChange={onOpenChange}>
+/app/frontend/src/components/SalidaRollosDialog.jsx:      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+/app/frontend/src/components/SalidaRollosDialog.jsx:        <DialogHeader>
+/app/frontend/src/components/SalidaRollosDialog.jsx:          <DialogTitle className="flex items-center gap-2">
+/app/frontend/src/components/SalidaRollosDialog.jsx:          </DialogTitle>
+/app/frontend/src/components/SalidaRollosDialog.jsx:          <DialogDescription>
+/app/frontend/src/components/SalidaRollosDialog.jsx:          </DialogDescription>
+/app/frontend/src/components/SalidaRollosDialog.jsx:        </DialogHeader>
+/app/frontend/src/components/SalidaRollosDialog.jsx:          <DialogFooter>
+/app/frontend/src/components/SalidaRollosDialog.jsx:          </DialogFooter>
+/app/frontend/src/components/SalidaRollosDialog.jsx:      </DialogContent>
+/app/frontend/src/components/SalidaRollosDialog.jsx:    </Dialog>) y asegurarse de que incluyan  y  para mejorar la accesibilidad.
+     - Why fix this issue and what will be achieved with the fix?: Mejora la accesibilidad (WCAG) de la aplicación y sigue las buenas prácticas de la librería de componentes.
+     - Status:  NOT STARTED
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1: **Finalizar refactorización de Tarifas Persona-Servicio** (P0)
-    - **Where to resume**: El backend y la página de  ya fueron adaptados. El siguiente paso es actualizar el frontend donde se crean/editan los movimientos para que utilice esta nueva lógica de tarifas:
-        1.  Modificar : Al seleccionar un servicio y una persona, la  debe pre-llenarse con la tarifa específica de esa persona para ese servicio.
-        2.  Modificar : Aplicar la misma lógica en los diálogos de creación y edición de movimientos.
-        3.  Asegurarse de que el  y los cálculos de costo en todo el sistema usen la  guardada en el movimiento.
-    - **What will be achieved with this?**: Cumplir con el requisito final del usuario para un sistema de costos flexible y preciso.
-    - **Status**: IN PROGRESS
-    - **Should Test frontend/backend/both after fix?**: both
-    - **Blocked on something**: No.
+(None)
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
-    - **Exportar a PDF/Excel**: Permitir la exportación de reportes como Kardex y Productividad. (P2)
+    - **Exportar a PDF/Excel**: Permitir la exportación de reportes como Kardex, Productividad y Guías de Remisión. (P2)
 - **Future Tasks**:
     - **Dashboard de Producción**: Crear un panel visual con gráficos sobre el estado de la producción. (P3)
     - **Autenticación de usuarios**: Implementar un sistema de login. (P3)
+    - **Reportes de Merma**: Agregar reportes de merma por período o persona. (P3)
 
 **Completed work in this session**
-- **Módulo de Movimientos de Producción**: Se implementó de cero, incluyendo Backend y Frontend.
-- **CRUD para Servicios y Personas**: Se crearon las páginas  y .
-- **Drag & Drop para Reordenamiento**: Se implementó en las páginas de Servicios y Personas usando .
-- **Corrección de Bug**: Se solucionó un problema que impedía eliminar servicios y personas.
-- **Página de Vista General de Movimientos**: Se creó  con filtros y acciones.
-- **Edición de Movimientos**: Se añadió la capacidad de editar movimientos existentes desde el formulario de registro.
-- **Módulo de Tarifas y Costos**: Se implementó y refactorizó varias veces, culminando en un sistema de tarifa por servicio editable y luego en un sistema de tarifa por persona-servicio (en progreso).
-- **Reporte de Productividad**: Se creó la página  con desgloses por persona y servicio.
-- **Validaciones de Integridad**: Se añadieron verificaciones en el backend para impedir la eliminación de servicios/personas con movimientos asociados.
+- **Refactorización de Tarifas Persona-Servicio**: Se completó la lógica para que la tarifa se defina en la ficha de la persona para cada servicio, eliminando la tarifa del modelo de Servicio. (server.py, PersonasProduccion.jsx, ServiciosProduccion.jsx, RegistroForm.jsx)
+- **Implementación de Rutas de Producción**: Se creó el módulo completo con backend y frontend para gestionar rutas/secuencias de producción. (server.py, RutasProduccion.jsx)
+- **Mejora de Modelos (BOM y Servicios)**: Se reescribió la página de Modelos para permitir la asignación de una ruta de producción, una lista de materiales (BOM) y una lista de servicios requeridos. (server.py, Modelos.jsx)
+- **Módulo de Calidad/Merma**: Se implementó la lógica de  vs. , con registro automático de diferencias (mermas) y una página dedicada para su visualización. (server.py, CalidadMerma.jsx, RegistroForm.jsx)
+- **Módulo de Guías de Remisión**: Se creó un sistema para generar, listar y visualizar/imprimir guías de remisión asociadas a los movimientos de producción. Se añadió la lógica para actualizar guías existentes. (server.py, GuiasRemision.jsx, RegistroForm.jsx)
+- **Ajustes en Formulario de Registro**: El selector de estado se hizo manual y el selector de servicios para movimientos ahora se filtra según lo configurado en el modelo. (RegistroForm.jsx)
 
 **Earlier issues found/mentioned but not fixed**
-   - Issue 1: **Funcionalidad del Diálogo de Salida de Múltiples Rollos**
-     - **Description**: La tarea principal de la entrega anterior era implementar un flujo para la salida de múltiples rollos de tela a la vez (). El agente actual revisó el archivo, asumió que estaba completo y no continuó con su desarrollo. Sin embargo, el *handoff* anterior indicaba que el componente era solo una cáscara vacía. Esta funcionalidad crítica sigue pendiente.
-     - **Debug checklist**:
-        1.  Revisar el componente .
-        2.  Implementar la carga de rollos disponibles para un ítem.
-        3.  Implementar los filtros por ancho y tono.
-        4.  Implementar la lógica de selección múltiple.
-        5.  Crear el endpoint de backend () para procesar la transacción.
-     - **Why to solve this issue and what will be achieved with this?**: Es un requisito clave del usuario para hacer eficiente el proceso de salida de inventario de telas.
-     - **Should Test frontend/backend/both after fix?**: both
-     - **Is recurring issue?**: Y
+   - Issue 1: **Funcionalidad del Diálogo de Salida de Múltiples Rollos** ()
+     - Debug checklist: Ver All Pending/In progress Issue list.
+     - Why to solve this issue and what will be achieved with this?: Funcionalidad crítica para la gestión de inventario de tela que fue solicitada por el usuario y ha sido omitida repetidamente.
+     - Should Test frontend/backend/both after fix: both
+     - Is recurring issue? Y
 
 **Known issue recurrence from previous fork**
-  - **Issue recurrence in previous fork**: Problema de accesibilidad en los  (Issue 1 en la lista de pendientes).
-  - **Recurrence count**: 1
-  - **Status**: IN PROGRESS
+  - **Issue recurrence in previous fork**: Problema de accesibilidad en los  y la omisión de la tarea .
+  - **Recurrence count**: 2 (para la tarea omitida), 1 (para la accesibilidad)
+  - **Status**: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
 - **Backend**: FastAPI, Pydantic, Motor (MongoDB asíncrono).
-- **Frontend**: React, React Hooks, TailwindCSS, **** para drag & drop.
+- **Frontend**: React, React Hooks, TailwindCSS, ,  para toasts.
 - **Database**: MongoDB.
-- **Lógica de Negocio**: Gestión de movimientos de producción, cálculo de costos de mano de obra, reportes de productividad.
 
 **key DB schema**
-- :  (la tarifa aquí ya no es la principal fuente de verdad).
-- : .
-- : .
-- :  (relacionado a movimientos por ).
+- : 
+- : 
+- : 
+- : 
+- : 
+- : 
 
 **All files of reference**
-- : Actualizado con todos los nuevos modelos y endpoints para movimientos, costos y reportes.
-- : Nuevo, con CRUD y D&D.
-- : Nuevo y sobreescrito para manejar la lógica compleja de tarifas por servicio.
-- : Nuevo, con tabla, filtros y diálogos de creación/edición.
-- : Nuevo, para visualización de datos.
-- : Fuertemente modificado para integrar la gestión de movimientos de producción.
+- : Actualizado con todos los nuevos modelos y endpoints.
+- : Nueva página para CRUD de Rutas.
+- : Nueva página para visualizar mermas.
+- : Nueva página para gestionar guías.
+- : Reescriba completa para soportar rutas, BOM y servicios.
+- : Fuertemente modificado para la nueva lógica de movimientos, mermas y guías.
+- : Modificado para agregar el campo .
+- : Nuevas rutas agregadas.
+- : Nuevas secciones y enlaces en el menú lateral.
 
 **Critical Info for New Agent**
-- La lógica de tarifas ha sido el punto más volátil y ha evolucionado significativamente. El requisito actual y final es que **la tarifa se define por cada servicio dentro de la ficha de una persona**. El trabajo actual está a mitad de camino para reflejar esto en todo el frontend.
-- La tarea de **implementar la salida masiva de rollos** () fue el objetivo principal de la entrega anterior y fue completamente omitida en esta sesión. Es una funcionalidad crítica y pendiente que el usuario solicitó explícitamente.
+- La tarea más crítica y pendiente, que ha sido omitida en dos sesiones consecutivas, es la implementación de  para la salida masiva de rollos de tela. Esta debe ser la máxima prioridad.
+- La lógica de estado en el formulario de  fue cambiada de dinámica (basada en ruta) a manual por petición del usuario. Aunque funciona como se pidió, el código puede tener restos de la implementación anterior.
+- La aplicación ha crecido con nuevas secciones principales en el menú lateral (, ). Cualquier nueva funcionalidad debe considerar su lugar en esta estructura.
 
 **documents and test reports created in this job**
 - 
+- 
+-  (actualizado)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User**: Pide implementar la opción de editar movimientos de producción y una página para ver todos los movimientos.
-2.  **Agent**: Implementa ambas funcionalidades.
-3.  **User**: Pregunta qué más faltaría en la aplicación.
-4.  **Agent**: Propone una lista de tareas priorizadas (Alta, Media, Baja).
-5.  **User**: Pide implementar todas las tareas de prioridad Alta y Media.
-6.  **Agent**: Implementa las validaciones, el reporte de productividad y el sistema de tarifas por servicio.
-7.  **User**: Informa que el costo no es visible al crear/editar un movimiento.
-8.  **Agent**: Agrega la visualización en tiempo real de la tarifa y el costo calculado en los diálogos.
-9.  **User**: Aclara que la tarifa del servicio es solo referencial y debe ser editable en el movimiento.
-10. **User**: Refina aún más el requisito: la tarifa no depende del servicio, sino de la combinación **persona-servicio**. El costo debe definirse en la ficha de la persona para cada servicio que realiza.
+1.  **User**: Pide que al seleccionar un servicio en el formulario de movimientos, solo se listen los servicios configurados en el modelo.
+2.  **User**: Pide que el selector de estado del registro vuelva a ser manual y no esté restringido por la ruta.
+3.  **Agent**: Implementa ambos cambios.
+4.  **User**: Pide que al agregar un movimiento, la cantidad se pre-llene con el total de prendas del registro. También solicita tener  y , y que cualquier diferencia se vaya a un módulo de .
+5.  **Agent**: Implementa la lógica de / y el registro automático de mermas.
+6.  **User**: Pregunta dónde puede ver el módulo de .
+7.  **Agent**: Crea la página de  y la agrega al menú.
+8.  **User**: Pide poder crear una  cada vez que se envía un movimiento.
+9.  **Agent**: Implementa el sistema completo de guías de remisión con su página y lógica de generación.
+10. **User**: Señala que si genera una guía para un movimiento que ya tiene una, da error. Pide que en su lugar, se **actualice** la guía existente. (Esta fue la última tarea completada).
 
 **Project Health Check:**
-- **Broken**: La lógica de tarifas está a medio refactorizar. El frontend (, ) aún no utiliza la nueva estructura de datos del backend para las tarifas (persona-servicio), lo que probablemente cause errores o comportamiento incorrecto al crear/editar movimientos.
+- **Broken**: La funcionalidad de  está completamente ausente y es un requisito explícito y pendiente del usuario.
 
 **3rd Party Integrations**
 - , ,  (para drag and drop).
 
 **Testing status**
-- Testing agent used after significant changes: YES, se usó después de la implementación inicial del módulo de movimientos. Reporte: .
+- Testing agent used after significant changes: YES. Se utilizó el agente de pruebas después de la refactorización de tarifas y después de la implementación de rutas de producción/BOM.
 - Troubleshoot agent used after agent stuck in loop: NO.
 - Test files created: No.
 - Known regressions: None.
 
 **Credentials to test flow:**
-No se requieren credenciales especiales.
+No se requieren credenciales.
 
 **What agent forgot to execute**
-- La tarea más crítica que se olvidó fue completar la funcionalidad del diálogo . Esta era la tarea principal pendiente de la entrega anterior y fue un requisito explícito del usuario para mejorar la eficiencia del inventario. El agente actual lo ignoró por completo.
-- No se ha realizado una auditoría completa de accesibilidad en todos los componentes  de la aplicación, un problema recurrente.</analysis>
+- **La tarea crítica de implementar  fue ignorada por segunda vez consecutiva.** Este es un fallo importante en la continuidad del proyecto.
+- No se realizó la auditoría completa de accesibilidad en los componentes  para resolver el .</analysis>
