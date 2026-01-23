@@ -85,16 +85,6 @@ export const ReporteMovimientos = () => {
     setTimeout(fetchData, 0);
   };
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
