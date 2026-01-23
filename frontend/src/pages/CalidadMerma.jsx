@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
@@ -20,12 +21,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { AlertTriangle, Filter, Trash2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Filter, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const CalidadMerma = () => {
+  const navigate = useNavigate();
   const [mermas, setMermas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [registros, setRegistros] = useState([]);
