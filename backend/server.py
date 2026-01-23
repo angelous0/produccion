@@ -211,6 +211,7 @@ class RegistroBase(BaseModel):
     curva: str = ""
     estado: str = "Para Corte"
     urgente: bool = False
+    hilo_especifico_id: Optional[str] = None
 
 class RegistroCreate(RegistroBase):
     tallas: List[TallaCantidadItem] = []
