@@ -2090,6 +2090,23 @@ async def create_movimiento_produccion(input: MovimientoProduccionCreate):
     doc = movimiento.model_dump()
     doc['created_at'] = doc['created_at'].isoformat()
     await db.movimientos_produccion.insert_one(doc)
+    
+    # Si hay diferencia entre enviada y recibida, crear registro de merma
+    diferencia = input.cantidad_enviada - input.cantidad_recibida
+    if diferencia > 0:
+        merma = Merma(
+            registro_id=input.registro_id,
+            movimiento_id=movimiento.id,
+            servicio_id=input.servicio_id,
+            persona_id=input.persona_id,
+            cantidad=diferencia,
+            motivo="Diferencia automática entre cantidad enviada y recibida",
+            fecha=input.fecha_fin or input.fecha_inicio
+        )
+        merma_doc = merma.model_dump()
+        merma_doc['created_at'] = merma_doc['created_at'].isoformat()
+        await db.mermas.insert_one(merma_doc)
+    
     return movimiento
 
 @api_router.put("/movimientos-produccion/{movimiento_id}", response_model=MovimientoProduccion)
@@ -2098,19 +2115,98 @@ async def update_movimiento_produccion(movimiento_id: str, input: MovimientoProd
     if not result:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     
+    # Eliminar merma anterior asociada a este movimiento (si existe)
+    await db.mermas.delete_many({"movimiento_id": movimiento_id})
+    
     update_data = input.model_dump()
     await db.movimientos_produccion.update_one({"id": movimiento_id}, {"$set": update_data})
     result.update(update_data)
+    
+    # Si hay nueva diferencia, crear nueva merma
+    diferencia = input.cantidad_enviada - input.cantidad_recibida
+    if diferencia > 0:
+        merma = Merma(
+            registro_id=input.registro_id,
+            movimiento_id=movimiento_id,
+            servicio_id=input.servicio_id,
+            persona_id=input.persona_id,
+            cantidad=diferencia,
+            motivo="Diferencia automática entre cantidad enviada y recibida",
+            fecha=input.fecha_fin or input.fecha_inicio
+        )
+        merma_doc = merma.model_dump()
+        merma_doc['created_at'] = merma_doc['created_at'].isoformat()
+        await db.mermas.insert_one(merma_doc)
+    
     if isinstance(result.get('created_at'), str):
         result['created_at'] = datetime.fromisoformat(result['created_at'])
     return MovimientoProduccion(**result)
 
 @api_router.delete("/movimientos-produccion/{movimiento_id}")
 async def delete_movimiento_produccion(movimiento_id: str):
+    # Eliminar mermas asociadas
+    await db.mermas.delete_many({"movimiento_id": movimiento_id})
     result = await db.movimientos_produccion.delete_one({"id": movimiento_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     return {"message": "Movimiento eliminado"}
+
+# ==================== ENDPOINTS CALIDAD/MERMA ====================
+
+@api_router.get("/mermas")
+async def get_mermas(registro_id: str = None, servicio_id: str = None, persona_id: str = None):
+    query = {}
+    if registro_id:
+        query['registro_id'] = registro_id
+    if servicio_id:
+        query['servicio_id'] = servicio_id
+    if persona_id:
+        query['persona_id'] = persona_id
+    
+    mermas = await db.mermas.find(query, {"_id": 0}).to_list(5000)
+    result = []
+    for m in mermas:
+        if isinstance(m.get('created_at'), str):
+            m['created_at'] = datetime.fromisoformat(m['created_at'])
+        
+        # Enriquecer con nombres
+        servicio = await db.servicios_produccion.find_one({"id": m.get('servicio_id')}, {"_id": 0, "nombre": 1})
+        persona = await db.personas_produccion.find_one({"id": m.get('persona_id')}, {"_id": 0, "nombre": 1})
+        registro = await db.registros.find_one({"id": m.get('registro_id')}, {"_id": 0, "n_corte": 1})
+        
+        m['servicio_nombre'] = servicio['nombre'] if servicio else ""
+        m['persona_nombre'] = persona['nombre'] if persona else ""
+        m['registro_n_corte'] = registro['n_corte'] if registro else ""
+        
+        result.append(m)
+    return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
+
+@api_router.post("/mermas", response_model=Merma)
+async def create_merma(input: MermaCreate):
+    merma = Merma(**input.model_dump())
+    doc = merma.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.mermas.insert_one(doc)
+    return merma
+
+@api_router.put("/mermas/{merma_id}")
+async def update_merma(merma_id: str, input: MermaCreate):
+    result = await db.mermas.find_one({"id": merma_id}, {"_id": 0})
+    if not result:
+        raise HTTPException(status_code=404, detail="Merma no encontrada")
+    update_data = input.model_dump()
+    await db.mermas.update_one({"id": merma_id}, {"$set": update_data})
+    result.update(update_data)
+    if isinstance(result.get('created_at'), str):
+        result['created_at'] = datetime.fromisoformat(result['created_at'])
+    return result
+
+@api_router.delete("/mermas/{merma_id}")
+async def delete_merma(merma_id: str):
+    result = await db.mermas.delete_one({"id": merma_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Merma no encontrada")
+    return {"message": "Merma eliminada"}
 
 # ==================== REPORTE DE PRODUCTIVIDAD ====================
 
