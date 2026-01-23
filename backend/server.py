@@ -2229,6 +2229,153 @@ async def delete_merma(merma_id: str):
         raise HTTPException(status_code=404, detail="Merma no encontrada")
     return {"message": "Merma eliminada"}
 
+# ==================== GUÍAS DE REMISIÓN ====================
+
+async def generar_numero_guia():
+    """Genera número de guía automático: GR-YYYYMMDD-XXXX"""
+    from datetime import datetime
+    hoy = datetime.now().strftime("%Y%m%d")
+    
+    # Buscar el último número del día
+    ultima_guia = await db.guias_remision.find_one(
+        {"numero": {"$regex": f"^GR-{hoy}-"}},
+        sort=[("numero", -1)]
+    )
+    
+    if ultima_guia:
+        # Extraer el número secuencial y aumentar
+        try:
+            ultimo_seq = int(ultima_guia['numero'].split('-')[-1])
+            nuevo_seq = ultimo_seq + 1
+        except:
+            nuevo_seq = 1
+    else:
+        nuevo_seq = 1
+    
+    return f"GR-{hoy}-{nuevo_seq:04d}"
+
+@api_router.get("/guias-remision")
+async def get_guias_remision(
+    registro_id: str = None, 
+    persona_id: str = None,
+    fecha_desde: str = None,
+    fecha_hasta: str = None
+):
+    query = {}
+    if registro_id:
+        query['registro_id'] = registro_id
+    if persona_id:
+        query['persona_id'] = persona_id
+    if fecha_desde:
+        query['fecha_emision'] = {"$gte": fecha_desde}
+    if fecha_hasta:
+        if 'fecha_emision' in query:
+            query['fecha_emision']['$lte'] = fecha_hasta
+        else:
+            query['fecha_emision'] = {"$lte": fecha_hasta}
+    
+    guias = await db.guias_remision.find(query, {"_id": 0}).to_list(5000)
+    result = []
+    for g in guias:
+        if isinstance(g.get('created_at'), str):
+            g['created_at'] = datetime.fromisoformat(g['created_at'])
+        
+        # Enriquecer con datos relacionados
+        servicio = await db.servicios_produccion.find_one({"id": g.get('servicio_id')}, {"_id": 0, "nombre": 1})
+        persona = await db.personas_produccion.find_one({"id": g.get('persona_id')}, {"_id": 0, "nombre": 1, "telefono": 1, "direccion": 1})
+        registro = await db.registros.find_one({"id": g.get('registro_id')}, {"_id": 0, "n_corte": 1, "modelo_id": 1})
+        modelo = None
+        if registro and registro.get('modelo_id'):
+            modelo = await db.modelos.find_one({"id": registro['modelo_id']}, {"_id": 0, "nombre": 1})
+        
+        g['servicio_nombre'] = servicio['nombre'] if servicio else ""
+        g['persona_nombre'] = persona['nombre'] if persona else ""
+        g['persona_telefono'] = persona.get('telefono', '') if persona else ""
+        g['persona_direccion'] = persona.get('direccion', '') if persona else ""
+        g['registro_n_corte'] = registro['n_corte'] if registro else ""
+        g['modelo_nombre'] = modelo['nombre'] if modelo else ""
+        
+        result.append(g)
+    return sorted(result, key=lambda x: x.get('created_at'), reverse=True)
+
+@api_router.get("/guias-remision/{guia_id}")
+async def get_guia_remision(guia_id: str):
+    guia = await db.guias_remision.find_one({"id": guia_id}, {"_id": 0})
+    if not guia:
+        raise HTTPException(status_code=404, detail="Guía no encontrada")
+    
+    if isinstance(guia.get('created_at'), str):
+        guia['created_at'] = datetime.fromisoformat(guia['created_at'])
+    
+    # Enriquecer con datos completos
+    servicio = await db.servicios_produccion.find_one({"id": guia.get('servicio_id')}, {"_id": 0, "nombre": 1})
+    persona = await db.personas_produccion.find_one({"id": guia.get('persona_id')}, {"_id": 0})
+    registro = await db.registros.find_one({"id": guia.get('registro_id')}, {"_id": 0})
+    modelo = None
+    if registro and registro.get('modelo_id'):
+        modelo = await db.modelos.find_one({"id": registro['modelo_id']}, {"_id": 0, "nombre": 1})
+    
+    guia['servicio_nombre'] = servicio['nombre'] if servicio else ""
+    guia['persona_nombre'] = persona['nombre'] if persona else ""
+    guia['persona_telefono'] = persona.get('telefono', '') if persona else ""
+    guia['persona_direccion'] = persona.get('direccion', '') if persona else ""
+    guia['registro_n_corte'] = registro['n_corte'] if registro else ""
+    guia['modelo_nombre'] = modelo['nombre'] if modelo else ""
+    
+    return guia
+
+@api_router.post("/guias-remision")
+async def create_guia_remision(input: GuiaRemisionCreate):
+    # Generar número automático
+    numero = await generar_numero_guia()
+    
+    guia = GuiaRemision(**input.model_dump(), numero=numero)
+    doc = guia.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.guias_remision.insert_one(doc)
+    
+    # Devolver con datos enriquecidos
+    return await get_guia_remision(guia.id)
+
+@api_router.post("/guias-remision/desde-movimiento/{movimiento_id}")
+async def create_guia_desde_movimiento(movimiento_id: str, observaciones: str = ""):
+    """Crea una guía de remisión a partir de un movimiento existente"""
+    movimiento = await db.movimientos_produccion.find_one({"id": movimiento_id}, {"_id": 0})
+    if not movimiento:
+        raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+    
+    # Verificar si ya existe una guía para este movimiento
+    guia_existente = await db.guias_remision.find_one({"movimiento_id": movimiento_id}, {"_id": 0})
+    if guia_existente:
+        raise HTTPException(status_code=400, detail="Ya existe una guía para este movimiento")
+    
+    # Generar número automático
+    numero = await generar_numero_guia()
+    
+    guia = GuiaRemision(
+        movimiento_id=movimiento_id,
+        registro_id=movimiento.get('registro_id', ''),
+        servicio_id=movimiento.get('servicio_id', ''),
+        persona_id=movimiento.get('persona_id', ''),
+        cantidad=movimiento.get('cantidad_enviada', movimiento.get('cantidad', 0)),
+        fecha_emision=movimiento.get('fecha_inicio', datetime.now().strftime("%Y-%m-%d")),
+        observaciones=observaciones,
+        numero=numero
+    )
+    
+    doc = guia.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.guias_remision.insert_one(doc)
+    
+    return await get_guia_remision(guia.id)
+
+@api_router.delete("/guias-remision/{guia_id}")
+async def delete_guia_remision(guia_id: str):
+    result = await db.guias_remision.delete_one({"id": guia_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Guía no encontrada")
+    return {"message": "Guía eliminada"}
+
 # ==================== REPORTE DE PRODUCTIVIDAD ====================
 
 @api_router.get("/reporte-productividad")
