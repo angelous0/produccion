@@ -232,7 +232,6 @@ export const RegistroForm = () => {
     if (id) {
       fetchSalidasRegistro();
       fetchMovimientosProduccion();
-      fetchHilosAsignados();
     }
   }, [id]);
 
