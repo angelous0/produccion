@@ -58,7 +58,7 @@ export const ColoresCatalogo = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '', codigo_hex: '' });
+      setFormData({ nombre: '', codigo_hex: '', color_general: '' });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar color');
@@ -67,7 +67,7 @@ export const ColoresCatalogo = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ nombre: item.nombre, codigo_hex: item.codigo_hex || '' });
+    setFormData({ nombre: item.nombre, codigo_hex: item.codigo_hex || '', color_general: item.color_general || '' });
     setDialogOpen(true);
   };
 
@@ -83,7 +83,7 @@ export const ColoresCatalogo = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '', codigo_hex: '' });
+    setFormData({ nombre: '', codigo_hex: '', color_general: '' });
     setDialogOpen(true);
   };
 
