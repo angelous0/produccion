@@ -1317,6 +1317,19 @@ async def create_salida(input: SalidaInventarioCreate):
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
         return salida
 
+class SalidaUpdateData(BaseModel):
+    observaciones: str = ""
+
+@api_router.put("/inventario-salidas/{salida_id}")
+async def update_salida(salida_id: str, input: SalidaUpdateData):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        salida = await conn.fetchrow("SELECT * FROM prod_inventario_salidas WHERE id = $1", salida_id)
+        if not salida:
+            raise HTTPException(status_code=404, detail="Salida no encontrada")
+        await conn.execute("UPDATE prod_inventario_salidas SET observaciones=$1 WHERE id=$2", input.observaciones, salida_id)
+        return {"message": "Salida actualizada"}
+
 @api_router.delete("/inventario-salidas/{salida_id}")
 async def delete_salida(salida_id: str):
     pool = await get_pool()
