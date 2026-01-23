@@ -23,6 +23,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { AlertTriangle, Filter, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
