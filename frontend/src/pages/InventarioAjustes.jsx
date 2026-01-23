@@ -149,16 +149,6 @@ export const InventarioAjustes = () => {
     }
   };
 
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   return (
     <div className="space-y-6" data-testid="ajustes-page">
       <div className="flex items-center justify-between">
