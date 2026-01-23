@@ -362,22 +362,12 @@ export const ReporteProductividad = () => {
                 <CardTitle className="text-lg">Detalle Persona - Servicio</CardTitle>
               </CardHeader>
               <CardContent>
-                {reporte.detalle.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No hay datos para mostrar
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead>Persona</TableHead>
-                          <TableHead>Servicio</TableHead>
-                          <TableHead className="text-right">Tarifa</TableHead>
-                          <TableHead className="text-center">Mov.</TableHead>
-                          <TableHead className="text-right">Cantidad</TableHead>
-                          <TableHead className="text-right">Costo</TableHead>
-                        </TableRow>
+                <div className="text-center py-8 text-muted-foreground">
+                  Este reporte detallado estará disponible próximamente
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
                       </TableHeader>
                       <TableBody>
                         {reporte.detalle.map((item, idx) => (
