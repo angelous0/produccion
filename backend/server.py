@@ -102,10 +102,21 @@ class Talla(TallaBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class ColorGeneralBase(BaseModel):
+    nombre: str
+
+class ColorGeneralCreate(ColorGeneralBase):
+    pass
+
+class ColorGeneral(ColorGeneralBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class ColorBase(BaseModel):
     nombre: str
     codigo_hex: str = ""
-    color_general: str = ""
+    color_general_id: Optional[str] = None
 
 class ColorCreate(ColorBase):
     pass
