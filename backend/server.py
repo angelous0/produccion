@@ -550,6 +550,34 @@ def limpiar_datos_sensibles(datos: dict) -> dict:
             datos_limpio[campo] = '***'
     return datos_limpio
 
+def verificar_permiso(user: dict, tabla: str, accion: str) -> bool:
+    """
+    Verifica si el usuario tiene permiso para realizar una acción en una tabla
+    accion: 'ver', 'crear', 'editar', 'eliminar'
+    """
+    if user['rol'] == 'admin':
+        return True
+    if user['rol'] == 'lectura':
+        return accion == 'ver'
+    
+    permisos = user.get('permisos', {})
+    if isinstance(permisos, str):
+        permisos = json.loads(permisos) if permisos else {}
+    
+    permisos_tabla = permisos.get(tabla, {})
+    return permisos_tabla.get(accion, False)
+
+def require_permiso(tabla: str, accion: str):
+    """Decorator/helper para requerir permiso en un endpoint"""
+    async def check_permission(current_user: dict = Depends(get_current_user)):
+        if not verificar_permiso(current_user, tabla, accion):
+            raise HTTPException(
+                status_code=403, 
+                detail=f"No tienes permiso para {accion} en {tabla}"
+            )
+        return current_user
+    return check_permission
+
 # ==================== ENDPOINTS AUTENTICACIÓN ====================
 
 @api_router.post("/auth/login")
