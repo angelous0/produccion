@@ -94,6 +94,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="usuarios" element={<Usuarios />} />
         <Route path="historial-actividad" element={<HistorialActividad />} />
+        <Route path="backups" element={<Backups />} />
         <Route path="marcas" element={<Marcas />} />
         <Route path="tipos" element={<Tipos />} />
         <Route path="entalles" element={<Entalles />} />
