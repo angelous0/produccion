@@ -195,6 +195,34 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Persistencia de token en localStorage
 - ✅ **Usuario Administrador**: eduard / eduard123
 
+### Enero 2025 - Historial de Actividad y UI
+- ✅ **Historial de Actividad Completo**:
+  - Nueva tabla `prod_actividad_historial`
+  - Registro automático de: login, crear, editar, eliminar, cambio de contraseña
+  - Almacena datos anteriores y nuevos para cada acción
+  - Página `/historial-actividad` con diseño tipo timeline
+  - Agrupación por fecha (Sábado 24 de Enero, etc.)
+  - Filtros por usuario, tipo de acción, fechas
+  - Click en registro navega al módulo correspondiente
+  - Badges con datos relevantes
+- ✅ **Cambio de Contraseña por Usuario**:
+  - Admin puede establecer contraseña específica para cualquier usuario
+  - Cada usuario puede cambiar su propia contraseña desde el menú
+- ✅ **Sidebar Colapsable**:
+  - Botón para colapsar/expandir menú lateral
+  - Modo colapsado muestra solo iconos
+  - Persistencia de preferencia en localStorage
+  - Tooltips en modo colapsado
+
+### Enero 2025 - Optimización para Producción
+- ✅ **Limpieza de Código**:
+  - Eliminada tabla `prod_registro_hilos` (obsoleta)
+  - Eliminados endpoints de registro-hilos
+  - Eliminada página RegistroHilos.jsx
+  - Eliminada ruta /registros/:id/hilos
+  - Limpieza de caché Python
+  - Corrección de errores de linting
+
 ## Backlog
 
 ### P1 - Importante
