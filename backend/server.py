@@ -2994,6 +2994,7 @@ async def create_backup(current_user: dict = Depends(get_current_user)):
                 for row in rows:
                     row_dict = dict(row)
                     # Convertir tipos no serializables
+                    from decimal import Decimal
                     for key, value in row_dict.items():
                         if isinstance(value, datetime):
                             row_dict[key] = value.isoformat()
@@ -3001,6 +3002,8 @@ async def create_backup(current_user: dict = Depends(get_current_user)):
                             row_dict[key] = value.isoformat()
                         elif isinstance(value, uuid.UUID):
                             row_dict[key] = str(value)
+                        elif isinstance(value, Decimal):
+                            row_dict[key] = float(value)
                     table_data.append(row_dict)
                 backup_data["tables"][table] = table_data
             except Exception as e:
@@ -3134,10 +3137,10 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
         "inventario": {
             "query": """
                 SELECT codigo, nombre, descripcion, unidad_medida, stock_actual, stock_minimo,
-                       costo_promedio, control_por_rollos
+                       control_por_rollos
                 FROM prod_inventario ORDER BY codigo
             """,
-            "headers": ["Código", "Nombre", "Descripción", "Unidad", "Stock Actual", "Stock Mínimo", "Costo Promedio", "Control Rollos"]
+            "headers": ["Código", "Nombre", "Descripción", "Unidad", "Stock Actual", "Stock Mínimo", "Control Rollos"]
         },
         "movimientos": {
             "query": """
