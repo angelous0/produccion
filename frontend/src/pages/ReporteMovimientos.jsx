@@ -163,12 +163,12 @@ export const ReporteMovimientos = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label>Item</Label>
-                <Select value={filtroItem} onValueChange={setFiltroItem}>
+                <Select value={filtroItem || "all"} onValueChange={(v) => setFiltroItem(v === "all" ? "" : v)}>
                   <SelectTrigger data-testid="filtro-item">
                     <SelectValue placeholder="Todos los items" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los items</SelectItem>
+                    <SelectItem value="all">Todos los items</SelectItem>
                     {items.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.codigo} - {item.nombre}
