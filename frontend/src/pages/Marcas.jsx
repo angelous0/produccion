@@ -101,12 +101,19 @@ export const Marcas = () => {
           <p className="text-muted-foreground">
             Gestión de marcas de productos
             {isSaving && <span className="ml-2 text-xs">(Guardando...)</span>}
+            {isReadOnly && (
+              <span className="ml-2 text-xs text-yellow-600 flex items-center gap-1 inline-flex">
+                <Lock className="h-3 w-3" /> Solo lectura
+              </span>
+            )}
           </p>
         </div>
-        <Button onClick={handleNew} data-testid="btn-nueva-marca">
-          <Plus className="h-4 w-4 mr-2" />
-          Nueva Marca
-        </Button>
+        {canCreate && (
+          <Button onClick={handleNew} data-testid="btn-nueva-marca">
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Marca
+          </Button>
+        )}
       </div>
 
       <Card>
