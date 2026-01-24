@@ -2960,6 +2960,279 @@ async def _get_kardex(item_id: str):
             "saldo_actual": float(item['stock_actual'])
         }
 
+# ==================== ENDPOINTS BACKUP ====================
+
+BACKUP_TABLES = [
+    'prod_marcas', 'prod_tipos', 'prod_entalles', 'prod_telas', 'prod_hilos',
+    'prod_hilos_especificos', 'prod_tallas_catalogo', 'prod_colores_generales',
+    'prod_colores_catalogo', 'prod_modelos', 'prod_registros', 'prod_inventario',
+    'prod_inventario_ingresos', 'prod_inventario_salidas', 'prod_inventario_ajustes',
+    'prod_inventario_rollos', 'prod_servicios_produccion', 'prod_personas_produccion',
+    'prod_rutas_produccion', 'prod_movimientos_produccion', 'prod_mermas',
+    'prod_guias_remision', 'prod_usuarios'
+]
+
+@api_router.get("/backup/create")
+async def create_backup(current_user: dict = Depends(get_current_user)):
+    """Crea un backup completo de todas las tablas"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden crear backups")
+    
+    pool = await get_pool()
+    backup_data = {
+        "version": "1.0",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": current_user['username'],
+        "tables": {}
+    }
+    
+    async with pool.acquire() as conn:
+        for table in BACKUP_TABLES:
+            try:
+                rows = await conn.fetch(f"SELECT * FROM {table}")
+                table_data = []
+                for row in rows:
+                    row_dict = dict(row)
+                    # Convertir tipos no serializables
+                    for key, value in row_dict.items():
+                        if isinstance(value, datetime):
+                            row_dict[key] = value.isoformat()
+                        elif isinstance(value, date):
+                            row_dict[key] = value.isoformat()
+                        elif isinstance(value, uuid.UUID):
+                            row_dict[key] = str(value)
+                    table_data.append(row_dict)
+                backup_data["tables"][table] = table_data
+            except Exception as e:
+                backup_data["tables"][table] = {"error": str(e)}
+    
+    # Registrar actividad
+    await registrar_actividad(
+        pool,
+        usuario_id=current_user['id'],
+        usuario_nombre=current_user['username'],
+        tipo_accion="crear",
+        tabla_afectada="backup",
+        descripcion="Creó backup completo de la base de datos"
+    )
+    
+    # Generar archivo JSON
+    json_content = json.dumps(backup_data, ensure_ascii=False, indent=2)
+    filename = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    return StreamingResponse(
+        io.BytesIO(json_content.encode('utf-8')),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/backup/info")
+async def backup_info(current_user: dict = Depends(get_current_user)):
+    """Retorna información sobre las tablas para backup"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores")
+    
+    pool = await get_pool()
+    info = {"tables": []}
+    
+    async with pool.acquire() as conn:
+        for table in BACKUP_TABLES:
+            try:
+                count = await conn.fetchval(f"SELECT COUNT(*) FROM {table}")
+                info["tables"].append({"name": table, "count": count})
+            except:
+                info["tables"].append({"name": table, "count": 0, "error": True})
+    
+    return info
+
+@api_router.post("/backup/restore")
+async def restore_backup(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """Restaura un backup desde archivo JSON"""
+    if current_user['rol'] != 'admin':
+        raise HTTPException(status_code=403, detail="Solo administradores pueden restaurar backups")
+    
+    try:
+        content = await file.read()
+        backup_data = json.loads(content.decode('utf-8'))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al leer archivo: {str(e)}")
+    
+    if "tables" not in backup_data:
+        raise HTTPException(status_code=400, detail="Formato de backup inválido")
+    
+    pool = await get_pool()
+    restored = []
+    errors = []
+    
+    async with pool.acquire() as conn:
+        for table, rows in backup_data["tables"].items():
+            if table not in BACKUP_TABLES:
+                continue
+            if isinstance(rows, dict) and "error" in rows:
+                continue
+            if not rows:
+                continue
+            
+            try:
+                # Eliminar datos existentes
+                await conn.execute(f"DELETE FROM {table}")
+                
+                # Insertar nuevos datos
+                for row in rows:
+                    columns = list(row.keys())
+                    values = list(row.values())
+                    placeholders = [f"${i+1}" for i in range(len(columns))]
+                    
+                    query = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({', '.join(placeholders)})"
+                    try:
+                        await conn.execute(query, *values)
+                    except Exception as row_error:
+                        errors.append(f"{table}: {str(row_error)[:50]}")
+                
+                restored.append(table)
+            except Exception as table_error:
+                errors.append(f"{table}: {str(table_error)}")
+    
+    # Registrar actividad
+    await registrar_actividad(
+        pool,
+        usuario_id=current_user['id'],
+        usuario_nombre=current_user['username'],
+        tipo_accion="editar",
+        tabla_afectada="backup",
+        descripcion=f"Restauró backup: {len(restored)} tablas restauradas",
+        datos_nuevos={"tablas_restauradas": restored, "errores": errors}
+    )
+    
+    return {
+        "message": "Backup restaurado",
+        "restored_tables": restored,
+        "errors": errors
+    }
+
+# ==================== ENDPOINTS EXPORTAR EXCEL ====================
+
+@api_router.get("/export/{tabla}")
+async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_user)):
+    """Exporta una tabla a formato CSV (compatible con Excel)"""
+    
+    # Mapeo de tabla a query
+    EXPORT_CONFIG = {
+        "registros": {
+            "query": """
+                SELECT r.n_corte, r.fecha_creacion, r.estado, r.urgente,
+                       m.nombre as modelo, ma.nombre as marca, t.nombre as tipo,
+                       r.curva, r.total_prendas, r.observaciones
+                FROM prod_registros r
+                LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+                LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+                LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+                ORDER BY r.fecha_creacion DESC
+            """,
+            "headers": ["N° Corte", "Fecha", "Estado", "Urgente", "Modelo", "Marca", "Tipo", "Curva", "Total Prendas", "Observaciones"]
+        },
+        "inventario": {
+            "query": """
+                SELECT codigo, nombre, descripcion, unidad_medida, stock_actual, stock_minimo,
+                       costo_promedio, control_por_rollos
+                FROM prod_inventario ORDER BY codigo
+            """,
+            "headers": ["Código", "Nombre", "Descripción", "Unidad", "Stock Actual", "Stock Mínimo", "Costo Promedio", "Control Rollos"]
+        },
+        "movimientos": {
+            "query": """
+                SELECT i.codigo, i.nombre, 
+                       COALESCE(ing.fecha, sal.fecha, aj.fecha) as fecha,
+                       CASE 
+                           WHEN ing.id IS NOT NULL THEN 'Ingreso'
+                           WHEN sal.id IS NOT NULL THEN 'Salida'
+                           WHEN aj.id IS NOT NULL THEN 'Ajuste'
+                       END as tipo,
+                       COALESCE(ing.cantidad, -sal.cantidad, aj.cantidad) as cantidad,
+                       COALESCE(ing.costo_unitario, 0) as costo
+                FROM prod_inventario i
+                LEFT JOIN prod_inventario_ingresos ing ON i.id = ing.inventario_id
+                LEFT JOIN prod_inventario_salidas sal ON i.id = sal.inventario_id
+                LEFT JOIN prod_inventario_ajustes aj ON i.id = aj.inventario_id
+                WHERE ing.id IS NOT NULL OR sal.id IS NOT NULL OR aj.id IS NOT NULL
+                ORDER BY COALESCE(ing.fecha, sal.fecha, aj.fecha) DESC
+            """,
+            "headers": ["Código", "Item", "Fecha", "Tipo", "Cantidad", "Costo"]
+        },
+        "productividad": {
+            "query": """
+                SELECT p.nombre as persona, s.nombre as servicio, 
+                       mp.cantidad, mp.tarifa, mp.monto_total, mp.fecha,
+                       r.n_corte, mp.observaciones
+                FROM prod_movimientos_produccion mp
+                LEFT JOIN prod_personas_produccion p ON mp.persona_id = p.id
+                LEFT JOIN prod_servicios_produccion s ON mp.servicio_id = s.id
+                LEFT JOIN prod_registros r ON mp.registro_id = r.id
+                ORDER BY mp.fecha DESC
+            """,
+            "headers": ["Persona", "Servicio", "Cantidad", "Tarifa", "Monto Total", "Fecha", "N° Corte", "Observaciones"]
+        },
+        "personas": {
+            "query": "SELECT nombre, telefono, activo FROM prod_personas_produccion ORDER BY nombre",
+            "headers": ["Nombre", "Teléfono", "Activo"]
+        },
+        "modelos": {
+            "query": """
+                SELECT m.nombre, m.codigo, ma.nombre as marca, t.nombre as tipo,
+                       e.nombre as entalle, te.nombre as tela
+                FROM prod_modelos m
+                LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+                LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+                LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+                LEFT JOIN prod_telas te ON m.tela_id = te.id
+                ORDER BY m.nombre
+            """,
+            "headers": ["Nombre", "Código", "Marca", "Tipo", "Entalle", "Tela"]
+        }
+    }
+    
+    if tabla not in EXPORT_CONFIG:
+        raise HTTPException(status_code=400, detail=f"Tabla '{tabla}' no exportable")
+    
+    config = EXPORT_CONFIG[tabla]
+    pool = await get_pool()
+    
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(config["query"])
+    
+    # Crear CSV
+    output = io.StringIO()
+    # BOM para Excel
+    output.write('\ufeff')
+    # Headers
+    output.write(','.join(config["headers"]) + '\n')
+    
+    for row in rows:
+        values = []
+        for val in row.values():
+            if val is None:
+                values.append('')
+            elif isinstance(val, (datetime, date)):
+                values.append(val.strftime('%d/%m/%Y'))
+            elif isinstance(val, bool):
+                values.append('Sí' if val else 'No')
+            else:
+                # Escapar comas y comillas
+                str_val = str(val).replace('"', '""')
+                if ',' in str_val or '"' in str_val or '\n' in str_val:
+                    str_val = f'"{str_val}"'
+                values.append(str_val)
+        output.write(','.join(values) + '\n')
+    
+    output.seek(0)
+    filename = f"{tabla}_{datetime.now().strftime('%Y%m%d')}.csv"
+    
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 # ==================== STARTUP/SHUTDOWN ====================
 
 @app.on_event("startup")
