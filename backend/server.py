@@ -576,7 +576,7 @@ async def login(credentials: UserLogin):
             usuario_id=user['id'],
             usuario_nombre=user['username'],
             tipo_accion="login",
-            descripcion=f"Inicio de sesión exitoso"
+            descripcion="Inicio de sesión exitoso"
         )
         
         return {
@@ -733,7 +733,7 @@ async def update_usuario(user_id: str, input: UserUpdate, current_user: dict = D
         
         if updates:
             param_count += 1
-            updates.append(f"updated_at = NOW()")
+            updates.append("updated_at = NOW()")
             params.append(user_id)
             query = f"UPDATE prod_usuarios SET {', '.join(updates)} WHERE id = ${param_count}"
             await conn.execute(query, *params)
