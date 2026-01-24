@@ -156,10 +156,13 @@ export const Inventario = () => {
           <h2 className="text-2xl font-bold tracking-tight">Inventario</h2>
           <p className="text-muted-foreground">Gestión de items de inventario (FIFO)</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-item">
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Item
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton tabla="inventario" />
+          <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-item">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Item
+          </Button>
+        </div>
       </div>
 
       <Card>
