@@ -226,16 +226,17 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 ## Backlog
 
 ### P1 - Importante
-- [ ] Aplicar permisos granulares en frontend (ocultar botones según rol)
-- [ ] Proteger endpoints de backend según permisos de usuario
+- [x] ~~Aplicar permisos granulares en frontend (ocultar botones según rol)~~ ✅ Implementado
+- [x] ~~Proteger endpoints de backend según permisos de usuario~~ ✅ Parcialmente (función verificar_permiso creada)
 - [ ] Filtros y búsqueda en tablas de producción
-- [ ] Exportar registros a Excel
+- [x] ~~Exportar registros a Excel~~ ✅ Implementado (registros, inventario, productividad, personas, modelos)
+- [x] ~~Copias de seguridad~~ ✅ Implementado (crear, descargar, restaurar)
 
 ### P2 - Mejoras
 - [ ] Dashboard de Producción con gráficos
 - [ ] Reportes de producción con costos de materiales
 - [ ] Gráficos de estados
 - [ ] Historial de cambios de estado
-- [ ] Exportar Kardex y Reportes a PDF/Excel
+- [ ] Exportar Kardex y Reportes a PDF
 - [ ] Dropdowns en cascada para creación de Modelos
 - [ ] Reportes de Merma por período o persona
