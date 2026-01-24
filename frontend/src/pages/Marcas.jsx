@@ -20,13 +20,15 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
+import { usePermissions } from '../hooks/usePermissions';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Marcas = () => {
+  const { canCreate, canEdit, canDelete, isReadOnly } = usePermissions('marcas');
   const [marcas, setMarcas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
