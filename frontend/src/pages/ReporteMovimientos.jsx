@@ -180,12 +180,12 @@ export const ReporteMovimientos = () => {
               
               <div className="space-y-2">
                 <Label>Tipo</Label>
-                <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+                <Select value={filtroTipo || "all"} onValueChange={(v) => setFiltroTipo(v === "all" ? "" : v)}>
                   <SelectTrigger data-testid="filtro-tipo">
                     <SelectValue placeholder="Todos los tipos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los tipos</SelectItem>
+                    <SelectItem value="all">Todos los tipos</SelectItem>
                     <SelectItem value="ingreso">Ingresos</SelectItem>
                     <SelectItem value="salida">Salidas</SelectItem>
                     <SelectItem value="ajuste">Ajustes</SelectItem>
