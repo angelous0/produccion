@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, date, timedelta
+from decimal import Decimal
 import json
 import io
 from passlib.context import CryptContext
