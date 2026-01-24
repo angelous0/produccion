@@ -3122,14 +3122,14 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
             "query": """
                 SELECT r.n_corte, r.fecha_creacion, r.estado, r.urgente,
                        m.nombre as modelo, ma.nombre as marca, t.nombre as tipo,
-                       r.curva, r.total_prendas, r.observaciones
+                       r.curva
                 FROM prod_registros r
                 LEFT JOIN prod_modelos m ON r.modelo_id = m.id
                 LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
                 LEFT JOIN prod_tipos t ON m.tipo_id = t.id
                 ORDER BY r.fecha_creacion DESC
             """,
-            "headers": ["N° Corte", "Fecha", "Estado", "Urgente", "Modelo", "Marca", "Tipo", "Curva", "Total Prendas", "Observaciones"]
+            "headers": ["N° Corte", "Fecha", "Estado", "Urgente", "Modelo", "Marca", "Tipo", "Curva"]
         },
         "inventario": {
             "query": """
