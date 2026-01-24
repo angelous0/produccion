@@ -107,6 +107,10 @@ export const Layout = () => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -114,6 +118,12 @@ export const Layout = () => {
     new_password: '',
     confirm_password: '',
   });
+
+  const toggleSidebarCollapsed = () => {
+    const newValue = !sidebarCollapsed;
+    setSidebarCollapsed(newValue);
+    localStorage.setItem('sidebarCollapsed', String(newValue));
+  };
 
   const handleLogout = () => {
     logout();
