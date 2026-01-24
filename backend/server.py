@@ -3165,15 +3165,15 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
         "productividad": {
             "query": """
                 SELECT p.nombre as persona, s.nombre as servicio, 
-                       mp.cantidad, mp.tarifa, mp.monto_total, mp.fecha,
-                       r.n_corte, mp.observaciones
+                       mp.cantidad_enviada as cantidad, mp.costo_calculado as monto,
+                       mp.fecha_inicio as fecha, r.n_corte, mp.observaciones
                 FROM prod_movimientos_produccion mp
                 LEFT JOIN prod_personas_produccion p ON mp.persona_id = p.id
                 LEFT JOIN prod_servicios_produccion s ON mp.servicio_id = s.id
                 LEFT JOIN prod_registros r ON mp.registro_id = r.id
-                ORDER BY mp.fecha DESC
+                ORDER BY mp.created_at DESC
             """,
-            "headers": ["Persona", "Servicio", "Cantidad", "Tarifa", "Monto Total", "Fecha", "N° Corte", "Observaciones"]
+            "headers": ["Persona", "Servicio", "Cantidad", "Monto", "Fecha", "N° Corte", "Observaciones"]
         },
         "personas": {
             "query": "SELECT nombre, telefono, activo FROM prod_personas_produccion ORDER BY nombre",
@@ -3181,7 +3181,7 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
         },
         "modelos": {
             "query": """
-                SELECT m.nombre, m.codigo, ma.nombre as marca, t.nombre as tipo,
+                SELECT m.nombre, ma.nombre as marca, t.nombre as tipo,
                        e.nombre as entalle, te.nombre as tela
                 FROM prod_modelos m
                 LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -3190,7 +3190,7 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
                 LEFT JOIN prod_telas te ON m.tela_id = te.id
                 ORDER BY m.nombre
             """,
-            "headers": ["Nombre", "Código", "Marca", "Tipo", "Entalle", "Tela"]
+            "headers": ["Nombre", "Marca", "Tipo", "Entalle", "Tela"]
         }
     }
     
