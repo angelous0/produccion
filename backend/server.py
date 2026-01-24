@@ -2995,7 +2995,6 @@ async def create_backup(current_user: dict = Depends(get_current_user)):
                 for row in rows:
                     row_dict = dict(row)
                     # Convertir tipos no serializables
-                    from decimal import Decimal
                     for key, value in row_dict.items():
                         if isinstance(value, datetime):
                             row_dict[key] = value.isoformat()
