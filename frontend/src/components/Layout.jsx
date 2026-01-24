@@ -316,11 +316,27 @@ export const Layout = () => {
       <div className="flex">
         {/* Sidebar */}
         <aside className={`
-          fixed inset-y-0 left-0 z-40 w-64 transform bg-card border-r pt-16 transition-transform duration-200 ease-in-out
+          fixed inset-y-0 left-0 z-40 transform bg-card border-r pt-16 transition-all duration-300 ease-in-out
           md:translate-x-0 md:static md:pt-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} w-64
         `}>
-          <nav className="flex flex-col gap-1 p-4 overflow-y-auto h-full" data-testid="sidebar-nav">
+          {/* Botón para colapsar/expandir (solo desktop) */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebarCollapsed}
+            className="absolute -right-3 top-20 z-50 hidden md:flex h-6 w-6 rounded-full border bg-background shadow-md hover:bg-accent"
+            data-testid="sidebar-toggle"
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="h-3 w-3" />
+            ) : (
+              <ChevronLeft className="h-3 w-3" />
+            )}
+          </Button>
+
+          <nav className={`flex flex-col gap-1 p-4 overflow-y-auto h-full ${sidebarCollapsed ? 'md:items-center md:px-2' : ''}`} data-testid="sidebar-nav">
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
@@ -328,20 +344,22 @@ export const Layout = () => {
                 end={item.to === '/'}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''}`
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
             
             {/* Separador Inventario */}
             <div className="mt-4 mb-2">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Inventario FIFO
               </p>
+              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
             
             {inventarioItems.map((item) => (
@@ -351,20 +369,22 @@ export const Layout = () => {
                 end={item.to === '/inventario'}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''}`
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
 
             {/* Separador Maestros */}
             <div className="mt-4 mb-2">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Maestros
               </p>
+              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
             
             {maestrosItems.map((item) => (
@@ -373,20 +393,22 @@ export const Layout = () => {
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''}`
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
 
             {/* Separador Calidad */}
             <div className="mt-4 mb-2">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Calidad
               </p>
+              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
             {calidadItems.map((item) => (
               <NavLink
@@ -394,20 +416,22 @@ export const Layout = () => {
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''}`
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
 
             {/* Separador Documentos */}
             <div className="mt-4 mb-2">
-              <p className="px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Documentos
               </p>
+              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
             {documentosItems.map((item) => (
               <NavLink
@@ -415,12 +439,13 @@ export const Layout = () => {
                 to={item.to}
                 onClick={() => setSidebarOpen(false)}
                 className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''}`
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
           </nav>
