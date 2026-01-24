@@ -1,25 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '../components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '../components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -27,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Label } from '../components/ui/label';
 import { 
   History, 
   LogIn, 
@@ -37,69 +22,102 @@ import {
   Key, 
   Shield, 
   Search,
-  Eye,
   ChevronLeft,
   ChevronRight,
   Filter,
-  X,
-  Calendar
+  User,
+  Package,
+  FileText,
+  Shirt,
+  Palette,
+  Tag,
+  Layers,
+  Scissors,
+  Box,
+  Ruler,
+  Users,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Configuración de tipos de acción
 const TIPO_ACCION_CONFIG = {
-  login: { label: 'Inicio de Sesión', icon: LogIn, color: 'bg-green-500' },
-  crear: { label: 'Crear', icon: Plus, color: 'bg-blue-500' },
-  editar: { label: 'Editar', icon: Pencil, color: 'bg-yellow-500' },
-  eliminar: { label: 'Eliminar', icon: Trash2, color: 'bg-red-500' },
-  cambio_password: { label: 'Cambio Contraseña', icon: Key, color: 'bg-purple-500' },
-  cambio_password_admin: { label: 'Cambio Contraseña (Admin)', icon: Shield, color: 'bg-orange-500' },
+  login: { label: 'Inició sesión', icon: LogIn, bgColor: 'bg-blue-500', textColor: 'text-blue-600' },
+  crear: { label: 'Creó', icon: Plus, bgColor: 'bg-green-500', textColor: 'text-green-600' },
+  editar: { label: 'Editó', icon: Pencil, bgColor: 'bg-yellow-500', textColor: 'text-yellow-600' },
+  eliminar: { label: 'Eliminó', icon: Trash2, bgColor: 'bg-red-500', textColor: 'text-red-600' },
+  cambio_password: { label: 'Cambió contraseña', icon: Key, bgColor: 'bg-purple-500', textColor: 'text-purple-600' },
+  cambio_password_admin: { label: 'Cambió contraseña de', icon: Shield, bgColor: 'bg-orange-500', textColor: 'text-orange-600' },
 };
 
-const TABLA_LABELS = {
-  usuarios: 'Usuarios',
-  registros: 'Registros',
-  marcas: 'Marcas',
-  tipos: 'Tipos',
-  entalles: 'Entalles',
-  telas: 'Telas',
-  hilos: 'Hilos',
-  modelos: 'Modelos',
-  inventario: 'Inventario',
+// Configuración de tablas con iconos y rutas
+const TABLA_CONFIG = {
+  usuarios: { label: 'Usuario', icon: User, route: '/usuarios' },
+  registros: { label: 'Registro', icon: FileText, route: '/registros' },
+  marcas: { label: 'Marca', icon: Tag, route: '/marcas' },
+  tipos: { label: 'Tipo', icon: Layers, route: '/tipos' },
+  entalles: { label: 'Entalle', icon: Shirt, route: '/entalles' },
+  telas: { label: 'Tela', icon: Scissors, route: '/telas' },
+  hilos: { label: 'Hilo', icon: Palette, route: '/hilos' },
+  hilos_especificos: { label: 'Hilo Específico', icon: Sparkles, route: '/hilos-especificos' },
+  modelos: { label: 'Modelo', icon: Box, route: '/modelos' },
+  tallas: { label: 'Talla', icon: Ruler, route: '/tallas-catalogo' },
+  colores: { label: 'Color', icon: Palette, route: '/colores-catalogo' },
+  colores_generales: { label: 'Color General', icon: Palette, route: '/colores-generales' },
+  personas: { label: 'Persona', icon: Users, route: '/maestros/personas' },
+  servicios: { label: 'Servicio', icon: Package, route: '/maestros/servicios' },
+  inventario: { label: 'Inventario', icon: Package, route: '/inventario' },
+};
+
+// Formatear fecha para agrupar
+const formatDateGroup = (dateStr) => {
+  const date = new Date(dateStr);
+  const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+  let formatted = date.toLocaleDateString('es-PE', options);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
+// Formatear hora
+const formatTime = (dateStr) => {
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: true });
+};
+
+// Obtener fecha sin hora para agrupar
+const getDateKey = (dateStr) => {
+  const date = new Date(dateStr);
+  return date.toISOString().split('T')[0];
 };
 
 export const HistorialActividad = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [actividades, setActividades] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
-  const [tablasDisponibles, setTablasDisponibles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [limit] = useState(20);
-  const [detailDialog, setDetailDialog] = useState({ open: false, actividad: null });
+  const [limit] = useState(50);
   
   // Filtros
   const [filtros, setFiltros] = useState({
     usuario_id: '',
     tipo_accion: '',
-    tabla_afectada: '',
     fecha_desde: '',
     fecha_hasta: '',
   });
-  const [filtrosAplicados, setFiltrosAplicados] = useState({});
 
-  const fetchActividades = async (currentFiltros = filtrosAplicados, currentPage = page) => {
+  const fetchActividades = async (currentPage = page) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (currentFiltros.usuario_id) params.append('usuario_id', currentFiltros.usuario_id);
-      if (currentFiltros.tipo_accion) params.append('tipo_accion', currentFiltros.tipo_accion);
-      if (currentFiltros.tabla_afectada) params.append('tabla_afectada', currentFiltros.tabla_afectada);
-      if (currentFiltros.fecha_desde) params.append('fecha_desde', currentFiltros.fecha_desde);
-      if (currentFiltros.fecha_hasta) params.append('fecha_hasta', currentFiltros.fecha_hasta);
+      if (filtros.usuario_id) params.append('usuario_id', filtros.usuario_id);
+      if (filtros.tipo_accion) params.append('tipo_accion', filtros.tipo_accion);
+      if (filtros.fecha_desde) params.append('fecha_desde', filtros.fecha_desde);
+      if (filtros.fecha_hasta) params.append('fecha_hasta', filtros.fecha_hasta);
       params.append('limit', limit);
       params.append('offset', currentPage * limit);
       
@@ -122,219 +140,84 @@ export const HistorialActividad = () => {
     }
   };
 
-  const fetchTablas = async () => {
-    try {
-      const response = await axios.get(`${API}/actividad/tablas`);
-      setTablasDisponibles(response.data);
-    } catch (error) {
-      console.error('Error fetching tablas:', error);
-    }
-  };
-
   useEffect(() => {
     fetchActividades();
     fetchUsuarios();
-    fetchTablas();
   }, []);
 
-  const handleAplicarFiltros = () => {
+  const handleFiltrar = () => {
     setPage(0);
-    setFiltrosAplicados(filtros);
-    fetchActividades(filtros, 0);
-  };
-
-  const handleLimpiarFiltros = () => {
-    const filtrosVacios = {
-      usuario_id: '',
-      tipo_accion: '',
-      tabla_afectada: '',
-      fecha_desde: '',
-      fecha_hasta: '',
-    };
-    setFiltros(filtrosVacios);
-    setFiltrosAplicados(filtrosVacios);
-    setPage(0);
-    fetchActividades(filtrosVacios, 0);
+    fetchActividades(0);
   };
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
-    fetchActividades(filtrosAplicados, newPage);
+    fetchActividades(newPage);
   };
 
-  const getTipoAccionBadge = (tipo) => {
-    const config = TIPO_ACCION_CONFIG[tipo] || { label: tipo, color: 'bg-gray-500' };
-    const Icon = config.icon || History;
-    return (
-      <Badge className={`${config.color} text-white flex items-center gap-1`}>
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
+  // Agrupar actividades por fecha
+  const actividadesAgrupadas = actividades.reduce((groups, act) => {
+    const dateKey = getDateKey(act.created_at);
+    if (!groups[dateKey]) {
+      groups[dateKey] = {
+        label: formatDateGroup(act.created_at),
+        items: []
+      };
+    }
+    groups[dateKey].items.push(act);
+    return groups;
+  }, {});
+
+  // Navegar al registro o módulo
+  const handleNavigate = (actividad) => {
+    const config = TABLA_CONFIG[actividad.tabla_afectada];
+    if (!config) return;
+
+    if (actividad.tipo_accion === 'eliminar') {
+      // Si eliminó, ir a la lista del módulo
+      navigate(config.route);
+    } else if (actividad.tipo_accion === 'crear' || actividad.tipo_accion === 'editar') {
+      // Si creó o editó, intentar ir al registro específico
+      if (actividad.tabla_afectada === 'registros' && actividad.registro_id) {
+        navigate(`/registros/editar/${actividad.registro_id}`);
+      } else {
+        navigate(config.route);
+      }
+    } else {
+      navigate(config.route);
+    }
   };
 
-  const formatValue = (value) => {
-    if (value === null || value === undefined || value === '') return <span className="text-muted-foreground italic">vacío</span>;
-    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
-  };
-
-  const CAMPO_LABELS = {
-    username: 'Usuario',
-    email: 'Correo',
-    nombre_completo: 'Nombre Completo',
-    rol: 'Rol',
-    activo: 'Activo',
-    permisos: 'Permisos',
-    nombre: 'Nombre',
-    descripcion: 'Descripción',
-    codigo: 'Código',
-    color: 'Color',
-    precio: 'Precio',
-    cantidad: 'Cantidad',
-  };
-
-  const renderCambiosCrear = (datosNuevos) => {
-    if (!datosNuevos || Object.keys(datosNuevos).length === 0) {
-      return <p className="text-muted-foreground text-center py-4">Sin datos registrados</p>;
+  // Obtener descripción formateada
+  const getDescripcion = (actividad) => {
+    const config = TIPO_ACCION_CONFIG[actividad.tipo_accion] || { label: actividad.tipo_accion };
+    const tablaConfig = TABLA_CONFIG[actividad.tabla_afectada];
+    
+    if (actividad.tipo_accion === 'login') {
+      return null; // Solo mostrar "Inició sesión"
     }
     
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-green-600 font-medium">
-          <Plus className="h-5 w-5" />
-          <span>Datos creados:</span>
-        </div>
-        <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 space-y-2">
-          {Object.entries(datosNuevos).map(([campo, valor]) => (
-            <div key={campo} className="flex items-start gap-2">
-              <span className="text-green-600 mt-1">•</span>
-              <div>
-                <span className="font-medium text-foreground">{CAMPO_LABELS[campo] || campo.replace(/_/g, ' ')}:</span>
-                <span className="ml-2 text-green-700 dark:text-green-400">{formatValue(valor)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    const tablaLabel = tablaConfig?.label || actividad.tabla_afectada || '';
+    const registroNombre = actividad.registro_nombre ? `"${actividad.registro_nombre}"` : '';
+    
+    return { tablaLabel, registroNombre };
   };
 
-  const renderCambiosEditar = (datosAnteriores, datosNuevos) => {
-    if (!datosAnteriores && !datosNuevos) {
-      return <p className="text-muted-foreground text-center py-4">Sin cambios registrados</p>;
-    }
+  // Renderizar badges con datos relevantes
+  const renderDataBadges = (actividad) => {
+    const datos = actividad.datos_nuevos || actividad.datos_anteriores;
+    if (!datos || typeof datos !== 'object') return null;
     
-    const campos = new Set([
-      ...Object.keys(datosAnteriores || {}),
-      ...Object.keys(datosNuevos || {})
-    ]);
+    const badges = [];
+    const camposImportantes = ['nombre', 'username', 'rol', 'email', 'codigo', 'cantidad', 'precio'];
     
-    const cambiosReales = Array.from(campos).filter(campo => {
-      const anterior = datosAnteriores?.[campo];
-      const nuevo = datosNuevos?.[campo];
-      return JSON.stringify(anterior) !== JSON.stringify(nuevo);
+    camposImportantes.forEach(campo => {
+      if (datos[campo] && datos[campo] !== '***') {
+        badges.push({ key: campo, value: datos[campo] });
+      }
     });
-
-    if (cambiosReales.length === 0) {
-      return <p className="text-muted-foreground text-center py-4">Sin cambios detectados</p>;
-    }
     
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-yellow-600 font-medium">
-          <Pencil className="h-5 w-5" />
-          <span>Cambios realizados:</span>
-        </div>
-        <div className="space-y-3">
-          {cambiosReales.map((campo) => {
-            const valorAnterior = datosAnteriores?.[campo];
-            const valorNuevo = datosNuevos?.[campo];
-            
-            return (
-              <div key={campo} className="bg-muted/50 rounded-lg p-3">
-                <div className="font-medium text-sm text-muted-foreground mb-2">
-                  {CAMPO_LABELS[campo] || campo.replace(/_/g, ' ')}
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-red-50 dark:bg-red-950/30 rounded p-2 text-center">
-                    <div className="text-xs text-red-600 mb-1">Antes</div>
-                    <div className="text-red-700 dark:text-red-400 line-through">
-                      {formatValue(valorAnterior)}
-                    </div>
-                  </div>
-                  <div className="text-muted-foreground">→</div>
-                  <div className="flex-1 bg-green-50 dark:bg-green-950/30 rounded p-2 text-center">
-                    <div className="text-xs text-green-600 mb-1">Después</div>
-                    <div className="text-green-700 dark:text-green-400 font-medium">
-                      {formatValue(valorNuevo)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  const renderCambiosEliminar = (datosAnteriores) => {
-    if (!datosAnteriores || Object.keys(datosAnteriores).length === 0) {
-      return <p className="text-muted-foreground text-center py-4">Sin datos registrados</p>;
-    }
-    
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 text-red-600 font-medium">
-          <Trash2 className="h-5 w-5" />
-          <span>Datos eliminados:</span>
-        </div>
-        <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-4 space-y-2">
-          {Object.entries(datosAnteriores).map(([campo, valor]) => (
-            <div key={campo} className="flex items-start gap-2">
-              <span className="text-red-600 mt-1">✕</span>
-              <div>
-                <span className="font-medium text-foreground">{CAMPO_LABELS[campo] || campo.replace(/_/g, ' ')}:</span>
-                <span className="ml-2 text-red-700 dark:text-red-400 line-through">{formatValue(valor)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderCambios = (tipoAccion, datosAnteriores, datosNuevos) => {
-    switch (tipoAccion) {
-      case 'crear':
-        return renderCambiosCrear(datosNuevos);
-      case 'editar':
-        return renderCambiosEditar(datosAnteriores, datosNuevos);
-      case 'eliminar':
-        return renderCambiosEliminar(datosAnteriores);
-      case 'cambio_password':
-      case 'cambio_password_admin':
-        return (
-          <div className="flex items-center gap-2 text-purple-600 bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4">
-            <Key className="h-5 w-5" />
-            <span>La contraseña fue modificada</span>
-          </div>
-        );
-      case 'login':
-        return (
-          <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950/30 rounded-lg p-4">
-            <LogIn className="h-5 w-5" />
-            <span>Inicio de sesión exitoso</span>
-          </div>
-        );
-      default:
-        if (!datosAnteriores && !datosNuevos) {
-          return <p className="text-muted-foreground text-center py-4">Sin detalles adicionales</p>;
-        }
-        return renderCambiosEditar(datosAnteriores, datosNuevos);
-    }
+    return badges.slice(0, 4); // Máximo 4 badges
   };
 
   const totalPages = Math.ceil(total / limit);
@@ -349,36 +232,28 @@ export const HistorialActividad = () => {
 
   return (
     <div className="space-y-6" data-testid="historial-actividad-page">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <History className="h-6 w-6" />
-            Historial de Actividad
-          </h2>
-          <p className="text-muted-foreground">
-            Registro de todas las acciones realizadas en el sistema
-          </p>
-        </div>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <History className="h-6 w-6" />
+          Historial de Actividad
+        </h2>
+        <p className="text-muted-foreground">
+          Registro de todas las acciones realizadas en el sistema
+        </p>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros compactos */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-4 w-4" />
-            Filtros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="space-y-2">
-              <Label>Usuario</Label>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[150px]">
               <Select 
                 value={filtros.usuario_id || "all"} 
                 onValueChange={(value) => setFiltros({ ...filtros, usuario_id: value === "all" ? "" : value })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos los usuarios" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
@@ -389,17 +264,16 @@ export const HistorialActividad = () => {
               </Select>
             </div>
             
-            <div className="space-y-2">
-              <Label>Tipo de Acción</Label>
+            <div className="flex-1 min-w-[150px]">
               <Select 
                 value={filtros.tipo_accion || "all"} 
                 onValueChange={(value) => setFiltros({ ...filtros, tipo_accion: value === "all" ? "" : value })}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todas las acciones" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="all">Todas</SelectItem>
                   {Object.entries(TIPO_ACCION_CONFIG).map(([key, config]) => (
                     <SelectItem key={key} value={key}>{config.label}</SelectItem>
                   ))}
@@ -407,199 +281,164 @@ export const HistorialActividad = () => {
               </Select>
             </div>
             
-            <div className="space-y-2">
-              <Label>Tabla</Label>
-              <Select 
-                value={filtros.tabla_afectada || "all"} 
-                onValueChange={(value) => setFiltros({ ...filtros, tabla_afectada: value === "all" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {tablasDisponibles.map((t) => (
-                    <SelectItem key={t} value={t}>{TABLA_LABELS[t] || t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Input
+              type="date"
+              value={filtros.fecha_desde}
+              onChange={(e) => setFiltros({ ...filtros, fecha_desde: e.target.value })}
+              className="w-[140px] h-9"
+              placeholder="Desde"
+            />
             
-            <div className="space-y-2">
-              <Label>Desde</Label>
-              <Input
-                type="date"
-                value={filtros.fecha_desde}
-                onChange={(e) => setFiltros({ ...filtros, fecha_desde: e.target.value })}
-              />
-            </div>
+            <Input
+              type="date"
+              value={filtros.fecha_hasta}
+              onChange={(e) => setFiltros({ ...filtros, fecha_hasta: e.target.value })}
+              className="w-[140px] h-9"
+              placeholder="Hasta"
+            />
             
-            <div className="space-y-2">
-              <Label>Hasta</Label>
-              <Input
-                type="date"
-                value={filtros.fecha_hasta}
-                onChange={(e) => setFiltros({ ...filtros, fecha_hasta: e.target.value })}
-              />
-            </div>
-            
-            <div className="space-y-2 flex items-end gap-2">
-              <Button onClick={handleAplicarFiltros} className="flex-1">
-                <Search className="h-4 w-4 mr-2" />
-                Buscar
-              </Button>
-              <Button variant="outline" onClick={handleLimpiarFiltros}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button onClick={handleFiltrar} size="sm" className="h-9">
+              <Filter className="h-4 w-4 mr-1" />
+              Filtrar
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabla de actividades */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[180px]">Fecha</TableHead>
-                <TableHead>Usuario</TableHead>
-                <TableHead>Acción</TableHead>
-                <TableHead>Tabla</TableHead>
-                <TableHead>Registro</TableHead>
-                <TableHead>Descripción</TableHead>
-                <TableHead className="w-[80px]">Detalle</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell>
-                </TableRow>
-              ) : actividades.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No hay actividades registradas
-                  </TableCell>
-                </TableRow>
-              ) : (
-                actividades.map((act) => (
-                  <TableRow key={act.id}>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(act.created_at, true)}
-                    </TableCell>
-                    <TableCell className="font-medium">{act.usuario_nombre}</TableCell>
-                    <TableCell>{getTipoAccionBadge(act.tipo_accion)}</TableCell>
-                    <TableCell>
-                      {act.tabla_afectada ? (
-                        <Badge variant="outline">
-                          {TABLA_LABELS[act.tabla_afectada] || act.tabla_afectada}
-                        </Badge>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell className="text-sm">{act.registro_nombre || '-'}</TableCell>
-                    <TableCell className="text-sm max-w-[300px] truncate" title={act.descripcion}>
-                      {act.descripcion}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDetailDialog({ open: true, actividad: act })}
-                        title="Ver detalles"
-                      >
-                        <Eye className="h-4 w-4 text-blue-500" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        
-        {/* Paginación */}
-        {total > limit && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
-            <span className="text-sm text-muted-foreground">
-              Mostrando {page * limit + 1} - {Math.min((page + 1) * limit, total)} de {total}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(page - 1)}
-                disabled={page === 0}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="flex items-center px-3 text-sm">
-                Página {page + 1} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handlePageChange(page + 1)}
-                disabled={page >= totalPages - 1}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
+      {/* Timeline de actividades */}
+      <div className="space-y-6">
+        {loading ? (
+          <div className="text-center py-12 text-muted-foreground">Cargando...</div>
+        ) : Object.keys(actividadesAgrupadas).length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            No hay actividades registradas
           </div>
-        )}
-      </Card>
-
-      {/* Dialog de detalle */}
-      <Dialog open={detailDialog.open} onOpenChange={(open) => setDetailDialog({ open, actividad: null })}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-blue-500" />
-              Detalle de Actividad
-            </DialogTitle>
-            <DialogDescription>
-              {detailDialog.actividad?.descripcion}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {detailDialog.actividad && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm bg-muted/30 rounded-lg p-4">
-                <div>
-                  <span className="text-muted-foreground">Usuario:</span>
-                  <span className="ml-2 font-medium">{detailDialog.actividad.usuario_nombre}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Fecha:</span>
-                  <span className="ml-2">{formatDate(detailDialog.actividad.created_at, true)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Acción:</span>
-                  <span className="ml-2">{getTipoAccionBadge(detailDialog.actividad.tipo_accion)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Tabla:</span>
-                  <span className="ml-2">{TABLA_LABELS[detailDialog.actividad.tabla_afectada] || detailDialog.actividad.tabla_afectada || '-'}</span>
-                </div>
-                {detailDialog.actividad.registro_nombre && (
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Registro:</span>
-                    <span className="ml-2 font-medium">{detailDialog.actividad.registro_nombre}</span>
-                  </div>
-                )}
+        ) : (
+          Object.entries(actividadesAgrupadas).map(([dateKey, group]) => (
+            <div key={dateKey}>
+              {/* Fecha como separador */}
+              <div className="text-sm font-medium text-muted-foreground mb-3 px-1">
+                {group.label}
               </div>
               
-              <div className="border-t pt-4">
-                {renderCambios(
-                  detailDialog.actividad.tipo_accion,
-                  detailDialog.actividad.datos_anteriores,
-                  detailDialog.actividad.datos_nuevos
-                )}
+              {/* Cards de actividades */}
+              <div className="space-y-2">
+                {group.items.map((act) => {
+                  const tipoConfig = TIPO_ACCION_CONFIG[act.tipo_accion] || { 
+                    label: act.tipo_accion, 
+                    icon: History, 
+                    bgColor: 'bg-gray-500',
+                    textColor: 'text-gray-600'
+                  };
+                  const Icon = tipoConfig.icon;
+                  const tablaConfig = TABLA_CONFIG[act.tabla_afectada];
+                  const TablaIcon = tablaConfig?.icon || FileText;
+                  const descripcion = getDescripcion(act);
+                  const badges = renderDataBadges(act);
+                  const isClickable = act.tabla_afectada && tablaConfig;
+                  
+                  return (
+                    <Card 
+                      key={act.id} 
+                      className={`transition-all ${isClickable ? 'hover:shadow-md hover:border-primary/30 cursor-pointer' : ''}`}
+                      onClick={() => isClickable && handleNavigate(act)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          {/* Icono de acción */}
+                          <div className={`${tipoConfig.bgColor} p-2 rounded-full flex-shrink-0`}>
+                            <Icon className="h-4 w-4 text-white" />
+                          </div>
+                          
+                          {/* Contenido */}
+                          <div className="flex-1 min-w-0">
+                            {/* Línea principal */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{act.usuario_nombre}</span>
+                              <span className={`${tipoConfig.textColor} font-medium`}>
+                                {tipoConfig.label}
+                              </span>
+                              {descripcion && (
+                                <>
+                                  {act.tabla_afectada && (
+                                    <span className="flex items-center gap-1">
+                                      <TablaIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span className="text-muted-foreground">{descripcion.tablaLabel}</span>
+                                    </span>
+                                  )}
+                                  {descripcion.registroNombre && (
+                                    <span className="font-medium">{descripcion.registroNombre}</span>
+                                  )}
+                                </>
+                              )}
+                              {isClickable && (
+                                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50" />
+                              )}
+                            </div>
+                            
+                            {/* Descripción adicional */}
+                            {act.descripcion && act.tipo_accion !== 'login' && (
+                              <p className="text-sm text-muted-foreground mt-1 truncate">
+                                {act.descripcion}
+                              </p>
+                            )}
+                            
+                            {/* Badges con datos */}
+                            {badges && badges.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {badges.map((badge, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-xs font-normal">
+                                    {badge.key}: {String(badge.value)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Hora */}
+                          <div className="text-xs text-muted-foreground flex-shrink-0">
+                            {formatTime(act.created_at)}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          ))
+        )}
+      </div>
+
+      {/* Paginación */}
+      {total > limit && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Mostrando {page * limit + 1} - {Math.min((page + 1) * limit, total)} de {total}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 0}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="flex items-center px-3 text-sm">
+              {page + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages - 1}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
