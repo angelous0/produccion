@@ -502,16 +502,14 @@ export const HistorialActividad = () => {
                       {act.descripcion}
                     </TableCell>
                     <TableCell>
-                      {(act.datos_anteriores || act.datos_nuevos) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDetailDialog({ open: true, actividad: act })}
-                          title="Ver detalles"
-                        >
-                          <Eye className="h-4 w-4 text-blue-500" />
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDetailDialog({ open: true, actividad: act })}
+                        title="Ver detalles"
+                      >
+                        <Eye className="h-4 w-4 text-blue-500" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
