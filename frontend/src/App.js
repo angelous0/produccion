@@ -7,6 +7,7 @@ import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
 import { Usuarios } from "./pages/Usuarios";
 import { HistorialActividad } from "./pages/HistorialActividad";
+import { Backups } from "./pages/Backups";
 import { Dashboard } from "./pages/Dashboard";
 import { Marcas } from "./pages/Marcas";
 import { Tipos } from "./pages/Tipos";
