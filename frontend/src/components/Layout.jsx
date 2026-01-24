@@ -53,7 +53,11 @@ import {
   Shield,
   Key,
   Loader2,
-  History
+  History,
+  ChevronLeft,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeft
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
