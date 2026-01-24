@@ -288,10 +288,13 @@ export const Registros = () => {
           <h2 className="text-2xl font-bold tracking-tight">Registros de Producción</h2>
           <p className="text-muted-foreground">Gestión de registros de corte y producción</p>
         </div>
-        <Button onClick={() => navigate('/registros/nuevo')} data-testid="btn-nuevo-registro">
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Registro
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton tabla="registros" />
+          <Button onClick={() => navigate('/registros/nuevo')} data-testid="btn-nuevo-registro">
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Registro
+          </Button>
+        </div>
       </div>
 
       <Card>
