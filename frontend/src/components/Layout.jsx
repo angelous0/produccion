@@ -230,6 +230,10 @@ export const Layout = () => {
                       <History className="h-4 w-4 mr-2" />
                       Historial de Actividad
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/backups')} data-testid="menu-backups">
+                      <Database className="h-4 w-4 mr-2" />
+                      Copias de Seguridad
+                    </DropdownMenuItem>
                   </>
                 )}
                 <DropdownMenuItem onClick={() => setPasswordDialogOpen(true)} data-testid="menu-change-password">
