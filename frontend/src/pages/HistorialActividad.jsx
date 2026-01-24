@@ -557,7 +557,7 @@ export const HistorialActividad = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-blue-500" />
-              Detalle de Cambios
+              Detalle de Actividad
             </DialogTitle>
             <DialogDescription>
               {detailDialog.actividad?.descripcion}
@@ -566,7 +566,7 @@ export const HistorialActividad = () => {
           
           {detailDialog.actividad && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-4 text-sm bg-muted/30 rounded-lg p-4">
                 <div>
                   <span className="text-muted-foreground">Usuario:</span>
                   <span className="ml-2 font-medium">{detailDialog.actividad.usuario_nombre}</span>
@@ -583,11 +583,17 @@ export const HistorialActividad = () => {
                   <span className="text-muted-foreground">Tabla:</span>
                   <span className="ml-2">{TABLA_LABELS[detailDialog.actividad.tabla_afectada] || detailDialog.actividad.tabla_afectada || '-'}</span>
                 </div>
+                {detailDialog.actividad.registro_nombre && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Registro:</span>
+                    <span className="ml-2 font-medium">{detailDialog.actividad.registro_nombre}</span>
+                  </div>
+                )}
               </div>
               
               <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Cambios realizados:</h4>
                 {renderCambios(
+                  detailDialog.actividad.tipo_accion,
                   detailDialog.actividad.datos_anteriores,
                   detailDialog.actividad.datos_nuevos
                 )}
