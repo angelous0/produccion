@@ -173,31 +173,169 @@ export const HistorialActividad = () => {
     );
   };
 
-  const renderCambios = (datosAnteriores, datosNuevos) => {
-    if (!datosAnteriores && !datosNuevos) return null;
+  const formatValue = (value) => {
+    if (value === null || value === undefined || value === '') return <span className="text-muted-foreground italic">vacío</span>;
+    if (typeof value === 'boolean') return value ? 'Sí' : 'No';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  };
+
+  const CAMPO_LABELS = {
+    username: 'Usuario',
+    email: 'Correo',
+    nombre_completo: 'Nombre Completo',
+    rol: 'Rol',
+    activo: 'Activo',
+    permisos: 'Permisos',
+    nombre: 'Nombre',
+    descripcion: 'Descripción',
+    codigo: 'Código',
+    color: 'Color',
+    precio: 'Precio',
+    cantidad: 'Cantidad',
+  };
+
+  const renderCambiosCrear = (datosNuevos) => {
+    if (!datosNuevos || Object.keys(datosNuevos).length === 0) {
+      return <p className="text-muted-foreground text-center py-4">Sin datos registrados</p>;
+    }
+    
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-green-600 font-medium">
+          <Plus className="h-5 w-5" />
+          <span>Datos creados:</span>
+        </div>
+        <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 space-y-2">
+          {Object.entries(datosNuevos).map(([campo, valor]) => (
+            <div key={campo} className="flex items-start gap-2">
+              <span className="text-green-600 mt-1">•</span>
+              <div>
+                <span className="font-medium text-foreground">{CAMPO_LABELS[campo] || campo.replace(/_/g, ' ')}:</span>
+                <span className="ml-2 text-green-700 dark:text-green-400">{formatValue(valor)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCambiosEditar = (datosAnteriores, datosNuevos) => {
+    if (!datosAnteriores && !datosNuevos) {
+      return <p className="text-muted-foreground text-center py-4">Sin cambios registrados</p>;
+    }
     
     const campos = new Set([
       ...Object.keys(datosAnteriores || {}),
       ...Object.keys(datosNuevos || {})
     ]);
     
+    const cambiosReales = Array.from(campos).filter(campo => {
+      const anterior = datosAnteriores?.[campo];
+      const nuevo = datosNuevos?.[campo];
+      return JSON.stringify(anterior) !== JSON.stringify(nuevo);
+    });
+
+    if (cambiosReales.length === 0) {
+      return <p className="text-muted-foreground text-center py-4">Sin cambios detectados</p>;
+    }
+    
     return (
-      <div className="space-y-2 text-sm">
-        {Array.from(campos).map((campo) => {
-          const valorAnterior = datosAnteriores?.[campo];
-          const valorNuevo = datosNuevos?.[campo];
-          const cambio = JSON.stringify(valorAnterior) !== JSON.stringify(valorNuevo);
-          
-          return (
-            <div key={campo} className={`p-2 rounded ${cambio ? 'bg-muted' : ''}`}>
-              <span className="font-medium capitalize">{campo.replace(/_/g, ' ')}:</span>
-              {datosAnteriores && valorAnterior !== undefined && (
-                <div className="text-red-500 line-through ml-2">
-                  {typeof valorAnterior === 'object' ? JSON.stringify(valorAnterior) : String(valorAnterior || '-')}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-yellow-600 font-medium">
+          <Pencil className="h-5 w-5" />
+          <span>Cambios realizados:</span>
+        </div>
+        <div className="space-y-3">
+          {cambiosReales.map((campo) => {
+            const valorAnterior = datosAnteriores?.[campo];
+            const valorNuevo = datosNuevos?.[campo];
+            
+            return (
+              <div key={campo} className="bg-muted/50 rounded-lg p-3">
+                <div className="font-medium text-sm text-muted-foreground mb-2">
+                  {CAMPO_LABELS[campo] || campo.replace(/_/g, ' ')}
                 </div>
-              )}
-              {datosNuevos && valorNuevo !== undefined && (
-                <div className="text-green-500 ml-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-red-50 dark:bg-red-950/30 rounded p-2 text-center">
+                    <div className="text-xs text-red-600 mb-1">Antes</div>
+                    <div className="text-red-700 dark:text-red-400 line-through">
+                      {formatValue(valorAnterior)}
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground">→</div>
+                  <div className="flex-1 bg-green-50 dark:bg-green-950/30 rounded p-2 text-center">
+                    <div className="text-xs text-green-600 mb-1">Después</div>
+                    <div className="text-green-700 dark:text-green-400 font-medium">
+                      {formatValue(valorNuevo)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCambiosEliminar = (datosAnteriores) => {
+    if (!datosAnteriores || Object.keys(datosAnteriores).length === 0) {
+      return <p className="text-muted-foreground text-center py-4">Sin datos registrados</p>;
+    }
+    
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-red-600 font-medium">
+          <Trash2 className="h-5 w-5" />
+          <span>Datos eliminados:</span>
+        </div>
+        <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-4 space-y-2">
+          {Object.entries(datosAnteriores).map(([campo, valor]) => (
+            <div key={campo} className="flex items-start gap-2">
+              <span className="text-red-600 mt-1">✕</span>
+              <div>
+                <span className="font-medium text-foreground">{CAMPO_LABELS[campo] || campo.replace(/_/g, ' ')}:</span>
+                <span className="ml-2 text-red-700 dark:text-red-400 line-through">{formatValue(valor)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCambios = (tipoAccion, datosAnteriores, datosNuevos) => {
+    switch (tipoAccion) {
+      case 'crear':
+        return renderCambiosCrear(datosNuevos);
+      case 'editar':
+        return renderCambiosEditar(datosAnteriores, datosNuevos);
+      case 'eliminar':
+        return renderCambiosEliminar(datosAnteriores);
+      case 'cambio_password':
+      case 'cambio_password_admin':
+        return (
+          <div className="flex items-center gap-2 text-purple-600 bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4">
+            <Key className="h-5 w-5" />
+            <span>La contraseña fue modificada</span>
+          </div>
+        );
+      case 'login':
+        return (
+          <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-950/30 rounded-lg p-4">
+            <LogIn className="h-5 w-5" />
+            <span>Inicio de sesión exitoso</span>
+          </div>
+        );
+      default:
+        if (!datosAnteriores && !datosNuevos) {
+          return <p className="text-muted-foreground text-center py-4">Sin detalles adicionales</p>;
+        }
+        return renderCambiosEditar(datosAnteriores, datosNuevos);
+    }
+  };
                   {typeof valorNuevo === 'object' ? JSON.stringify(valorNuevo) : String(valorNuevo || '-')}
                 </div>
               )}
