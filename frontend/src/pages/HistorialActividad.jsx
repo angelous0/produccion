@@ -336,15 +336,6 @@ export const HistorialActividad = () => {
         return renderCambiosEditar(datosAnteriores, datosNuevos);
     }
   };
-                  {typeof valorNuevo === 'object' ? JSON.stringify(valorNuevo) : String(valorNuevo || '-')}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
 
   const totalPages = Math.ceil(total / limit);
 
