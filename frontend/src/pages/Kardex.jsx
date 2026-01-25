@@ -28,10 +28,15 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  FileSpreadsheet,
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/dateUtils';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
