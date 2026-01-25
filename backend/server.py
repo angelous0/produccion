@@ -2762,6 +2762,82 @@ async def get_stats_charts():
             "produccion_mensual": produccion_mensual
         }
 
+# ==================== REPORTE MERMAS ====================
+
+@api_router.get("/reportes/mermas")
+async def get_reporte_mermas(fecha_inicio: str = None, fecha_fin: str = None, persona_id: str = None, servicio_id: str = None):
+    """Reporte de mermas por período con totales y estadísticas"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Query base con filtros
+        query = """
+            SELECT m.*, 
+                   r.n_corte,
+                   p.nombre as persona_nombre,
+                   s.nombre as servicio_nombre
+            FROM prod_mermas m
+            LEFT JOIN prod_registros r ON m.registro_id = r.id
+            LEFT JOIN prod_personas_produccion p ON m.persona_id = p.id
+            LEFT JOIN prod_servicios_produccion s ON m.servicio_id = s.id
+            WHERE 1=1
+        """
+        params = []
+        
+        if fecha_inicio:
+            params.append(fecha_inicio)
+            query += f" AND m.fecha >= ${len(params)}::date"
+        if fecha_fin:
+            params.append(fecha_fin)
+            query += f" AND m.fecha <= ${len(params)}::date"
+        if persona_id:
+            params.append(persona_id)
+            query += f" AND m.persona_id = ${len(params)}"
+        if servicio_id:
+            params.append(servicio_id)
+            query += f" AND m.servicio_id = ${len(params)}"
+        
+        query += " ORDER BY m.fecha DESC"
+        
+        rows = await conn.fetch(query, *params)
+        mermas = [row_to_dict(r) for r in rows]
+        
+        # Totales
+        total_cantidad = sum(m.get('cantidad', 0) or 0 for m in mermas)
+        
+        # Mermas por persona
+        mermas_por_persona = {}
+        for m in mermas:
+            persona = m.get('persona_nombre') or 'Sin asignar'
+            if persona not in mermas_por_persona:
+                mermas_por_persona[persona] = 0
+            mermas_por_persona[persona] += m.get('cantidad', 0) or 0
+        
+        # Mermas por servicio
+        mermas_por_servicio = {}
+        for m in mermas:
+            servicio = m.get('servicio_nombre') or 'Sin servicio'
+            if servicio not in mermas_por_servicio:
+                mermas_por_servicio[servicio] = 0
+            mermas_por_servicio[servicio] += m.get('cantidad', 0) or 0
+        
+        # Mermas por mes
+        mermas_por_mes = {}
+        for m in mermas:
+            if m.get('fecha'):
+                mes = m['fecha'].strftime('%Y-%m') if hasattr(m['fecha'], 'strftime') else str(m['fecha'])[:7]
+                if mes not in mermas_por_mes:
+                    mermas_por_mes[mes] = 0
+                mermas_por_mes[mes] += m.get('cantidad', 0) or 0
+        
+        return {
+            "mermas": mermas,
+            "total_registros": len(mermas),
+            "total_cantidad": total_cantidad,
+            "por_persona": [{"name": k, "value": v} for k, v in mermas_por_persona.items()],
+            "por_servicio": [{"name": k, "value": v} for k, v in mermas_por_servicio.items()],
+            "por_mes": [{"mes": k, "cantidad": v} for k, v in sorted(mermas_por_mes.items())]
+        }
+
 # ==================== REPORTE PRODUCTIVIDAD ====================
 
 @api_router.get("/reportes/productividad")
