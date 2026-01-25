@@ -2693,7 +2693,7 @@ async def get_stats():
         registros_urgentes = await conn.fetchval("SELECT COUNT(*) FROM prod_registros WHERE urgente = true")
         tallas = await conn.fetchval("SELECT COUNT(*) FROM prod_tallas_catalogo")
         colores = await conn.fetchval("SELECT COUNT(*) FROM prod_colores_catalogo")
-        inventario_items = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario")
+        inventario = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario")
         ingresos = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_ingresos")
         salidas = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_salidas")
         ajustes = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_ajustes")
@@ -2706,9 +2706,60 @@ async def get_stats():
         return {
             "marcas": marcas, "tipos": tipos, "entalles": entalles, "telas": telas, "hilos": hilos,
             "modelos": modelos, "registros": registros, "registros_urgentes": registros_urgentes,
-            "tallas": tallas, "colores": colores, "inventario_items": inventario_items,
+            "tallas": tallas, "colores": colores, "inventario": inventario,
             "ingresos_count": ingresos, "salidas_count": salidas, "ajustes_count": ajustes,
             "estados_count": estados_count
+        }
+
+@api_router.get("/stats/charts")
+async def get_stats_charts():
+    """Datos para gráficos del dashboard"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Registros por marca
+        marcas_query = """
+            SELECT COALESCE(ma.nombre, 'Sin Marca') as name, COUNT(*) as value
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            GROUP BY ma.nombre
+            ORDER BY value DESC
+            LIMIT 8
+        """
+        marcas_rows = await conn.fetch(marcas_query)
+        registros_por_marca = [{"name": r["name"], "value": r["value"]} for r in marcas_rows]
+        
+        # Producción mensual (últimos 6 meses)
+        mensual_query = """
+            SELECT 
+                TO_CHAR(fecha_creacion, 'Mon') as mes,
+                EXTRACT(MONTH FROM fecha_creacion) as mes_num,
+                COUNT(*) as registros
+            FROM prod_registros
+            WHERE fecha_creacion >= CURRENT_DATE - INTERVAL '6 months'
+            GROUP BY TO_CHAR(fecha_creacion, 'Mon'), EXTRACT(MONTH FROM fecha_creacion)
+            ORDER BY mes_num
+        """
+        mensual_rows = await conn.fetch(mensual_query)
+        produccion_mensual = [{"mes": r["mes"], "registros": r["registros"]} for r in mensual_rows]
+        
+        # Registros por tipo
+        tipos_query = """
+            SELECT COALESCE(t.nombre, 'Sin Tipo') as name, COUNT(*) as value
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            GROUP BY t.nombre
+            ORDER BY value DESC
+            LIMIT 8
+        """
+        tipos_rows = await conn.fetch(tipos_query)
+        registros_por_tipo = [{"name": r["name"], "value": r["value"]} for r in tipos_rows]
+        
+        return {
+            "registros_por_marca": registros_por_marca,
+            "registros_por_tipo": registros_por_tipo,
+            "produccion_mensual": produccion_mensual
         }
 
 # ==================== REPORTE PRODUCTIVIDAD ====================
