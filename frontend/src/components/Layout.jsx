@@ -102,6 +102,7 @@ const maestrosItems = [
 const calidadItems = [
   { to: '/calidad/merma', icon: AlertTriangle, label: 'Merma' },
   { to: '/calidad/reporte-mermas', icon: BarChart3, label: 'Reporte Mermas' },
+  { to: '/reportes/estados-item', icon: BarChart3, label: 'Reporte Estados' },
 ];
 
 const documentosItems = [
