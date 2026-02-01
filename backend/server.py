@@ -3088,6 +3088,7 @@ async def _get_kardex(item_id: str):
             "item": row_to_dict(item),
             "movimientos": movimientos,
             "saldo_actual": float(item['stock_actual'])
+        }
 
 # ==================== REPORTE ITEM - ESTADOS (PIVOT) ====================
 
