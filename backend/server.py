@@ -3105,10 +3105,13 @@ async def get_reporte_estados_item(
 ):
     """Reporte tipo Power BI: ITEM (marca+tipo+entalle+tela) + HILO, columnas por estado = COUNT(registros)."""
 
+    # Nota: en algunos entornos este estado aparece como "Para Atraque" (en el código) o "Para Atanque" (en reportes).
+    # Ambos se consolidan en la misma columna.
     estados_map = {
         "Para Corte": "para_corte",
         "Para Costura": "para_costura",
         "Para Atraque": "para_atanque",
+        "Para Atanque": "para_atanque",
         "Para Lavandería": "para_lavanderia",
         "Acabado": "acabado",
         "Almacén PT": "almacen_pt",
@@ -3119,6 +3122,7 @@ async def get_reporte_estados_item(
         "Para Corte",
         "Para Costura",
         "Para Atraque",
+        "Para Atanque",
         "Para Lavandería",
         "Acabado",
         "Almacén PT",
