@@ -3282,8 +3282,6 @@ async def export_reporte_estados_item(
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
-        }
-
 # ==================== ENDPOINTS BACKUP ====================
 
 BACKUP_TABLES = [
