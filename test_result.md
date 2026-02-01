@@ -101,3 +101,42 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## user_problem_statement: "Implementar reporte tipo Power BI (Item-Estados) con filtros y exportación; luego completar exportación Kardex"
+## backend:
+##   - task: "Reporte estados por Item (API + export CSV)"
+##     implemented: true
+##     working: true
+##     file: "backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Implementado GET /api/reportes/estados-item y /api/reportes/estados-item/export (CSV). Probado con curl (200, devuelve rows y CSV descargable). Incluye toggle include_tienda para que no cuente en Total cuando está apagado."
+## frontend:
+##   - task: "UI Reporte estados por Item (filtros + tabla + export PDF/Excel + toggle Tienda)"
+##     implemented: true
+##     working: true
+##     file: "frontend/src/pages/ReporteEstadosItem.jsx"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##       - working: true
+##         agent: "main"
+##         comment: "Nueva página /reportes/estados-item. Capturas OK: carga tabla, toggle Tienda y re-filtra."
+## metadata:
+##   created_by: "main_agent"
+##   version: "1.0"
+##   test_sequence: 1
+##   run_ui: true
+## test_plan:
+##   current_focus:
+##     - "Validar e2e Reporte estados por Item: filtros, toggle tienda, export excel, export PDF"
+##   stuck_tasks: []
+##   test_all: false
+##   test_priority: "high_first"
+## agent_communication:
+##   - agent: "main"
+##     message: "Se agregó reporte tipo Power BI (Item-Estados) y endpoints. Pendiente: testing subagent e2e completo (incluye descarga de archivos)."
