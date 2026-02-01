@@ -19,23 +19,30 @@ class TextileAPITester:
             'registros': []
         }
 
-    def run_test(self, name, method, endpoint, expected_status, data=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
         """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        default_headers = {'Content-Type': 'application/json'}
+        
+        if headers:
+            default_headers.update(headers)
+        
+        # Add auth token if available
+        if self.auth_token:
+            default_headers['Authorization'] = f'Bearer {self.auth_token}'
 
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
         
         try:
             if method == 'GET':
-                response = requests.get(url, headers=headers)
+                response = requests.get(url, headers=default_headers)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers)
+                response = requests.post(url, json=data, headers=default_headers)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers)
+                response = requests.put(url, json=data, headers=default_headers)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers)
+                response = requests.delete(url, headers=default_headers)
 
             success = response.status_code == expected_status
             if success:
@@ -44,7 +51,7 @@ class TextileAPITester:
                 try:
                     return True, response.json() if response.text else {}
                 except:
-                    return True, {}
+                    return True, response
             else:
                 print(f"❌ Failed - Expected {expected_status}, got {response.status_code}")
                 if response.text:
