@@ -3251,7 +3251,7 @@ async def export_reporte_estados_item(
         ('Hilo', 'hilo'),
         ('Para Corte', 'para_corte'),
         ('Para Costura', 'para_costura'),
-        ('Para Atanque', 'para_atanque'),
+        ('Para Atraque', 'para_atanque'),
         ('Para Lavandería', 'para_lavanderia'),
         ('Acabado', 'acabado'),
         ('Almacén PT', 'almacen_pt'),
