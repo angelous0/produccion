@@ -37,7 +37,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const COLS_BASE = [
   { label: 'Para Corte', key: 'para_corte' },
   { label: 'Para Costura', key: 'para_costura' },
-  { label: 'Para Atanque', key: 'para_atanque' },
+  { label: 'Para Atraque', key: 'para_atanque' },
   { label: 'Para Lavandería', key: 'para_lavanderia' },
   { label: 'Acabado', key: 'acabado' },
   { label: 'Almacén PT', key: 'almacen_pt' },
