@@ -229,6 +229,8 @@ class TextileAPITester:
             print("✅ CSV with Tienda column validated")
         
         return True
+
+    def test_root_endpoint(self):
         """Test root API endpoint"""
         return self.run_test("Root API", "GET", "", 200)
 
