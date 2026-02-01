@@ -3122,7 +3122,7 @@ async def get_reporte_estados_item(
         "Para Corte",
         "Para Costura",
         "Para Atraque",
-        "Para Atanque",
+        "Para Atraque",
         "Para Lavandería",
         "Acabado",
         "Almacén PT",
