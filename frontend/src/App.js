@@ -34,6 +34,7 @@ import { ReporteProductividad } from "./pages/ReporteProductividad";
 import { RutasProduccion } from "./pages/RutasProduccion";
 import { CalidadMerma } from "./pages/CalidadMerma";
 import { ReporteMermas } from "./pages/ReporteMermas";
+import { ReporteEstadosItem } from "./pages/ReporteEstadosItem";
 import { GuiasRemision } from "./pages/GuiasRemision";
 import { HilosEspecificos } from "./pages/HilosEspecificos";
 import { Loader2 } from "lucide-react";
