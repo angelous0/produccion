@@ -124,6 +124,7 @@ function AppRoutes() {
         <Route path="maestros/productividad" element={<ReporteProductividad />} />
         <Route path="calidad/merma" element={<CalidadMerma />} />
         <Route path="calidad/reporte-mermas" element={<ReporteMermas />} />
+        <Route path="reportes/estados-item" element={<ReporteEstadosItem />} />
         <Route path="guias" element={<GuiasRemision />} />
       </Route>
       
