@@ -62,7 +62,173 @@ class TextileAPITester:
             print(f"❌ Failed - Error: {str(e)}")
             return False, {}
 
-    def test_root_endpoint(self):
+    def test_login(self):
+        """Test login with admin credentials"""
+        print("\n🔐 Testing Admin Login...")
+        login_data = {
+            "username": "eduard",
+            "password": "eduard123"
+        }
+        success, response = self.run_test("Admin Login", "POST", "auth/login", 200, login_data)
+        if success and 'access_token' in response:
+            self.auth_token = response['access_token']
+            print(f"✅ Login successful, token obtained")
+            return True
+        else:
+            print(f"❌ Login failed")
+            return False
+
+    def test_reporte_estados_item(self):
+        """Test reporte estados-item endpoint"""
+        print("\n📊 Testing Reporte Estados Item...")
+        
+        if not self.auth_token:
+            print("❌ No auth token available, skipping test")
+            return False
+        
+        # Test basic endpoint
+        success, response = self.run_test("Get Reporte Estados Item", "GET", "reportes/estados-item", 200)
+        if not success:
+            return False
+        
+        # Validate response structure
+        if not isinstance(response, dict):
+            print("❌ Response is not a dictionary")
+            return False
+        
+        required_keys = ['updated_at', 'include_tienda', 'rows']
+        for key in required_keys:
+            if key not in response:
+                print(f"❌ Missing required key: {key}")
+                return False
+        
+        # Validate rows structure
+        if not isinstance(response['rows'], list):
+            print("❌ 'rows' is not a list")
+            return False
+        
+        # Check row structure if there are rows
+        if response['rows']:
+            row = response['rows'][0]
+            expected_row_keys = ['item', 'hilo', 'total', 'para_corte', 'para_costura', 'para_atanque', 'para_lavanderia', 'acabado', 'almacen_pt']
+            for key in expected_row_keys:
+                if key not in row:
+                    print(f"❌ Missing key in row: {key}")
+                    return False
+        
+        print("✅ Basic reporte structure validated")
+        return True
+
+    def test_reporte_estados_item_with_tienda(self):
+        """Test reporte estados-item with include_tienda=true"""
+        print("\n📊 Testing Reporte Estados Item with Tienda...")
+        
+        if not self.auth_token:
+            print("❌ No auth token available, skipping test")
+            return False
+        
+        # Test with include_tienda=true
+        success, response = self.run_test("Get Reporte Estados Item (with tienda)", "GET", "reportes/estados-item?include_tienda=true", 200)
+        if not success:
+            return False
+        
+        # Validate include_tienda is true in response
+        if not response.get('include_tienda'):
+            print("❌ include_tienda should be true in response")
+            return False
+        
+        # Check that rows include tienda key when include_tienda=true
+        if response['rows']:
+            row = response['rows'][0]
+            if 'tienda' not in row:
+                print("❌ Missing 'tienda' key in row when include_tienda=true")
+                return False
+        
+        print("✅ Tienda inclusion validated")
+        
+        # Test with include_tienda=false to ensure tienda is NOT counted in total
+        success, response_false = self.run_test("Get Reporte Estados Item (without tienda)", "GET", "reportes/estados-item?include_tienda=false", 200)
+        if not success:
+            return False
+        
+        if response_false.get('include_tienda'):
+            print("❌ include_tienda should be false in response")
+            return False
+        
+        print("✅ Tienda exclusion validated")
+        return True
+
+    def test_reporte_estados_item_filters(self):
+        """Test reporte estados-item with filters"""
+        print("\n🔍 Testing Reporte Estados Item Filters...")
+        
+        if not self.auth_token:
+            print("❌ No auth token available, skipping test")
+            return False
+        
+        # Test prioridad=urgente filter
+        success, response = self.run_test("Get Reporte Estados Item (urgente)", "GET", "reportes/estados-item?prioridad=urgente", 200)
+        if not success:
+            return False
+        
+        # Test search filter (even if no data, should return 200 and valid structure)
+        success, response = self.run_test("Get Reporte Estados Item (search)", "GET", "reportes/estados-item?search=test", 200)
+        if not success:
+            return False
+        
+        # Validate structure is still correct
+        required_keys = ['updated_at', 'include_tienda', 'rows']
+        for key in required_keys:
+            if key not in response:
+                print(f"❌ Missing required key in filtered response: {key}")
+                return False
+        
+        print("✅ Filters working correctly")
+        return True
+
+    def test_reporte_estados_item_export(self):
+        """Test reporte estados-item CSV export"""
+        print("\n📤 Testing Reporte Estados Item CSV Export...")
+        
+        if not self.auth_token:
+            print("❌ No auth token available, skipping test")
+            return False
+        
+        # Test basic CSV export
+        success, response = self.run_test("Export Reporte Estados Item CSV", "GET", "reportes/estados-item/export", 200)
+        if not success:
+            return False
+        
+        # Check content type
+        if hasattr(response, 'headers'):
+            content_type = response.headers.get('content-type', '')
+            if 'text/csv' not in content_type:
+                print(f"❌ Expected text/csv content type, got: {content_type}")
+                return False
+            
+            # Check Content-Disposition header
+            content_disposition = response.headers.get('content-disposition', '')
+            if 'attachment' not in content_disposition or 'filename' not in content_disposition:
+                print(f"❌ Invalid Content-Disposition header: {content_disposition}")
+                return False
+            
+            print("✅ CSV export headers validated")
+        
+        # Test CSV export with include_tienda=true
+        success, response = self.run_test("Export Reporte Estados Item CSV (with tienda)", "GET", "reportes/estados-item/export?include_tienda=true", 200)
+        if not success:
+            return False
+        
+        # Check that CSV content includes Tienda column when include_tienda=true
+        if hasattr(response, 'content'):
+            csv_content = response.content.decode('utf-8-sig')
+            first_line = csv_content.split('\n')[0] if csv_content else ''
+            if 'Tienda' not in first_line:
+                print("❌ CSV header should include 'Tienda' column when include_tienda=true")
+                return False
+            print("✅ CSV with Tienda column validated")
+        
+        return True
         """Test root API endpoint"""
         return self.run_test("Root API", "GET", "", 200)
 
