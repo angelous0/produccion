@@ -143,3 +143,5 @@
 ## agent_communication:
 ##   - agent: "main"
 ##     message: "Se agregó reporte tipo Power BI (Item-Estados) y endpoints. Pendiente: testing subagent e2e completo (incluye descarga de archivos)."
+##   - agent: "testing"
+##     message: "✅ BACKEND TESTING COMPLETED SUCCESSFULLY: Reporte estados-item API fully tested and working. All endpoints (GET /api/reportes/estados-item, CSV export, filters, include_tienda toggle) are functioning correctly. Created comprehensive test suite at /app/backend/tests/test_reporte_estados_item.py. Ready for main agent to summarize and finish."
