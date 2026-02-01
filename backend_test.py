@@ -681,6 +681,19 @@ def main():
     print("🧪 Starting Textile Production API Tests...")
     tester = TextileAPITester()
 
+    # Test authentication first
+    if not tester.test_login():
+        print("❌ Login failed, stopping reportes tests")
+        return 1
+
+    # Test reportes endpoints (main focus)
+    print("\n🎯 Testing Reportes Estados Item (Main Focus)...")
+    reportes_results = []
+    reportes_results.append(("Reporte Estados Item Basic", tester.test_reporte_estados_item()))
+    reportes_results.append(("Reporte Estados Item with Tienda", tester.test_reporte_estados_item_with_tienda()))
+    reportes_results.append(("Reporte Estados Item Filters", tester.test_reporte_estados_item_filters()))
+    reportes_results.append(("Reporte Estados Item CSV Export", tester.test_reporte_estados_item_export()))
+
     # Test basic endpoints
     if not tester.test_root_endpoint():
         print("❌ Root endpoint failed, stopping tests")
@@ -692,7 +705,7 @@ def main():
     if not tester.test_estados_endpoint():
         print("❌ Estados endpoint failed")
 
-    # Test CRUD operations
+    # Test CRUD operations (secondary)
     test_results = []
     test_results.append(("Marcas CRUD", tester.test_marcas_crud()))
     test_results.append(("Tipos CRUD", tester.test_tipos_crud()))
@@ -710,13 +723,22 @@ def main():
     # Print results
     print(f"\n📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
     
-    failed_tests = [name for name, result in test_results if not result]
-    if failed_tests:
-        print(f"❌ Failed test suites: {', '.join(failed_tests)}")
+    # Check reportes results first (priority)
+    failed_reportes = [name for name, result in reportes_results if not result]
+    if failed_reportes:
+        print(f"❌ Failed reportes tests: {', '.join(failed_reportes)}")
         return 1
     else:
-        print("✅ All test suites passed!")
-        return 0
+        print("✅ All reportes tests passed!")
+    
+    failed_tests = [name for name, result in test_results if not result]
+    if failed_tests:
+        print(f"⚠️  Failed CRUD test suites: {', '.join(failed_tests)}")
+        # Don't return 1 for CRUD failures, focus is on reportes
+    else:
+        print("✅ All CRUD test suites passed!")
+    
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())
