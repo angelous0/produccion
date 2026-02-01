@@ -109,11 +109,14 @@
 ##     file: "backend/server.py"
 ##     stuck_count: 0
 ##     priority: "high"
-##     needs_retesting: true
+##     needs_retesting: false
 ##     status_history:
 ##       - working: true
 ##         agent: "main"
 ##         comment: "Implementado GET /api/reportes/estados-item y /api/reportes/estados-item/export (CSV). Probado con curl (200, devuelve rows y CSV descargable). Incluye toggle include_tienda para que no cuente en Total cuando está apagado."
+##       - working: true
+##         agent: "testing"
+##         comment: "✅ COMPREHENSIVE E2E TESTING COMPLETED: 1) Login admin (eduard/eduard123) ✅ 2) GET /api/reportes/estados-item - status 200, JSON structure validated (updated_at, include_tienda, rows) ✅ 3) include_tienda=true/false toggle working correctly, tienda key present/absent as expected ✅ 4) Filters working (prioridad=urgente, search parameter) ✅ 5) CSV export working - proper content-type (text/csv), Content-Disposition header with filename, correct column structure including conditional Tienda column ✅ All 20/20 specific tests passed. API fully functional."
 ## frontend:
 ##   - task: "UI Reporte estados por Item (filtros + tabla + export PDF/Excel + toggle Tienda)"
 ##     implemented: true
