@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 /**
  * Botón para exportar datos a PDF
