@@ -219,6 +219,17 @@ export const ReporteEstadosItem = () => {
     return reporte.rows.find((r) => `${r.item}__${r.hilo}` === selectedKey) || null;
   }, [selectedKey, reporte]);
 
+  const estadosParaDetalle = useMemo(() => {
+    if (!selectedRow) return [];
+    return columns
+      .map((c) => ({
+        label: c.label,
+        key: c.key,
+        value: selectedRow[c.key] || 0,
+      }))
+      .filter((x) => x.value > 0);
+  }, [selectedRow, columns]);
+
   const totals = useMemo(() => {
     const rows = reporte?.rows || [];
     const t = { total: 0 };
