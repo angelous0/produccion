@@ -127,6 +127,18 @@
 ##     needs_retesting: false
 ##     status_history:
 ##       - working: true
+
+## testing_update:
+##   - date: "2026-02-02"
+##     backend:
+##       - reportes/estados-item: "PASS (subagent deep_testing_backend_v2)"
+##       - reportes/estados-item/export: "PASS (csv)"
+##       - reportes/estados-item/detalle: "PASS (manual curl + UI modal)"
+##     frontend:
+##       - reportes/estados-item: "PASS (auto_frontend_testing_agent e2e)"
+##       - export pdf: "PASS (fixed jsPDF autoTable import)"
+##       - export excel: "PASS"
+##     notes: "E2E completo post-migración a schema produccion. PDF export arreglado en ExportPDFButton.jsx."
 ##         agent: "main"
 ##         comment: "Nueva página /reportes/estados-item. Capturas OK: carga tabla, toggle Tienda y re-filtra."
 ##       - working: true
