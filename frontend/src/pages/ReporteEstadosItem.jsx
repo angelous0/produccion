@@ -58,6 +58,13 @@ export const ReporteEstadosItem = () => {
   const [exporting, setExporting] = useState(false);
   const [reporte, setReporte] = useState(null);
 
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailEstado, setDetailEstado] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailData, setDetailData] = useState(null);
+  const [detailOffset, setDetailOffset] = useState(0);
+  const DETAIL_LIMIT = 50;
+
   // Maestros
   const [marcas, setMarcas] = useState([]);
   const [tipos, setTipos] = useState([]);
