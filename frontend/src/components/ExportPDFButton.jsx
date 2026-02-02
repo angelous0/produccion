@@ -89,7 +89,7 @@ export const ExportPDFButton = ({
           })
         );
         
-        doc.autoTable({
+        autoTable(doc, {
           startY: yPosition,
           head: [tableColumns],
           body: tableData,
