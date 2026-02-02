@@ -3221,6 +3221,117 @@ async def get_reporte_estados_item(
     }
 
 
+
+@api_router.get("/reportes/estados-item/detalle")
+async def get_reporte_estados_item_detalle(
+    item: str,
+    hilo: str,
+    estado: str,
+    include_tienda: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    current_user: dict = Depends(get_current_user),
+):
+    """Detalle (drill-down) del reporte por Item+Hilo y Estado.
+
+    - item: string exacto como se muestra ("Marca - Tipo - Entalle - Tela")
+    - hilo: nombre del hilo específico (o "Sin Hilo")
+    - estado: estado a filtrar (ej: "Para Costura")
+    - include_tienda: si es False, no permite estado="Tienda"
+    """
+
+    if (not include_tienda) and estado == "Tienda":
+        raise HTTPException(status_code=400, detail="Estado 'Tienda' no permitido cuando include_tienda=false")
+
+    # Mapeo compatible: aceptar Para Atanque como sinónimo de Para Atraque
+    if estado == "Para Atanque":
+        estado = "Para Atraque"
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = """
+            SELECT r.id, r.n_corte, r.estado, r.urgente, r.fecha_creacion,
+                   m.nombre as modelo_nombre,
+                   ma.nombre as marca_nombre,
+                   t.nombre as tipo_nombre,
+                   e.nombre as entalle_nombre,
+                   te.nombre as tela_nombre,
+                   he.nombre as hilo_nombre
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+            LEFT JOIN prod_telas te ON m.tela_id = te.id
+            LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
+            WHERE 1=1
+        """
+        params = []
+
+        # Reconstruir item igual que el reporte
+        params.append(item)
+        query += f" AND (COALESCE(ma.nombre,'Sin Marca') || ' - ' || COALESCE(t.nombre,'Sin Tipo') || ' - ' || COALESCE(e.nombre,'Sin Entalle') || ' - ' || COALESCE(te.nombre,'Sin Tela')) = ${len(params)}"
+
+        params.append(estado)
+        query += f" AND r.estado = ${len(params)}"
+
+        if hilo == "Sin Hilo":
+            query += " AND (r.hilo_especifico_id IS NULL)"
+        else:
+            params.append(hilo)
+            query += f" AND he.nombre = ${len(params)}"
+
+        # Paginación
+        params.append(limit)
+        query += f" ORDER BY r.fecha_creacion DESC NULLS LAST LIMIT ${len(params)}"
+        params.append(offset)
+        query += f" OFFSET ${len(params)}"
+
+        rows = await conn.fetch(query, *params)
+
+        # total
+        count_query = """
+            SELECT COUNT(*)
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+            LEFT JOIN prod_telas te ON m.tela_id = te.id
+            LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
+            WHERE 1=1
+        """
+        count_params = []
+        count_params.append(item)
+        count_query += f" AND (COALESCE(ma.nombre,'Sin Marca') || ' - ' || COALESCE(t.nombre,'Sin Tipo') || ' - ' || COALESCE(e.nombre,'Sin Entalle') || ' - ' || COALESCE(te.nombre,'Sin Tela')) = ${len(count_params)}"
+        count_params.append(estado)
+        count_query += f" AND r.estado = ${len(count_params)}"
+        if hilo == "Sin Hilo":
+            count_query += " AND (r.hilo_especifico_id IS NULL)"
+        else:
+            count_params.append(hilo)
+            count_query += f" AND he.nombre = ${len(count_params)}"
+
+        total = await conn.fetchval(count_query, *count_params)
+
+    result = []
+    for r in rows:
+        d = row_to_dict(r)
+        # normalizar datetime
+        if isinstance(d.get('fecha_creacion'), datetime):
+            d['fecha_creacion'] = d['fecha_creacion'].strftime('%d/%m/%Y %H:%M')
+        result.append(d)
+
+    return {
+        "item": item,
+        "hilo": hilo,
+        "estado": estado,
+        "total": int(total or 0),
+        "limit": limit,
+        "offset": offset,
+        "rows": result,
+    }
+
 @api_router.get("/reportes/estados-item/export")
 async def export_reporte_estados_item(
     search: str = None,
