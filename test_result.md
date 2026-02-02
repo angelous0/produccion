@@ -138,8 +138,7 @@
 ##   test_sequence: 1
 ##   run_ui: true
 ## test_plan:
-##   current_focus:
-##     - "Validar e2e Reporte estados por Item: filtros, toggle tienda, export excel, export PDF"
+##   current_focus: []
 ##   stuck_tasks: []
 ##   test_all: false
 ##   test_priority: "high_first"
