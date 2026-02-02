@@ -37,7 +37,8 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const COLS_BASE = [
   { label: 'Para Corte', key: 'para_corte' },
   { label: 'Para Costura', key: 'para_costura' },
-  { label: 'Para Atraque', key: 'para_atraque' },
+  // La columna en data es "para_atanque" (mapeada desde el estado "Para Atraque"/"Para Atanque")
+  { label: 'Para Atraque', key: 'para_atanque' },
   { label: 'Para Lavandería', key: 'para_lavanderia' },
   { label: 'Acabado', key: 'acabado' },
   { label: 'Almacén PT', key: 'almacen_pt' },
