@@ -149,6 +149,27 @@ export const ReporteEstadosItem = () => {
     }
   };
 
+  const fetchDetalle = async ({ estado, offset = 0 } = {}) => {
+    if (!selectedRow) return;
+    setDetailLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('item', selectedRow.item);
+      params.append('hilo', selectedRow.hilo || 'Sin Hilo');
+      params.append('estado', estado);
+      params.append('include_tienda', filtros.include_tienda ? 'true' : 'false');
+      params.append('limit', String(DETAIL_LIMIT));
+      params.append('offset', String(offset));
+
+      const res = await axios.get(`${API}/reportes/estados-item/detalle?${params.toString()}`);
+      setDetailData(res.data);
+    } catch (e) {
+      toast.error('Error al cargar detalle');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMaestros();
     fetchReporte();
