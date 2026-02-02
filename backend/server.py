@@ -41,6 +41,12 @@ async def get_pool():
     global pool
     if pool is None:
         pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+
+        # Usar schema "produccion" por defecto, dejando "public" como fallback.
+        # Importante: esto evita tener que prefijar todas las tablas con produccion.
+        async with pool.acquire() as conn:
+            await conn.execute("SET search_path TO produccion, public")
+
     return pool
 
 app = FastAPI()
