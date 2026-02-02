@@ -531,6 +531,140 @@ export const ReporteEstadosItem = () => {
           </CardContent>
         </Card>
       )}
+
+
+      {/* Modal detalle */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Detalle por estado</DialogTitle>
+            <DialogDescription>
+              Selecciona el estado para ver los registros que componen el conteo de la fila seleccionada (Item + Hilo).
+            </DialogDescription>
+          </DialogHeader>
+
+          {!selectedRow ? (
+            <div className="text-sm text-muted-foreground">Selecciona una fila primero.</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-2">
+                  <div className="text-xs text-muted-foreground">Item</div>
+                  <div className="text-sm font-medium">{selectedRow.item}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Hilo</div>
+                  <div className="text-sm font-medium">{selectedRow.hilo || 'Sin Hilo'}</div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select
+                  value={detailEstado || 'none'}
+                  onValueChange={(v) => {
+                    const estado = v === 'none' ? '' : v;
+                    setDetailEstado(estado);
+                    setDetailOffset(0);
+                    if (estado) fetchDetalle({ estado, offset: 0 });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {estadosParaDetalle.length === 0 ? (
+                      <SelectItem value="none">Sin estados con registros</SelectItem>
+                    ) : (
+                      estadosParaDetalle.map((e) => (
+                        <SelectItem key={e.key} value={e.label}>
+                          {e.label} ({e.value})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Registros</CardTitle>
+                </CardHeader>
+                <CardContent className="overflow-auto">
+                  {detailLoading ? (
+                    <div className="py-10 flex items-center justify-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Cargando detalle...
+                    </div>
+                  ) : (detailData?.rows || []).length === 0 ? (
+                    <div className="py-10 text-center text-muted-foreground">No hay registros</div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>N° Corte</TableHead>
+                          <TableHead>Modelo</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Urgente</TableHead>
+                          <TableHead>Fecha</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailData.rows.map((r) => (
+                          <TableRow key={r.id}>
+                            <TableCell>{r.n_corte || '-'}</TableCell>
+                            <TableCell>{r.modelo_nombre || '-'}</TableCell>
+                            <TableCell>{r.estado || '-'}</TableCell>
+                            <TableCell>{r.urgente ? 'Sí' : 'No'}</TableCell>
+                            <TableCell>{r.fecha_creacion || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="text-xs text-muted-foreground">
+                      Total: {detailData?.total ?? 0}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={detailLoading || detailOffset <= 0}
+                        onClick={() => {
+                          const nextOffset = Math.max(0, detailOffset - DETAIL_LIMIT);
+                          setDetailOffset(nextOffset);
+                          fetchDetalle({ estado: detailEstado, offset: nextOffset });
+                        }}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={
+                          detailLoading ||
+                          !detailData?.total ||
+                          detailOffset + DETAIL_LIMIT >= (detailData?.total || 0)
+                        }
+                        onClick={() => {
+                          const nextOffset = detailOffset + DETAIL_LIMIT;
+                          setDetailOffset(nextOffset);
+                          fetchDetalle({ estado: detailEstado, offset: nextOffset });
+                        }}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
