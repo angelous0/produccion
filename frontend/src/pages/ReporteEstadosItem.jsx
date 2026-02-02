@@ -470,8 +470,15 @@ export const ReporteEstadosItem = () => {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!selectedRow}
-                onClick={() => toast.message('Detalle pendiente (lo hacemos después)')}
+                disabled={!selectedRow || estadosParaDetalle.length === 0}
+                onClick={() => {
+                  const first = estadosParaDetalle[0];
+                  setDetailEstado(first?.label || '');
+                  setDetailOffset(0);
+                  setDetailOpen(true);
+                  fetchDetalle({ estado: first?.label || '', offset: 0 });
+                }}
+                data-testid="btn-ver-detalle"
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Ver detalles
