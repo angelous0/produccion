@@ -117,7 +117,7 @@ export const ColoresCatalogo = () => {
 
   const handleNew = () => {
     setEditingItem(null);
-    setFormData({ nombre: '', codigo_hex: '', color_general_id: '', orden: 0 });
+    setFormData({ nombre: '', color_general_id: '', orden: 0 });
     setDialogOpen(true);
   };
 
