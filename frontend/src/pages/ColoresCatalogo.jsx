@@ -157,7 +157,7 @@ export const ColoresCatalogo = () => {
                 </TableRow>
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                     No hay colores registrados
                   </TableCell>
                 </TableRow>
