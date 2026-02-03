@@ -170,15 +170,8 @@ export const ColoresCatalogo = () => {
                 >
                   {items.map((item) => (
                     <SortableRow key={item.id} id={item.id}>
-                      <TableCell>
-                        <div 
-                          className="w-8 h-8 rounded border"
-                          style={{ backgroundColor: item.codigo_hex || '#ccc' }}
-                        />
-                      </TableCell>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
                       <TableCell className="text-muted-foreground">{item.color_general_nombre || '-'}</TableCell>
-                      <TableCell className="font-mono text-sm">{item.codigo_hex || '-'}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
