@@ -88,7 +88,7 @@ export const ColoresCatalogo = () => {
       }
       setDialogOpen(false);
       setEditingItem(null);
-      setFormData({ nombre: '', codigo_hex: '', color_general_id: '', orden: 0 });
+      setFormData({ nombre: '', color_general_id: '', orden: 0 });
       fetchItems();
     } catch (error) {
       toast.error('Error al guardar color');
