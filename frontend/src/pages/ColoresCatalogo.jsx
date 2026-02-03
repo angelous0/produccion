@@ -99,7 +99,6 @@ export const ColoresCatalogo = () => {
     setEditingItem(item);
     setFormData({ 
       nombre: item.nombre, 
-      codigo_hex: item.codigo_hex || '', 
       color_general_id: item.color_general_id || '',
       orden: item.orden || 0
     });
