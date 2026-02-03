@@ -40,7 +40,7 @@ export const ColoresCatalogo = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', codigo_hex: '', color_general_id: '', orden: 0 });
+  const [formData, setFormData] = useState({ nombre: '', color_general_id: '', orden: 0 });
 
   const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(items, setItems, 'colores-catalogo');
 
