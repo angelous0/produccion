@@ -151,7 +151,7 @@ export const ColoresCatalogo = () => {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={4} className="text-center py-8">
                     Cargando...
                   </TableCell>
                 </TableRow>
