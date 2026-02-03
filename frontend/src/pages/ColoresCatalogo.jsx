@@ -225,7 +225,22 @@ export const ColoresCatalogo = () => {
                   onCreate={async (nombre) => {
                     const res = await axios.post(`${API}/colores-generales`, { nombre, orden: 0 });
                     const created = res.data;
-                    await fetchColoresGenerales();
+
+                    // Optimista: incluirlo de inmediato para que se vea seleccionado al instante
+                    setColoresGenerales((prev) => {
+                      const exists = prev.some((p) => p.id === created.id);
+                      const next = exists ? prev : [...prev, created];
+                      return next.sort((a, b) => {
+                        const ao = a.orden || 0;
+                        const bo = b.orden || 0;
+                        if (ao !== bo) return ao - bo;
+                        return (a.nombre || '').localeCompare(b.nombre || '');
+                      });
+                    });
+
+                    // Refrescar por si el backend ajustó orden/nombre
+                    fetchColoresGenerales();
+
                     toast.success('Color general creado');
                     return created;
                   }}
