@@ -74,7 +74,8 @@ export const ColoresCatalogo = () => {
     try {
       const payload = {
         nombre: formData.nombre,
-        codigo_hex: formData.codigo_hex,
+        // codigo_hex se mantiene en DB pero no se usa desde UI
+        codigo_hex: '',
         color_general_id: formData.color_general_id || null,
         orden: formData.orden,
       };
