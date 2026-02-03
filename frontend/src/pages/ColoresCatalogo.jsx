@@ -237,7 +237,7 @@ export const ColoresCatalogo = () => {
                   }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Agrupa colores similares (Celeste Claro, Celeste Oscuro → "Celeste")
+                  Agrupa colores similares (Celeste Claro, Celeste Oscuro → &quot;Celeste&quot;)
                 </p>
               </div>
             </div>
