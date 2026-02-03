@@ -30,6 +30,7 @@ import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SortableRow, useSortableTable, SortableTableWrapper } from '../components/SortableTable';
+import { ColorGeneralCombobox } from '../components/ColorGeneralCombobox';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
