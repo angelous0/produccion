@@ -143,10 +143,8 @@ export const ColoresCatalogo = () => {
             <TableHeader>
               <TableRow className="data-table-header">
                 <TableHead className="w-[40px]"></TableHead>
-                <TableHead className="w-[60px]">Vista</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Color General</TableHead>
-                <TableHead>Código Hex</TableHead>
                 <TableHead className="w-[100px]">Acciones</TableHead>
               </TableRow>
             </TableHeader>
