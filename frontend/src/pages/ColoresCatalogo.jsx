@@ -223,43 +223,22 @@ export const ColoresCatalogo = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="color_general_id">Color General</Label>
-                <Select
+                <Label>Color General</Label>
+                <ColorGeneralCombobox
+                  options={coloresGenerales}
                   value={formData.color_general_id}
-                  onValueChange={(value) => setFormData({ ...formData, color_general_id: value })}
-                >
-                  <SelectTrigger data-testid="select-color-general">
-                    <SelectValue placeholder="Seleccionar color general" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {coloresGenerales.map((cg) => (
-                      <SelectItem key={cg.id} value={cg.id}>
-                        {cg.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(id) => setFormData({ ...formData, color_general_id: id })}
+                  onCreate={async (nombre) => {
+                    const res = await axios.post(`${API}/colores-generales`, { nombre, orden: 0 });
+                    const created = res.data;
+                    await fetchColoresGenerales();
+                    toast.success('Color general creado');
+                    return created;
+                  }}
+                />
                 <p className="text-xs text-muted-foreground">
                   Agrupa colores similares (Celeste Claro, Celeste Oscuro → "Celeste")
                 </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="codigo_hex">Código Hex (opcional)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="codigo_hex"
-                    value={formData.codigo_hex}
-                    onChange={(e) => setFormData({ ...formData, codigo_hex: e.target.value })}
-                    placeholder="#000000"
-                    data-testid="input-hex-color"
-                  />
-                  <input
-                    type="color"
-                    value={formData.codigo_hex || '#000000'}
-                    onChange={(e) => setFormData({ ...formData, codigo_hex: e.target.value })}
-                    className="w-12 h-10 rounded border cursor-pointer"
-                  />
-                </div>
               </div>
             </div>
             <DialogFooter>
