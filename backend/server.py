@@ -670,6 +670,7 @@ class SalidaInventarioBase(BaseModel):
     item_id: str
     cantidad: float
     registro_id: Optional[str] = None
+    talla_id: Optional[str] = None
     observaciones: str = ""
     rollo_id: Optional[str] = None
 
@@ -682,6 +683,65 @@ class SalidaInventario(SalidaInventarioBase):
     fecha: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     costo_total: float = 0.0
     detalle_fifo: List[dict] = []
+
+
+# ==================== FASE 2: Modelos Pydantic ====================
+
+class RegistroTallaBase(BaseModel):
+    talla_id: str
+    cantidad_real: int = 0
+
+class RegistroTallaCreate(RegistroTallaBase):
+    pass
+
+class RegistroTallaUpdate(BaseModel):
+    cantidad_real: int
+
+class RegistroTallaBulkUpdate(BaseModel):
+    tallas: List[RegistroTallaBase]
+
+class RequerimientoMPOut(BaseModel):
+    id: str
+    registro_id: str
+    item_id: str
+    item_codigo: Optional[str] = None
+    item_nombre: Optional[str] = None
+    item_unidad: Optional[str] = None
+    control_por_rollos: bool = False
+    talla_id: Optional[str] = None
+    talla_nombre: Optional[str] = None
+    cantidad_requerida: float
+    cantidad_reservada: float
+    cantidad_consumida: float
+    pendiente_reservar: float = 0
+    pendiente_consumir: float = 0
+    estado: str
+
+class ReservaLineaInput(BaseModel):
+    item_id: str
+    talla_id: Optional[str] = None
+    cantidad: float
+
+class ReservaCreateInput(BaseModel):
+    lineas: List[ReservaLineaInput]
+
+class LiberarReservaLineaInput(BaseModel):
+    item_id: str
+    talla_id: Optional[str] = None
+    cantidad: float
+
+class LiberarReservaInput(BaseModel):
+    lineas: List[LiberarReservaLineaInput]
+
+class DisponibilidadItemOut(BaseModel):
+    item_id: str
+    item_codigo: Optional[str] = None
+    item_nombre: Optional[str] = None
+    stock_actual: float
+    total_reservado: float
+    disponible: float
+    control_por_rollos: bool
+
 
 class AjusteInventarioBase(BaseModel):
     item_id: str
