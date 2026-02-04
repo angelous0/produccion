@@ -4129,6 +4129,7 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
 @app.on_event("startup")
 async def startup():
     await get_pool()
+    await ensure_bom_tables()
 
 @app.on_event("shutdown")
 async def shutdown():
