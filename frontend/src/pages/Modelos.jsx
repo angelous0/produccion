@@ -520,7 +520,9 @@ export const Modelos = () => {
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-md">
                     No hay materiales agregados
-
+                  </p>
+                )}
+              </TabsContent>
 
               <TabsContent value="tallas" className="space-y-4 mt-4">
                 {editingItem ? (
