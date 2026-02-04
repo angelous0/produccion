@@ -520,6 +520,28 @@ export const Modelos = () => {
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-md">
                     No hay materiales agregados
+
+
+              <TabsContent value="tallas" className="space-y-4 mt-4">
+                {editingItem ? (
+                  <ModelosTallasTab modeloId={editingItem.id} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Primero crea el modelo para poder asignarle tallas.
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="bom" className="space-y-4 mt-4">
+                {editingItem ? (
+                  <ModelosBOMTab modeloId={editingItem.id} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Primero crea el modelo para poder definir su BOM.
+                  </p>
+                )}
+              </TabsContent>
+
                   </p>
                 )}
               </TabsContent>
