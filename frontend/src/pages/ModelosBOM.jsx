@@ -153,10 +153,14 @@ export const ModelosTallasTab = ({ modeloId }) => {
           </div>
 
           <div className="overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]"></TableHead>
+            {isSaving && (
+              <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>
+            )}
+            <SortableTableWrapper items={rows} sensors={sensors} handleDragEnd={handleDragEnd} modifiers={modifiers}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Talla</TableHead>
                   <TableHead className="w-[120px]">Activo</TableHead>
                   <TableHead className="w-[260px]">Acciones</TableHead>
