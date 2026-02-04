@@ -2253,6 +2253,42 @@ async def delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: d
     return {"message": "Línea BOM desactivada"}
 
 
+
+@api_router.delete("/modelos/{modelo_id}/bom/{linea_id}/hard")
+async def hard_delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    """Elimina físicamente la línea BOM solo si no está vinculada en producción.
+
+    Por ahora la única vinculación real existente en el sistema es la propia tabla BOM.
+    En fases futuras, cuando exista Registro/OP, aquí se validará contra esas tablas.
+
+    Comportamiento:
+    - Si detecta uso/vinculación: desactiva (activo=false)
+    - Si no: borra físicamente
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        bl = await conn.fetchrow(
+            "SELECT * FROM prod_modelo_bom_linea WHERE id=$1 AND modelo_id=$2",
+            linea_id,
+            modelo_id,
+        )
+        if not bl:
+            raise HTTPException(status_code=404, detail="Línea BOM no encontrada")
+
+        # Placeholder de validación de vínculo. En esta fase no existe Registro/OP.
+        vinculada = False
+
+        if vinculada:
+            await conn.execute(
+                "UPDATE prod_modelo_bom_linea SET activo=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
+                linea_id,
+            )
+            return {"action": "deactivated", "message": "Línea vinculada: se desactivó"}
+
+        await conn.execute("DELETE FROM prod_modelo_bom_linea WHERE id=$1", linea_id)
+        return {"action": "deleted", "message": "Línea eliminada"}
+
+
 @api_router.post("/modelos")
 async def create_modelo(input: ModeloCreate):
     modelo = Modelo(**input.model_dump())
