@@ -43,6 +43,62 @@ async def get_pool():
         pool = await asyncpg.create_pool(
             DATABASE_URL,
             min_size=2,
+
+
+# ==================== DDL HELPERS (TABLAS NUEVAS) ====================
+
+async def ensure_bom_tables():
+    """Crea tablas nuevas necesarias para BOM (sin modificar tablas existentes)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Tabla relación Modelo ↔ Tallas
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_modelo_tallas (
+                id VARCHAR PRIMARY KEY,
+                modelo_id VARCHAR NOT NULL,
+                talla_id VARCHAR NOT NULL,
+                activo BOOLEAN DEFAULT TRUE,
+                orden INT DEFAULT 10,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_modelo_tallas_modelo ON prod_modelo_tallas(modelo_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_modelo_tallas_talla ON prod_modelo_tallas(talla_id)")
+        await conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_modelo_talla_activo
+            ON prod_modelo_tallas(modelo_id, talla_id)
+            WHERE activo = TRUE
+        """)
+
+        # Tabla BOM por modelo (talla_id NULL = general, talla_id definido = por talla)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_modelo_bom_linea (
+                id VARCHAR PRIMARY KEY,
+                modelo_id VARCHAR NOT NULL,
+                inventario_id VARCHAR NOT NULL,
+                talla_id VARCHAR NULL,
+                unidad_base VARCHAR DEFAULT 'PRENDA',
+                cantidad_base NUMERIC(14,4) NOT NULL,
+                merma_pct NUMERIC(5,2) DEFAULT 0,
+                orden INT DEFAULT 10,
+                activo BOOLEAN DEFAULT TRUE,
+                notas TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_modelo_id ON prod_modelo_bom_linea(modelo_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_inventario_id ON prod_modelo_bom_linea(inventario_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_talla_id ON prod_modelo_bom_linea(talla_id)")
+        await conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_bom_linea_activo
+            ON prod_modelo_bom_linea(modelo_id, inventario_id, talla_id)
+            WHERE activo = TRUE
+        """)
+
             max_size=10,
             server_settings={"search_path": "produccion,public"},
         )
