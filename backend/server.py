@@ -128,6 +128,101 @@ async def ensure_bom_tables():
 
     return pool
 
+
+# ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
+async def ensure_fase2_tables():
+    """Crea las tablas necesarias para Fase 2: Reservas + Requerimiento MP"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # 1) prod_registro_tallas: Cantidades reales por talla (normalizado)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_registro_tallas (
+                id VARCHAR PRIMARY KEY,
+                registro_id VARCHAR NOT NULL,
+                talla_id VARCHAR NOT NULL,
+                cantidad_real INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_registro_tallas_registro ON prod_registro_tallas(registro_id)"
+        )
+        await conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_registro_talla ON prod_registro_tallas(registro_id, talla_id)"
+        )
+
+        # 2) prod_registro_requerimiento_mp: Resultado de explosión BOM
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_registro_requerimiento_mp (
+                id VARCHAR PRIMARY KEY,
+                registro_id VARCHAR NOT NULL,
+                item_id VARCHAR NOT NULL,
+                talla_id VARCHAR NULL,
+                cantidad_requerida NUMERIC(14,4) NOT NULL DEFAULT 0,
+                cantidad_reservada NUMERIC(14,4) NOT NULL DEFAULT 0,
+                cantidad_consumida NUMERIC(14,4) NOT NULL DEFAULT 0,
+                estado VARCHAR NOT NULL DEFAULT 'PENDIENTE',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_req_mp_registro ON prod_registro_requerimiento_mp(registro_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_req_mp_item ON prod_registro_requerimiento_mp(item_id)"
+        )
+        # Unique index con COALESCE para manejar talla_id NULL
+        await conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_req_mp_registro_item_talla
+            ON prod_registro_requerimiento_mp(registro_id, item_id, COALESCE(talla_id, '__NULL__'))
+        """)
+
+        # 3) prod_inventario_reservas: Cabecera de reservas
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_inventario_reservas (
+                id VARCHAR PRIMARY KEY,
+                registro_id VARCHAR NOT NULL,
+                estado VARCHAR NOT NULL DEFAULT 'ACTIVA',
+                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_reservas_registro ON prod_inventario_reservas(registro_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_reservas_estado ON prod_inventario_reservas(estado)"
+        )
+
+        # 4) prod_inventario_reservas_linea: Líneas de reservas
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_inventario_reservas_linea (
+                id VARCHAR PRIMARY KEY,
+                reserva_id VARCHAR NOT NULL,
+                item_id VARCHAR NOT NULL,
+                talla_id VARCHAR NULL,
+                cantidad_reservada NUMERIC(14,4) NOT NULL DEFAULT 0,
+                cantidad_liberada NUMERIC(14,4) NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_reservas_linea_reserva ON prod_inventario_reservas_linea(reserva_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_reservas_linea_item ON prod_inventario_reservas_linea(item_id)"
+        )
+
+        # 5) Agregar talla_id a prod_inventario_salidas si no existe
+        await conn.execute(
+            "ALTER TABLE prod_inventario_salidas ADD COLUMN IF NOT EXISTS talla_id VARCHAR NULL"
+        )
+
+
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
