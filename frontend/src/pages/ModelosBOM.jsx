@@ -487,7 +487,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                             type="number"
                             min="0"
                             step="0.0001"
-                            className="text-right font-mono"
+                            className="text-right font-mono min-w-[160px]"
                             value={r.cantidad_base}
                             onChange={(e) => updateRow(k, { cantidad_base: e.target.value })}
                             data-testid={isDraft ? 'input-draft-cantidad' : undefined}
