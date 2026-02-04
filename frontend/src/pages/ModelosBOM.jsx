@@ -563,7 +563,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                         <TableCell className="text-xs text-muted-foreground">
                           {rowStatusLabel(k)}
                         </TableCell>
-                      </TableRow>
+                      </SortableRow>
                     );
                   })
                 )}
