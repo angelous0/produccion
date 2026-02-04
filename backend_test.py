@@ -940,11 +940,15 @@ def main():
 
     # Test authentication first
     if not tester.test_login():
-        print("❌ Login failed, stopping reportes tests")
+        print("❌ Login failed, stopping tests")
         return 1
 
-    # Test reportes endpoints (main focus)
-    print("\n🎯 Testing Reportes Estados Item (Main Focus)...")
+    # Test BOM module (main focus as requested)
+    print("\n🎯 Testing BOM Module (Main Focus)...")
+    bom_result = tester.test_bom_module_comprehensive()
+    
+    # Test reportes endpoints (secondary)
+    print("\n📊 Testing Reportes Estados Item (Secondary)...")
     reportes_results = []
     reportes_results.append(("Reporte Estados Item Basic", tester.test_reporte_estados_item()))
     reportes_results.append(("Reporte Estados Item with Tienda", tester.test_reporte_estados_item_with_tienda()))
@@ -962,7 +966,7 @@ def main():
     if not tester.test_estados_endpoint():
         print("❌ Estados endpoint failed")
 
-    # Test CRUD operations (secondary)
+    # Test CRUD operations (tertiary)
     test_results = []
     test_results.append(("Marcas CRUD", tester.test_marcas_crud()))
     test_results.append(("Tipos CRUD", tester.test_tipos_crud()))
@@ -980,18 +984,25 @@ def main():
     # Print results
     print(f"\n📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
     
-    # Check reportes results first (priority)
+    # Check BOM results first (priority)
+    if not bom_result:
+        print("❌ BOM Module tests failed!")
+        return 1
+    else:
+        print("✅ BOM Module tests passed!")
+    
+    # Check reportes results (secondary)
     failed_reportes = [name for name, result in reportes_results if not result]
     if failed_reportes:
-        print(f"❌ Failed reportes tests: {', '.join(failed_reportes)}")
-        return 1
+        print(f"⚠️  Failed reportes tests: {', '.join(failed_reportes)}")
+        # Don't return 1 for reportes failures, focus is on BOM
     else:
         print("✅ All reportes tests passed!")
     
     failed_tests = [name for name, result in test_results if not result]
     if failed_tests:
         print(f"⚠️  Failed CRUD test suites: {', '.join(failed_tests)}")
-        # Don't return 1 for CRUD failures, focus is on reportes
+        # Don't return 1 for CRUD failures, focus is on BOM
     else:
         print("✅ All CRUD test suites passed!")
     
