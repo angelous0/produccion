@@ -500,6 +500,34 @@ export const ModelosBOMTab = ({ modeloId }) => {
                             onCheckedChange={(checked) => updateRow(k, { activo: checked })}
                           />
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={!r.id}
+                            onClick={async () => {
+                              if (!r.id) return;
+                              try {
+                                const res = await axios.delete(`${API}/modelos/${modeloId}/bom/${r.id}/hard`);
+                                const action = res?.data?.action;
+
+                                if (action === 'deleted') {
+                                  setRows((prev) => prev.filter((x) => x.id !== r.id));
+                                } else {
+                                  // deactivated
+                                  setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: false } : x));
+                                }
+
+                                toast.success(res?.data?.message || 'Listo');
+                              } catch (e2) {
+                                toast.error(e2?.response?.data?.detail || 'No se pudo borrar');
+                              }
+                            }}
+                          >
+                            Borrar
+                          </Button>
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {rowStatusLabel(k)}
                         </TableCell>
