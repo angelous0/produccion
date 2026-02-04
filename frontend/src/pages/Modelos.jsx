@@ -31,7 +31,7 @@ import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ModelosTallasTab, ModelosBOMTab } from './ModelosBOM';
-import { Plus, Pencil, Trash2, Package, Route, Wrench, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Route, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -49,7 +49,6 @@ export const Modelos = () => {
     tela_id: '',
     hilo_id: '',
     ruta_produccion_id: '',
-    materiales: [],
     servicios_ids: [],
   });
 
