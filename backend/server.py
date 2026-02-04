@@ -1858,6 +1858,10 @@ async def get_modelo_detalle(modelo_id: str):
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
         if not row:
+            raise HTTPException(status_code=404, detail="Modelo no encontrado")
+
+        d = row_to_dict(row)
+        return d
 
 
 # ==================== MODELO ↔ TALLAS (BOM) ====================
