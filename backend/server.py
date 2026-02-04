@@ -2285,35 +2285,6 @@ async def delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: d
     return {"message": "Línea desactivada", "action": "deactivated"}
 
 
-@api_router.put("/modelos/{modelo_id}/bom/reorder")
-async def reorder_modelo_bom(modelo_id: str, request: ReorderRequest, current_user: dict = Depends(require_permission('modelos', 'editar'))):
-    """Reordena líneas BOM de un modelo."""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        ids = [it.id for it in request.items]
-        if not ids:
-            return {"message": "Sin cambios", "items_updated": 0}
-
-        rows = await conn.fetch(
-            "SELECT id FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND id = ANY($2::varchar[])",
-            modelo_id,
-            ids,
-        )
-        found = {r['id'] for r in rows}
-        missing = [i for i in ids if i not in found]
-        if missing:
-            raise HTTPException(status_code=400, detail="Hay líneas BOM que no pertenecen a este modelo")
-
-        for item in request.items:
-            await conn.execute(
-                "UPDATE prod_modelo_bom_linea SET orden=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2",
-                int(item.orden),
-                item.id,
-            )
-
-    return {"message": "Orden actualizado", "items_updated": len(request.items)}
-
-
 @api_router.delete("/modelos/{modelo_id}/bom/{linea_id}/hard")
 async def hard_delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
     """Elimina físicamente la línea BOM solo si no está vinculada en producción.
