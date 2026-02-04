@@ -169,30 +169,6 @@ export const Modelos = () => {
     setDialogOpen(true);
   };
 
-  // Materiales handlers
-  const handleAddMaterial = () => {
-    if (!materialToAdd.item_id || materialToAdd.cantidad_estimada <= 0) {
-      toast.error('Selecciona un item y cantidad válida');
-      return;
-    }
-    if (formData.materiales.some(m => m.item_id === materialToAdd.item_id)) {
-      toast.error('Este material ya está agregado');
-      return;
-    }
-    setFormData({
-      ...formData,
-      materiales: [...formData.materiales, { ...materialToAdd }],
-    });
-    setMaterialToAdd({ item_id: '', cantidad_estimada: 0 });
-  };
-
-  const handleRemoveMaterial = (itemId) => {
-    setFormData({
-      ...formData,
-      materiales: formData.materiales.filter(m => m.item_id !== itemId),
-    });
-  };
-
   // Servicios handlers
   const handleToggleServicio = (servicioId) => {
     const exists = formData.servicios_ids.includes(servicioId);
@@ -202,17 +178,6 @@ export const Modelos = () => {
         ? formData.servicios_ids.filter(id => id !== servicioId)
         : [...formData.servicios_ids, servicioId],
     });
-  };
-
-  // Helpers
-  const getItemName = (itemId) => {
-    const item = inventarioItems.find(i => i.id === itemId);
-    return item ? `${item.codigo || ''} - ${item.nombre}` : 'N/A';
-  };
-
-  const getItemUnidad = (itemId) => {
-    const item = inventarioItems.find(i => i.id === itemId);
-    return item?.unidad_medida || '';
   };
 
   return (
