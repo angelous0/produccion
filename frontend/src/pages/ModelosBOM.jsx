@@ -33,7 +33,7 @@ export const ModelosTallasTab = ({ modeloId }) => {
   const [loading, setLoading] = useState(true);
 
   const [newTallaId, setNewTallaId] = useState('');
-  const [newOrden, setNewOrden] = useState(10);
+
 
   const fetchAll = async () => {
     setLoading(true);
