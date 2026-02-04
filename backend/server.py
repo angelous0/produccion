@@ -1586,7 +1586,7 @@ class ReorderItem(BaseModel):
     orden: int
 
 class ReorderRequest(BaseModel):
- 
+    items: List[ReorderItem]
 
 
 # ==================== REORDENAMIENTO MODELO ↔ TALLAS ====================
