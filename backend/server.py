@@ -421,10 +421,7 @@ class ModeloBomLineaBase(BaseModel):
     inventario_id: str
     talla_id: Optional[str] = None  # NULL = general
     cantidad_base: float
-    merma_pct: float = 0
-    orden: int = 10
     activo: bool = True
-    notas: Optional[str] = None
 
 class ModeloBomLineaCreate(ModeloBomLineaBase):
     pass
@@ -433,10 +430,7 @@ class ModeloBomLineaUpdate(BaseModel):
     inventario_id: Optional[str] = None
     talla_id: Optional[str] = None
     cantidad_base: Optional[float] = None
-    merma_pct: Optional[float] = None
-    orden: Optional[int] = None
     activo: Optional[bool] = None
-    notas: Optional[str] = None
 
 class ModeloBomLineaOut(BaseModel):
     id: str
@@ -448,10 +442,7 @@ class ModeloBomLineaOut(BaseModel):
     talla_nombre: Optional[str] = None
     unidad_base: Optional[str] = None
     cantidad_base: float
-    merma_pct: float
-    orden: int
     activo: bool
-    notas: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
