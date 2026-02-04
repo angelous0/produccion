@@ -320,16 +320,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeloId]);
 
-  const visibleRows = useMemo(() => {
-    const list = verInactivos ? rows : rows.filter((r) => r.activo);
-    // ordenar estable
-    return [...list].sort((a, b) => {
-      const ao = a.orden ?? 10;
-      const bo = b.orden ?? 10;
-      if (ao !== bo) return ao - bo;
-      return String(a.created_at || '').localeCompare(String(b.created_at || ''));
-    });
-  }, [rows, verInactivos]);
+
 
   const resumen = useMemo(() => {
     const act = (rows || []).filter((r) => r.activo);
