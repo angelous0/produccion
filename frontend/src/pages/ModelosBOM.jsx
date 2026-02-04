@@ -350,8 +350,6 @@ export const ModelosBOMTab = ({ modeloId }) => {
     return null;
   };
 
-  const keyOf = (r) => r.id || r.__tempId;
-
   const setStatus = (key, status) => {
     setRowState((prev) => ({ ...prev, [key]: status }));
   };
