@@ -544,10 +544,6 @@ export const Modelos = () => {
                 )}
               </TabsContent>
 
-                  </p>
-                )}
-              </TabsContent>
-
               <TabsContent value="produccion" className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>Ruta de Producción</Label>
