@@ -2319,13 +2319,12 @@ async def create_modelo(input: ModeloCreate):
     modelo = Modelo(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
-        materiales_json = json.dumps([m.model_dump() for m in modelo.materiales])
         servicios_json = json.dumps(modelo.servicios_ids)
         await conn.execute(
             """INSERT INTO prod_modelos (id, nombre, marca_id, tipo_id, entalle_id, tela_id, hilo_id, 
-               ruta_produccion_id, materiales, servicios_ids, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+               ruta_produccion_id, servicios_ids, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
             modelo.id, modelo.nombre, modelo.marca_id, modelo.tipo_id, modelo.entalle_id, modelo.tela_id,
-            modelo.hilo_id, modelo.ruta_produccion_id, materiales_json, servicios_json, modelo.created_at.replace(tzinfo=None)
+            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, modelo.created_at.replace(tzinfo=None)
         )
     return modelo
 
@@ -2336,13 +2335,12 @@ async def update_modelo(modelo_id: str, input: ModeloCreate):
         result = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
         if not result:
             raise HTTPException(status_code=404, detail="Modelo no encontrado")
-        materiales_json = json.dumps([m.model_dump() for m in input.materiales])
         servicios_json = json.dumps(input.servicios_ids)
         await conn.execute(
             """UPDATE prod_modelos SET nombre=$1, marca_id=$2, tipo_id=$3, entalle_id=$4, tela_id=$5, hilo_id=$6,
-               ruta_produccion_id=$7, materiales=$8, servicios_ids=$9 WHERE id=$10""",
+               ruta_produccion_id=$7, servicios_ids=$8 WHERE id=$9""",
             input.nombre, input.marca_id, input.tipo_id, input.entalle_id, input.tela_id, input.hilo_id,
-            input.ruta_produccion_id, materiales_json, servicios_json, modelo_id
+            input.ruta_produccion_id, servicios_json, modelo_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
