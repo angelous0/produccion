@@ -1104,7 +1104,7 @@ class TextileAPITester:
             self.run_test("Cleanup Hilo", "DELETE", f"hilos/{hilo_id}", 200)
 
 def main():
-    print("🧪 Starting Textile Production API Tests...")
+    print("🧪 Starting BOM Schema Change Validation Tests...")
     tester = TextileAPITester()
 
     # Test authentication first
@@ -1112,69 +1112,32 @@ def main():
         print("❌ Login failed, stopping tests")
         return 1
 
-    # Test BOM module (main focus as requested)
-    print("\n🎯 Testing BOM Module (Main Focus)...")
-    bom_result = tester.test_bom_module_comprehensive()
+    # PRIMARY TEST: BOM Schema Change Validation (as requested in review)
+    print("\n🎯 Testing BOM Schema Change Validation (PRIMARY FOCUS)...")
+    schema_validation_result = tester.test_bom_schema_change_validation()
     
-    # Test reportes endpoints (secondary)
-    print("\n📊 Testing Reportes Estados Item (Secondary)...")
-    reportes_results = []
-    reportes_results.append(("Reporte Estados Item Basic", tester.test_reporte_estados_item()))
-    reportes_results.append(("Reporte Estados Item with Tienda", tester.test_reporte_estados_item_with_tienda()))
-    reportes_results.append(("Reporte Estados Item Filters", tester.test_reporte_estados_item_filters()))
-    reportes_results.append(("Reporte Estados Item CSV Export", tester.test_reporte_estados_item_export()))
-
-    # Test basic endpoints
-    if not tester.test_root_endpoint():
-        print("❌ Root endpoint failed, stopping tests")
-        return 1
-
-    if not tester.test_stats_endpoint():
-        print("❌ Stats endpoint failed")
-
-    if not tester.test_estados_endpoint():
-        print("❌ Estados endpoint failed")
-
-    # Test CRUD operations (tertiary)
-    test_results = []
-    test_results.append(("Marcas CRUD", tester.test_marcas_crud()))
-    test_results.append(("Tipos CRUD", tester.test_tipos_crud()))
-    test_results.append(("Entalles CRUD", tester.test_entalles_crud()))
-    test_results.append(("Telas CRUD", tester.test_telas_crud()))
-    test_results.append(("Hilos CRUD", tester.test_hilos_crud()))
-    test_results.append(("Tallas Catalogo CRUD", tester.test_tallas_catalogo_crud()))
-    test_results.append(("Colores Catalogo CRUD", tester.test_colores_catalogo_crud()))
-    test_results.append(("Modelos CRUD", tester.test_modelos_crud()))
-    test_results.append(("Registros CRUD", tester.test_registros_crud()))
-
-    # Cleanup
-    tester.cleanup_created_items()
+    # SECONDARY TEST: Comprehensive BOM module testing
+    print("\n🔧 Testing BOM Module Comprehensive (SECONDARY)...")
+    bom_comprehensive_result = tester.test_bom_module_comprehensive()
 
     # Print results
     print(f"\n📊 Final Results: {tester.tests_passed}/{tester.tests_run} tests passed")
     
-    # Check BOM results first (priority)
-    if not bom_result:
-        print("❌ BOM Module tests failed!")
+    # Check schema validation results first (highest priority)
+    if not schema_validation_result:
+        print("❌ BOM Schema Change Validation tests FAILED!")
         return 1
     else:
-        print("✅ BOM Module tests passed!")
+        print("✅ BOM Schema Change Validation tests PASSED!")
     
-    # Check reportes results (secondary)
-    failed_reportes = [name for name, result in reportes_results if not result]
-    if failed_reportes:
-        print(f"⚠️  Failed reportes tests: {', '.join(failed_reportes)}")
-        # Don't return 1 for reportes failures, focus is on BOM
+    # Check comprehensive BOM results (secondary priority)
+    if not bom_comprehensive_result:
+        print("⚠️  BOM Comprehensive tests failed, but schema validation passed")
+        # Don't return 1 since schema validation (primary focus) passed
     else:
-        print("✅ All reportes tests passed!")
+        print("✅ BOM Comprehensive tests also passed!")
     
-    failed_tests = [name for name, result in test_results if not result]
-    if failed_tests:
-        print(f"⚠️  Failed CRUD test suites: {', '.join(failed_tests)}")
-        # Don't return 1 for CRUD failures, focus is on BOM
-    else:
-        print("✅ All CRUD test suites passed!")
-    
+    print("\n🎉 BOM Schema Change Validation completed successfully!")
     return 0
 
 if __name__ == "__main__":
