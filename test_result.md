@@ -146,9 +146,24 @@
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+## frontend:
+  - task: "Tab Tallas dentro de Modelos - E2E Testing"
+    implemented: true
+    working: false
+    file: "frontend/src/pages/ModelosBOM.jsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "❌ FRONTEND TALLAS TAB TESTING FAILED: 1) Login with eduard/eduard123 ✅ 2) Navigation to /modelos ✅ 3) Found 3 existing models ✅ 4) Edit modal opened ✅ 5) CRITICAL ISSUE: Cannot access Tallas tab due to modal overlay interception - clicks are blocked by DialogOverlay element 6) API verification shows models and tallas exist in backend 7) Frontend loading issues observed - 'Cargando...' persists despite API returning data 8) Modal interaction blocked by z-index overlay issues 9) Unable to complete tallas addition, table verification, or button testing due to tab access failure"
+
 ## agent_communication:
   - agent: "testing"
     message: "✅ BOM MODULE TESTING COMPLETED SUCCESSFULLY: Comprehensive testing of all BOM functionality including Modelo↔Tallas relationships, BOM lines (general and per-talla), and all validations. Created both integrated tests in backend_test.py and dedicated test suite at /app/backend/tests/test_bom_module.py. All 27 specific BOM tests passed with 100% success rate. Module is fully functional and ready for production use."
+  - agent: "testing"
+    message: "❌ FRONTEND TALLAS TAB TESTING FAILED: Critical UI issue preventing access to Tallas tab in Modelos edit modal. Modal overlay (DialogOverlay) intercepts all clicks preventing tab navigation. Additional issues: 1) Frontend data loading problems - API returns data but UI shows 'Cargando...' indefinitely 2) Modal z-index/overlay conflicts blocking user interactions 3) Unable to test tallas addition, table verification, save/deactivate/delete operations due to tab access failure. REQUIRES MAIN AGENT INVESTIGATION: Modal overlay CSS/z-index issues, frontend data loading problems."
 ## backend:
 ##   - task: "Reporte estados por Item (API + export CSV)"
 ##     implemented: true
