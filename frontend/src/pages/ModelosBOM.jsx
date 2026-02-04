@@ -126,16 +126,8 @@ export const ModelosTallasTab = ({ modeloId }) => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Orden</Label>
-              <Input
-                type="number"
-                value={newOrden}
-                onChange={(e) => setNewOrden(e.target.value)}
-                data-testid="input-new-talla-orden"
-              />
-            </div>
-            <Button onClick={addTalla} data-testid="btn-add-talla">Agregar</Button>
+
+            <Button type="button" onClick={addTalla} data-testid="btn-add-talla">Agregar</Button>
           </div>
 
           <div className="overflow-auto">
