@@ -101,7 +101,54 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
-## user_problem_statement: "Implementar reporte tipo Power BI (Item-Estados) con filtros y exportación; luego completar exportación Kardex"
+## user_problem_statement: "Crear y ejecutar pruebas backend para el nuevo módulo BOM: Modelo↔Tallas y BOM líneas con validaciones"
+## backend:
+  - task: "BOM Module - Modelo↔Tallas relationships"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ COMPREHENSIVE BOM TESTING COMPLETED: 1) Authentication with eduard/eduard123 ✅ 2) MODELO↔TALLAS: POST new relationships, duplicate validation (400), GET active tallas, DELETE soft delete, PUT reactivate ✅ 3) All relationship operations working correctly with proper validation ✅ 4) Created dedicated test suite at /app/backend/tests/test_bom_module.py ✅ All 27/27 tests passed with 100% success rate."
+  - task: "BOM Module - BOM líneas (general y por talla)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ BOM LINES TESTING COMPLETED: 1) POST general BOM lines (talla_id=null) ✅ 2) POST talla-specific BOM lines ✅ 3) Duplicate validation working (400 for exact duplicates) ✅ 4) Invalid talla validation (400 for tallas not belonging to modelo) ✅ 5) GET active BOM with proper structure (inventario_nombre, talla_nombre) ✅ 6) DELETE soft delete working ✅ 7) GET with activo=all includes deactivated lines ✅"
+  - task: "BOM Module - Validaciones y reglas de negocio"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ BOM VALIDATIONS TESTING COMPLETED: 1) cantidad_base <= 0 validation (400) ✅ 2) merma_pct > 100 validation (400) ✅ 3) Inventario existence validation ✅ 4) Talla must belong to modelo validation ✅ 5) Duplicate active line validation ✅ 6) All business rules properly enforced ✅"
+## metadata:
+  created_by: "testing_agent"
+  version: "2.0"
+  test_sequence: 2
+  run_ui: false
+## test_plan:
+  current_focus: []
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+## agent_communication:
+  - agent: "testing"
+    message: "✅ BOM MODULE TESTING COMPLETED SUCCESSFULLY: Comprehensive testing of all BOM functionality including Modelo↔Tallas relationships, BOM lines (general and per-talla), and all validations. Created both integrated tests in backend_test.py and dedicated test suite at /app/backend/tests/test_bom_module.py. All 27 specific BOM tests passed with 100% success rate. Module is fully functional and ready for production use."
 ## backend:
 ##   - task: "Reporte estados por Item (API + export CSV)"
 ##     implemented: true
