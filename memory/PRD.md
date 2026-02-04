@@ -234,6 +234,30 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Botón "Agregar línea" con `type="button"` para evitar submit del formulario
   - Endpoint de reorder movido antes de rutas con `{linea_id}` para evitar conflicto de rutas
 
+### Febrero 2025 - FASE 2A: Reservas + Requerimiento MP (Backend)
+- ✅ **Nuevas tablas creadas** en schema `produccion`:
+  - `prod_registro_tallas` - Cantidades reales por talla (corte)
+  - `prod_registro_requerimiento_mp` - Resultado de explosión BOM
+  - `prod_inventario_reservas` - Cabecera de reservas
+  - `prod_inventario_reservas_linea` - Líneas de reservas
+  - Columna `talla_id` agregada a `prod_inventario_salidas`
+
+- ✅ **Endpoints implementados**:
+  - `GET/POST/PUT /api/registros/{id}/tallas` - CRUD tallas reales (autosave)
+  - `POST /api/registros/{id}/generar-requerimiento` - Explosión BOM
+  - `GET /api/registros/{id}/requerimiento` - Ver requerimiento MP
+  - `POST /api/registros/{id}/reservas` - Crear reserva
+  - `GET /api/registros/{id}/reservas` - Listar reservas
+  - `POST /api/registros/{id}/liberar-reservas` - Liberar reservas
+  - `GET /api/inventario/{id}/disponibilidad` - Stock disponible real
+
+- ✅ **Endpoint de salidas modificado** (`POST /inventario-salidas`):
+  - Valida reserva pendiente antes de permitir salida
+  - Para TELA: rollo_id obligatorio, valida pertenencia y metraje
+  - Para NO tela: rollo_id debe ser NULL
+  - Actualiza `cantidad_consumida` en requerimiento tras salida
+  - FIFO intacto
+
 ## Backlog
 
 ### P1 - Importante
