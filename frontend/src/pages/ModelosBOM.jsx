@@ -152,15 +152,6 @@ export const ModelosTallasTab = ({ modeloId }) => {
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{r.talla_nombre || r.talla_id}</TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            value={r.orden ?? 10}
-                            onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, orden: e.target.value } : x))}
-                            className="font-mono"
-                            data-testid={`talla-orden-${r.id}`}
-                          />
-                        </TableCell>
-                        <TableCell>
                           <Switch
                             checked={Boolean(r.activo)}
                             onCheckedChange={(checked) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: checked } : x))}
@@ -169,8 +160,16 @@ export const ModelosTallasTab = ({ modeloId }) => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => saveRow(r)}>Guardar</Button>
-                            <Button size="sm" variant="destructive" onClick={() => deactivate(r)}>Desactivar</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => saveRow(r)}>Guardar</Button>
+                            <Button type="button" size="sm" variant="destructive" onClick={() => deactivate(r)}>Desactivar</Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => hardDelete(r)}
+                            >
+                              Borrar
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
