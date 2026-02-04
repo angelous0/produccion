@@ -223,6 +223,17 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Limpieza de caché Python
   - Corrección de errores de linting
 
+### Febrero 2025 - Módulo BOM Avanzado
+- ✅ **Drag-and-Drop en BOM**:
+  - Reordenamiento de líneas de BOM mediante arrastrar y soltar
+  - Componente `SortableTable.jsx` actualizado para soportar items con `__tempId` (drafts)
+  - Ícono de arrastre (GripVertical) en cada fila
+  - Endpoint `PUT /api/modelos/{modeloId}/bom/reorder` funcionando
+  - Guardado automático del nuevo orden
+- ✅ **Correcciones de bugs**:
+  - Botón "Agregar línea" con `type="button"` para evitar submit del formulario
+  - Endpoint de reorder movido antes de rutas con `{linea_id}` para evitar conflicto de rutas
+
 ## Backlog
 
 ### P1 - Importante
@@ -231,6 +242,7 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - [ ] Filtros y búsqueda en tablas de producción
 - [x] ~~Exportar registros a Excel~~ ✅ Implementado (registros, inventario, productividad, personas, modelos)
 - [x] ~~Copias de seguridad~~ ✅ Implementado (crear, descargar, restaurar)
+- [ ] Clarificar lógica de "borrado inteligente" del BOM (vinculación con salida de materia prima)
 
 ### P2 - Mejoras
 - [ ] Dashboard de Producción con gráficos
@@ -240,3 +252,14 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - [ ] Exportar Kardex y Reportes a PDF
 - [ ] Dropdowns en cascada para creación de Modelos
 - [ ] Reportes de Merma por período o persona
+- [ ] Vista de detalle (drill-down) en "Reporte Item-Estados"
+- [ ] Filtros y ordenamiento avanzados en "Reporte Item-Estados"
+- [ ] "Explosión del BOM" para calcular requerimientos de materiales
+- [ ] Finalizar exportación Excel/PDF en página de Kardex
+
+### P3 - Futuro
+- [ ] Reporte de "Productividad por persona/servicio"
+- [ ] Pre-llenado de tarifa en formulario de registro
+- [ ] Aplicar permisos granulares con hook `usePermissions` en toda la UI
+- [ ] Auditar accesibilidad en componentes `Dialog` (DialogTitle, DialogDescription)
+
