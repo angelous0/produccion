@@ -285,9 +285,8 @@ export const Modelos = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <Tabs defaultValue="general" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="materiales">Materiales</TabsTrigger>
                 <TabsTrigger value="tallas">Tallas</TabsTrigger>
                 <TabsTrigger value="bom">BOM / Receta</TabsTrigger>
                 <TabsTrigger value="produccion">Producción</TabsTrigger>
