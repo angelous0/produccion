@@ -98,10 +98,7 @@ async def ensure_bom_tables():
                 talla_id VARCHAR NULL,
                 unidad_base VARCHAR DEFAULT 'PRENDA',
                 cantidad_base NUMERIC(14,4) NOT NULL,
-                merma_pct NUMERIC(5,2) DEFAULT 0,
-                orden INT DEFAULT 10,
                 activo BOOLEAN DEFAULT TRUE,
-                notas TEXT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
