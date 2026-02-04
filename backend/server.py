@@ -98,6 +98,7 @@ async def ensure_bom_tables():
                 talla_id VARCHAR NULL,
                 unidad_base VARCHAR DEFAULT 'PRENDA',
                 cantidad_base NUMERIC(14,4) NOT NULL,
+                orden INT DEFAULT 10,
                 activo BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -107,6 +108,9 @@ async def ensure_bom_tables():
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_bom_modelo_id ON prod_modelo_bom_linea(modelo_id)"
         )
+        # Si la tabla ya existía de antes, aseguramos columnas nuevas sin romper datos
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS orden INT DEFAULT 10")
+
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_bom_inventario_id ON prod_modelo_bom_linea(inventario_id)"
         )
@@ -439,6 +443,7 @@ class ModeloBomLineaOut(BaseModel):
     talla_nombre: Optional[str] = None
     unidad_base: Optional[str] = None
     cantidad_base: float
+    orden: Optional[int] = None
     activo: bool
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -2073,7 +2078,7 @@ async def get_modelo_bom(modelo_id: str, activo: str = "true"):
             query += " AND bl.activo = true"
         elif activo == "false":
             query += " AND bl.activo = false"
-        query += " ORDER BY bl.created_at ASC"
+        query += " ORDER BY bl.orden ASC, bl.created_at ASC"
         rows = await conn.fetch(query, *params)
 
     result = []
