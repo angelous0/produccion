@@ -1905,8 +1905,8 @@ async def add_modelo_talla(modelo_id: str, data: ModeloTallaCreate, current_user
         talla = await conn.fetchrow("SELECT * FROM prod_tallas_catalogo WHERE id=$1", data.talla_id)
         if not talla:
             raise HTTPException(status_code=404, detail="Talla no encontrada")
-        if talla.get('activo') is False:
-            raise HTTPException(status_code=400, detail="Solo se pueden usar tallas activas del catálogo")
+        # Nota: prod_tallas_catalogo no tiene campo 'activo' en este proyecto; todas las tallas del catálogo se consideran disponibles.
+
 
         # Validación duplicado activo (mensaje claro)
         exists = await conn.fetchval(
