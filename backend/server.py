@@ -2198,58 +2198,6 @@ async def delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: d
 
     return {"message": "Línea BOM desactivada"}
 
-            raise HTTPException(status_code=404, detail="Modelo no encontrado")
-        d = row_to_dict(row)
-        d['materiales'] = parse_jsonb(d.get('materiales'))
-        d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
-        # Enriquecer
-        marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", d.get('marca_id'))
-        tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", d.get('tipo_id'))
-        entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", d.get('entalle_id'))
-        tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", d.get('tela_id'))
-        hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
-        d['marca_nombre'] = marca['nombre'] if marca else None
-        d['tipo_nombre'] = tipo['nombre'] if tipo else None
-        d['entalle_nombre'] = entalle['nombre'] if entalle else None
-        d['tela_nombre'] = tela['nombre'] if tela else None
-        d['hilo_nombre'] = hilo['nombre'] if hilo else None
-        # Ruta con etapas
-        if d.get('ruta_produccion_id'):
-            ruta = await conn.fetchrow("SELECT * FROM prod_rutas_produccion WHERE id = $1", d['ruta_produccion_id'])
-            if ruta:
-                d['ruta_nombre'] = ruta['nombre']
-                etapas = parse_jsonb(ruta['etapas'])
-                etapas_detalle = []
-                for etapa in sorted(etapas, key=lambda x: x.get('orden', 0)):
-                    srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", etapa.get('servicio_id'))
-                    etapas_detalle.append({
-                        "servicio_id": etapa.get('servicio_id'),
-                        "servicio_nombre": srv['nombre'] if srv else None,
-                        "orden": etapa.get('orden', 0)
-                    })
-                d['ruta_etapas'] = etapas_detalle
-        # Materiales detalle
-        materiales_detalle = []
-        for mat in d.get('materiales', []):
-            item = await conn.fetchrow("SELECT nombre, codigo, unidad_medida FROM prod_inventario WHERE id = $1", mat.get('item_id'))
-            materiales_detalle.append({
-                "item_id": mat.get('item_id'),
-                "item_nombre": item['nombre'] if item else None,
-                "item_codigo": item['codigo'] if item else None,
-                "unidad_medida": item['unidad_medida'] if item else None,
-                "cantidad_estimada": mat.get('cantidad_estimada', 0)
-            })
-        d['materiales_detalle'] = materiales_detalle
-        # Servicios detalle
-        servicios_detalle = []
-        for srv_id in d.get('servicios_ids', []):
-            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", srv_id)
-            servicios_detalle.append({
-                "servicio_id": srv_id,
-                "servicio_nombre": srv['nombre'] if srv else None
-            })
-        d['servicios_detalle'] = servicios_detalle
-        return d
 
 @api_router.post("/modelos")
 async def create_modelo(input: ModeloCreate):
