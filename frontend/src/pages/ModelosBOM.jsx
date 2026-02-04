@@ -234,6 +234,28 @@ export const ModelosTallasTab = ({ modeloId }) => {
                     ))
                   )}
                 </TableBody>
+
+  const { sensors: sensorsBOM, handleDragEnd: handleDragEndBOM, isSaving: isSavingBOM, modifiers: modifiersBOM } = useSortableTable(
+    visibleRows,
+    (next) => {
+      // Solo reordenamos las filas persistidas (con id). Los drafts se quedan arriba.
+      setRows((prev) => {
+        const drafts = prev.filter((r) => !r.id);
+        const persisted = prev.filter((r) => r.id);
+        // next viene basado en visibleRows (que puede estar filtrado). Reordenamos persisted según next.
+        const map = new Map(persisted.map((r) => [r.id, r]));
+        const reordered = [];
+        next.forEach((it) => {
+          if (it.id && map.has(it.id)) reordered.push(map.get(it.id));
+        });
+        // agregar los que no estaban visibles al final (por ejemplo inactivos ocultos)
+        const remaining = persisted.filter((r) => !reordered.some((x) => x.id === r.id));
+        return [...drafts, ...reordered, ...remaining];
+      });
+    },
+    `modelos/${modeloId}/bom/reorder`
+  );
+
               </Table>
             </SortableTableWrapper>
           </div>
