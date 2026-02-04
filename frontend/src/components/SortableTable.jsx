@@ -92,7 +92,7 @@ export const useSortableTable = (items, setItems, endpoint) => {
     // Guardar en backend
     setIsSaving(true);
     try {
-      await axios.put(`${API}/reorder/${endpoint}`, {
+      await axios.put(`${API}/${endpoint}`, {
         items: itemsWithNewOrder.map((item, index) => ({
           id: item.id,
           orden: index + 1,
