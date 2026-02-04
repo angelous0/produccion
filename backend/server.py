@@ -43,6 +43,10 @@ async def get_pool():
         pool = await asyncpg.create_pool(
             DATABASE_URL,
             min_size=2,
+            max_size=10,
+            server_settings={"search_path": "produccion,public"},
+        )
+    return pool
 
 
 # ==================== DDL HELPERS (TABLAS NUEVAS) ====================
