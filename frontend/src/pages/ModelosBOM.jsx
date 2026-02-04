@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { Label } from '../components/ui/label';
 import {
   Table,
