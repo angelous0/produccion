@@ -380,6 +380,71 @@ class Modelo(ModeloBase):
 
 class TallaCantidadItem(BaseModel):
     talla_id: str
+
+
+# ==================== BOM / RECETA ====================
+
+class ModeloTallaBase(BaseModel):
+    talla_id: str
+    orden: int = 10
+    activo: bool = True
+
+class ModeloTallaCreate(ModeloTallaBase):
+    pass
+
+class ModeloTallaUpdate(BaseModel):
+    orden: Optional[int] = None
+    activo: Optional[bool] = None
+
+class ModeloTallaOut(BaseModel):
+    id: str
+    modelo_id: str
+    talla_id: str
+    talla_nombre: Optional[str] = None
+    orden: int = 10
+    activo: bool = True
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ModeloBomLineaBase(BaseModel):
+    inventario_id: str
+    talla_id: Optional[str] = None  # NULL = general
+    cantidad_base: float
+    merma_pct: float = 0
+    orden: int = 10
+    activo: bool = True
+    notas: Optional[str] = None
+
+class ModeloBomLineaCreate(ModeloBomLineaBase):
+    pass
+
+class ModeloBomLineaUpdate(BaseModel):
+    inventario_id: Optional[str] = None
+    talla_id: Optional[str] = None
+    cantidad_base: Optional[float] = None
+    merma_pct: Optional[float] = None
+    orden: Optional[int] = None
+    activo: Optional[bool] = None
+    notas: Optional[str] = None
+
+class ModeloBomLineaOut(BaseModel):
+    id: str
+    modelo_id: str
+    inventario_id: str
+    inventario_nombre: Optional[str] = None
+    inventario_codigo: Optional[str] = None
+    talla_id: Optional[str] = None
+    talla_nombre: Optional[str] = None
+    unidad_base: Optional[str] = None
+    cantidad_base: float
+    merma_pct: float
+    orden: int
+    activo: bool
+    notas: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
     talla_nombre: str = ""
     cantidad: int = 0
 
