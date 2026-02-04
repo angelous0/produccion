@@ -355,10 +355,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
             inventario_id: row.inventario_id,
             talla_id: row.talla_id || null,
             cantidad_base: Number(row.cantidad_base),
-            merma_pct: Number(row.merma_pct) || 0,
-            orden: Number(row.orden) || 10,
             activo: Boolean(row.activo),
-            notas: row.notas || null,
           });
           const created = res.data;
 
