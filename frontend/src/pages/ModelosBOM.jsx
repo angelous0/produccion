@@ -311,7 +311,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
 
     if (!r.inventario_id) return 'Selecciona un item de inventario';
     if (!(cantidad > 0)) return 'Cantidad por prenda debe ser > 0';
-    if (merma < 0 || merma > 100) return 'Merma % debe estar entre 0 y 100';
+
     if (r.talla_id) {
       const ok = tallas.some((t) => t.talla_id === r.talla_id);
       if (!ok) return 'La talla debe pertenecer al modelo';
