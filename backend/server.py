@@ -2076,7 +2076,7 @@ async def get_modelo_bom(modelo_id: str, activo: str = "true"):
             query += " AND bl.activo = true"
         elif activo == "false":
             query += " AND bl.activo = false"
-        query += " ORDER BY bl.orden ASC, bl.created_at ASC"
+        query += " ORDER BY bl.created_at ASC"
         rows = await conn.fetch(query, *params)
 
     result = []
