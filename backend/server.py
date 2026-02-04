@@ -2215,16 +2215,13 @@ async def update_modelo_bom_linea(modelo_id: str, linea_id: str, data: ModeloBom
         await conn.execute(
             """
             UPDATE prod_modelo_bom_linea
-            SET inventario_id=$1, talla_id=$2, cantidad_base=$3, merma_pct=$4, orden=$5, activo=$6, notas=$7, updated_at=CURRENT_TIMESTAMP
-            WHERE id=$8
+            SET inventario_id=$1, talla_id=$2, cantidad_base=$3, activo=$4, updated_at=CURRENT_TIMESTAMP
+            WHERE id=$5
             """,
             inventario_id,
             talla_id,
             cantidad_base,
-            merma_pct,
-            orden,
             activo_val,
-            notas,
             linea_id,
         )
 
