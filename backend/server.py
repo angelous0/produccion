@@ -2145,6 +2145,7 @@ async def add_modelo_bom_linea(modelo_id: str, data: ModeloBomLineaCreate, curre
             data.inventario_id,
             talla_id,
             float(data.cantidad_base),
+            10,
             bool(data.activo),
         )
 
