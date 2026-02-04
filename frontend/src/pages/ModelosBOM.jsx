@@ -294,6 +294,26 @@ export const ModelosBOMTab = ({ modeloId }) => {
     return [...drafts, ...persisted];
   }, [rows, verInactivos]);
 
+  const { sensors: sensorsBOM, handleDragEnd: handleDragEndBOM, isSaving: isSavingBOM, modifiers: modifiersBOM } = useSortableTable(
+    visibleRows,
+    // reordenamiento local
+    (next) => {
+      setRows((prev) => {
+        const drafts = prev.filter((r) => !r.id);
+        const persisted = prev.filter((r) => r.id);
+        const map = new Map(persisted.map((r) => [r.id, r]));
+        const reordered = [];
+        next.forEach((it) => {
+          if (it.id && map.has(it.id)) reordered.push(map.get(it.id));
+        });
+        const remaining = persisted.filter((r) => !reordered.some((x) => x.id === r.id));
+        return [...drafts, ...reordered, ...remaining];
+      });
+    },
+    `modelos/${modeloId}/bom/reorder`
+  );
+
+
   const timersRef = useRef({});
   const [rowState, setRowState] = useState({}); // { [key]: 'idle'|'saving'|'saved'|'error'|'draft' }
 
