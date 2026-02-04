@@ -114,9 +114,6 @@ async def startup_event():
             WHERE activo = TRUE
         """)
 
-            max_size=10,
-            server_settings={"search_path": "produccion,public"},
-        )
 
     return pool
 
