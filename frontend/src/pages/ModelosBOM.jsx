@@ -468,6 +468,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
               <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead className="min-w-[340px]">Item</TableHead>
                   <TableHead className="min-w-[160px]">Talla</TableHead>
                   <TableHead className="w-[220px] text-right">Cant. por prenda</TableHead>
@@ -479,18 +480,18 @@ export const ModelosBOMTab = ({ modeloId }) => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell>
+                    <TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell>
                   </TableRow>
                 ) : visibleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin líneas</TableCell>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sin líneas</TableCell>
                   </TableRow>
                 ) : (
                   visibleRows.map((r) => {
                     const k = keyOf(r);
                     const isDraft = !r.id;
                     return (
-                      <TableRow key={k} className={!r.activo ? 'opacity-60' : ''} data-testid="bom-row">
+                      <SortableRow key={k} id={k} disabled={isDraft}>
                         <TableCell>
                           <InventarioCombobox
                             options={inventario}
