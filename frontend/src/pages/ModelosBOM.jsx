@@ -451,7 +451,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                   </TableRow>
                 ) : visibleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Sin líneas</TableCell>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin líneas</TableCell>
                   </TableRow>
                 ) : (
                   visibleRows.map((r) => {
