@@ -574,7 +574,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
             </SortableTableWrapper>
           </div>
 
-          <Button onClick={addDraftRow} variant="secondary" data-testid="btn-add-bom-linea">Agregar línea</Button>
+          <Button type="button" onClick={addDraftRow} variant="secondary" data-testid="btn-add-bom-linea">Agregar línea</Button>
 
           <p className="text-xs text-muted-foreground">
             Regla: si la línea tiene <span className="font-medium">Talla = Todas</span> (talla_id = NULL) aplica a todas las tallas.
