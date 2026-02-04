@@ -62,10 +62,7 @@ async def ensure_bom_tables():
                 modelo_id VARCHAR NOT NULL,
 
 
-@app.on_event("startup")
-async def startup_event():
-    # Asegurar tablas nuevas (BOM) sin tocar tablas existentes
-    await ensure_bom_tables()
+# startup hook definido más abajo, después de crear app/api_router
 
                 talla_id VARCHAR NOT NULL,
                 activo BOOLEAN DEFAULT TRUE,
