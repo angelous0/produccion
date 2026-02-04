@@ -1586,6 +1586,62 @@ class ReorderItem(BaseModel):
     orden: int
 
 class ReorderRequest(BaseModel):
+
+
+# ==================== REORDENAMIENTO MODELO ↔ TALLAS ====================
+
+@api_router.put("/modelos/{modelo_id}/tallas/reorder")
+async def reorder_modelo_tallas(modelo_id: str, request: ReorderRequest, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    """Reordena tallas de un modelo. Se valida que cada id pertenezca al modelo."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # validar pertenencia
+        ids = [it.id for it in request.items]
+        if not ids:
+            return {"message": "Sin cambios", "items_updated": 0}
+
+        rows = await conn.fetch(
+            "SELECT id FROM prod_modelo_tallas WHERE modelo_id=$1 AND id = ANY($2::varchar[])",
+            modelo_id,
+            ids,
+        )
+        found = {r['id'] for r in rows}
+        missing = [i for i in ids if i not in found]
+        if missing:
+            raise HTTPException(status_code=400, detail="Hay tallas que no pertenecen a este modelo")
+
+        for item in request.items:
+            await conn.execute(
+                "UPDATE prod_modelo_tallas SET orden=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2",
+                int(item.orden),
+                item.id,
+            )
+
+    return {"message": "Orden actualizado", "items_updated": len(request.items)}
+
+
+@api_router.delete("/modelos/{modelo_id}/tallas/{rel_id}/hard")
+async def hard_delete_modelo_talla(modelo_id: str, rel_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    """Elimina físicamente la relación modelo-talla SOLO si no tiene vinculaciones (por ahora: BOM)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rel = await conn.fetchrow("SELECT * FROM prod_modelo_tallas WHERE id=$1 AND modelo_id=$2", rel_id, modelo_id)
+        if not rel:
+            raise HTTPException(status_code=404, detail="Relación modelo-talla no encontrada")
+
+        # Vinculación: BOM por talla
+        used = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND talla_id=$2",
+            modelo_id,
+            rel.get('talla_id'),
+        )
+        if used and int(used) > 0:
+            raise HTTPException(status_code=400, detail="No se puede borrar: hay líneas BOM vinculadas a esta talla")
+
+        await conn.execute("DELETE FROM prod_modelo_tallas WHERE id=$1", rel_id)
+
+    return {"message": "Talla eliminada"}
+
     items: List[ReorderItem]
 
 @api_router.put("/reorder/{tabla}")
