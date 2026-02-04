@@ -447,7 +447,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell>
+                    <TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell>
                   </TableRow>
                 ) : visibleRows.length === 0 ? (
                   <TableRow>
