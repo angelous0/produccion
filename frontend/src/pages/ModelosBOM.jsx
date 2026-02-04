@@ -134,10 +134,10 @@ export const ModelosTallasTab = ({ modeloId }) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Talla</TableHead>
-                  <TableHead className="w-[120px]">Orden</TableHead>
                   <TableHead className="w-[120px]">Activo</TableHead>
-                  <TableHead className="w-[180px]">Acciones</TableHead>
+                  <TableHead className="w-[260px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
