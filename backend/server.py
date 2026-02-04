@@ -2284,16 +2284,6 @@ async def reorder_modelo_bom(modelo_id: str, request: ReorderRequest, current_us
 
     return {"message": "Orden actualizado", "items_updated": len(request.items)}
 
-            raise HTTPException(status_code=404, detail="Línea BOM no encontrada")
-
-        await conn.execute(
-            "UPDATE prod_modelo_bom_linea SET activo=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
-            linea_id,
-        )
-
-    return {"message": "Línea BOM desactivada"}
-
-
 
 @api_router.delete("/modelos/{modelo_id}/bom/{linea_id}/hard")
 async def hard_delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
