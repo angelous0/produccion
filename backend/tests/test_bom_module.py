@@ -98,23 +98,71 @@ class BOMModuleTester:
         self.test_data['modelo_id'] = modelos_response[0]['id']
         print(f"✅ Using modelo_id: {self.test_data['modelo_id']}")
         
-        # Get existing talla from catalog
+        # Get existing tallas from catalog
         success, tallas_response = self.run_test("Get Tallas Catalogo", "GET", "tallas-catalogo", 200)
         if not success or not tallas_response:
             print("❌ No tallas available for testing")
             return False
         
-        self.test_data['talla_id'] = tallas_response[0]['id']
-        print(f"✅ Using talla_id: {self.test_data['talla_id']}")
+        # Check which tallas are already associated with this modelo
+        modelo_id = self.test_data['modelo_id']
+        success, existing_tallas = self.run_test("Get Existing Modelo Tallas", "GET", f"modelos/{modelo_id}/tallas?activo=all", 200)
         
-        # Get existing inventario item
+        existing_talla_ids = [t['talla_id'] for t in existing_tallas] if existing_tallas else []
+        
+        # Find a talla that's NOT already associated with this modelo
+        available_talla = None
+        for talla in tallas_response:
+            if talla['id'] not in existing_talla_ids:
+                available_talla = talla
+                break
+        
+        if available_talla:
+            self.test_data['talla_id'] = available_talla['id']
+            print(f"✅ Using available talla_id: {self.test_data['talla_id']} ({available_talla['nombre']})")
+        else:
+            # If all tallas are used, we'll use the first one but modify our test strategy
+            self.test_data['talla_id'] = tallas_response[0]['id']
+            self.test_data['talla_already_exists'] = True
+            print(f"⚠️  All tallas already associated, using: {self.test_data['talla_id']} (will test different scenarios)")
+        
+        # Get existing inventario items
         success, inventario_response = self.run_test("Get Inventario Items", "GET", "inventario", 200)
         if not success or not inventario_response:
             print("❌ No inventario items available for testing")
             return False
         
-        self.test_data['inventario_id'] = inventario_response[0]['id']
-        print(f"✅ Using inventario_id: {self.test_data['inventario_id']}")
+        # Check existing BOM lines to find available inventario
+        success, existing_bom = self.run_test("Get Existing BOM Lines", "GET", f"modelos/{modelo_id}/bom?activo=all", 200)
+        
+        existing_inventario_ids = []
+        if existing_bom:
+            for bom_line in existing_bom:
+                key = (bom_line['inventario_id'], bom_line.get('talla_id'))
+                existing_inventario_ids.append(key)
+        
+        # Find an inventario item that doesn't have conflicts
+        available_inventario = None
+        for inv in inventario_response:
+            # Check if this inventario + our talla combination already exists
+            key = (inv['id'], self.test_data['talla_id'])
+            general_key = (inv['id'], None)
+            if key not in existing_inventario_ids and general_key not in existing_inventario_ids:
+                available_inventario = inv
+                break
+        
+        if available_inventario:
+            self.test_data['inventario_id'] = available_inventario['id']
+            print(f"✅ Using available inventario_id: {self.test_data['inventario_id']} ({available_inventario['nombre']})")
+        else:
+            # Use a different inventario item for testing
+            if len(inventario_response) > 1:
+                self.test_data['inventario_id'] = inventario_response[1]['id']
+                print(f"✅ Using alternative inventario_id: {self.test_data['inventario_id']}")
+            else:
+                self.test_data['inventario_id'] = inventario_response[0]['id']
+                self.test_data['inventario_conflicts'] = True
+                print(f"⚠️  Using inventario with potential conflicts: {self.test_data['inventario_id']}")
         
         return True
 
