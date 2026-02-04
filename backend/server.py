@@ -1889,7 +1889,6 @@ async def get_modelos():
         result = []
         for r in rows:
             d = row_to_dict(r)
-            d['materiales'] = parse_jsonb(d.get('materiales'))
             d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
             # Enriquecer con nombres
             marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", d.get('marca_id'))
