@@ -134,10 +134,8 @@ export const Modelos = () => {
       tela_id: '',
       hilo_id: '',
       ruta_produccion_id: '',
-      materiales: [],
       servicios_ids: [],
     });
-    setMaterialToAdd({ item_id: '', cantidad_estimada: 0 });
   };
 
   const handleEdit = (item) => {
