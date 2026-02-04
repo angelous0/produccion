@@ -308,7 +308,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
 
   const validate = (r) => {
     const cantidad = Number(r.cantidad_base);
-    const merma = Number(r.merma_pct);
+
     if (!r.inventario_id) return 'Selecciona un item de inventario';
     if (!(cantidad > 0)) return 'Cantidad por prenda debe ser > 0';
     if (merma < 0 || merma > 100) return 'Merma % debe estar entre 0 y 100';
