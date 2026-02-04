@@ -3392,23 +3392,69 @@ async def create_salida(input: SalidaInventarioCreate):
         item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
         if not item:
             raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
-        if float(item['stock_actual']) < input.cantidad:
-            raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item['stock_actual']}")
         
+        control_por_rollos = item['control_por_rollos']
+        
+        # === FASE 2: Validaciones de reserva y rollo ===
+        
+        # Validar regla de rollo según control_por_rollos
+        if control_por_rollos:
+            # TELA: rollo_id OBLIGATORIO
+            if not input.rollo_id:
+                raise HTTPException(status_code=400, detail="Este item requiere seleccionar un rollo (control por rollos activo)")
+            # Validar que el rollo pertenece al item
+            rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
+            if not rollo:
+                raise HTTPException(status_code=404, detail="Rollo no encontrado")
+            if rollo['item_id'] != input.item_id:
+                raise HTTPException(status_code=400, detail="El rollo no pertenece a este item")
+            if float(rollo['metraje_disponible']) < input.cantidad:
+                raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo['metraje_disponible']}")
+        else:
+            # NO TELA: rollo_id debe ser NULL
+            if input.rollo_id:
+                raise HTTPException(status_code=400, detail="Este item no usa control por rollos, rollo_id debe ser vacío")
+            # Validar stock suficiente
+            if float(item['stock_actual']) < input.cantidad:
+                raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item['stock_actual']}")
+        
+        # Validar registro si se proporciona
         if input.registro_id:
             reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
             if not reg:
                 raise HTTPException(status_code=404, detail="Registro no encontrado")
+            
+            # Buscar requerimiento para validar reserva
+            if input.talla_id:
+                req = await conn.fetchrow("""
+                    SELECT * FROM prod_registro_requerimiento_mp
+                    WHERE registro_id = $1 AND item_id = $2 AND talla_id = $3
+                """, input.registro_id, input.item_id, input.talla_id)
+            else:
+                req = await conn.fetchrow("""
+                    SELECT * FROM prod_registro_requerimiento_mp
+                    WHERE registro_id = $1 AND item_id = $2 AND talla_id IS NULL
+                """, input.registro_id, input.item_id)
+            
+            if not req:
+                raise HTTPException(status_code=400, detail="No existe requerimiento para este item/talla. Genera el requerimiento y reserva primero.")
+            
+            # Validar que hay reserva suficiente
+            reserva_pendiente = float(req['cantidad_reservada']) - float(req['cantidad_consumida'])
+            if input.cantidad > reserva_pendiente:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Reserva insuficiente. Reservado pendiente: {reserva_pendiente}, Solicitado: {input.cantidad}. Reserva más antes de consumir."
+                )
+        
+        # === FIN Validaciones Fase 2 ===
         
         costo_total = 0.0
         detalle_fifo = []
         
         if input.rollo_id:
+            # Ya validamos el rollo arriba, lo obtenemos de nuevo para el ingreso
             rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
-            if not rollo:
-                raise HTTPException(status_code=404, detail="Rollo no encontrado")
-            if float(rollo['metraje_disponible']) < input.cantidad:
-                raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo['metraje_disponible']}")
             ingreso = await conn.fetchrow("SELECT costo_unitario FROM prod_inventario_ingresos WHERE id = $1", rollo['ingreso_id'])
             costo_unitario = float(ingreso['costo_unitario']) if ingreso else 0
             costo_total = input.cantidad * costo_unitario
@@ -3435,13 +3481,40 @@ async def create_salida(input: SalidaInventarioCreate):
         salida.costo_total = costo_total
         salida.detalle_fifo = detalle_fifo
         
+        # Insertar salida con talla_id
         await conn.execute(
-            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
-            salida.id, salida.item_id, salida.cantidad, salida.registro_id, salida.observaciones,
+            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            salida.id, salida.item_id, salida.cantidad, salida.registro_id, salida.talla_id, salida.observaciones,
             salida.rollo_id, salida.costo_total, json.dumps(salida.detalle_fifo), salida.fecha.replace(tzinfo=None)
         )
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
+        
+        # === FASE 2: Actualizar cantidad_consumida en requerimiento ===
+        if input.registro_id:
+            if input.talla_id:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_consumida = cantidad_consumida + $1,
+                        estado = CASE
+                            WHEN cantidad_consumida + $1 >= cantidad_requerida THEN 'COMPLETO'
+                            ELSE 'PARCIAL'
+                        END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id = $4
+                """, input.cantidad, input.registro_id, input.item_id, input.talla_id)
+            else:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_consumida = cantidad_consumida + $1,
+                        estado = CASE
+                            WHEN cantidad_consumida + $1 >= cantidad_requerida THEN 'COMPLETO'
+                            ELSE 'PARCIAL'
+                        END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
+                """, input.cantidad, input.registro_id, input.item_id)
+        
         return salida
 
 class SalidaUpdateData(BaseModel):
