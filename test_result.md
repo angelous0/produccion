@@ -136,6 +136,17 @@
       - working: true
         agent: "testing"
         comment: "✅ BOM VALIDATIONS TESTING COMPLETED: 1) cantidad_base <= 0 validation (400) ✅ 2) merma_pct > 100 validation (400) ✅ 3) Inventario existence validation ✅ 4) Talla must belong to modelo validation ✅ 5) Duplicate active line validation ✅ 6) All business rules properly enforced ✅"
+  - task: "BOM Module - Schema Change Validation (dropped merma_pct/orden/notas)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ BOM SCHEMA CHANGE VALIDATION COMPLETED: 1) POST /api/modelos/{id}/bom with new schema payload {inventario_id,talla_id,cantidad_base,activo} ✅ 2) PUT /api/modelos/{id}/bom/{linea_id} with partial payload working correctly ✅ 3) GET /api/modelos/{id}/bom?activo=all returns rows without dropped columns (merma_pct/orden/notas) and no SQL errors ✅ 4) ensure_bom_tables DDL verified to NOT create dropped columns ✅ 5) Old schema fields properly ignored in requests ✅ 6) All 12/12 tests passed with eduard/eduard123 authentication ✅"
 ## metadata:
   created_by: "testing_agent"
   version: "2.0"
