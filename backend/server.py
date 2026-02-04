@@ -54,43 +54,43 @@ async def get_pool():
 # ==================== DDL HELPERS (TABLAS NUEVAS) ====================
 
 async def ensure_bom_tables():
-    """Crea tablas nuevas necesarias para BOM (sin modificar tablas existentes)."""
+    """Crea tablas nuevas necesarias para BOM (sin modificar tablas existentes).
+
+    Nota: no se crean FKs porque el resto del proyecto no las usa.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         # Tabla relación Modelo ↔ Tallas
-        await conn.execute("""
+        await conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS prod_modelo_tallas (
                 id VARCHAR PRIMARY KEY,
                 modelo_id VARCHAR NOT NULL,
-
-
-# startup hook definido más abajo, después de crear app/api_router
-
                 talla_id VARCHAR NOT NULL,
                 activo BOOLEAN DEFAULT TRUE,
                 orden INT DEFAULT 10,
-
-
-@app.on_event("startup")
-async def startup_event():
-    # Asegurar tablas nuevas (BOM) sin tocar tablas existentes
-    await ensure_bom_tables()
-
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_modelo_tallas_modelo ON prod_modelo_tallas(modelo_id)")
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_modelo_tallas_talla ON prod_modelo_tallas(talla_id)")
-        await conn.execute("""
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_modelo_tallas_modelo ON prod_modelo_tallas(modelo_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_modelo_tallas_talla ON prod_modelo_tallas(talla_id)"
+        )
+        await conn.execute(
+            """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_modelo_talla_activo
             ON prod_modelo_tallas(modelo_id, talla_id)
             WHERE activo = TRUE
-        """)
+            """
+        )
 
         # Tabla BOM por modelo (talla_id NULL = general, talla_id definido = por talla)
-        await conn.execute("""
+        await conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS prod_modelo_bom_linea (
                 id VARCHAR PRIMARY KEY,
                 modelo_id VARCHAR NOT NULL,
@@ -105,16 +105,24 @@ async def startup_event():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_modelo_id ON prod_modelo_bom_linea(modelo_id)")
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_inventario_id ON prod_modelo_bom_linea(inventario_id)")
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_talla_id ON prod_modelo_bom_linea(talla_id)")
-        await conn.execute("""
+            """
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bom_modelo_id ON prod_modelo_bom_linea(modelo_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bom_inventario_id ON prod_modelo_bom_linea(inventario_id)"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_bom_talla_id ON prod_modelo_bom_linea(talla_id)"
+        )
+        await conn.execute(
+            """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_bom_linea_activo
             ON prod_modelo_bom_linea(modelo_id, inventario_id, talla_id)
             WHERE activo = TRUE
-        """)
+            """
+        )
 
 
     return pool
