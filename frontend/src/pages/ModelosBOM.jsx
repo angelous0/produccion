@@ -60,7 +60,9 @@ export const ModelosTallasTab = ({ modeloId }) => {
     return (catalogoTallas || []).filter((t) => !used.has(t.id));
   }, [catalogoTallas, rows]);
 
-  const addTalla = async () => {
+  const addTalla = async (e) => {
+    e?.preventDefault?.();
+
     if (!newTallaId) {
       toast.error('Selecciona una talla');
       return;
@@ -68,15 +70,14 @@ export const ModelosTallasTab = ({ modeloId }) => {
     try {
       await axios.post(`${API}/modelos/${modeloId}/tallas`, {
         talla_id: newTallaId,
-        orden: Number(newOrden) || 10,
+        orden: 10,
         activo: true,
       });
       toast.success('Talla agregada');
       setNewTallaId('');
-      setNewOrden(10);
       fetchAll();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al agregar talla');
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || 'Error al agregar talla');
     }
   };
 
