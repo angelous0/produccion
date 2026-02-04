@@ -203,7 +203,6 @@ export const Modelos = () => {
                   <TableHead>Marca</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Ruta Producción</TableHead>
-                  <TableHead>Materiales</TableHead>
                   <TableHead>Servicios</TableHead>
                   <TableHead className="w-[100px]">Acciones</TableHead>
                 </TableRow>
@@ -211,13 +210,13 @@ export const Modelos = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No hay modelos registrados
                     </TableCell>
                   </TableRow>
@@ -235,16 +234,6 @@ export const Modelos = () => {
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground text-sm">Sin ruta</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {item.materiales?.length > 0 ? (
-                          <Badge variant="secondary" className="text-xs">
-                            <Package className="h-3 w-3 mr-1" />
-                            {item.materiales.length}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </TableCell>
                       <TableCell>
