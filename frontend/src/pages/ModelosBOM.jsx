@@ -272,6 +272,9 @@ export const ModelosBOMTab = ({ modeloId }) => {
     return [...drafts, ...persisted];
   }, [rows, verInactivos]);
 
+  // Función para obtener el ID de una fila (soporta drafts con __tempId)
+  const keyOf = (r) => r.id || r.__tempId;
+
   const { sensors: sensorsBOM, handleDragEnd: handleDragEndBOM, isSaving: isSavingBOM, modifiers: modifiersBOM } = useSortableTable(
     visibleRows,
     // reordenamiento local
@@ -288,7 +291,8 @@ export const ModelosBOMTab = ({ modeloId }) => {
         return [...drafts, ...reordered, ...remaining];
       });
     },
-    `modelos/${modeloId}/bom/reorder`
+    `modelos/${modeloId}/bom/reorder`,
+    keyOf
   );
 
 
