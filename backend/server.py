@@ -2618,6 +2618,573 @@ async def get_estados_disponibles_registro(registro_id: str):
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro['estado']}
 
+
+# ==================== FASE 2: ENDPOINTS TALLAS POR REGISTRO ====================
+
+@api_router.get("/registros/{registro_id}/tallas")
+async def get_registro_tallas(registro_id: str):
+    """Obtiene las cantidades reales por talla de un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        modelo_id = registro['modelo_id']
+        
+        # Obtener tallas del modelo (prod_modelo_tallas)
+        modelo_tallas = await conn.fetch("""
+            SELECT mt.talla_id, tc.nombre as talla_nombre, tc.orden
+            FROM prod_modelo_tallas mt
+            JOIN prod_tallas_catalogo tc ON mt.talla_id = tc.id
+            WHERE mt.modelo_id = $1 AND mt.activo = true
+            ORDER BY tc.orden, tc.nombre
+        """, modelo_id)
+        
+        # Obtener cantidades reales ya registradas
+        registro_tallas = await conn.fetch(
+            "SELECT * FROM prod_registro_tallas WHERE registro_id = $1", registro_id
+        )
+        tallas_map = {rt['talla_id']: rt for rt in registro_tallas}
+        
+        result = []
+        total_prendas = 0
+        for mt in modelo_tallas:
+            talla_id = mt['talla_id']
+            rt = tallas_map.get(talla_id)
+            cantidad_real = int(rt['cantidad_real']) if rt else 0
+            total_prendas += cantidad_real
+            result.append({
+                "talla_id": talla_id,
+                "talla_nombre": mt['talla_nombre'],
+                "talla_orden": mt['orden'],
+                "cantidad_real": cantidad_real,
+                "id": rt['id'] if rt else None
+            })
+        
+        return {
+            "registro_id": registro_id,
+            "modelo_id": modelo_id,
+            "tallas": result,
+            "total_prendas": total_prendas
+        }
+
+
+@api_router.post("/registros/{registro_id}/tallas")
+async def upsert_registro_tallas(registro_id: str, input: RegistroTallaBulkUpdate):
+    """Actualiza (upsert) las cantidades reales por talla de un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        modelo_id = registro['modelo_id']
+        
+        # Validar que todas las tallas pertenecen al modelo
+        modelo_tallas = await conn.fetch(
+            "SELECT talla_id FROM prod_modelo_tallas WHERE modelo_id = $1 AND activo = true", modelo_id
+        )
+        valid_tallas = {mt['talla_id'] for mt in modelo_tallas}
+        
+        updated = []
+        for t in input.tallas:
+            if t.talla_id not in valid_tallas:
+                raise HTTPException(status_code=400, detail=f"Talla {t.talla_id} no pertenece al modelo")
+            
+            # Upsert: buscar si existe, si no crear
+            existing = await conn.fetchrow(
+                "SELECT id FROM prod_registro_tallas WHERE registro_id = $1 AND talla_id = $2",
+                registro_id, t.talla_id
+            )
+            
+            if existing:
+                await conn.execute(
+                    "UPDATE prod_registro_tallas SET cantidad_real = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                    t.cantidad_real, existing['id']
+                )
+                updated.append({"id": existing['id'], "talla_id": t.talla_id, "cantidad_real": t.cantidad_real})
+            else:
+                new_id = str(uuid.uuid4())
+                await conn.execute(
+                    """INSERT INTO prod_registro_tallas (id, registro_id, talla_id, cantidad_real)
+                       VALUES ($1, $2, $3, $4)""",
+                    new_id, registro_id, t.talla_id, t.cantidad_real
+                )
+                updated.append({"id": new_id, "talla_id": t.talla_id, "cantidad_real": t.cantidad_real})
+        
+        return {"message": "Tallas actualizadas", "updated": updated}
+
+
+@api_router.put("/registros/{registro_id}/tallas/{talla_id}")
+async def update_single_registro_talla(registro_id: str, talla_id: str, input: RegistroTallaUpdate):
+    """Actualiza una sola talla de un registro (para autosave)"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        modelo_id = registro['modelo_id']
+        
+        # Validar talla pertenece al modelo
+        modelo_talla = await conn.fetchrow(
+            "SELECT talla_id FROM prod_modelo_tallas WHERE modelo_id = $1 AND talla_id = $2 AND activo = true",
+            modelo_id, talla_id
+        )
+        if not modelo_talla:
+            raise HTTPException(status_code=400, detail="Talla no pertenece al modelo")
+        
+        # Upsert
+        existing = await conn.fetchrow(
+            "SELECT id FROM prod_registro_tallas WHERE registro_id = $1 AND talla_id = $2",
+            registro_id, talla_id
+        )
+        
+        if existing:
+            await conn.execute(
+                "UPDATE prod_registro_tallas SET cantidad_real = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                input.cantidad_real, existing['id']
+            )
+            return {"id": existing['id'], "talla_id": talla_id, "cantidad_real": input.cantidad_real}
+        else:
+            new_id = str(uuid.uuid4())
+            await conn.execute(
+                """INSERT INTO prod_registro_tallas (id, registro_id, talla_id, cantidad_real)
+                   VALUES ($1, $2, $3, $4)""",
+                new_id, registro_id, talla_id, input.cantidad_real
+            )
+            return {"id": new_id, "talla_id": talla_id, "cantidad_real": input.cantidad_real}
+
+
+# ==================== FASE 2: ENDPOINTS REQUERIMIENTO MP (EXPLOSIÓN BOM) ====================
+
+def calcular_estado_requerimiento(cantidad_requerida: float, cantidad_reservada: float, cantidad_consumida: float) -> str:
+    """Calcula el estado de una línea de requerimiento"""
+    if cantidad_requerida <= 0:
+        return 'PENDIENTE'
+    if cantidad_consumida >= cantidad_requerida:
+        return 'COMPLETO'
+    if cantidad_reservada > 0 or cantidad_consumida > 0:
+        return 'PARCIAL'
+    return 'PENDIENTE'
+
+
+@api_router.post("/registros/{registro_id}/generar-requerimiento")
+async def generar_requerimiento_mp(registro_id: str):
+    """Genera el requerimiento de MP a partir de la explosión del BOM"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Obtener registro
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        modelo_id = registro['modelo_id']
+        
+        # Obtener cantidades reales por talla
+        tallas_registro = await conn.fetch(
+            "SELECT talla_id, cantidad_real FROM prod_registro_tallas WHERE registro_id = $1",
+            registro_id
+        )
+        tallas_map = {t['talla_id']: int(t['cantidad_real']) for t in tallas_registro}
+        total_prendas = sum(tallas_map.values())
+        
+        if total_prendas <= 0:
+            raise HTTPException(status_code=400, detail="Ingresa cantidades reales por talla antes de generar el requerimiento")
+        
+        # Obtener BOM activo del modelo
+        bom_lineas = await conn.fetch("""
+            SELECT bl.*, i.nombre as item_nombre, i.codigo as item_codigo, i.unidad_medida
+            FROM prod_modelo_bom_linea bl
+            JOIN prod_inventario i ON bl.inventario_id = i.id
+            WHERE bl.modelo_id = $1 AND bl.activo = true
+        """, modelo_id)
+        
+        if not bom_lineas:
+            raise HTTPException(status_code=400, detail="El modelo no tiene BOM definido")
+        
+        created = 0
+        updated = 0
+        
+        for bom in bom_lineas:
+            item_id = bom['inventario_id']
+            cantidad_base = float(bom['cantidad_base'])
+            talla_id = bom['talla_id']  # Puede ser NULL
+            
+            # Calcular cantidad requerida
+            if talla_id is None:
+                # Línea general: aplica a todas las prendas
+                cantidad_requerida = total_prendas * cantidad_base
+            else:
+                # Línea específica por talla
+                qty_talla = tallas_map.get(talla_id, 0)
+                cantidad_requerida = qty_talla * cantidad_base
+            
+            # Buscar si ya existe requerimiento para este (registro, item, talla)
+            if talla_id:
+                existing = await conn.fetchrow("""
+                    SELECT * FROM prod_registro_requerimiento_mp
+                    WHERE registro_id = $1 AND item_id = $2 AND talla_id = $3
+                """, registro_id, item_id, talla_id)
+            else:
+                existing = await conn.fetchrow("""
+                    SELECT * FROM prod_registro_requerimiento_mp
+                    WHERE registro_id = $1 AND item_id = $2 AND talla_id IS NULL
+                """, registro_id, item_id)
+            
+            if existing:
+                # Actualizar solo cantidad_requerida, NO resetear reservada/consumida
+                cantidad_reservada = float(existing['cantidad_reservada'])
+                cantidad_consumida = float(existing['cantidad_consumida'])
+                nuevo_estado = calcular_estado_requerimiento(cantidad_requerida, cantidad_reservada, cantidad_consumida)
+                
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_requerida = $1, estado = $2, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $3
+                """, cantidad_requerida, nuevo_estado, existing['id'])
+                updated += 1
+            else:
+                # Crear nuevo requerimiento
+                new_id = str(uuid.uuid4())
+                estado = 'PENDIENTE' if cantidad_requerida > 0 else 'COMPLETO'
+                await conn.execute("""
+                    INSERT INTO prod_registro_requerimiento_mp
+                    (id, registro_id, item_id, talla_id, cantidad_requerida, cantidad_reservada, cantidad_consumida, estado)
+                    VALUES ($1, $2, $3, $4, $5, 0, 0, $6)
+                """, new_id, registro_id, item_id, talla_id, cantidad_requerida, estado)
+                created += 1
+        
+        return {
+            "message": "Requerimiento generado",
+            "total_prendas": total_prendas,
+            "lineas_creadas": created,
+            "lineas_actualizadas": updated
+        }
+
+
+@api_router.get("/registros/{registro_id}/requerimiento")
+async def get_requerimiento_mp(registro_id: str):
+    """Obtiene el requerimiento de MP de un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        rows = await conn.fetch("""
+            SELECT r.*, i.codigo as item_codigo, i.nombre as item_nombre, 
+                   i.unidad_medida as item_unidad, i.control_por_rollos,
+                   tc.nombre as talla_nombre
+            FROM prod_registro_requerimiento_mp r
+            JOIN prod_inventario i ON r.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON r.talla_id = tc.id
+            WHERE r.registro_id = $1
+            ORDER BY i.nombre, tc.orden NULLS FIRST
+        """, registro_id)
+        
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            cantidad_requerida = float(d['cantidad_requerida'])
+            cantidad_reservada = float(d['cantidad_reservada'])
+            cantidad_consumida = float(d['cantidad_consumida'])
+            d['pendiente_reservar'] = max(0, cantidad_requerida - cantidad_reservada)
+            d['pendiente_consumir'] = max(0, cantidad_reservada - cantidad_consumida)
+            result.append(d)
+        
+        # Calcular totales
+        total_requerido = sum(float(r['cantidad_requerida']) for r in result)
+        total_reservado = sum(float(r['cantidad_reservada']) for r in result)
+        total_consumido = sum(float(r['cantidad_consumida']) for r in result)
+        
+        return {
+            "registro_id": registro_id,
+            "lineas": result,
+            "resumen": {
+                "total_lineas": len(result),
+                "total_requerido": total_requerido,
+                "total_reservado": total_reservado,
+                "total_consumido": total_consumido,
+                "pendiente_reservar": max(0, total_requerido - total_reservado),
+                "pendiente_consumir": max(0, total_reservado - total_consumido)
+            }
+        }
+
+
+# ==================== FASE 2: ENDPOINTS RESERVAS ====================
+
+async def get_disponibilidad_item(conn, item_id: str) -> dict:
+    """Calcula la disponibilidad real de un item (stock - reservas activas)"""
+    item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", item_id)
+    if not item:
+        return None
+    
+    stock_actual = float(item['stock_actual'])
+    
+    # Sumar reservas activas (cantidad_reservada - cantidad_liberada)
+    total_reservado = await conn.fetchval("""
+        SELECT COALESCE(SUM(rl.cantidad_reservada - rl.cantidad_liberada), 0)
+        FROM prod_inventario_reservas_linea rl
+        JOIN prod_inventario_reservas r ON rl.reserva_id = r.id
+        WHERE rl.item_id = $1 AND r.estado = 'ACTIVA'
+    """, item_id)
+    
+    total_reservado = float(total_reservado or 0)
+    disponible = max(0, stock_actual - total_reservado)
+    
+    return {
+        "item_id": item_id,
+        "item_codigo": item['codigo'],
+        "item_nombre": item['nombre'],
+        "stock_actual": stock_actual,
+        "total_reservado": total_reservado,
+        "disponible": disponible,
+        "control_por_rollos": item['control_por_rollos']
+    }
+
+
+@api_router.get("/inventario/{item_id}/disponibilidad")
+async def get_disponibilidad_inventario(item_id: str):
+    """Obtiene la disponibilidad real de un item (stock - reservas activas)"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await get_disponibilidad_item(conn, item_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        return result
+
+
+@api_router.post("/registros/{registro_id}/reservas")
+async def crear_reserva(registro_id: str, input: ReservaCreateInput):
+    """Crea una reserva para un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Validar registro
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        if not input.lineas:
+            raise HTTPException(status_code=400, detail="Debe incluir al menos una línea de reserva")
+        
+        # Validar cada línea
+        errores = []
+        for idx, linea in enumerate(input.lineas):
+            # Buscar requerimiento
+            if linea.talla_id:
+                req = await conn.fetchrow("""
+                    SELECT * FROM prod_registro_requerimiento_mp
+                    WHERE registro_id = $1 AND item_id = $2 AND talla_id = $3
+                """, registro_id, linea.item_id, linea.talla_id)
+            else:
+                req = await conn.fetchrow("""
+                    SELECT * FROM prod_registro_requerimiento_mp
+                    WHERE registro_id = $1 AND item_id = $2 AND talla_id IS NULL
+                """, registro_id, linea.item_id)
+            
+            if not req:
+                errores.append(f"Línea {idx+1}: No existe requerimiento para item_id={linea.item_id}, talla_id={linea.talla_id}")
+                continue
+            
+            # Validar cantidad vs pendiente en requerimiento
+            pendiente_req = float(req['cantidad_requerida']) - float(req['cantidad_reservada'])
+            if linea.cantidad > pendiente_req:
+                errores.append(f"Línea {idx+1}: Cantidad ({linea.cantidad}) excede pendiente de reservar ({pendiente_req})")
+                continue
+            
+            # Validar disponibilidad global
+            disp = await get_disponibilidad_item(conn, linea.item_id)
+            if not disp:
+                errores.append(f"Línea {idx+1}: Item no encontrado")
+                continue
+            
+            if linea.cantidad > disp['disponible']:
+                errores.append(f"Línea {idx+1}: Cantidad ({linea.cantidad}) excede disponible ({disp['disponible']})")
+        
+        if errores:
+            raise HTTPException(status_code=400, detail={"errores": errores})
+        
+        # Crear cabecera de reserva
+        reserva_id = str(uuid.uuid4())
+        await conn.execute("""
+            INSERT INTO prod_inventario_reservas (id, registro_id, estado)
+            VALUES ($1, $2, 'ACTIVA')
+        """, reserva_id, registro_id)
+        
+        # Crear líneas y actualizar requerimiento
+        lineas_creadas = []
+        for linea in input.lineas:
+            linea_id = str(uuid.uuid4())
+            await conn.execute("""
+                INSERT INTO prod_inventario_reservas_linea
+                (id, reserva_id, item_id, talla_id, cantidad_reservada, cantidad_liberada)
+                VALUES ($1, $2, $3, $4, $5, 0)
+            """, linea_id, reserva_id, linea.item_id, linea.talla_id, linea.cantidad)
+            
+            # Actualizar cantidad_reservada en requerimiento
+            if linea.talla_id:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_reservada = cantidad_reservada + $1, updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id = $4
+                """, linea.cantidad, registro_id, linea.item_id, linea.talla_id)
+            else:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_reservada = cantidad_reservada + $1, updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
+                """, linea.cantidad, registro_id, linea.item_id)
+            
+            lineas_creadas.append({
+                "id": linea_id,
+                "item_id": linea.item_id,
+                "talla_id": linea.talla_id,
+                "cantidad_reservada": linea.cantidad
+            })
+        
+        # Recalcular estados de requerimiento
+        await conn.execute("""
+            UPDATE prod_registro_requerimiento_mp
+            SET estado = CASE
+                WHEN cantidad_consumida >= cantidad_requerida THEN 'COMPLETO'
+                WHEN cantidad_reservada > 0 OR cantidad_consumida > 0 THEN 'PARCIAL'
+                ELSE 'PENDIENTE'
+            END
+            WHERE registro_id = $1
+        """, registro_id)
+        
+        return {
+            "message": "Reserva creada",
+            "reserva_id": reserva_id,
+            "lineas": lineas_creadas
+        }
+
+
+@api_router.get("/registros/{registro_id}/reservas")
+async def get_reservas_registro(registro_id: str):
+    """Lista las reservas de un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # Obtener cabeceras de reserva
+        reservas = await conn.fetch("""
+            SELECT * FROM prod_inventario_reservas
+            WHERE registro_id = $1
+            ORDER BY fecha DESC
+        """, registro_id)
+        
+        result = []
+        for res in reservas:
+            d = row_to_dict(res)
+            
+            # Obtener líneas de la reserva
+            lineas = await conn.fetch("""
+                SELECT rl.*, i.codigo as item_codigo, i.nombre as item_nombre,
+                       i.unidad_medida as item_unidad, tc.nombre as talla_nombre
+                FROM prod_inventario_reservas_linea rl
+                JOIN prod_inventario i ON rl.item_id = i.id
+                LEFT JOIN prod_tallas_catalogo tc ON rl.talla_id = tc.id
+                WHERE rl.reserva_id = $1
+            """, res['id'])
+            
+            d['lineas'] = []
+            for lin in lineas:
+                ld = row_to_dict(lin)
+                ld['cantidad_activa'] = float(ld['cantidad_reservada']) - float(ld['cantidad_liberada'])
+                d['lineas'].append(ld)
+            
+            result.append(d)
+        
+        return {"registro_id": registro_id, "reservas": result}
+
+
+@api_router.post("/registros/{registro_id}/liberar-reservas")
+async def liberar_reservas(registro_id: str, input: LiberarReservaInput):
+    """Libera parcial o totalmente reservas de un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        if not input.lineas:
+            raise HTTPException(status_code=400, detail="Debe incluir al menos una línea a liberar")
+        
+        liberadas = []
+        for linea in input.lineas:
+            # Buscar líneas de reserva activas para este item/talla
+            if linea.talla_id:
+                reserva_lineas = await conn.fetch("""
+                    SELECT rl.* FROM prod_inventario_reservas_linea rl
+                    JOIN prod_inventario_reservas r ON rl.reserva_id = r.id
+                    WHERE r.registro_id = $1 AND r.estado = 'ACTIVA'
+                      AND rl.item_id = $2 AND rl.talla_id = $3
+                      AND (rl.cantidad_reservada - rl.cantidad_liberada) > 0
+                """, registro_id, linea.item_id, linea.talla_id)
+            else:
+                reserva_lineas = await conn.fetch("""
+                    SELECT rl.* FROM prod_inventario_reservas_linea rl
+                    JOIN prod_inventario_reservas r ON rl.reserva_id = r.id
+                    WHERE r.registro_id = $1 AND r.estado = 'ACTIVA'
+                      AND rl.item_id = $2 AND rl.talla_id IS NULL
+                      AND (rl.cantidad_reservada - rl.cantidad_liberada) > 0
+                """, registro_id, linea.item_id)
+            
+            cantidad_a_liberar = linea.cantidad
+            for rl in reserva_lineas:
+                if cantidad_a_liberar <= 0:
+                    break
+                
+                activa = float(rl['cantidad_reservada']) - float(rl['cantidad_liberada'])
+                liberar = min(activa, cantidad_a_liberar)
+                
+                await conn.execute("""
+                    UPDATE prod_inventario_reservas_linea
+                    SET cantidad_liberada = cantidad_liberada + $1, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2
+                """, liberar, rl['id'])
+                
+                cantidad_a_liberar -= liberar
+            
+            # Actualizar requerimiento: bajar cantidad_reservada
+            if linea.talla_id:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_reservada = GREATEST(0, cantidad_reservada - $1), updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id = $4
+                """, linea.cantidad, registro_id, linea.item_id, linea.talla_id)
+            else:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_reservada = GREATEST(0, cantidad_reservada - $1), updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
+                """, linea.cantidad, registro_id, linea.item_id)
+            
+            liberadas.append({
+                "item_id": linea.item_id,
+                "talla_id": linea.talla_id,
+                "cantidad_liberada": linea.cantidad
+            })
+        
+        # Recalcular estados
+        await conn.execute("""
+            UPDATE prod_registro_requerimiento_mp
+            SET estado = CASE
+                WHEN cantidad_consumida >= cantidad_requerida THEN 'COMPLETO'
+                WHEN cantidad_reservada > 0 OR cantidad_consumida > 0 THEN 'PARCIAL'
+                ELSE 'PENDIENTE'
+            END
+            WHERE registro_id = $1
+        """, registro_id)
+        
+        return {"message": "Reservas liberadas", "liberadas": liberadas}
+
+
 # ==================== ENDPOINTS INVENTARIO ====================
 
 CATEGORIAS_INVENTARIO = ["Telas", "Avios", "Otros"]
