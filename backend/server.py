@@ -366,10 +366,6 @@ class RutaProduccion(RutaProduccionBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class MaterialModelo(BaseModel):
-    item_id: str
-    cantidad_estimada: float = 0
-
 class ModeloBase(BaseModel):
     nombre: str
     marca_id: str
@@ -378,7 +374,6 @@ class ModeloBase(BaseModel):
     tela_id: str
     hilo_id: str
     ruta_produccion_id: Optional[str] = None
-    materiales: List[MaterialModelo] = []
     servicios_ids: List[str] = []
 
 class ModeloCreate(ModeloBase):
