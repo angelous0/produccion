@@ -119,7 +119,10 @@ export const useSortableTable = (items, setItems, endpoint) => {
 };
 
 // Componente wrapper para el contexto DnD
-export const SortableTableWrapper = ({ children, items, sensors, handleDragEnd, modifiers }) => {
+export const SortableTableWrapper = ({ children, items, sensors, handleDragEnd, modifiers, getItemId }) => {
+  // Función para obtener el ID de un item (por defecto usa i.id, pero se puede personalizar)
+  const getId = getItemId || ((i) => i.id || i.__tempId);
+  
   return (
     <DndContext
       sensors={sensors}
@@ -127,7 +130,7 @@ export const SortableTableWrapper = ({ children, items, sensors, handleDragEnd, 
       onDragEnd={handleDragEnd}
       modifiers={modifiers}
     >
-      <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+      <SortableContext items={items.map(getId)} strategy={verticalListSortingStrategy}>
         {children}
       </SortableContext>
     </DndContext>
