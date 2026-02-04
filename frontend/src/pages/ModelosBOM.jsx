@@ -203,7 +203,8 @@ export const ModelosTallasTab = ({ modeloId }) => {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))
+                    </SortableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
