@@ -483,6 +483,9 @@ export const ModelosBOMTab = ({ modeloId }) => {
           </div>
 
           <div className="overflow-auto">
+            {isSavingBOM && (
+              <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>
+            )}
             <SortableTableWrapper items={visibleRows} sensors={sensorsBOM} handleDragEnd={handleDragEndBOM} modifiers={modifiersBOM}>
               <Table>
               <TableHeader>
