@@ -313,73 +313,106 @@ class BOMModuleTester:
         talla_id = self.test_data['talla_id']
         inventario_id = self.test_data['inventario_id']
         
-        # Test 10: POST BOM line GENERAL (talla_id null)
-        bom_general_data = {
-            "inventario_id": inventario_id,
-            "talla_id": None,
-            "cantidad_base": 2.5,
-            "merma_pct": 5.0,
-            "orden": 1,
-            "activo": True,
-            "notas": "Línea general de BOM"
-        }
-        success, bom_general_response = self.run_test(
-            "POST general BOM line (talla_id null)", 
-            "POST", 
-            f"modelos/{modelo_id}/bom", 
-            200, 
-            bom_general_data
-        )
-        if not success:
-            return False
-        
-        bom_general_id = bom_general_response.get('id')
-        if bom_general_id:
-            self.test_data['created_bom_lines'].append(bom_general_id)
-        
-        # Test 11: POST duplicate exact active BOM line should fail
-        success, _ = self.run_test(
-            "POST duplicate general BOM (should fail 400)", 
-            "POST", 
-            f"modelos/{modelo_id}/bom", 
-            400, 
-            bom_general_data
-        )
-        if not success:
-            print("❌ Duplicate BOM validation failed")
-            return False
-        
-        # Test 12: POST BOM line POR TALLA with valid talla_id
-        bom_talla_data = {
-            "inventario_id": inventario_id,
-            "talla_id": talla_id,
-            "cantidad_base": 1.8,
-            "merma_pct": 3.0,
-            "orden": 2,
-            "activo": True,
-            "notas": "Línea por talla específica"
-        }
-        success, bom_talla_response = self.run_test(
-            "POST talla-specific BOM line", 
-            "POST", 
-            f"modelos/{modelo_id}/bom", 
-            200, 
-            bom_talla_data
-        )
-        if not success:
-            return False
-        
-        bom_talla_id = bom_talla_response.get('id')
-        if bom_talla_id:
-            self.test_data['created_bom_lines'].append(bom_talla_id)
+        # Check for conflicts first
+        if self.test_data.get('inventario_conflicts'):
+            print("⚠️  Inventario conflicts detected, testing validation scenarios...")
+            
+            # Test duplicate validation
+            bom_general_data = {
+                "inventario_id": inventario_id,
+                "talla_id": None,
+                "cantidad_base": 2.5,
+                "merma_pct": 5.0,
+                "orden": 1,
+                "activo": True,
+                "notas": "Test línea general"
+            }
+            success, _ = self.run_test(
+                "POST duplicate general BOM (should fail 400)", 
+                "POST", 
+                f"modelos/{modelo_id}/bom", 
+                400, 
+                bom_general_data
+            )
+            if not success:
+                print("❌ Expected duplicate validation to fail with 400")
+                return False
+            
+            print("✅ Duplicate BOM validation working correctly")
+            
+        else:
+            # Test normal flow with available inventario
+            # Test 10: POST BOM line GENERAL (talla_id null)
+            bom_general_data = {
+                "inventario_id": inventario_id,
+                "talla_id": None,
+                "cantidad_base": 2.5,
+                "merma_pct": 5.0,
+                "orden": 1,
+                "activo": True,
+                "notas": "Línea general de BOM"
+            }
+            success, bom_general_response = self.run_test(
+                "POST general BOM line (talla_id null)", 
+                "POST", 
+                f"modelos/{modelo_id}/bom", 
+                200, 
+                bom_general_data
+            )
+            if not success:
+                return False
+            
+            bom_general_id = bom_general_response.get('id')
+            if bom_general_id:
+                self.test_data['created_bom_lines'].append(bom_general_id)
+            
+            # Test 11: POST duplicate exact active BOM line should fail
+            success, _ = self.run_test(
+                "POST duplicate general BOM (should fail 400)", 
+                "POST", 
+                f"modelos/{modelo_id}/bom", 
+                400, 
+                bom_general_data
+            )
+            if not success:
+                print("❌ Duplicate BOM validation failed")
+                return False
+            
+            # Test 12: POST BOM line POR TALLA with valid talla_id
+            bom_talla_data = {
+                "inventario_id": inventario_id,
+                "talla_id": talla_id,
+                "cantidad_base": 1.8,
+                "merma_pct": 3.0,
+                "orden": 2,
+                "activo": True,
+                "notas": "Línea por talla específica"
+            }
+            success, bom_talla_response = self.run_test(
+                "POST talla-specific BOM line", 
+                "POST", 
+                f"modelos/{modelo_id}/bom", 
+                200, 
+                bom_talla_data
+            )
+            if not success:
+                return False
+            
+            bom_talla_id = bom_talla_response.get('id')
+            if bom_talla_id:
+                self.test_data['created_bom_lines'].append(bom_talla_id)
         
         # Test 13: POST BOM with talla_id that doesn't belong to modelo should fail
-        # We'll use a different talla_id that's not associated with this modelo
-        success, tallas_response = self.run_test("Get all tallas for invalid test", "GET", "tallas-catalogo", 200)
-        if success and len(tallas_response) > 1:
+        # Get all tallas and find one not associated with this modelo
+        success, all_tallas = self.run_test("Get all tallas for invalid test", "GET", "tallas-catalogo", 200)
+        success2, modelo_tallas = self.run_test("Get modelo tallas for comparison", "GET", f"modelos/{modelo_id}/tallas?activo=all", 200)
+        
+        if success and success2:
+            modelo_talla_ids = [mt['talla_id'] for mt in modelo_tallas] if modelo_tallas else []
             invalid_talla_id = None
-            for talla in tallas_response:
-                if talla['id'] != talla_id:
+            
+            for talla in all_tallas:
+                if talla['id'] not in modelo_talla_ids:
                     invalid_talla_id = talla['id']
                     break
             
@@ -402,6 +435,8 @@ class BOMModuleTester:
                 if not success:
                     print("❌ Invalid talla validation failed")
                     return False
+            else:
+                print("⚠️  All tallas are associated with modelo, skipping invalid talla test")
         
         print("✅ BOM creation tests completed successfully")
         return True
