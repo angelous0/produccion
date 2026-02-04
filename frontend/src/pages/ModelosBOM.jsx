@@ -440,10 +440,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                   <TableHead className="min-w-[340px]">Item</TableHead>
                   <TableHead className="min-w-[160px]">Talla</TableHead>
                   <TableHead className="w-[160px] text-right">Cant. por prenda</TableHead>
-                  <TableHead className="w-[110px] text-right">Merma %</TableHead>
-                  <TableHead className="w-[110px] text-right">Orden</TableHead>
                   <TableHead className="w-[90px]">Activo</TableHead>
-                  <TableHead className="min-w-[220px]">Notas</TableHead>
                   <TableHead className="w-[120px]">Estado</TableHead>
                 </TableRow>
               </TableHeader>
