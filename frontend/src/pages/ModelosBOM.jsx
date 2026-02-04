@@ -204,7 +204,7 @@ export const ModelosTallasTab = ({ modeloId }) => {
                         </TableCell>
                       </TableRow>
                     </SortableRow>
-                  ))}
+                  ))
                 )}
               </TableBody>
             </Table>
