@@ -494,35 +494,9 @@ export const ModelosBOMTab = ({ modeloId }) => {
                           />
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            className="text-right font-mono"
-                            value={r.merma_pct ?? 0}
-                            onChange={(e) => updateRow(k, { merma_pct: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            className="text-right font-mono"
-                            value={r.orden ?? 10}
-                            onChange={(e) => updateRow(k, { orden: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
                           <Switch
                             checked={Boolean(r.activo)}
                             onCheckedChange={(checked) => updateRow(k, { activo: checked })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={r.notas || ''}
-                            onChange={(e) => updateRow(k, { notas: e.target.value })}
-                            placeholder="Opcional"
                           />
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
