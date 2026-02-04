@@ -538,6 +538,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                 )}
               </TableBody>
             </Table>
+            </SortableTableWrapper>
           </div>
 
           <Button onClick={addDraftRow} variant="secondary" data-testid="btn-add-bom-linea">Agregar línea</Button>
