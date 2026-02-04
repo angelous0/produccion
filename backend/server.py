@@ -67,6 +67,13 @@ async def ensure_bom_tables():
                 talla_id VARCHAR NOT NULL,
                 activo BOOLEAN DEFAULT TRUE,
                 orden INT DEFAULT 10,
+
+
+@app.on_event("startup")
+async def startup_event():
+    # Asegurar tablas nuevas (BOM) sin tocar tablas existentes
+    await ensure_bom_tables()
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
