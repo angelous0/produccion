@@ -2066,7 +2066,14 @@ async def add_modelo_bom_linea(modelo_id: str, data: ModeloBomLineaCreate, curre
 
         # Duplicado activo exacto
         exists = await conn.fetchval(
-            "SELECT COUNT(*) FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND inventario_id=$2 AND ((talla_id IS NULL AND $3 IS NULL) OR talla_id=$3) AND activo=true",
+            """
+            SELECT COUNT(*)
+            FROM prod_modelo_bom_linea
+            WHERE modelo_id=$1
+              AND inventario_id=$2
+              AND talla_id IS NOT DISTINCT FROM $3
+              AND activo=true
+            """,
             modelo_id,
             data.inventario_id,
             talla_id,
