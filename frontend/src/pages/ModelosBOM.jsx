@@ -35,6 +35,12 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
   const [newTallaId, setNewTallaId] = useState('');
 
+  const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(
+    rows,
+    setRows,
+    `modelos/${modeloId}/tallas/reorder`
+  );
+
 
   const fetchAll = async () => {
     setLoading(true);
