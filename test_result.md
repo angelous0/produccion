@@ -149,15 +149,29 @@
 ## frontend:
   - task: "Tab Tallas dentro de Modelos - E2E Testing"
     implemented: true
-    working: false
+    working: true
     file: "frontend/src/pages/ModelosBOM.jsx"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: false
         agent: "testing"
         comment: "❌ FRONTEND TALLAS TAB TESTING FAILED: 1) Login with eduard/eduard123 ✅ 2) Navigation to /modelos ✅ 3) Found 3 existing models ✅ 4) Edit modal opened ✅ 5) CRITICAL ISSUE: Cannot access Tallas tab due to modal overlay interception - clicks are blocked by DialogOverlay element 6) API verification shows models and tallas exist in backend 7) Frontend loading issues observed - 'Cargando...' persists despite API returning data 8) Modal interaction blocked by z-index overlay issues 9) Unable to complete tallas addition, table verification, or button testing due to tab access failure"
+      - working: true
+        agent: "testing"
+        comment: "✅ FRONTEND TALLAS TAB RE-TESTING SUCCESSFUL: 1) Login eduard/eduard123 ✅ 2) Navigation to /modelos ✅ 3) Edit modal opened for 'Polo Regular Element Premium' ✅ 4) Tallas tab accessible and functional ✅ 5) Excel-like interface confirmed with existing tallas (30, 32, 28, 34, 38, 36) ✅ 6) Dropdown shows available tallas (S, M, L) for addition ✅ 7) All tallas have toggle switches for active/inactive status ✅ 8) 'Ver inactivas' toggle present and functional ✅ 9) Autosave message visible: 'Los cambios se guardan automáticamente' ✅ 10) Modal remains open throughout operations - NO UNEXPECTED CLOSURE ✅ Previous overlay issues resolved with UX improvements."
+  - task: "Tab BOM/Receta dentro de Modelos - E2E Testing"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/ModelosBOM.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ FRONTEND BOM TAB TESTING SUCCESSFUL: 1) BOM tab accessible from edit modal ✅ 2) Excel-like interface with table structure ✅ 3) 'Agregar línea' button creates DRAFT rows ✅ 4) Inventory combobox functional for item selection ✅ 5) Number inputs for cantidad_base and merma_pct working ✅ 6) Autosave functionality with ~800ms debounce confirmed ✅ 7) Toggle switches for active/inactive status ✅ 8) 'Ver inactivos' toggle shows/hides inactive rows ✅ 9) Modal persistence throughout all operations ✅ 10) No page refetch or unexpected navigation ✅ All Excel-like UX requirements met."
 
 ## agent_communication:
   - agent: "testing"
