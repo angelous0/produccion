@@ -148,7 +148,6 @@ export const Modelos = () => {
       tela_id: item.tela_id,
       hilo_id: item.hilo_id,
       ruta_produccion_id: item.ruta_produccion_id || '',
-      materiales: item.materiales || [],
       servicios_ids: item.servicios_ids || [],
     });
     setDialogOpen(true);
