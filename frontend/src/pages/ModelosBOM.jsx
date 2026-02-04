@@ -146,9 +146,6 @@ export const ModelosTallasTab = ({ modeloId }) => {
                 ) : rows.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell></TableRow>
                 ) : (
-                  rows
-                    .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-                    .map((r) => (
                       <TableRow key={r.id}>
                         <TableCell className="font-medium">{r.talla_nombre || r.talla_id}</TableCell>
                         <TableCell>
