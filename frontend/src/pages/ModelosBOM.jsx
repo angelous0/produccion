@@ -81,16 +81,17 @@ export const ModelosTallasTab = ({ modeloId }) => {
     }
   };
 
-  const saveRow = async (r) => {
+  const saveRow = async (r, e) => {
+    e?.preventDefault?.();
+
     try {
       await axios.put(`${API}/modelos/${modeloId}/tallas/${r.id}`, {
-        orden: Number(r.orden) || 10,
         activo: Boolean(r.activo),
       });
       toast.success('Guardado');
       fetchAll();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al guardar');
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || 'Error al guardar');
     }
   };
 
