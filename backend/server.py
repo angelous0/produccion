@@ -2152,7 +2152,15 @@ async def update_modelo_bom_linea(modelo_id: str, linea_id: str, data: ModeloBom
         # Duplicado activo exacto (si activo=true)
         if activo_val:
             exists = await conn.fetchval(
-                "SELECT COUNT(*) FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND inventario_id=$2 AND ((talla_id IS NULL AND $3 IS NULL) OR talla_id=$3) AND activo=true AND id<>$4",
+                """
+                SELECT COUNT(*)
+                FROM prod_modelo_bom_linea
+                WHERE modelo_id=$1
+                  AND inventario_id=$2
+                  AND talla_id IS NOT DISTINCT FROM $3
+                  AND activo=true
+                  AND id<>$4
+                """,
                 modelo_id,
                 inventario_id,
                 talla_id,
