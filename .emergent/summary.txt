@@ -1,126 +1,147 @@
 <analysis>**original_problem_statement:**
-A lo largo de la sesión, el usuario ha solicitado una amplia gama de funcionalidades:
-1.  **Sistema de Autenticación y Permisos**: Un sistema de login completo con roles y permisos granulares por tabla (CRUD) y por usuario.
-2.  **Gestión de Contraseñas**: Permitir que los usuarios cambien su propia contraseña y que los administradores puedan establecer una contraseña personalizada para otros usuarios.
-3.  **Historial de Actividad (Auditoría)**: Una página dedicada para rastrear todas las acciones importantes (login, CRUD, etc.), con detalles de los cambios (antes/después) y una interfaz de usuario mejorada tipo timeline.
-4.  **Mejoras de UI/UX**:
-    *   Hacer que el menú lateral (sidebar) sea colapsable.
-    *   Mejorar la visualización del diálogo de detalles en el historial de actividad.
-5.  **Optimización**: Limpiar la base de datos y el código eliminando funcionalidades obsoletas (ej. la tabla y endpoints de ).
-6.  **Backups y Exportación**:
-    *   Implementar un sistema de copia de seguridad (crear/restaurar) desde la interfaz.
-    *   Añadir funcionalidad para exportar datos a Excel y PDF en varias tablas.
-7.  **Reportes y Dashboard**:
-    *   Crear un dashboard principal con gráficos de producción.
-    *   Crear una página de Reporte de Mermas con filtros, gráficos y exportación a PDF.
-    *   Añadir exportación a PDF y Excel a la página de Kardex.
+El usuario ha solicitado una serie de funcionalidades complejas para una aplicación de gestión de producción textil. Las solicitudes clave de esta sesión son:
+1.  **Nuevo Reporte de Producción**: Crear un reporte de producción por estado que muestre un resumen pivotado de los artículos de producción y su estado actual (ej. Para Corte, Para Costura), con exportación a Excel/PDF.
+2.  **Migración de Base de Datos**: Migrar la aplicación de su base de datos PostgreSQL existente a una nueva instancia PostgreSQL proporcionada por el usuario (), creando y utilizando un nuevo schema llamado  sin afectar el schema .
+3.  **Refactor Módulo Colores**: Simplificar la interfaz de Colores Catálogo, eliminando el campo de código hexadecimal () y reemplazándolo con un selector para asociarlo a un Color General predefinido.
+4.  **Implementación del Módulo BOM (Bill of Materials)**:
+    *   Crear la estructura de base de datos (, ) para permitir que cada Modelo defina las tallas que utiliza y su receta de materiales (BOM).
+    - El BOM debe soportar líneas de consumo generales (para todas las tallas) y específicas por talla.
+    *   Desarrollar una nueva UI en la página de Modelos con pestañas para Tallas y BOM / Receta.
+    *   La UI debe tener una experiencia de usuario tipo Excel, con edición en línea, guardado automático (autosave), y sin recargar la página o cerrar modales al guardar/editar.
+    *   Implementar reordenamiento de filas mediante arrastrar y soltar (drag-and-drop) tanto en la tabla de Tallas como en la de BOM.
+    *   Implementar una lógica de borrado inteligente para las líneas del BOM: borrado físico si no está vinculada a producción, y borrado lógico (desactivación) si ya tiene vínculos.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-La aplicación es un sistema de gestión de producción textil con stack React/FastAPI/PostgreSQL. Las funcionalidades implementadas incluyen:
--   **Autenticación y Permisos**: Sistema de login robusto con gestión de usuarios, roles y permisos. El administrador es  / .
--   **Historial de Actividad**: Una página dedicada con diseño de timeline que registra logins, creaciones, ediciones (mostrando datos antes/después) y eliminaciones.
--   **Dashboard y Reportes**: Un dashboard principal con gráficos de producción () y una página de reporte de mermas con filtros, gráficos y exportación a PDF ().
--   **UI Mejorada**: Un menú lateral colapsable cuya preferencia se guarda en el .
--   **Gestión de Datos**: Funcionalidad de backup/restauración de la base de datos y exportación a Excel en las páginas de  e .
--   **Código Optimizado**: Se eliminó código y tablas obsoletas ().
--   Se ha iniciado la implementación de permisos granulares en la UI con un hook  y la adición de botones de exportación en la página de Kardex.
+La aplicación es un sistema full-stack (React/FastAPI/PostgreSQL) para la gestión de producción.
+- **Base de Datos**: La aplicación se conecta a una base de datos PostgreSQL externa definida por el usuario, operando sobre un schema . Las tablas  fueron migradas a este nuevo schema.
+- **Reportes**: Se implementó un nuevo Reporte de Estados de Ítem con una vista de tabla pivotada y exportación a Excel/PDF.
+- **Módulo de Colores**: La página  fue refactorizada para usar un combobox () en lugar de un input de código hexadecimal.
+- **Módulo BOM (Bill of Materials)**:
+    - Se crearon las tablas  y  en la base de datos.
+    - Se desarrollaron los endpoints de backend para el CRUD completo de las tallas y el BOM de un modelo, incluyendo un endpoint genérico para reordenar.
+    - La página de  ahora tiene una interfaz con pestañas para Detalles, Tallas y BOM / Receta.
+    - Las pestañas de Tallas y BOM presentan una UI tipo Excel con edición en línea y guardado automático ().
+    - Se implementó la funcionalidad de arrastrar y soltar para reordenar las filas en la pestaña de Tallas.
+    - Se implementó una lógica de borrado para el BOM que realiza un borrado físico o lógico (desactivación) basado en una comprobación (actualmente placeholder) de si la línea está vinculada a producción.
 
 **Last working item**:
-- Last item agent was working: El agente estaba agregando la funcionalidad de exportar a Excel y PDF en la página de **Kardex**. Añadió los botones ( y ) al archivo .
+- Last item agent was working: El agente estaba implementando la funcionalidad de arrastrar y soltar (drag-and-drop) para reordenar las filas en la tabla del **BOM** (), a petición del usuario. Ya había implementado la misma funcionalidad para la pestaña de Tallas.
 - Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? both
+- Which testing method agent to use? frontend testing agent
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: **Finalizar y probar la exportación en Kardex** (P0)
-  - Issue 2: **Aplicar permisos granulares en toda la UI** (P1)
-  - Issue 3: **Auditoría de accesibilidad en Componentes ** (P2)
+  - Issue 1:  **Finalizar y probar el reordenamiento (drag-and-drop) en la tabla del BOM** (P0)
+  - Issue 2:  **Clarificar e implementar la lógica de borrado inteligente del BOM** (P1)
+  - Issue 3:  **Finalizar la exportación a Excel/PDF en la página de Kardex** (P2)
+  - Issue 4:  **Aplicar permisos granulares en toda la UI con el hook ** (P3)
+  - Issue 5:  **Auditar y corregir la accesibilidad en los componentes ** (P4)
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: Se añadieron los botones de exportación a la UI de .
+     - Attempted fixes: Se añadió la columna  a la tabla  y su lógica en el backend. Se integró el componente  en  y se crearon las funciones  y los endpoints correspondientes.
      - Next debug checklist: 
-        1. Verificar si existen los endpoints de backend necesarios para exportar los datos del Kardex a Excel () y PDF. Es probable que necesiten ser creados en .
-        2. Probar que los botones en el frontend llaman a los endpoints correctos y que la descarga del archivo funciona.
-        3. Usar  para probar el endpoint del backend de forma aislada, y luego una captura de pantalla con interacción para la prueba e2e.
-     - Why fix this issue and what will be achieved with the fix?: Completar una solicitud explícita del usuario para poder exportar los datos de movimientos de inventario.
-     - Status:  IN PROGRESS
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? both
-     - Blocked on other issue: No
-  - Issue 2: 
-     - Attempted fixes: Se creó un hook  y se aplicó como ejemplo en la página de  para ocultar los botones de acción si el usuario no tiene permisos.
-     - Next debug checklist: 
-        1. Importar y utilizar el hook  en todas las páginas que contengan acciones CRUD (ej. , , , , , etc.).
-        2. Envolver los botones de Nuevo, Editar, Eliminar y Exportar con la lógica del hook para que se oculten o deshabiliten según los permisos del usuario actual.
-     - Why fix this issue and what will be achieved with the fix?: Es un requisito de seguridad crítico para asegurar que los usuarios solo puedan realizar las acciones para las que están autorizados, llevando la aplicación a un estado listo para producción.
+        1. Probar la interacción de arrastrar y soltar en la UI de la pestaña BOM / Receta.
+        2. Verificar que la llamada al endpoint  se realiza correctamente con el nuevo orden.
+        3. Asegurarse de que la UI se actualice correctamente después de reordenar sin necesidad de recargar la página.
+     - Why fix this issue and what will be achieved with the fix?: Completar una solicitud explícita del usuario para mejorar la UX del módulo BOM, permitiendo organizar visualmente la receta.
      - Status:  IN PROGRESS
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: No
+  - Issue 2: 
+     - Attempted fixes: Se creó un endpoint  con una lógica placeholder que simula la comprobación de vínculos.
+     - Next debug checklist: 
+        1. Preguntar al usuario qué tabla o campo específico indica que una línea de BOM está vinculada a producción (ej. ¿una tabla  futura?).
+        2. Actualizar la consulta SQL en el backend para que verifique la existencia de registros en dicha tabla antes de decidir si hacer un borrado físico o lógico.
+     - Why fix this issue and what will be achieved with the fix?: Asegura la integridad de los datos, previniendo que se borren recetas que ya han sido utilizadas en procesos de producción registrados.
+     - Status:  IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? backend
+     - Blocked on other issue: No, pero requiere información del usuario.
   - Issue 3: 
-     - Attempted fixes: Ninguno en esta sesión.
-     - Next debug checklist: Auditar todos los componentes  en el código y asegurarse de que incluyan  y  para cumplir con las normas de accesibilidad.
-     - Why fix this issue and what will be achieved with the fix?: Mejora la accesibilidad y la calidad general de la aplicación, solucionando una deuda técnica recurrente.
+     - Attempted fixes: (De la sesión anterior) Se añadieron botones de exportación a .
+     - Next debug checklist: 
+        1. Crear los endpoints de backend para generar los archivos Excel y PDF con los datos del Kardex.
+        2. Conectar los botones del frontend a estos nuevos endpoints.
+     - Why fix this issue and what will be achieved with the fix?: Completa una funcionalidad de reportes clave solicitada por el usuario.
+     - Status:  NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: No
+  - Issue 4: 
+     - Attempted fixes: (De la sesión anterior) Se creó el hook  y se usó en .
+     - Next debug checklist: Integrar el hook  en todas las páginas con acciones CRUD (Modelos, BOM, Reportes, etc.) para ocultar/deshabilitar botones según el rol del usuario.
+     - Why fix this issue and what will be achieved with the fix?: Es un requisito de seguridad fundamental para que la aplicación esté lista para un entorno multiusuario.
+     - Status:  NOT STARTED
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on other issue: No
+  - Issue 5: 
+     - Attempted fixes: Ninguno.
+     - Next debug checklist: Revisar todos los componentes  y asegurar que siempre incluyan  y  para mejorar la accesibilidad.
+     - Why fix this issue and what will be achieved with the fix?: Soluciona una deuda técnica recurrente y mejora la calidad y accesibilidad de la aplicación.
      - Status:  NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1: **Implementar sistema de permisos en la UI** (P1)
-     - Where to resume: El hook  está listo. Se debe replicar el patrón de implementación de  en el resto de las páginas de la aplicación.
-     - What will be achieved with this?: La interfaz de usuario reflejará dinámicamente los permisos de cada usuario, ocultando acciones no autorizadas.
+  - Task 1:  **Implementar Drag-and-Drop en la UI del BOM** (P0)
+     - Where to resume: . La estructura está montada. Hay que depurar la interacción y la comunicación con el backend para asegurar que el reordenamiento funcione y persista correctamente.
+     - What will be achieved with this?: Se completará la experiencia de usuario tipo Excel para la gestión de la receta del modelo.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on something: No
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
-    - **(P1)** Añadir funcionalidad de exportación a Excel/PDF a otras tablas maestras clave, si el usuario lo solicita.
-    - **(P2)** Crear el reporte de Productividad por persona/servicio que está en el backlog.
+    - **(P1)** Implementar vista de detalle (drill-down) en el Reporte Item-Estados.
+    - **(P1)** Añadir filtros y ordenamiento avanzados a la tabla del Reporte Item-Estados.
+    - **(P2)** Implementar la explosión del BOM para calcular requerimientos de materiales basados en una orden de producción.
 - **Future Tasks**:
-    - **(P3)** Implementar la funcionalidad de Pre-llenado de tarifa en el formulario de registro, basada en la configuración persona-servicio.
+    - **(P3)** Crear el reporte de Productividad por persona/servicio.
+    - **(P4)** Implementar la funcionalidad de Pre-llenado de tarifa en el formulario de registro.
 
 **Completed work in this session**
-- **Sistema de Autenticación Completo**: Implementado y probado, incluyendo login, rutas protegidas, cambio de contraseña para el usuario y reseteo por parte del admin.
-- **Historial de Actividad (Auditoría)**: Creada una página dedicada con diseño de timeline que registra todas las acciones importantes (login, CRUD) con detalles visuales claros de los cambios (antes y después).
-- **Dashboard con Gráficos**: Implementado un nuevo dashboard con estadísticas y gráficos de producción.
-- **Reporte de Mermas**: Creada una nueva página de reporte de mermas con filtros, gráficos y exportación a PDF.
-- **Sistema de Backups**: Añadida una página para crear y restaurar copias de seguridad de la base de datos.
-- **UI/UX Mejorada**: El menú lateral ahora es colapsable y su estado se guarda.
-- **Optimización de Código**: Se eliminó la tabla  y todo el código asociado en frontend y backend.
-- **Funcionalidad de Exportación**: Añadido export a Excel en  e , y se sentaron las bases para .
+- **Migración a PostgreSQL Externo**: Se migró la conexión y los datos de la aplicación a una nueva base de datos PostgreSQL en un schema , actualizando el backend para que opere sobre él.
+- **Nuevo Reporte de Estados de Ítem**: Se creó desde cero la página y el endpoint para un nuevo reporte pivotado de producción, incluyendo exportación a Excel y PDF.
+- **Refactor del Módulo de Colores**: Se modernizó la UI de Colores Catálogo para eliminar el input de código hexadecimal y usar un combobox de colores generales.
+- **Implementación del Módulo BOM (completo)**:
+    - **DB y API**: Se crearon las tablas (, ) y todos los endpoints CRUD necesarios para gestionar las tallas y la receta (BOM) de un modelo.
+    - **UI Avanzada**: Se rediseñó la página de Modelos con una interfaz de pestañas, implementando una UI de tipo Excel con edición en línea y guardado automático () para las tablas de Tallas y BOM.
+    - **Reordenamiento y Borrado**: Se implementó el reordenamiento por arrastrar y soltar en la tabla de Tallas y una lógica de borrado inteligente (con placeholder) para el BOM.
+    - **Simplificación**: Se limpió la tabla y UI del BOM eliminando los campos de merma y notas según la solicitud del usuario.
 
 **Earlier issues found/mentioned but not fixed**
    - Issue 1: **Auditoría de accesibilidad en Componentes **.
-     - Debug checklist: Revisar todos los archivos que usan  y asegurar que  y  estén presentes.
-     - Why to solve this issue and what will be achieved with this?: Mejora la accesibilidad de la aplicación.
+     - Debug checklist: Revisar archivos que usan  y asegurar la presencia de  y .
+     - Why to solve this issue and what will be achieved with this?: Mejora la accesibilidad general de la aplicación.
      - Should Test frontend/backend/both after fix: frontend
      - Is recurring issue? Y
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: El problema de accesibilidad en los  es recurrente.
-  - Recurrence count: 3
+  - Issue recurrence in previous fork: El problema de accesibilidad en los componentes  sigue sin abordarse.
+  - Recurrence count: 4
   - Status: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend**: FastAPI, PostgreSQL, , ,  (para Excel).
-- **Frontend**: React, React Context, TailwindCSS, ,  (gráficos),  y  (PDFs).
+- **Backend**: FastAPI, AsyncPG, manipulación de schemas de PostgreSQL, ejecución de DDL en el arranque, Foreign Keys, Índices únicos.
+- **Frontend**: React,  (para drag-and-drop), ,  para guardado automático, manejo de estado complejo para UI tipo Excel.
 
 **key DB schema**
 -  (NUEVA): 
-- : Eliminada.
+-  (NUEVA): 
+- Todas las tablas  ahora residen en el schema .
 
 **changes in tech stack**
-- **Frontend**: , , .
-- **Backend**: .
+- **Frontend**: Se añadió y utilizó intensivamente la librería  para la funcionalidad de arrastrar y soltar.
 
 **All files of reference**
 - 
@@ -130,46 +151,43 @@ La aplicación es un sistema de gestión de producción textil con stack React/F
 - 
 - 
 - 
-- 
-- 
 
 **Areas that need refactoring**:
-- Ninguna identificada. El agente ya realizó una limpieza de código obsoleto.
+- La lógica de creación de tablas (DDL) dentro del evento  de  es funcional pero no escalable. Debería considerarse el uso de una herramienta de migración como Alembic en el futuro.
+- El archivo  ha crecido considerablemente y podría ser dividido en módulos (routers, servicios) para mejorar la mantenibilidad.
 
 **key api endpoints**
+-  (NUEVOS)
+-  (NUEVOS)
 -  (NUEVO)
-- , ,  (NUEVO)
--  (NUEVO, y a extender para )
 -  (NUEVO)
 -  (NUEVO)
--  (Modificado para aceptar contraseña personalizada)
-- Múltiples endpoints de  (ELIMINADOS)
+-  (NUEVO)
 
 **Critical Info for New Agent**
-- La prioridad es finalizar las tareas en progreso: **probar la exportación de Kardex** (requerirá crear el endpoint de backend) y **aplicar el hook ** en todas las páginas restantes.
-- Las credenciales del usuario administrador son **usuario: **, **contraseña: **.
-- El hook  ya está funcionando. Debes usar  como plantilla para aplicarlo al resto de componentes.
+- La aplicación ahora está conectada a la base de datos PostgreSQL del usuario: . Todo el desarrollo de backend debe operar sobre el schema .
+- La principal prioridad del usuario es la experiencia de usuario del módulo BOM. Se debe prestar especial atención a que la interfaz sea fluida, con guardado automático y sin recargas de página.
+- Es crucial obtener la clarificación del usuario sobre cómo detectar si una línea del BOM está vinculada a producción para implementar correctamente la lógica de borrado inteligente. La última pista fue que está relacionado con salida de materia prima.
+- El reordenamiento de filas (drag-and-drop) es una característica clave para el usuario. Ya funciona en Tallas y debe finalizarse para BOM.
 
 **documents and test reports created in this job**
--  (actualizado continuamente)
-- 
-- 
+- No se crearon documentos formales. Se generaron múltiples capturas de pantalla y logs durante las pruebas automatizadas del frontend.
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1.  **User**: Pide tener copias de seguridad.
-2.  **Agent**: Confirma si el usuario quiere 4 funcionalidades: 1. Permisos UI, 2. Export PDF/Excel, 3. Backup, 4. Desde la plataforma.
-3.  **User**: Confirma si a las 4.
-4.  **User**: Pide confirmar la contraseña del administrador ( / ).
-5.  **User**: Elige las siguientes tareas a implementar: Dashboard con gráficos, exportar a PDF y reportes de merma.
-6.  **User**: Confirma la elección.
-7.  **Agent**: Procede a implementar las 3 funcionalidades.
-8.  **User**: Pide agregar exportación a PDF y Excel en la página de Kardex.
-9.  **Agent**: Empieza a modificar la página de Kardex.
-10. **User**: Pregunta qué base de datos se está usando.
+1.  **User**: Pide poder ordenar las filas del BOM arrastrando y soltando.
+2.  **User**: Clarifica que vinculado a producción se refiere a una salida de materia prima, no directamente a .
+3.  **User**: Pide poder eliminar filas del BOM (con la condición de borrado inteligente) y que el campo cantidad por prenda sea más grande.
+4.  **User**: Confirma que el agente puede proceder con la implementación del borrado inteligente.
+5.  **User**: Pide al agente que proceda.
+6.  **User**: Confirma el plan para eliminar las columnas ,  y  del BOM.
+7.  **User**: Acepta que los datos de las columnas a eliminar se pierdan.
+8.  **User**: Pide al agente que elija la mejor opción para eliminar las columnas.
+9.  **User**: Expresa confusión porque las columnas , ,  todavía aparecen en la UI del BOM después de haber pedido su eliminación.
+10. **User**: Pide implementar el comportamiento tipo Excel con autosave y sin cerrar la edición.
 
 **Project Health Check:**
-- **Broken**: No. La aplicación es funcional, aunque algunas de las características más nuevas están incompletas.
-- **Mocked**: No.
+- **Broken**: No. La aplicación es funcional y las nuevas características están en una etapa avanzada de desarrollo.
+- **Mocked**: La lógica para comprobar si una línea de BOM está vinculada a producción es un placeholder y no funciona con datos reales todavía.
 
 **3rd Party Integrations**
 - , , 
@@ -179,9 +197,9 @@ La aplicación es un sistema de gestión de producción textil con stack React/F
 - 
 
 **Testing status**
-- Testing agent used after significant changes: YES. Se usó dos veces con éxito, para el sistema de autenticación y para las funcionalidades de exportación/backup.
+- Testing agent used after significant changes: YES. Se utilizó el agente de testing de frontend (screenshot) en numerosas ocasiones para verificar la UI, depurar flujos y confirmar correcciones, especialmente en el módulo BOM.
 - Troubleshoot agent used after agent stuck in loop: NO.
-- Test files created: , 
+- Test files created: No.
 - Known regressions: No.
 
 **Credentials to test flow:**
@@ -189,7 +207,5 @@ La aplicación es un sistema de gestión de producción textil con stack React/F
 - **Contraseña**: 
 
 **What agent forgot to execute**
-- No creó el endpoint de backend para la exportación de Kardex antes de añadir los botones en el frontend.
-- No probó la funcionalidad de exportación en Kardex después de añadir los botones.
-- No aplicó el hook  a todas las páginas como se solicitó, solo a una como ejemplo.
-- No abordó el problema recurrente de accesibilidad con los componentes .</analysis>
+- El agente pidió clarificación sobre la lógica de vinculado a producción para el borrado inteligente, pero el usuario cambió de tema. Este punto sigue pendiente de una respuesta definitiva para su correcta implementación.
+- Las tareas heredadas de la anterior sesión (exportación de Kardex, aplicación global de permisos) fueron pospuestas en favor de las nuevas solicitudes del usuario y siguen pendientes.</analysis>
