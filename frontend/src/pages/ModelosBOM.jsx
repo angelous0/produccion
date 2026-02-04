@@ -466,7 +466,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
             {isSavingBOM && (
               <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>
             )}
-            <SortableTableWrapper items={visibleRows} sensors={sensorsBOM} handleDragEnd={handleDragEndBOM} modifiers={modifiersBOM}>
+            <SortableTableWrapper items={visibleRows} sensors={sensorsBOM} handleDragEnd={handleDragEndBOM} modifiers={modifiersBOM} getItemId={keyOf}>
               <Table>
               <TableHeader>
                 <TableRow>
