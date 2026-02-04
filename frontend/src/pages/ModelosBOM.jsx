@@ -200,6 +200,7 @@ export const ModelosTallasTab = ({ modeloId }) => {
                 )}
               </TableBody>
             </Table>
+            </SortableTableWrapper>
           </div>
         </CardContent>
       </Card>
