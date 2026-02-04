@@ -57,8 +57,11 @@ export const SortableRow = ({ id, children, disabled = false }) => {
 };
 
 // Hook para manejar el ordenamiento
-export const useSortableTable = (items, setItems, endpoint) => {
+export const useSortableTable = (items, setItems, endpoint, getItemId) => {
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Función para obtener el ID de un item
+  const getId = getItemId || ((i) => i.id || i.__tempId);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -76,8 +79,10 @@ export const useSortableTable = (items, setItems, endpoint) => {
     
     if (!over || active.id === over.id) return;
 
-    const oldIndex = items.findIndex((item) => item.id === active.id);
-    const newIndex = items.findIndex((item) => item.id === over.id);
+    const oldIndex = items.findIndex((item) => getId(item) === active.id);
+    const newIndex = items.findIndex((item) => getId(item) === over.id);
+    
+    if (oldIndex === -1 || newIndex === -1) return;
     
     const newItems = arrayMove(items, oldIndex, newIndex);
     
@@ -89,13 +94,17 @@ export const useSortableTable = (items, setItems, endpoint) => {
     
     setItems(itemsWithNewOrder);
     
+    // Solo guardar en backend si hay items con id real (no drafts)
+    const persistedItems = itemsWithNewOrder.filter((item) => item.id);
+    if (persistedItems.length === 0) return;
+    
     // Guardar en backend
     setIsSaving(true);
     try {
       const url = endpoint.includes('/') ? `${API}/${endpoint}` : `${API}/reorder/${endpoint}`;
 
       await axios.put(url, {
-        items: itemsWithNewOrder.map((item, index) => ({
+        items: persistedItems.map((item, index) => ({
           id: item.id,
           orden: index + 1,
         })),
