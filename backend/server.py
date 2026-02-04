@@ -119,6 +119,13 @@ async def ensure_bom_tables():
         await conn.execute(
             """
             CREATE UNIQUE INDEX IF NOT EXISTS uq_bom_linea_activo
+
+
+@app.on_event("startup")
+async def startup_event():
+    # Asegurar tablas nuevas (BOM) sin tocar tablas existentes
+    await ensure_bom_tables()
+
             ON prod_modelo_bom_linea(modelo_id, inventario_id, talla_id)
             WHERE activo = TRUE
             """
