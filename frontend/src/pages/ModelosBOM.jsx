@@ -95,13 +95,27 @@ export const ModelosTallasTab = ({ modeloId }) => {
     }
   };
 
-  const deactivate = async (r) => {
+  const deactivate = async (r, e) => {
+    e?.preventDefault?.();
+
     try {
       await axios.delete(`${API}/modelos/${modeloId}/tallas/${r.id}`);
       toast.success('Desactivado');
       fetchAll();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al desactivar');
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || 'Error al desactivar');
+    }
+  };
+
+  const hardDelete = async (r, e) => {
+    e?.preventDefault?.();
+
+    try {
+      await axios.delete(`${API}/modelos/${modeloId}/tallas/${r.id}/hard`);
+      toast.success('Eliminado');
+      fetchAll();
+    } catch (e2) {
+      toast.error(e2?.response?.data?.detail || 'No se pudo borrar');
     }
   };
 
