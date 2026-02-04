@@ -2135,18 +2135,15 @@ async def add_modelo_bom_linea(modelo_id: str, data: ModeloBomLineaCreate, curre
         new_id = str(uuid4())
         await conn.execute(
             """
-            INSERT INTO prod_modelo_bom_linea (id, modelo_id, inventario_id, talla_id, unidad_base, cantidad_base, merma_pct, orden, activo, notas, created_at, updated_at)
-            VALUES ($1,$2,$3,$4,'PRENDA',$5,$6,$7,$8,$9,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            INSERT INTO prod_modelo_bom_linea (id, modelo_id, inventario_id, talla_id, unidad_base, cantidad_base, activo, created_at, updated_at)
+            VALUES ($1,$2,$3,$4,'PRENDA',$5,$6,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
             """,
             new_id,
             modelo_id,
             data.inventario_id,
             talla_id,
             float(data.cantidad_base),
-            merma,
-            int(data.orden),
             bool(data.activo),
-            data.notas,
         )
 
         row = await conn.fetchrow(
