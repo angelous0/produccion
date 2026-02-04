@@ -1586,7 +1586,7 @@ class ReorderItem(BaseModel):
     orden: int
 
 class ReorderRequest(BaseModel):
-    items: List[ReorderItem]
+ 
 
 
 # ==================== REORDENAMIENTO MODELO ↔ TALLAS ====================
@@ -1643,7 +1643,7 @@ async def hard_delete_modelo_talla(modelo_id: str, rel_id: str, current_user: di
 
     return {"message": "Talla eliminada"}
 
-    items: List[ReorderItem]
+ 
 
 @api_router.put("/reorder/{tabla}")
 async def reorder_items(tabla: str, request: ReorderRequest):
