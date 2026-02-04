@@ -2095,12 +2095,7 @@ async def add_modelo_bom_linea(modelo_id: str, data: ModeloBomLineaCreate, curre
     # Validaciones
     if data.cantidad_base is None or float(data.cantidad_base) <= 0:
         raise HTTPException(status_code=400, detail="cantidad_base debe ser mayor a 0")
-    if data.merma_pct is None:
-        merma = 0
-    else:
-        merma = float(data.merma_pct)
-    if merma < 0 or merma > 100:
-        raise HTTPException(status_code=400, detail="merma_pct debe estar entre 0 y 100")
+
 
     pool = await get_pool()
     async with pool.acquire() as conn:
