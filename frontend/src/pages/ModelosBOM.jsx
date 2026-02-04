@@ -172,7 +172,14 @@ export const ModelosTallasTab = ({ modeloId }) => {
                 ) : rows.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell></TableRow>
                 ) : (
-                      <TableRow key={r.id}>
+                  rows.map((r) => (
+                    <SortableRow key={r.id} id={r.id}>
+                      <TableRow>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="cursor-grab active:cursor-grabbing">⋮⋮</div>
+                          </div>
+                        </TableCell>
                         <TableCell className="font-medium">{r.talla_nombre || r.talla_id}</TableCell>
                         <TableCell>
                           <Switch
