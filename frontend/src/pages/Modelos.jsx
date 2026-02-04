@@ -60,11 +60,7 @@ export const Modelos = () => {
   const [telas, setTelas] = useState([]);
   const [hilos, setHilos] = useState([]);
   const [rutas, setRutas] = useState([]);
-  const [inventarioItems, setInventarioItems] = useState([]);
   const [servicios, setServicios] = useState([]);
-
-  // Para agregar material
-  const [materialToAdd, setMaterialToAdd] = useState({ item_id: '', cantidad_estimada: 0 });
 
   const fetchItems = async () => {
     try {
