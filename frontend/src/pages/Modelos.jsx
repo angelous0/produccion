@@ -30,6 +30,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { ModelosTallasTab, ModelosBOMTab } from './ModelosBOM';
 import { Plus, Pencil, Trash2, Package, Route, Wrench, X } from 'lucide-react';
 import { toast } from 'sonner';
 
