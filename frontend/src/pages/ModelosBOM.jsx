@@ -434,7 +434,8 @@ export const ModelosBOMTab = ({ modeloId }) => {
           </div>
 
           <div className="overflow-auto">
-            <Table>
+            <SortableTableWrapper items={visibleRows} sensors={sensorsBOM} handleDragEnd={handleDragEndBOM} modifiers={modifiersBOM}>
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[340px]">Item</TableHead>
