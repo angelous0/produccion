@@ -278,6 +278,22 @@ export const ModelosBOMTab = ({ modeloId }) => {
 
   const [verInactivos, setVerInactivos] = useState(false);
 
+  // Orden visual: drafts siempre arriba; persisted pueden ordenarse por drag&drop (orden en BD)
+  const visibleRows = useMemo(() => {
+    const list = verInactivos ? rows : rows.filter((r) => r.activo);
+    const drafts = list.filter((r) => !r.id);
+    const persisted = list.filter((r) => r.id);
+
+    persisted.sort((a, b) => {
+      const ao = a.orden ?? 10;
+      const bo = b.orden ?? 10;
+      if (ao != null && bo != null && ao !== bo) return ao - bo;
+      return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+    });
+
+    return [...drafts, ...persisted];
+  }, [rows, verInactivos]);
+
   const timersRef = useRef({});
   const [rowState, setRowState] = useState({}); // { [key]: 'idle'|'saving'|'saved'|'error'|'draft' }
 
