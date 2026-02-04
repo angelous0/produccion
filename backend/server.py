@@ -2249,6 +2249,11 @@ async def delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: d
     async with pool.acquire() as conn:
         bl = await conn.fetchrow("SELECT * FROM prod_modelo_bom_linea WHERE id=$1 AND modelo_id=$2", linea_id, modelo_id)
         if not bl:
+            raise HTTPException(status_code=404, detail="Línea BOM no encontrada")
+        
+        await conn.execute("UPDATE prod_modelo_bom_linea SET activo=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1", linea_id)
+    
+    return {"message": "Línea desactivada", "action": "deactivated"}
 
 
 @api_router.put("/modelos/{modelo_id}/bom/reorder")
