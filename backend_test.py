@@ -653,6 +653,261 @@ class TextileAPITester:
 
         return True
 
+    def test_bom_module_comprehensive(self):
+        """Comprehensive BOM module testing as requested"""
+        print("\n🔧 Testing BOM Module Comprehensive...")
+        
+        if not self.auth_token:
+            print("❌ No auth token available, skipping BOM tests")
+            return False
+        
+        # Step 1: Get existing modelo
+        success, modelos_response = self.run_test("Get Existing Modelos", "GET", "modelos", 200)
+        if not success or not modelos_response:
+            print("❌ No modelos available for testing")
+            return False
+        
+        modelo_id = modelos_response[0]['id'] if modelos_response else None
+        if not modelo_id:
+            print("❌ No modelo ID found")
+            return False
+        print(f"✅ Using modelo_id: {modelo_id}")
+        
+        # Step 2: Get existing talla from catalog
+        success, tallas_response = self.run_test("Get Tallas Catalogo", "GET", "tallas-catalogo", 200)
+        if not success or not tallas_response:
+            print("❌ No tallas available for testing")
+            return False
+        
+        talla_id = tallas_response[0]['id'] if tallas_response else None
+        if not talla_id:
+            print("❌ No talla ID found")
+            return False
+        print(f"✅ Using talla_id: {talla_id}")
+        
+        # Step 3: Get existing inventario item
+        success, inventario_response = self.run_test("Get Inventario Items", "GET", "inventario", 200)
+        if not success or not inventario_response:
+            print("❌ No inventario items available for testing")
+            return False
+        
+        inventario_id = inventario_response[0]['id'] if inventario_response else None
+        if not inventario_id:
+            print("❌ No inventario ID found")
+            return False
+        print(f"✅ Using inventario_id: {inventario_id}")
+        
+        # MODELO↔TALLAS TESTS
+        print("\n📋 Testing MODELO↔TALLAS relationships...")
+        
+        # Test 4: POST modelo-talla relationship
+        talla_data = {"talla_id": talla_id, "orden": 1}
+        success, talla_rel_response = self.run_test("Add Talla to Modelo", "POST", f"modelos/{modelo_id}/tallas", 200, talla_data)
+        if not success:
+            return False
+        
+        rel_id = talla_rel_response.get('id')
+        print(f"✅ Created modelo-talla relationship with ID: {rel_id}")
+        
+        # Test 5: POST duplicate talla should fail with 400
+        success, _ = self.run_test("Add Duplicate Talla (should fail)", "POST", f"modelos/{modelo_id}/tallas", 400, talla_data)
+        if not success:
+            print("❌ Duplicate talla validation failed - should return 400")
+            return False
+        print("✅ Duplicate talla correctly rejected")
+        
+        # Test 6: GET active tallas for modelo
+        success, active_tallas = self.run_test("Get Active Tallas for Modelo", "GET", f"modelos/{modelo_id}/tallas?activo=true", 200)
+        if not success:
+            return False
+        
+        if not active_tallas or len(active_tallas) == 0:
+            print("❌ No active tallas found")
+            return False
+        print(f"✅ Found {len(active_tallas)} active talla(s)")
+        
+        # Test 7: DELETE (soft delete) modelo-talla relationship
+        if rel_id:
+            success, _ = self.run_test("Deactivate Modelo-Talla", "DELETE", f"modelos/{modelo_id}/tallas/{rel_id}", 200)
+            if not success:
+                return False
+            print("✅ Modelo-talla relationship deactivated")
+        
+        # Test 8: GET active tallas should not include deactivated one
+        success, active_tallas_after = self.run_test("Get Active Tallas After Delete", "GET", f"modelos/{modelo_id}/tallas?activo=true", 200)
+        if not success:
+            return False
+        
+        # Should have one less active talla now
+        if len(active_tallas_after) >= len(active_tallas):
+            print("❌ Talla was not properly deactivated")
+            return False
+        print("✅ Talla properly deactivated from active list")
+        
+        # Test 9: PUT to reactivate and validate no duplicate
+        if rel_id:
+            reactivate_data = {"activo": True, "orden": 2}
+            success, _ = self.run_test("Reactivate Modelo-Talla", "PUT", f"modelos/{modelo_id}/tallas/{rel_id}", 200, reactivate_data)
+            if not success:
+                return False
+            print("✅ Modelo-talla relationship reactivated")
+        
+        # BOM TESTS
+        print("\n🔧 Testing BOM operations...")
+        
+        # Test 10: POST BOM line GENERAL (talla_id null)
+        bom_general_data = {
+            "inventario_id": inventario_id,
+            "talla_id": None,
+            "cantidad_base": 2.5,
+            "merma_pct": 5.0,
+            "orden": 1,
+            "activo": True,
+            "notas": "Línea general de BOM"
+        }
+        success, bom_general_response = self.run_test("Add General BOM Line", "POST", f"modelos/{modelo_id}/bom", 200, bom_general_data)
+        if not success:
+            return False
+        
+        bom_general_id = bom_general_response.get('id')
+        print(f"✅ Created general BOM line with ID: {bom_general_id}")
+        
+        # Test 11: POST duplicate exact active BOM line should fail
+        success, _ = self.run_test("Add Duplicate General BOM (should fail)", "POST", f"modelos/{modelo_id}/bom", 400, bom_general_data)
+        if not success:
+            print("❌ Duplicate BOM validation failed - should return 400")
+            return False
+        print("✅ Duplicate general BOM correctly rejected")
+        
+        # Test 12: POST BOM line POR TALLA with valid talla_id
+        bom_talla_data = {
+            "inventario_id": inventario_id,
+            "talla_id": talla_id,
+            "cantidad_base": 1.8,
+            "merma_pct": 3.0,
+            "orden": 2,
+            "activo": True,
+            "notas": "Línea por talla específica"
+        }
+        success, bom_talla_response = self.run_test("Add Talla-Specific BOM Line", "POST", f"modelos/{modelo_id}/bom", 200, bom_talla_data)
+        if not success:
+            return False
+        
+        bom_talla_id = bom_talla_response.get('id')
+        print(f"✅ Created talla-specific BOM line with ID: {bom_talla_id}")
+        
+        # Test 13: POST BOM with invalid talla_id (not belonging to modelo) should fail
+        # First get a different talla that's not associated with this modelo
+        if len(tallas_response) > 1:
+            invalid_talla_id = tallas_response[1]['id']
+            bom_invalid_talla_data = {
+                "inventario_id": inventario_id,
+                "talla_id": invalid_talla_id,
+                "cantidad_base": 1.0,
+                "merma_pct": 0,
+                "orden": 3,
+                "activo": True
+            }
+            success, _ = self.run_test("Add BOM with Invalid Talla (should fail)", "POST", f"modelos/{modelo_id}/bom", 400, bom_invalid_talla_data)
+            if not success:
+                print("❌ Invalid talla validation failed - should return 400")
+                return False
+            print("✅ Invalid talla correctly rejected")
+        
+        # Test 14: Validation tests - cantidad_base <= 0 should fail
+        invalid_cantidad_data = {
+            "inventario_id": inventario_id,
+            "talla_id": None,
+            "cantidad_base": 0,
+            "merma_pct": 5.0,
+            "orden": 4,
+            "activo": True
+        }
+        success, _ = self.run_test("Add BOM with Invalid Cantidad (should fail)", "POST", f"modelos/{modelo_id}/bom", 400, invalid_cantidad_data)
+        if not success:
+            print("❌ Invalid cantidad_base validation failed - should return 400")
+            return False
+        print("✅ Invalid cantidad_base correctly rejected")
+        
+        # Test 14b: merma_pct > 100 should fail
+        invalid_merma_data = {
+            "inventario_id": inventario_id,
+            "talla_id": None,
+            "cantidad_base": 1.0,
+            "merma_pct": 150.0,
+            "orden": 5,
+            "activo": True
+        }
+        success, _ = self.run_test("Add BOM with Invalid Merma (should fail)", "POST", f"modelos/{modelo_id}/bom", 400, invalid_merma_data)
+        if not success:
+            print("❌ Invalid merma_pct validation failed - should return 400")
+            return False
+        print("✅ Invalid merma_pct correctly rejected")
+        
+        # Test 15: GET BOM with activo=true should return ordered results with inventory and talla names
+        success, active_bom = self.run_test("Get Active BOM Lines", "GET", f"modelos/{modelo_id}/bom?activo=true", 200)
+        if not success:
+            return False
+        
+        if not active_bom or len(active_bom) < 2:
+            print("❌ Expected at least 2 active BOM lines")
+            return False
+        
+        # Validate structure includes inventory and talla names
+        for bom_line in active_bom:
+            if 'inventario_nombre' not in bom_line:
+                print("❌ Missing inventario_nombre in BOM response")
+                return False
+            if bom_line.get('talla_id') and 'talla_nombre' not in bom_line:
+                print("❌ Missing talla_nombre for talla-specific BOM line")
+                return False
+        
+        print(f"✅ Found {len(active_bom)} active BOM lines with proper structure")
+        
+        # Test 16: DELETE (soft delete) BOM line
+        if bom_general_id:
+            success, _ = self.run_test("Deactivate General BOM Line", "DELETE", f"modelos/{modelo_id}/bom/{bom_general_id}", 200)
+            if not success:
+                return False
+            print("✅ General BOM line deactivated")
+        
+        # Test 17: GET with activo=true should not include deactivated line
+        success, active_bom_after = self.run_test("Get Active BOM After Delete", "GET", f"modelos/{modelo_id}/bom?activo=true", 200)
+        if not success:
+            return False
+        
+        if len(active_bom_after) >= len(active_bom):
+            print("❌ BOM line was not properly deactivated")
+            return False
+        print("✅ BOM line properly deactivated from active list")
+        
+        # Test 17b: GET with activo=all should include deactivated line as activo=false
+        success, all_bom = self.run_test("Get All BOM Lines", "GET", f"modelos/{modelo_id}/bom?activo=all", 200)
+        if not success:
+            return False
+        
+        deactivated_found = False
+        for bom_line in all_bom:
+            if bom_line.get('id') == bom_general_id and not bom_line.get('activo'):
+                deactivated_found = True
+                break
+        
+        if not deactivated_found:
+            print("❌ Deactivated BOM line not found in 'all' query")
+            return False
+        print("✅ Deactivated BOM line found in 'all' query with activo=false")
+        
+        # Cleanup: Deactivate the talla-specific BOM line too
+        if bom_talla_id:
+            self.run_test("Cleanup Talla BOM Line", "DELETE", f"modelos/{modelo_id}/bom/{bom_talla_id}", 200)
+        
+        # Cleanup: Deactivate the modelo-talla relationship
+        if rel_id:
+            self.run_test("Cleanup Modelo-Talla Relationship", "DELETE", f"modelos/{modelo_id}/tallas/{rel_id}", 200)
+        
+        print("✅ BOM Module comprehensive testing completed successfully!")
+        return True
+
     def cleanup_created_items(self):
         """Clean up any remaining created items"""
         print("\n🧹 Cleaning up created items...")
