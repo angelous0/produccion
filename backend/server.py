@@ -1858,6 +1858,342 @@ async def get_modelo_detalle(modelo_id: str):
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
         if not row:
+
+
+# ==================== MODELO ↔ TALLAS (BOM) ====================
+
+@api_router.get("/modelos/{modelo_id}/tallas")
+async def get_modelo_tallas(modelo_id: str, activo: str = "true"):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = """
+            SELECT mt.*, tc.nombre as talla_nombre
+            FROM prod_modelo_tallas mt
+            LEFT JOIN prod_tallas_catalogo tc ON mt.talla_id = tc.id
+            WHERE mt.modelo_id = $1
+        """
+        params = [modelo_id]
+        if activo == "true":
+            query += " AND mt.activo = true"
+        elif activo == "false":
+            query += " AND mt.activo = false"
+        query += " ORDER BY mt.orden ASC, mt.created_at ASC"
+        rows = await conn.fetch(query, *params)
+
+    result = []
+    for r in rows:
+        d = row_to_dict(r)
+        if isinstance(d.get('created_at'), datetime):
+            d['created_at'] = d['created_at'].strftime('%d/%m/%Y %H:%M')
+        if isinstance(d.get('updated_at'), datetime):
+            d['updated_at'] = d['updated_at'].strftime('%d/%m/%Y %H:%M')
+        result.append(d)
+    return result
+
+
+@api_router.post("/modelos/{modelo_id}/tallas")
+async def add_modelo_talla(modelo_id: str, data: ModeloTallaCreate, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    # Validar talla activa en catálogo
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        talla = await conn.fetchrow("SELECT * FROM prod_tallas_catalogo WHERE id=$1", data.talla_id)
+        if not talla:
+            raise HTTPException(status_code=404, detail="Talla no encontrada")
+        if talla.get('activo') is False:
+            raise HTTPException(status_code=400, detail="Solo se pueden usar tallas activas del catálogo")
+
+        # Validación duplicado activo (mensaje claro)
+        exists = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_modelo_tallas WHERE modelo_id=$1 AND talla_id=$2 AND activo=true",
+            modelo_id,
+            data.talla_id,
+        )
+        if exists and int(exists) > 0:
+            raise HTTPException(status_code=400, detail="La talla ya está agregada (activa) en este modelo")
+
+        new_id = str(uuid4())
+        await conn.execute(
+            """
+            INSERT INTO prod_modelo_tallas (id, modelo_id, talla_id, activo, orden, created_at, updated_at)
+            VALUES ($1,$2,$3,$4,$5,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            """,
+            new_id,
+            modelo_id,
+            data.talla_id,
+            bool(data.activo),
+            int(data.orden),
+        )
+
+        row = await conn.fetchrow(
+            """
+            SELECT mt.*, tc.nombre as talla_nombre
+            FROM prod_modelo_tallas mt
+            LEFT JOIN prod_tallas_catalogo tc ON mt.talla_id = tc.id
+            WHERE mt.id = $1
+            """,
+            new_id,
+        )
+
+    return row_to_dict(row)
+
+
+@api_router.put("/modelos/{modelo_id}/tallas/{rel_id}")
+async def update_modelo_talla(modelo_id: str, rel_id: str, data: ModeloTallaUpdate, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rel = await conn.fetchrow("SELECT * FROM prod_modelo_tallas WHERE id=$1 AND modelo_id=$2", rel_id, modelo_id)
+        if not rel:
+            raise HTTPException(status_code=404, detail="Relación modelo-talla no encontrada")
+
+        orden = data.orden if data.orden is not None else rel.get('orden')
+        activo_val = data.activo if data.activo is not None else rel.get('activo')
+
+        # Si se intenta reactivar, validar no duplicado activo
+        if bool(activo_val) and not bool(rel.get('activo')):
+            exists = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_modelo_tallas WHERE modelo_id=$1 AND talla_id=$2 AND activo=true AND id<>$3",
+                modelo_id,
+                rel.get('talla_id'),
+                rel_id,
+            )
+            if exists and int(exists) > 0:
+                raise HTTPException(status_code=400, detail="Ya existe una talla activa duplicada para este modelo")
+
+        await conn.execute(
+            "UPDATE prod_modelo_tallas SET orden=$1, activo=$2, updated_at=CURRENT_TIMESTAMP WHERE id=$3",
+            int(orden),
+            bool(activo_val),
+            rel_id,
+        )
+
+        row = await conn.fetchrow(
+            """
+            SELECT mt.*, tc.nombre as talla_nombre
+            FROM prod_modelo_tallas mt
+            LEFT JOIN prod_tallas_catalogo tc ON mt.talla_id = tc.id
+            WHERE mt.id = $1
+            """,
+            rel_id,
+        )
+
+    return row_to_dict(row)
+
+
+@api_router.delete("/modelos/{modelo_id}/tallas/{rel_id}")
+async def delete_modelo_talla(modelo_id: str, rel_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rel = await conn.fetchrow("SELECT * FROM prod_modelo_tallas WHERE id=$1 AND modelo_id=$2", rel_id, modelo_id)
+        if not rel:
+            raise HTTPException(status_code=404, detail="Relación modelo-talla no encontrada")
+
+        await conn.execute(
+            "UPDATE prod_modelo_tallas SET activo=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
+            rel_id,
+        )
+
+    return {"message": "Talla desactivada"}
+
+
+# ==================== BOM POR MODELO ====================
+
+@api_router.get("/modelos/{modelo_id}/bom")
+async def get_modelo_bom(modelo_id: str, activo: str = "true"):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = """
+            SELECT bl.*, i.nombre as inventario_nombre, i.codigo as inventario_codigo,
+                   tc.nombre as talla_nombre
+            FROM prod_modelo_bom_linea bl
+            LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON bl.talla_id = tc.id
+            WHERE bl.modelo_id = $1
+        """
+        params = [modelo_id]
+        if activo == "true":
+            query += " AND bl.activo = true"
+        elif activo == "false":
+            query += " AND bl.activo = false"
+        query += " ORDER BY bl.orden ASC, bl.created_at ASC"
+        rows = await conn.fetch(query, *params)
+
+    result = []
+    for r in rows:
+        d = row_to_dict(r)
+        if isinstance(d.get('created_at'), datetime):
+            d['created_at'] = d['created_at'].strftime('%d/%m/%Y %H:%M')
+        if isinstance(d.get('updated_at'), datetime):
+            d['updated_at'] = d['updated_at'].strftime('%d/%m/%Y %H:%M')
+        result.append(d)
+    return result
+
+
+@api_router.post("/modelos/{modelo_id}/bom")
+async def add_modelo_bom_linea(modelo_id: str, data: ModeloBomLineaCreate, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    # Validaciones
+    if data.cantidad_base is None or float(data.cantidad_base) <= 0:
+        raise HTTPException(status_code=400, detail="cantidad_base debe ser mayor a 0")
+    if data.merma_pct is None:
+        merma = 0
+    else:
+        merma = float(data.merma_pct)
+    if merma < 0 or merma > 100:
+        raise HTTPException(status_code=400, detail="merma_pct debe estar entre 0 y 100")
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Inventario debe existir
+        inv = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id=$1", data.inventario_id)
+        if not inv:
+            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+
+        # Si talla_id viene, debe pertenecer a tallas activas del modelo
+        talla_id = data.talla_id
+        if talla_id:
+            exists_talla = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_modelo_tallas WHERE modelo_id=$1 AND talla_id=$2 AND activo=true",
+                modelo_id,
+                talla_id,
+            )
+            if not exists_talla or int(exists_talla) == 0:
+                raise HTTPException(status_code=400, detail="La talla no pertenece a este modelo (o está inactiva)")
+
+        # Duplicado activo exacto
+        exists = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND inventario_id=$2 AND ((talla_id IS NULL AND $3 IS NULL) OR talla_id=$3) AND activo=true",
+            modelo_id,
+            data.inventario_id,
+            talla_id,
+        )
+        if exists and int(exists) > 0:
+            raise HTTPException(status_code=400, detail="Ya existe una línea activa duplicada para este item y talla")
+
+        new_id = str(uuid4())
+        await conn.execute(
+            """
+            INSERT INTO prod_modelo_bom_linea (id, modelo_id, inventario_id, talla_id, unidad_base, cantidad_base, merma_pct, orden, activo, notas, created_at, updated_at)
+            VALUES ($1,$2,$3,$4,'PRENDA',$5,$6,$7,$8,$9,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            """,
+            new_id,
+            modelo_id,
+            data.inventario_id,
+            talla_id,
+            float(data.cantidad_base),
+            merma,
+            int(data.orden),
+            bool(data.activo),
+            data.notas,
+        )
+
+        row = await conn.fetchrow(
+            """
+            SELECT bl.*, i.nombre as inventario_nombre, i.codigo as inventario_codigo,
+                   tc.nombre as talla_nombre
+            FROM prod_modelo_bom_linea bl
+            LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON bl.talla_id = tc.id
+            WHERE bl.id = $1
+            """,
+            new_id,
+        )
+
+    return row_to_dict(row)
+
+
+@api_router.put("/modelos/{modelo_id}/bom/{linea_id}")
+async def update_modelo_bom_linea(modelo_id: str, linea_id: str, data: ModeloBomLineaUpdate, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        bl = await conn.fetchrow("SELECT * FROM prod_modelo_bom_linea WHERE id=$1 AND modelo_id=$2", linea_id, modelo_id)
+        if not bl:
+            raise HTTPException(status_code=404, detail="Línea BOM no encontrada")
+
+        inventario_id = data.inventario_id if data.inventario_id is not None else bl.get('inventario_id')
+        talla_id = data.talla_id if data.talla_id is not None else bl.get('talla_id')
+        cantidad_base = float(data.cantidad_base) if data.cantidad_base is not None else float(bl.get('cantidad_base'))
+        merma_pct = float(data.merma_pct) if data.merma_pct is not None else float(bl.get('merma_pct') or 0)
+        orden = int(data.orden) if data.orden is not None else int(bl.get('orden') or 10)
+        activo_val = bool(data.activo) if data.activo is not None else bool(bl.get('activo'))
+        notas = data.notas if data.notas is not None else bl.get('notas')
+
+        if cantidad_base <= 0:
+            raise HTTPException(status_code=400, detail="cantidad_base debe ser mayor a 0")
+        if merma_pct < 0 or merma_pct > 100:
+            raise HTTPException(status_code=400, detail="merma_pct debe estar entre 0 y 100")
+
+        # Validar inventario existe
+        inv = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id=$1", inventario_id)
+        if not inv:
+            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+
+        # Validar talla pertenece al modelo si aplica
+        if talla_id:
+            exists_talla = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_modelo_tallas WHERE modelo_id=$1 AND talla_id=$2 AND activo=true",
+                modelo_id,
+                talla_id,
+            )
+            if not exists_talla or int(exists_talla) == 0:
+                raise HTTPException(status_code=400, detail="La talla no pertenece a este modelo (o está inactiva)")
+
+        # Duplicado activo exacto (si activo=true)
+        if activo_val:
+            exists = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND inventario_id=$2 AND ((talla_id IS NULL AND $3 IS NULL) OR talla_id=$3) AND activo=true AND id<>$4",
+                modelo_id,
+                inventario_id,
+                talla_id,
+                linea_id,
+            )
+            if exists and int(exists) > 0:
+                raise HTTPException(status_code=400, detail="Ya existe una línea activa duplicada para este item y talla")
+
+        await conn.execute(
+            """
+            UPDATE prod_modelo_bom_linea
+            SET inventario_id=$1, talla_id=$2, cantidad_base=$3, merma_pct=$4, orden=$5, activo=$6, notas=$7, updated_at=CURRENT_TIMESTAMP
+            WHERE id=$8
+            """,
+            inventario_id,
+            talla_id,
+            cantidad_base,
+            merma_pct,
+            orden,
+            activo_val,
+            notas,
+            linea_id,
+        )
+
+        row = await conn.fetchrow(
+            """
+            SELECT bl.*, i.nombre as inventario_nombre, i.codigo as inventario_codigo,
+                   tc.nombre as talla_nombre
+            FROM prod_modelo_bom_linea bl
+            LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON bl.talla_id = tc.id
+            WHERE bl.id = $1
+            """,
+            linea_id,
+        )
+
+    return row_to_dict(row)
+
+
+@api_router.delete("/modelos/{modelo_id}/bom/{linea_id}")
+async def delete_modelo_bom_linea(modelo_id: str, linea_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        bl = await conn.fetchrow("SELECT * FROM prod_modelo_bom_linea WHERE id=$1 AND modelo_id=$2", linea_id, modelo_id)
+        if not bl:
+            raise HTTPException(status_code=404, detail="Línea BOM no encontrada")
+
+        await conn.execute(
+            "UPDATE prod_modelo_bom_linea SET activo=false, updated_at=CURRENT_TIMESTAMP WHERE id=$1",
+            linea_id,
+        )
+
+    return {"message": "Línea BOM desactivada"}
+
             raise HTTPException(status_code=404, detail="Modelo no encontrado")
         d = row_to_dict(row)
         d['materiales'] = parse_jsonb(d.get('materiales'))
