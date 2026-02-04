@@ -4218,6 +4218,10 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
 async def startup():
     await get_pool()
     await ensure_bom_tables()
+    # Eliminar columna materiales obsoleta
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("ALTER TABLE prod_modelos DROP COLUMN IF EXISTS materiales")
 
 @app.on_event("shutdown")
 async def shutdown():
