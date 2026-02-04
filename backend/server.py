@@ -2172,15 +2172,10 @@ async def update_modelo_bom_linea(modelo_id: str, linea_id: str, data: ModeloBom
         inventario_id = data.inventario_id if data.inventario_id is not None else bl.get('inventario_id')
         talla_id = data.talla_id if data.talla_id is not None else bl.get('talla_id')
         cantidad_base = float(data.cantidad_base) if data.cantidad_base is not None else float(bl.get('cantidad_base'))
-        merma_pct = float(data.merma_pct) if data.merma_pct is not None else float(bl.get('merma_pct') or 0)
-        orden = int(data.orden) if data.orden is not None else int(bl.get('orden') or 10)
         activo_val = bool(data.activo) if data.activo is not None else bool(bl.get('activo'))
-        notas = data.notas if data.notas is not None else bl.get('notas')
 
         if cantidad_base <= 0:
             raise HTTPException(status_code=400, detail="cantidad_base debe ser mayor a 0")
-        if merma_pct < 0 or merma_pct > 100:
-            raise HTTPException(status_code=400, detail="merma_pct debe estar entre 0 y 100")
 
         # Validar inventario existe
         inv = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id=$1", inventario_id)
