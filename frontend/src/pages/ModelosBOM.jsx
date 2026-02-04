@@ -192,13 +192,13 @@ export const ModelosTallasTab = ({ modeloId }) => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button type="button" size="sm" variant="outline" onClick={() => saveRow(r)}>Guardar</Button>
-                            <Button type="button" size="sm" variant="destructive" onClick={() => deactivate(r)}>Desactivar</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={(e) => saveRow(r, e)}>Guardar</Button>
+                            <Button type="button" size="sm" variant="destructive" onClick={(e) => deactivate(r, e)}>Desactivar</Button>
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => hardDelete(r)}
+                              onClick={(e) => hardDelete(r, e)}
                             >
                               Borrar
                             </Button>
