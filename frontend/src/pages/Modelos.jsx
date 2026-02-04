@@ -75,14 +75,13 @@ export const Modelos = () => {
 
   const fetchRelatedData = async () => {
     try {
-      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, invRes, srvRes] = await Promise.all([
+      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, srvRes] = await Promise.all([
         axios.get(`${API}/marcas`),
         axios.get(`${API}/tipos`),
         axios.get(`${API}/entalles`),
         axios.get(`${API}/telas`),
         axios.get(`${API}/hilos`),
         axios.get(`${API}/rutas-produccion`),
-        axios.get(`${API}/inventario`),
         axios.get(`${API}/servicios-produccion`),
       ]);
       setMarcas(marcasRes.data);
@@ -91,7 +90,6 @@ export const Modelos = () => {
       setTelas(telasRes.data);
       setHilos(hilosRes.data);
       setRutas(rutasRes.data);
-      setInventarioItems(invRes.data);
       setServicios(srvRes.data.sort((a, b) => (a.secuencia || 0) - (b.secuencia || 0)));
     } catch (error) {
       toast.error('Error al cargar datos relacionados');
