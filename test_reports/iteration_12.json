@@ -1,0 +1,83 @@
+{
+  "summary": "Tested BOM (Bill of Materials) module with drag-and-drop functionality. Fixed 2 bugs during testing: 1) 'Agregar línea' button was submitting form (missing type='button'), 2) BOM reorder endpoint returning 404 due to route ordering issue. All features now working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [],
+    "fixed_during_testing": [
+      {
+        "endpoint": "PUT /api/modelos/{modeloId}/bom/reorder",
+        "issue": "Returning 404 - route was defined after /bom/{linea_id} so 'reorder' was being matched as a linea_id",
+        "fix": "Moved reorder endpoint before the {linea_id} routes in server.py",
+        "status": "FIXED"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "fixed_during_testing": [
+      {
+        "component": "ModelosBOM.jsx",
+        "issue": "'Agregar línea' button was triggering form submission because it lacked type='button'",
+        "fix": "Added type='button' to the Button component",
+        "status": "FIXED"
+      }
+    ]
+  },
+  "passed_tests": [
+    "Frontend: BOM tab displays grip icon (GripVertical) on each row for drag-and-drop",
+    "Frontend: Drag-and-drop reordering works - rows can be dragged to new positions",
+    "Frontend: Reorder saves to backend - 'Orden guardado' toast appears after drag",
+    "Frontend: Inline editing (autosave) works - changing cantidad triggers autosave",
+    "Frontend: 'Agregar línea' button adds new draft row without closing modal",
+    "Frontend: Delete button removes BOM line - 'Línea eliminada' toast appears",
+    "Frontend: Summary stats update correctly (Líneas activas, Items únicos, etc.)",
+    "Backend: PUT /api/modelos/{modeloId}/bom/reorder - Returns 200 and updates order",
+    "Backend: DELETE /api/modelos/{modeloId}/bom/{lineaId}/hard - Returns 200 and deletes line"
+  ],
+  "test_report_links": [
+    "/app/frontend/src/pages/ModelosBOM.jsx",
+    "/app/frontend/src/components/SortableTable.jsx",
+    "/app/backend/server.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SortableTable.jsx uses @dnd-kit library correctly with useSortable hook",
+    "BOM tab properly handles draft rows with __tempId for unsaved items",
+    "Autosave debounce is set to 800ms which is a good balance for UX"
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/ModelosBOM.jsx - Added type='button' to 'Agregar línea' button",
+    "/app/backend/server.py - Moved BOM reorder endpoint before {linea_id} routes"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Created 1 additional BOM line (B01 - BOTON AMARILLO) for testing drag-and-drop, then deleted it",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "BOM module with drag-and-drop is fully functional. The SortableTable component uses @dnd-kit library. Key features: grip icon for drag handle, autosave on field changes, draft rows for new items. Route ordering in FastAPI is important - specific routes like /bom/reorder must come before parameterized routes like /bom/{linea_id}.",
+  "features_verified": {
+    "bom_drag_and_drop": {
+      "grip_icon": "GripVertical icon from lucide-react displayed in first column",
+      "drag_behavior": "Uses @dnd-kit with PointerSensor (8px activation distance)",
+      "reorder_api": "PUT /api/modelos/{modeloId}/bom/reorder",
+      "visual_feedback": "'Guardando orden...' text during drag, 'Orden guardado' toast on success"
+    },
+    "bom_inline_editing": {
+      "autosave": "800ms debounce, saves on field change",
+      "status_indicators": "DRAFT, Guardando..., Guardado, Error",
+      "fields": "Item (combobox), Talla (select), Cantidad (number input), Activo (switch)"
+    },
+    "bom_crud": {
+      "add": "'Agregar línea' button creates draft row",
+      "delete": "'Borrar' button calls DELETE /api/modelos/{modeloId}/bom/{lineaId}/hard"
+    }
+  }
+}
