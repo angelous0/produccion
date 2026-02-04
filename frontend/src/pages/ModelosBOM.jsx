@@ -172,6 +172,8 @@ export const ModelosTallasTab = ({ modeloId }) => {
                 ) : rows.length === 0 ? (
                   <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell></TableRow>
                 ) : (
+                  <SortableTableWrapper items={rows} sensors={sensors} handleDragEnd={handleDragEnd} modifiers={modifiers}>
+                    <>
                   rows.map((r) => (
                     <SortableRow key={r.id} id={r.id}>
                       <TableRow>
