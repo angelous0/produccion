@@ -3382,6 +3382,12 @@ async def get_salidas(registro_id: str = None):
             if d.get('rollo_id'):
                 rollo = await conn.fetchrow("SELECT numero_rollo FROM prod_inventario_rollos WHERE id = $1", d['rollo_id'])
                 d['rollo_numero'] = rollo['numero_rollo'] if rollo else None
+            # Fase 2: incluir talla_nombre
+            if d.get('talla_id'):
+                talla = await conn.fetchrow("SELECT nombre FROM prod_tallas_catalogo WHERE id = $1", d['talla_id'])
+                d['talla_nombre'] = talla['nombre'] if talla else None
+            else:
+                d['talla_nombre'] = None
             result.append(d)
         return result
 
