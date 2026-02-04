@@ -173,84 +173,134 @@ class BOMModuleTester:
         modelo_id = self.test_data['modelo_id']
         talla_id = self.test_data['talla_id']
         
-        # Test 4: POST modelo-talla relationship
-        talla_data = {"talla_id": talla_id, "orden": 1}
-        success, talla_rel_response = self.run_test(
-            "POST modelo-talla relationship", 
-            "POST", 
-            f"modelos/{modelo_id}/tallas", 
-            200, 
-            talla_data
-        )
-        if not success:
-            return False
-        
-        rel_id = talla_rel_response.get('id')
-        if rel_id:
-            self.test_data['created_relations'].append(rel_id)
-        print(f"✅ Created modelo-talla relationship with ID: {rel_id}")
-        
-        # Test 5: POST duplicate talla should fail with 400
-        success, _ = self.run_test(
-            "POST duplicate talla (should fail 400)", 
-            "POST", 
-            f"modelos/{modelo_id}/tallas", 
-            400, 
-            talla_data
-        )
-        if not success:
-            print("❌ Duplicate talla validation failed")
-            return False
-        
-        # Test 6: GET active tallas for modelo
-        success, active_tallas = self.run_test(
-            "GET active tallas for modelo", 
-            "GET", 
-            f"modelos/{modelo_id}/tallas?activo=true", 
-            200
-        )
-        if not success or not active_tallas:
-            return False
-        
-        print(f"✅ Found {len(active_tallas)} active talla(s)")
-        
-        # Test 7: DELETE (soft delete) modelo-talla relationship
-        if rel_id:
-            success, _ = self.run_test(
-                "DELETE modelo-talla relationship", 
-                "DELETE", 
-                f"modelos/{modelo_id}/tallas/{rel_id}", 
+        # Check if talla already exists
+        if self.test_data.get('talla_already_exists'):
+            print("⚠️  Talla already exists, testing different scenarios...")
+            
+            # Test getting existing tallas
+            success, active_tallas = self.run_test(
+                "GET existing active tallas", 
+                "GET", 
+                f"modelos/{modelo_id}/tallas?activo=true", 
                 200
             )
             if not success:
                 return False
-        
-        # Test 8: GET active tallas should not include deactivated one
-        success, active_tallas_after = self.run_test(
-            "GET active tallas after delete", 
-            "GET", 
-            f"modelos/{modelo_id}/tallas?activo=true", 
-            200
-        )
-        if not success:
-            return False
-        
-        if len(active_tallas_after) >= len(active_tallas):
-            print("❌ Talla was not properly deactivated")
-            return False
-        
-        # Test 9: PUT to reactivate and validate no duplicate
-        if rel_id:
-            reactivate_data = {"activo": True, "orden": 2}
+            
+            print(f"✅ Found {len(active_tallas)} existing active talla(s)")
+            
+            # Test duplicate validation with existing talla
+            talla_data = {"talla_id": talla_id, "orden": 1}
             success, _ = self.run_test(
-                "PUT reactivate modelo-talla", 
-                "PUT", 
-                f"modelos/{modelo_id}/tallas/{rel_id}", 
+                "POST duplicate existing talla (should fail 400)", 
+                "POST", 
+                f"modelos/{modelo_id}/tallas", 
+                400, 
+                talla_data
+            )
+            if not success:
+                print("❌ Duplicate talla validation failed")
+                return False
+            
+            # Find an existing relation to test update/delete
+            if active_tallas:
+                existing_rel = active_tallas[0]
+                rel_id = existing_rel['id']
+                
+                # Test update existing relation
+                update_data = {"orden": existing_rel['orden'] + 1}
+                success, _ = self.run_test(
+                    "PUT update existing modelo-talla", 
+                    "PUT", 
+                    f"modelos/{modelo_id}/tallas/{rel_id}", 
+                    200, 
+                    update_data
+                )
+                if not success:
+                    return False
+                
+                print("✅ Updated existing modelo-talla relationship")
+            
+        else:
+            # Test normal flow with new talla
+            # Test 4: POST modelo-talla relationship
+            talla_data = {"talla_id": talla_id, "orden": 1}
+            success, talla_rel_response = self.run_test(
+                "POST new modelo-talla relationship", 
+                "POST", 
+                f"modelos/{modelo_id}/tallas", 
                 200, 
-                reactivate_data
+                talla_data
             )
             if not success:
                 return False
+            
+            rel_id = talla_rel_response.get('id')
+            if rel_id:
+                self.test_data['created_relations'].append(rel_id)
+            print(f"✅ Created modelo-talla relationship with ID: {rel_id}")
+            
+            # Test 5: POST duplicate talla should fail with 400
+            success, _ = self.run_test(
+                "POST duplicate talla (should fail 400)", 
+                "POST", 
+                f"modelos/{modelo_id}/tallas", 
+                400, 
+                talla_data
+            )
+            if not success:
+                print("❌ Duplicate talla validation failed")
+                return False
+            
+            # Test 6: GET active tallas for modelo
+            success, active_tallas = self.run_test(
+                "GET active tallas for modelo", 
+                "GET", 
+                f"modelos/{modelo_id}/tallas?activo=true", 
+                200
+            )
+            if not success or not active_tallas:
+                return False
+            
+            print(f"✅ Found {len(active_tallas)} active talla(s)")
+            
+            # Test 7: DELETE (soft delete) modelo-talla relationship
+            if rel_id:
+                success, _ = self.run_test(
+                    "DELETE modelo-talla relationship", 
+                    "DELETE", 
+                    f"modelos/{modelo_id}/tallas/{rel_id}", 
+                    200
+                )
+                if not success:
+                    return False
+            
+            # Test 8: GET active tallas should not include deactivated one
+            success, active_tallas_after = self.run_test(
+                "GET active tallas after delete", 
+                "GET", 
+                f"modelos/{modelo_id}/tallas?activo=true", 
+                200
+            )
+            if not success:
+                return False
+            
+            if len(active_tallas_after) >= len(active_tallas):
+                print("❌ Talla was not properly deactivated")
+                return False
+            
+            # Test 9: PUT to reactivate and validate no duplicate
+            if rel_id:
+                reactivate_data = {"activo": True, "orden": 2}
+                success, _ = self.run_test(
+                    "PUT reactivate modelo-talla", 
+                    "PUT", 
+                    f"modelos/{modelo_id}/tallas/{rel_id}", 
+                    200, 
+                    reactivate_data
+                )
+                if not success:
+                    return False
         
         print("✅ MODELO↔TALLAS relationship tests completed successfully")
         return True
