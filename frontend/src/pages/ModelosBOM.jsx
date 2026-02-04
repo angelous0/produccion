@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
-import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { Label } from '../components/ui/label';
 import {
   Table,
@@ -24,23 +23,31 @@ import {
   SelectValue,
 } from '../components/ui/select';
 
+import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { InventarioCombobox } from '../components/InventarioCombobox';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const DEBOUNCE_MS = 800; // recomendado (balance entre UX y carga)
+
+const mkTempId = () => `draft_${Math.random().toString(36).slice(2, 10)}`;
 
 export const ModelosTallasTab = ({ modeloId }) => {
   const [catalogoTallas, setCatalogoTallas] = useState([]);
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState([]); // incluye activas e inactivas
   const [loading, setLoading] = useState(true);
 
   const [newTallaId, setNewTallaId] = useState('');
+  const [verInactivas, setVerInactivas] = useState(false);
+
+  // Autosave por fila (solo activo por ahora)
+  const timersRef = useRef({});
+  const [rowState, setRowState] = useState({}); // { [id]: 'idle'|'saving'|'saved'|'error' }
 
   const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(
     rows,
     setRows,
     `modelos/${modeloId}/tallas/reorder`
   );
-
 
   const fetchAll = async () => {
     setLoading(true);
@@ -51,7 +58,7 @@ export const ModelosTallasTab = ({ modeloId }) => {
       ]);
       setCatalogoTallas(catRes.data || []);
       setRows(relRes.data || []);
-    } catch (e) {
+    } catch {
       toast.error('Error al cargar tallas');
     } finally {
       setLoading(false);
@@ -60,12 +67,19 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
   useEffect(() => {
     if (modeloId) fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeloId]);
 
   const availableTallas = useMemo(() => {
     const used = new Set(rows.filter((r) => r.activo).map((r) => r.talla_id));
     return (catalogoTallas || []).filter((t) => !used.has(t.id));
   }, [catalogoTallas, rows]);
+
+  const visibleRows = useMemo(() => {
+    const list = verInactivas ? rows : rows.filter((r) => r.activo);
+    // mantener orden ya calculado (drag&drop)
+    return list;
+  }, [rows, verInactivas]);
 
   const addTalla = async (e) => {
     e?.preventDefault?.();
@@ -75,68 +89,79 @@ export const ModelosTallasTab = ({ modeloId }) => {
       return;
     }
     try {
-      await axios.post(`${API}/modelos/${modeloId}/tallas`, {
+      const res = await axios.post(`${API}/modelos/${modeloId}/tallas`, {
         talla_id: newTallaId,
-        orden: 10,
+        orden: rows.length + 1,
         activo: true,
       });
-      toast.success('Talla agregada');
+      const created = res.data;
+      setRows((prev) => [...prev, created]);
       setNewTallaId('');
-      fetchAll();
+      toast.success('Talla agregada');
     } catch (e2) {
       toast.error(e2?.response?.data?.detail || 'Error al agregar talla');
     }
   };
 
-  const saveRow = async (r, e) => {
-    e?.preventDefault?.();
+  const scheduleAutosave = (relId, payload) => {
+    if (!relId) return;
 
-    try {
-      await axios.put(`${API}/modelos/${modeloId}/tallas/${r.id}`, {
-        activo: Boolean(r.activo),
-      });
-      toast.success('Guardado');
-      fetchAll();
-    } catch (e2) {
-      toast.error(e2?.response?.data?.detail || 'Error al guardar');
-    }
-  };
+    if (timersRef.current[relId]) clearTimeout(timersRef.current[relId]);
+    setRowState((prev) => ({ ...prev, [relId]: 'saving' }));
 
-  const deactivate = async (r, e) => {
-    e?.preventDefault?.();
-
-    try {
-      await axios.delete(`${API}/modelos/${modeloId}/tallas/${r.id}`);
-      toast.success('Desactivado');
-      fetchAll();
-    } catch (e2) {
-      toast.error(e2?.response?.data?.detail || 'Error al desactivar');
-    }
+    timersRef.current[relId] = setTimeout(async () => {
+      try {
+        await axios.put(`${API}/modelos/${modeloId}/tallas/${relId}`, payload);
+        setRowState((prev) => ({ ...prev, [relId]: 'saved' }));
+        setTimeout(() => {
+          setRowState((prev) => ({ ...prev, [relId]: 'idle' }));
+        }, 900);
+      } catch (e2) {
+        setRowState((prev) => ({ ...prev, [relId]: 'error' }));
+        toast.error(e2?.response?.data?.detail || 'Error al guardar');
+      }
+    }, DEBOUNCE_MS);
   };
 
   const hardDelete = async (r, e) => {
     e?.preventDefault?.();
-
     try {
       await axios.delete(`${API}/modelos/${modeloId}/tallas/${r.id}/hard`);
+      setRows((prev) => prev.filter((x) => x.id !== r.id));
       toast.success('Eliminado');
-      fetchAll();
     } catch (e2) {
       toast.error(e2?.response?.data?.detail || 'No se pudo borrar');
     }
+  };
+
+  const rowStatusLabel = (id) => {
+    const s = rowState[id];
+    if (s === 'saving') return 'Guardando…';
+    if (s === 'saved') return 'Guardado';
+    if (s === 'error') return 'Error';
+    return '';
   };
 
   return (
     <div className="space-y-4" data-testid="tab-modelo-tallas">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Tallas del modelo</CardTitle>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-base">Tallas del modelo</CardTitle>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm">Ver inactivas</Label>
+              <Switch checked={verInactivas} onCheckedChange={setVerInactivas} data-testid="toggle-ver-inactivas-tallas" />
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div className="space-y-2">
               <Label>Talla</Label>
-              <Select value={newTallaId || 'none'} onValueChange={(v) => setNewTallaId(v === 'none' ? '' : v)}>
+              <Select
+                value={newTallaId || 'none'}
+                onValueChange={(v) => setNewTallaId(v === 'none' ? '' : v)}
+              >
                 <SelectTrigger data-testid="select-new-talla">
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
@@ -156,60 +181,66 @@ export const ModelosTallasTab = ({ modeloId }) => {
             {isSaving && (
               <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>
             )}
-            <SortableTableWrapper items={rows} sensors={sensors} handleDragEnd={handleDragEnd} modifiers={modifiers}>
+
+            <SortableTableWrapper items={visibleRows} sensors={sensors} handleDragEnd={handleDragEnd} modifiers={modifiers}>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[40px]"></TableHead>
-                  <TableHead>Talla</TableHead>
-                  <TableHead className="w-[120px]">Activo</TableHead>
-                  <TableHead className="w-[260px]">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8">Cargando...</TableCell></TableRow>
-                ) : rows.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell></TableRow>
-                ) : (
-                  rows.map((r) => (
-                    <SortableRow key={r.id} id={r.id}>
-                      <TableRow>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="cursor-grab active:cursor-grabbing">⋮⋮</div>
-                          </div>
-                        </TableCell>
+                    <TableHead>Talla</TableHead>
+                    <TableHead className="w-[120px]">Activo</TableHead>
+                    <TableHead className="w-[140px]">Estado</TableHead>
+                    <TableHead className="w-[120px]">Borrar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell>
+                    </TableRow>
+                  ) : visibleRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell>
+                    </TableRow>
+                  ) : (
+                    visibleRows.map((r) => (
+                      <SortableRow key={r.id} id={r.id}>
                         <TableCell className="font-medium">{r.talla_nombre || r.talla_id}</TableCell>
                         <TableCell>
                           <Switch
                             checked={Boolean(r.activo)}
-                            onCheckedChange={(checked) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: checked } : x))}
+                            onCheckedChange={(checked) => {
+                              setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: checked } : x));
+                              scheduleAutosave(r.id, { activo: Boolean(checked) });
+                            }}
                             data-testid={`talla-activo-${r.id}`}
                           />
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button type="button" size="sm" variant="outline" onClick={(e) => saveRow(r, e)}>Guardar</Button>
-                            <Button type="button" size="sm" variant="destructive" onClick={(e) => deactivate(r, e)}>Desactivar</Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => hardDelete(r, e)}
-                            >
-                              Borrar
-                            </Button>
-                          </div>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {rowStatusLabel(r.id)}
                         </TableCell>
-                      </TableRow>
-                    </SortableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => hardDelete(r, e)}
+                            data-testid={`talla-borrar-${r.id}`}
+                          >
+                            Borrar
+                          </Button>
+                        </TableCell>
+                      </SortableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </SortableTableWrapper>
           </div>
+
+          <p className="text-xs text-muted-foreground">
+            Arrastra las filas para reordenar. Los cambios se guardan automáticamente.
+          </p>
         </CardContent>
       </Card>
     </div>
@@ -219,23 +250,14 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
 export const ModelosBOMTab = ({ modeloId }) => {
   const [inventario, setInventario] = useState([]);
-  const [tallas, setTallas] = useState([]);
-  const [rows, setRows] = useState([]);
+  const [tallas, setTallas] = useState([]); // solo activas del modelo
+  const [rows, setRows] = useState([]); // incluye activas/inactivas
   const [loading, setLoading] = useState(true);
+
   const [verInactivos, setVerInactivos] = useState(false);
 
-  const emptyRow = {
-    id: null,
-    inventario_id: '',
-    talla_id: null,
-    cantidad_base: '',
-    merma_pct: 0,
-    orden: 10,
-    activo: true,
-    notas: '',
-  };
-
-  const [drafts, setDrafts] = useState([emptyRow]);
+  const timersRef = useRef({});
+  const [rowState, setRowState] = useState({}); // { [key]: 'idle'|'saving'|'saved'|'error'|'draft' }
 
   const fetchAll = async () => {
     setLoading(true);
@@ -243,12 +265,12 @@ export const ModelosBOMTab = ({ modeloId }) => {
       const [invRes, tallasRes, bomRes] = await Promise.all([
         axios.get(`${API}/inventario`),
         axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`),
-        axios.get(`${API}/modelos/${modeloId}/bom?activo=${verInactivos ? 'all' : 'true'}`),
+        axios.get(`${API}/modelos/${modeloId}/bom?activo=all`),
       ]);
       setInventario(invRes.data || []);
       setTallas(tallasRes.data || []);
       setRows(bomRes.data || []);
-    } catch (e) {
+    } catch {
       toast.error('Error al cargar BOM');
     } finally {
       setLoading(false);
@@ -257,7 +279,19 @@ export const ModelosBOMTab = ({ modeloId }) => {
 
   useEffect(() => {
     if (modeloId) fetchAll();
-  }, [modeloId, verInactivos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeloId]);
+
+  const visibleRows = useMemo(() => {
+    const list = verInactivos ? rows : rows.filter((r) => r.activo);
+    // ordenar estable
+    return [...list].sort((a, b) => {
+      const ao = a.orden ?? 10;
+      const bo = b.orden ?? 10;
+      if (ao !== bo) return ao - bo;
+      return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+    });
+  }, [rows, verInactivos]);
 
   const resumen = useMemo(() => {
     const act = (rows || []).filter((r) => r.activo);
@@ -276,7 +310,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
     const cantidad = Number(r.cantidad_base);
     const merma = Number(r.merma_pct);
     if (!r.inventario_id) return 'Selecciona un item de inventario';
-    if (!(cantidad > 0)) return 'Cantidad base debe ser > 0';
+    if (!(cantidad > 0)) return 'Cantidad por prenda debe ser > 0';
     if (merma < 0 || merma > 100) return 'Merma % debe estar entre 0 y 100';
     if (r.talla_id) {
       const ok = tallas.some((t) => t.talla_id === r.talla_id);
@@ -285,68 +319,107 @@ export const ModelosBOMTab = ({ modeloId }) => {
     return null;
   };
 
+  const keyOf = (r) => r.id || r.__tempId;
+
+  const setStatus = (key, status) => {
+    setRowState((prev) => ({ ...prev, [key]: status }));
+  };
+
+  const rowStatusLabel = (key) => {
+    const s = rowState[key];
+    if (s === 'saving') return 'Guardando…';
+    if (s === 'saved') return 'Guardado';
+    if (s === 'error') return 'Error';
+    if (s === 'draft') return 'DRAFT';
+    return '';
+  };
+
+  const scheduleSave = (row) => {
+    const key = keyOf(row);
+    if (!key) return;
+
+    const err = validate(row);
+    if (err) {
+      setStatus(key, 'draft');
+      return;
+    }
+
+    if (timersRef.current[key]) clearTimeout(timersRef.current[key]);
+    setStatus(key, 'saving');
+
+    timersRef.current[key] = setTimeout(async () => {
+      try {
+        if (!row.id) {
+          // Create (POST) desde draft
+          const res = await axios.post(`${API}/modelos/${modeloId}/bom`, {
+            inventario_id: row.inventario_id,
+            talla_id: row.talla_id || null,
+            cantidad_base: Number(row.cantidad_base),
+            merma_pct: Number(row.merma_pct) || 0,
+            orden: Number(row.orden) || 10,
+            activo: Boolean(row.activo),
+            notas: row.notas || null,
+          });
+          const created = res.data;
+
+          setRows((prev) => prev.map((x) => (x.__tempId && x.__tempId === row.__tempId ? created : x)));
+          setRowState((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            next[created.id] = 'saved';
+            return next;
+          });
+          setTimeout(() => setStatus(created.id, 'idle'), 900);
+          return;
+        }
+
+        // Update (PUT parcial)
+        await axios.put(`${API}/modelos/${modeloId}/bom/${row.id}`, {
+          inventario_id: row.inventario_id,
+          talla_id: row.talla_id || null,
+          cantidad_base: Number(row.cantidad_base),
+          merma_pct: Number(row.merma_pct) || 0,
+          orden: Number(row.orden) || 10,
+          activo: Boolean(row.activo),
+          notas: row.notas || null,
+        });
+
+        setStatus(key, 'saved');
+        setTimeout(() => setStatus(key, 'idle'), 900);
+      } catch (e2) {
+        setStatus(key, 'error');
+        toast.error(e2?.response?.data?.detail || 'Error al guardar');
+      }
+    }, DEBOUNCE_MS);
+  };
+
   const addDraftRow = () => {
-    setDrafts((prev) => [...prev, { ...emptyRow, orden: 10 }]);
+    const r = {
+      __tempId: mkTempId(),
+      inventario_id: '',
+      talla_id: null,
+      cantidad_base: '',
+      merma_pct: 0,
+      orden: 10,
+      activo: true,
+      notas: '',
+    };
+    setRows((prev) => [r, ...prev]);
+    setStatus(r.__tempId, 'draft');
   };
 
-  const saveDraft = async (idx) => {
-    const r = drafts[idx];
-    const err = validate(r);
-    if (err) {
-      toast.error(err);
-      return;
-    }
-
-    try {
-      await axios.post(`${API}/modelos/${modeloId}/bom`, {
-        inventario_id: r.inventario_id,
-        talla_id: r.talla_id || null,
-        cantidad_base: Number(r.cantidad_base),
-        merma_pct: Number(r.merma_pct) || 0,
-        orden: Number(r.orden) || 10,
-        activo: Boolean(r.activo),
-        notas: r.notas || null,
+  const updateRow = (rowKey, patch) => {
+    setRows((prev) => {
+      const next = prev.map((r) => {
+        const k = keyOf(r);
+        if (k !== rowKey) return r;
+        const merged = { ...r, ...patch };
+        // schedule save with merged snapshot
+        setTimeout(() => scheduleSave(merged), 0);
+        return merged;
       });
-      toast.success('Línea creada');
-      setDrafts((prev) => prev.filter((_, i) => i !== idx));
-      fetchAll();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al crear línea');
-    }
-  };
-
-  const saveExisting = async (r) => {
-    const err = validate(r);
-    if (err) {
-      toast.error(err);
-      return;
-    }
-
-    try {
-      await axios.put(`${API}/modelos/${modeloId}/bom/${r.id}`, {
-        inventario_id: r.inventario_id,
-        talla_id: r.talla_id || null,
-        cantidad_base: Number(r.cantidad_base),
-        merma_pct: Number(r.merma_pct) || 0,
-        orden: Number(r.orden) || 10,
-        activo: Boolean(r.activo),
-        notas: r.notas || null,
-      });
-      toast.success('Guardado');
-      fetchAll();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al guardar');
-    }
-  };
-
-  const deactivate = async (r) => {
-    try {
-      await axios.delete(`${API}/modelos/${modeloId}/bom/${r.id}`);
-      toast.success('Desactivado');
-      fetchAll();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al desactivar');
-    }
+      return next;
+    });
   };
 
   return (
@@ -373,34 +446,42 @@ export const ModelosBOMTab = ({ modeloId }) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="min-w-[320px]">Item</TableHead>
+                  <TableHead className="min-w-[340px]">Item</TableHead>
                   <TableHead className="min-w-[160px]">Talla</TableHead>
-                  <TableHead className="w-[140px] text-right">Cant. por prenda</TableHead>
+                  <TableHead className="w-[160px] text-right">Cant. por prenda</TableHead>
                   <TableHead className="w-[110px] text-right">Merma %</TableHead>
                   <TableHead className="w-[110px] text-right">Orden</TableHead>
                   <TableHead className="w-[90px]">Activo</TableHead>
                   <TableHead className="min-w-[220px]">Notas</TableHead>
-                  <TableHead className="w-[220px]">Acciones</TableHead>
+                  <TableHead className="w-[120px]">Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell>
+                  </TableRow>
+                ) : visibleRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Sin líneas</TableCell>
+                  </TableRow>
                 ) : (
-                  <>
-                    {rows.map((r) => (
-                      <TableRow key={r.id} className={!r.activo ? 'opacity-60' : ''}>
+                  visibleRows.map((r) => {
+                    const k = keyOf(r);
+                    const isDraft = !r.id;
+                    return (
+                      <TableRow key={k} className={!r.activo ? 'opacity-60' : ''} data-testid="bom-row">
                         <TableCell>
                           <InventarioCombobox
                             options={inventario}
                             value={r.inventario_id}
-                            onChange={(id) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, inventario_id: id } : x))}
+                            onChange={(id) => updateRow(k, { inventario_id: id })}
                           />
                         </TableCell>
                         <TableCell>
                           <Select
                             value={r.talla_id || 'all'}
-                            onValueChange={(v) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, talla_id: v === 'all' ? null : v } : x))}
+                            onValueChange={(v) => updateRow(k, { talla_id: v === 'all' ? null : v })}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Todas" />
@@ -420,7 +501,8 @@ export const ModelosBOMTab = ({ modeloId }) => {
                             step="0.0001"
                             className="text-right font-mono"
                             value={r.cantidad_base}
-                            onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, cantidad_base: e.target.value } : x))}
+                            onChange={(e) => updateRow(k, { cantidad_base: e.target.value })}
+                            data-testid={isDraft ? 'input-draft-cantidad' : undefined}
                           />
                         </TableCell>
                         <TableCell>
@@ -431,7 +513,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                             step="0.01"
                             className="text-right font-mono"
                             value={r.merma_pct ?? 0}
-                            onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, merma_pct: e.target.value } : x))}
+                            onChange={(e) => updateRow(k, { merma_pct: e.target.value })}
                           />
                         </TableCell>
                         <TableCell>
@@ -439,120 +521,41 @@ export const ModelosBOMTab = ({ modeloId }) => {
                             type="number"
                             className="text-right font-mono"
                             value={r.orden ?? 10}
-                            onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, orden: e.target.value } : x))}
+                            onChange={(e) => updateRow(k, { orden: e.target.value })}
                           />
                         </TableCell>
                         <TableCell>
                           <Switch
                             checked={Boolean(r.activo)}
-                            onCheckedChange={(checked) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: checked } : x))}
+                            onCheckedChange={(checked) => updateRow(k, { activo: checked })}
                           />
                         </TableCell>
                         <TableCell>
                           <Input
                             value={r.notas || ''}
-                            onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, notas: e.target.value } : x))}
+                            onChange={(e) => updateRow(k, { notas: e.target.value })}
                             placeholder="Opcional"
                           />
                         </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => saveExisting(r)}>Guardar</Button>
-                            <Button size="sm" variant="destructive" onClick={() => deactivate(r)}>Desactivar</Button>
-                          </div>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {rowStatusLabel(k)}
                         </TableCell>
                       </TableRow>
-                    ))}
-
-                    {drafts.map((r, idx) => (
-                      <TableRow key={`draft-${idx}`}>
-                        <TableCell>
-                          <InventarioCombobox
-                            options={inventario}
-                            value={r.inventario_id}
-                            onChange={(id) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, inventario_id: id } : x))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={r.talla_id || 'all'}
-                            onValueChange={(v) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, talla_id: v === 'all' ? null : v } : x))}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Todas" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">Todas</SelectItem>
-                              {tallas.map((t) => (
-                                <SelectItem key={t.talla_id} value={t.talla_id}>{t.talla_nombre}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.0001"
-                            className="text-right font-mono"
-                            value={r.cantidad_base}
-                            onChange={(e) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, cantidad_base: e.target.value } : x))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            className="text-right font-mono"
-                            value={r.merma_pct ?? 0}
-                            onChange={(e) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, merma_pct: e.target.value } : x))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            className="text-right font-mono"
-                            value={r.orden ?? 10}
-                            onChange={(e) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, orden: e.target.value } : x))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={Boolean(r.activo)}
-                            onCheckedChange={(checked) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, activo: checked } : x))}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={r.notas || ''}
-                            onChange={(e) => setDrafts((prev) => prev.map((x, i) => i === idx ? { ...x, notas: e.target.value } : x))}
-                            placeholder="Opcional"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => saveDraft(idx)} data-testid="btn-guardar-linea-draft">Guardar</Button>
-                            <Button size="sm" variant="outline" onClick={() => setDrafts((prev) => prev.filter((_, i) => i !== idx))}>Quitar</Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
 
           <Button onClick={addDraftRow} variant="secondary" data-testid="btn-add-bom-linea">Agregar línea</Button>
+
+          <p className="text-xs text-muted-foreground">
+            Regla: si la línea tiene <span className="font-medium">Talla = Todas</span> (talla_id = NULL) aplica a todas las tallas.
+            Si tiene una talla específica, aplica solo a esa talla.
+          </p>
         </CardContent>
       </Card>
-
-      <p className="text-xs text-muted-foreground">
-        Regla: si la línea tiene <span className="font-medium">Talla = Todas</span> (talla_id = NULL) aplica a todas las tallas.
-        Si tiene una talla específica, aplica solo a esa talla.
-      </p>
     </div>
   );
 };
