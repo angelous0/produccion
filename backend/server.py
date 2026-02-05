@@ -3344,7 +3344,7 @@ async def anular_registro(registro_id: str):
             # Cambiar estado a ANULADA
             await conn.execute("""
                 UPDATE prod_registros 
-                SET estado = 'ANULADA', updated_at = CURRENT_TIMESTAMP
+                SET estado = 'ANULADA'
                 WHERE id = $1
             """, registro_id)
             
