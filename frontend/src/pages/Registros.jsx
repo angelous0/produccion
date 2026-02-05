@@ -21,13 +21,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from '../components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStatusClass } from '../lib/utils';
 import { MultiSelectColors } from '../components/MultiSelectColors';
 import { formatDate } from '../lib/dateUtils';
 import { ExportButton } from '../components/ExportButton';
+import { RegistroDetalleFase2 } from './RegistroDetalleFase2';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
