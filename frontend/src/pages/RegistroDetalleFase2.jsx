@@ -377,25 +377,26 @@ const ReservasTab = ({ registroId }) => {
     );
   }
 
-  const pendientes = requerimiento.lineas.filter(l => l.pendiente_reservar > 0);
+  // Mostrar TODOS los items (no solo pendientes) para poder reservar más
+  const itemsConDisponibilidad = requerimiento.lineas.filter(l => (disponibilidad[l.item_id]?.disponible || 0) > 0);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold">Reservar Materia Prima</h3>
-          <p className="text-sm text-muted-foreground">Bloquea stock para este registro</p>
+          <p className="text-sm text-muted-foreground">Bloquea stock para este registro (puedes reservar más del requerimiento original)</p>
         </div>
-        <Button onClick={handleReservarTodo} disabled={reservando || pendientes.length === 0} data-testid="btn-reservar">
+        <Button onClick={handleReservarTodo} disabled={reservando || itemsConDisponibilidad.length === 0} data-testid="btn-reservar">
           {reservando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <BookmarkCheck className="h-4 w-4 mr-2" />}
           Reservar Seleccionados
         </Button>
       </div>
 
-      {pendientes.length === 0 ? (
-        <div className="text-center py-4 bg-green-50 rounded-lg">
-          <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-600" />
-          <p className="text-green-700">Todo el requerimiento está reservado</p>
+      {itemsConDisponibilidad.length === 0 ? (
+        <div className="text-center py-4 bg-yellow-50 rounded-lg">
+          <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-yellow-600" />
+          <p className="text-yellow-700">No hay stock disponible para reservar</p>
         </div>
       ) : (
         <Table>
