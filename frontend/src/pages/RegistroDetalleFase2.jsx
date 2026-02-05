@@ -23,9 +23,19 @@ import {
 import { Separator } from '../components/ui/separator';
 import { 
   Scissors, Package, BookmarkCheck, LogOut, RefreshCw, 
-  AlertTriangle, CheckCircle2, Clock, Loader2, Plus 
+  AlertTriangle, CheckCircle2, Clock, Loader2, Plus, Lock, XCircle, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
