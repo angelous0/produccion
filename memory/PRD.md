@@ -303,6 +303,11 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Actualiza requerimiento_mp: cantidad_reservada
   - Marca cabeceras de reserva como CERRADA
   - Recalcula estados de requerimiento
+- ✅ **UI Frontend para Cerrar/Anular OP**:
+  - Botones "Cerrar OP" y "Anular OP" en el detalle de registro (pestaña Materia Prima)
+  - Modal de confirmación con resumen (prendas, salidas, reservas a liberar)
+  - Badge de "Solo lectura" cuando OP está cerrada/anulada
+  - Actualización reactiva de la lista de registros tras cerrar/anular
 
 ## Backlog
 
