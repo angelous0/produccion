@@ -234,6 +234,16 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Botón "Agregar línea" con `type="button"` para evitar submit del formulario
   - Endpoint de reorder movido antes de rutas con `{linea_id}` para evitar conflicto de rutas
 
+### Febrero 2025 - FASE 2B: Frontend UI para Reservas + Requerimiento
+- ✅ **Nuevo componente `RegistroDetalleFase2.jsx`** con 4 sub-pestañas:
+  - **Tallas (Corte)**: Grid de inputs por talla con autosave (debounce), muestra total de prendas
+  - **Requerimiento**: Cards resumen + tabla detallada, botón "Regenerar desde BOM"
+  - **Reservas**: Lista items pendientes, input cantidad a reservar, historial de reservas
+  - **Salidas**: Panel dual (items pendientes + formulario nueva salida), selector de rollo para TELA, historial de salidas
+- ✅ **Integración en `Registros.jsx`**: Dialog de detalle ahora tiene tabs "Información General" y "Materia Prima"
+- ✅ **Badges de estado**: PENDIENTE, PARCIAL, COMPLETO con colores distintivos
+- ✅ **Indicador TELA**: Badge "TELA" en items con `control_por_rollos=true`
+
 ### Febrero 2025 - FASE 2A: Reservas + Requerimiento MP (Backend)
 - ✅ **Nuevas tablas creadas** en schema `produccion`:
   - `prod_registro_tallas` - Cantidades reales por talla (corte)
