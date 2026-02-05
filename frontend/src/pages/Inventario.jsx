@@ -153,6 +153,30 @@ export const Inventario = () => {
     return 'OK';
   };
 
+  const toggleExpandItem = async (itemId) => {
+    if (expandedItemId === itemId) {
+      setExpandedItemId(null);
+      setReservasDetalle(null);
+      return;
+    }
+    
+    setExpandedItemId(itemId);
+    setLoadingReservas(true);
+    try {
+      const response = await axios.get(`${API}/inventario/${itemId}/reservas-detalle`);
+      setReservasDetalle(response.data);
+    } catch (error) {
+      toast.error('Error al cargar detalle de reservas');
+      setExpandedItemId(null);
+    } finally {
+      setLoadingReservas(false);
+    }
+  };
+
+  const hasActiveReservas = (item) => {
+    return item.total_reservado && item.total_reservado > 0;
+  };
+
   return (
     <div className="space-y-6" data-testid="inventario-page">
       <div className="flex items-center justify-between">
