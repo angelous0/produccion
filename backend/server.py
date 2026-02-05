@@ -2966,6 +2966,13 @@ async def crear_reserva(registro_id: str, input: ReservaCreateInput):
         if not registro:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         
+        # FASE 2C: Validar que OP no esté cerrada/anulada
+        if registro['estado'] in ('CERRADA', 'ANULADA'):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"OP {registro['estado'].lower()}: no se puede crear reservas en una orden {registro['estado'].lower()}"
+            )
+        
         if not input.lineas:
             raise HTTPException(status_code=400, detail="Debe incluir al menos una línea de reserva")
         
