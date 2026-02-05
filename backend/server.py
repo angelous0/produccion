@@ -3114,6 +3114,13 @@ async def liberar_reservas(registro_id: str, input: LiberarReservaInput):
         if not registro:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         
+        # FASE 2C: Validar que OP no esté cerrada/anulada (la liberación manual es bloqueada, la automática usa otra función)
+        if registro['estado'] in ('CERRADA', 'ANULADA'):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"OP {registro['estado'].lower()}: las reservas ya fueron liberadas automáticamente al cerrar/anular"
+            )
+        
         if not input.lineas:
             raise HTTPException(status_code=400, detail="Debe incluir al menos una línea a liberar")
         
