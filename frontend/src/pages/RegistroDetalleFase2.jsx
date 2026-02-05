@@ -946,8 +946,74 @@ const SalidasTab = ({ registroId }) => {
 
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export const RegistroDetalleFase2 = ({ registroId, registro }) => {
+export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) => {
   const [totalPrendas, setTotalPrendas] = useState(0);
+  const [estadoActual, setEstadoActual] = useState(registro?.estado);
+  const [showCerrarDialog, setShowCerrarDialog] = useState(false);
+  const [showAnularDialog, setShowAnularDialog] = useState(false);
+  const [resumen, setResumen] = useState(null);
+  const [loadingResumen, setLoadingResumen] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+
+  // Actualizar estado cuando cambie el registro
+  useEffect(() => {
+    setEstadoActual(registro?.estado);
+  }, [registro?.estado]);
+
+  // Cargar resumen para mostrar en el diálogo de confirmación
+  const cargarResumen = async () => {
+    setLoadingResumen(true);
+    try {
+      const res = await axios.get(`${API}/registros/${registroId}/resumen`);
+      setResumen(res.data);
+    } catch (error) {
+      toast.error('Error al cargar resumen');
+    } finally {
+      setLoadingResumen(false);
+    }
+  };
+
+  const handleOpenCerrar = async () => {
+    await cargarResumen();
+    setShowCerrarDialog(true);
+  };
+
+  const handleOpenAnular = async () => {
+    await cargarResumen();
+    setShowAnularDialog(true);
+  };
+
+  const handleCerrarOP = async () => {
+    setProcesando(true);
+    try {
+      const res = await axios.post(`${API}/registros/${registroId}/cerrar`);
+      toast.success(`OP cerrada. ${res.data.reservas_liberadas_total > 0 ? `Se liberaron ${res.data.reservas_liberadas_total} unidades de reserva.` : ''}`);
+      setEstadoActual('CERRADA');
+      onEstadoChange?.('CERRADA');
+      setShowCerrarDialog(false);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al cerrar OP');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const handleAnularOP = async () => {
+    setProcesando(true);
+    try {
+      const res = await axios.post(`${API}/registros/${registroId}/anular`);
+      toast.success(`OP anulada. ${res.data.reservas_liberadas_total > 0 ? `Se liberaron ${res.data.reservas_liberadas_total} unidades de reserva.` : ''}`);
+      setEstadoActual('ANULADA');
+      onEstadoChange?.('ANULADA');
+      setShowAnularDialog(false);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al anular OP');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const estaInactiva = estadoActual === 'CERRADA' || estadoActual === 'ANULADA';
 
   if (!registroId) {
     return <div className="text-center py-8 text-muted-foreground">Selecciona un registro</div>;
@@ -955,11 +1021,53 @@ export const RegistroDetalleFase2 = ({ registroId, registro }) => {
 
   return (
     <div className="space-y-4">
+      {/* Header con estado y botones de acción */}
       {registro && (
-        <div className="flex items-center gap-4 mb-4">
-          <Badge variant="outline" className="text-lg">N° Corte: {registro.n_corte}</Badge>
-          <Badge>{registro.estado}</Badge>
-          {registro.urgente && <Badge variant="destructive">URGENTE</Badge>}
+        <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="text-lg">N° Corte: {registro.n_corte}</Badge>
+            <Badge 
+              className={
+                estadoActual === 'CERRADA' ? 'bg-gray-500' : 
+                estadoActual === 'ANULADA' ? 'bg-red-500' : ''
+              }
+            >
+              {estadoActual}
+            </Badge>
+            {registro.urgente && <Badge variant="destructive">URGENTE</Badge>}
+          </div>
+          
+          {/* Botones de Cerrar/Anular */}
+          {!estaInactiva && (
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleOpenCerrar}
+                data-testid="btn-cerrar-op"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Cerrar OP
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                onClick={handleOpenAnular}
+                data-testid="btn-anular-op"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Anular OP
+              </Button>
+            </div>
+          )}
+
+          {/* Mensaje si está inactiva */}
+          {estaInactiva && (
+            <Badge variant="secondary" className="gap-2">
+              <Info className="h-4 w-4" />
+              {estadoActual === 'CERRADA' ? 'OP cerrada - Solo lectura' : 'OP anulada - Solo lectura'}
+            </Badge>
+          )}
         </div>
       )}
 
@@ -999,6 +1107,127 @@ export const RegistroDetalleFase2 = ({ registroId, registro }) => {
           <SalidasTab registroId={registroId} />
         </TabsContent>
       </Tabs>
+
+      {/* Dialog de confirmación para CERRAR */}
+      <AlertDialog open={showCerrarDialog} onOpenChange={setShowCerrarDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Cerrar Orden de Producción
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>¿Estás seguro de cerrar esta OP? Esta acción:</p>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  <li>Cambiará el estado a <strong>CERRADA</strong></li>
+                  <li>Liberará automáticamente todas las reservas pendientes</li>
+                  <li>No permitirá nuevas reservas ni salidas</li>
+                </ul>
+                
+                {loadingResumen ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : resumen && (
+                  <Card className="bg-muted/50">
+                    <CardContent className="pt-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Total Prendas:</span>
+                          <p className="font-bold">{resumen.total_prendas}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Salidas Realizadas:</span>
+                          <p className="font-bold">{resumen.salidas?.total_salidas || 0}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Reservas Pendientes a Liberar:</span>
+                          <p className="font-bold text-orange-500">
+                            {(resumen.reservas?.total_reservado - resumen.reservas?.total_liberado).toFixed(2)} unidades
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={procesando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCerrarOP} 
+              disabled={procesando || loadingResumen}
+              className="bg-primary"
+            >
+              {procesando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar Cierre
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmación para ANULAR */}
+      <AlertDialog open={showAnularDialog} onOpenChange={setShowAnularDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Anular Orden de Producción
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>¿Estás seguro de <strong className="text-destructive">ANULAR</strong> esta OP? Esta acción:</p>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  <li>Cambiará el estado a <strong className="text-destructive">ANULADA</strong></li>
+                  <li>Liberará automáticamente todas las reservas pendientes</li>
+                  <li>NO revertirá las salidas de inventario ya realizadas</li>
+                  <li>No permitirá nuevas reservas ni salidas</li>
+                </ul>
+                
+                {loadingResumen ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : resumen && (
+                  <Card className="bg-destructive/10 border-destructive/20">
+                    <CardContent className="pt-4">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Total Prendas:</span>
+                          <p className="font-bold">{resumen.total_prendas}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Salidas (no se revierten):</span>
+                          <p className="font-bold text-amber-600">{resumen.salidas?.total_salidas || 0}</p>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-muted-foreground">Reservas a Liberar:</span>
+                          <p className="font-bold text-orange-500">
+                            {(resumen.reservas?.total_reservado - resumen.reservas?.total_liberado).toFixed(2)} unidades
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={procesando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleAnularOP} 
+              disabled={procesando || loadingResumen}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {procesando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar Anulación
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
