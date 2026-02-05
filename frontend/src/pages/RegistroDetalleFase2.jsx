@@ -404,13 +404,14 @@ const ReservasTab = ({ registroId }) => {
             <TableRow>
               <TableHead>Item</TableHead>
               <TableHead>Talla</TableHead>
-              <TableHead className="text-right">Pendiente</TableHead>
+              <TableHead className="text-right">Requerido</TableHead>
+              <TableHead className="text-right">Ya Reservado</TableHead>
               <TableHead className="text-right">Disponible</TableHead>
               <TableHead className="text-right w-[150px]">A Reservar</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {pendientes.map(l => {
+            {itemsConDisponibilidad.map(l => {
               const key = `${l.item_id}_${l.talla_id || 'null'}`;
               const disp = disponibilidad[l.item_id]?.disponible || 0;
               return (
@@ -423,22 +424,21 @@ const ReservasTab = ({ registroId }) => {
                     </div>
                   </TableCell>
                   <TableCell>{l.talla_nombre || 'Todas'}</TableCell>
-                  <TableCell className="text-right font-mono">{parseFloat(l.pendiente_reservar).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono">{parseFloat(l.cantidad_requerida).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-mono text-blue-600">{parseFloat(l.cantidad_reservada).toFixed(2)}</TableCell>
                   <TableCell className="text-right font-mono">
-                    <span className={disp < l.pendiente_reservar ? 'text-red-600' : 'text-green-600'}>
-                      {disp.toFixed(2)}
-                    </span>
+                    <span className="text-green-600">{disp.toFixed(2)}</span>
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
                       min="0"
-                      max={Math.min(l.pendiente_reservar, disp)}
+                      max={disp}
                       step="0.01"
                       value={cantidadesReservar[key] || 0}
                       onChange={(e) => setCantidadesReservar(prev => ({
                         ...prev,
-                        [key]: Math.min(parseFloat(e.target.value) || 0, l.pendiente_reservar, disp)
+                        [key]: Math.min(parseFloat(e.target.value) || 0, disp)
                       }))}
                       className="text-right font-mono"
                     />
