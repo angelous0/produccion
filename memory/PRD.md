@@ -280,6 +280,30 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
 - ✅ **Endpoint GET /api/inventario/{item_id}/reservas-detalle**:
   - Devuelve detalle de reservas activas agrupadas por registro (orden de producción)
 
+### Febrero 2025 - FASE 2C: Cierre/Anulación de OP
+- ✅ **Endpoint POST /api/registros/{id}/cerrar**:
+  - Cambia estado a CERRADA
+  - Libera automáticamente todas las reservas pendientes
+  - Retorna resumen de reservas liberadas por item
+- ✅ **Endpoint POST /api/registros/{id}/anular**:
+  - Cambia estado a ANULADA
+  - Libera automáticamente todas las reservas pendientes
+  - NO revierte salidas ya realizadas (mantiene trazabilidad FIFO)
+  - Retorna resumen de liberación y nota sobre salidas
+- ✅ **Endpoint GET /api/registros/{id}/resumen**:
+  - Retorna resumen completo de la OP: prendas, requerimiento, reservas, salidas
+  - Incluye totales y detalle agrupado por item/talla
+- ✅ **Bloqueos automáticos en OP CERRADA/ANULADA**:
+  - No permite crear reservas en OP cerrada/anulada
+  - No permite crear salidas en OP cerrada/anulada
+  - No permite crear salidas extra en OP cerrada/anulada
+  - Mensaje claro: "OP cerrada/anulada: no se puede..."
+- ✅ **Función auxiliar liberar_reservas_pendientes_auto**:
+  - Libera todas las líneas de reserva pendientes
+  - Actualiza requerimiento_mp: cantidad_reservada
+  - Marca cabeceras de reserva como CERRADA
+  - Recalcula estados de requerimiento
+
 ## Backlog
 
 ### P1 - Importante
