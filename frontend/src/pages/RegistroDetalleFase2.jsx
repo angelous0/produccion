@@ -578,19 +578,35 @@ const SalidasTab = ({ registroId }) => {
 
     setCreando(true);
     try {
-      await axios.post(`${API}/inventario-salidas`, {
-        item_id: selectedItem.item_id,
-        cantidad: cant,
-        registro_id: registroId,
-        talla_id: selectedItem.talla_id || null,
-        rollo_id: selectedItem.control_por_rollos ? selectedRollo : null,
-        observaciones
-      });
-      toast.success('Salida registrada');
+      if (modoExtra) {
+        // Salida Extra - sin validar reserva
+        await axios.post(`${API}/inventario-salidas/extra`, {
+          item_id: selectedItem.item_id,
+          cantidad: cant,
+          registro_id: registroId,
+          talla_id: selectedItem.talla_id || null,
+          rollo_id: selectedItem.control_por_rollos ? selectedRollo : null,
+          observaciones,
+          motivo: motivoExtra
+        });
+        toast.success('Salida extra registrada');
+      } else {
+        // Salida normal - valida reserva
+        await axios.post(`${API}/inventario-salidas`, {
+          item_id: selectedItem.item_id,
+          cantidad: cant,
+          registro_id: registroId,
+          talla_id: selectedItem.talla_id || null,
+          rollo_id: selectedItem.control_por_rollos ? selectedRollo : null,
+          observaciones
+        });
+        toast.success('Salida registrada');
+      }
       setSelectedItem(null);
       setCantidad('');
       setSelectedRollo('');
       setObservaciones('');
+      setMotivoExtra('Consumo adicional');
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al crear salida');
