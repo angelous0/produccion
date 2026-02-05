@@ -268,6 +268,18 @@ Crear un módulo de producción textil con las siguientes tablas y relaciones:
   - Actualiza `cantidad_consumida` en requerimiento tras salida
   - FIFO intacto
 
+### Febrero 2025 - UI Stock Disponible y Detalle de Reservas
+- ✅ **Tabla de Inventario mejorada**:
+  - Nueva columna "Reservado": muestra cantidad total reservada por órdenes de producción (en naranja)
+  - Nueva columna "Disponible": muestra stock real disponible = stock_actual - total_reservado (en verde/rojo según nivel)
+  - Botón desplegable (chevron) en filas con reservas activas
+  - Fila expandible con detalle de reservas: N° Corte, Modelo, Estado Registro, Cantidad Reservada
+  - Resumen en pie del detalle: Total reservado, Stock actual, Disponible
+- ✅ **Endpoint GET /api/inventario mejorado**:
+  - Ahora devuelve `total_reservado` y `stock_disponible` para cada item
+- ✅ **Endpoint GET /api/inventario/{item_id}/reservas-detalle**:
+  - Devuelve detalle de reservas activas agrupadas por registro (orden de producción)
+
 ## Backlog
 
 ### P1 - Importante
