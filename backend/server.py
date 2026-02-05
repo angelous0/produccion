@@ -3305,7 +3305,7 @@ async def cerrar_registro(registro_id: str):
             # Cambiar estado a CERRADA
             await conn.execute("""
                 UPDATE prod_registros 
-                SET estado = 'CERRADA', updated_at = CURRENT_TIMESTAMP
+                SET estado = 'CERRADA'
                 WHERE id = $1
             """, registro_id)
             
