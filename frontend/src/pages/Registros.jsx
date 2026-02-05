@@ -714,7 +714,22 @@ export const Registros = () => {
               </TabsContent>
 
               <TabsContent value="mp" className="mt-4">
-                <RegistroDetalleFase2 registroId={viewingItem.id} registro={viewingItem} />
+                <RegistroDetalleFase2 
+                  registroId={viewingItem.id} 
+                  registro={viewingItem} 
+                  onEstadoChange={(nuevoEstado) => {
+                    // Actualizar el estado en la lista
+                    setItems(prevItems => 
+                      prevItems.map(item => 
+                        item.id === viewingItem.id 
+                          ? { ...item, estado: nuevoEstado }
+                          : item
+                      )
+                    );
+                    // Actualizar el item en visualización
+                    setViewingItem(prev => ({ ...prev, estado: nuevoEstado }));
+                  }}
+                />
               </TabsContent>
             </Tabs>
           )}
