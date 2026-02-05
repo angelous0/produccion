@@ -4018,9 +4018,16 @@ async def create_salida_extra(input: SalidaExtraCreate):
         
         # Validar registro
         if input.registro_id:
-            reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
+            reg = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", input.registro_id)
             if not reg:
                 raise HTTPException(status_code=404, detail="Registro no encontrado")
+            
+            # FASE 2C: Validar que OP no esté cerrada/anulada (incluso para salidas extra)
+            if reg['estado'] in ('CERRADA', 'ANULADA'):
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"OP {reg['estado'].lower()}: no se puede crear salidas en una orden {reg['estado'].lower()}"
+                )
         
         # NO validamos reserva - es salida extra
         
