@@ -45,7 +45,7 @@ export const Inventario = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [reservasDialogOpen, setReservasDialogOpen] = useState(false);
+  const [expandedItemId, setExpandedItemId] = useState(null);
   const [reservasDetalle, setReservasDetalle] = useState(null);
   const [loadingReservas, setLoadingReservas] = useState(false);
   const [formData, setFormData] = useState({
