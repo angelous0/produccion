@@ -3229,6 +3229,81 @@ async def get_item_inventario(item_id: str):
             d['rollos'] = [row_to_dict(r) for r in rollos]
         return d
 
+
+@api_router.get("/inventario/{item_id}/reservas-detalle")
+async def get_reservas_detalle_item(item_id: str):
+    """
+    Obtiene el detalle de reservas activas para un item,
+    agrupado por registro (para ver qué registros tienen reservas)
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        
+        # Obtener todas las líneas de reserva activas para este item
+        rows = await conn.fetch("""
+            SELECT 
+                rl.id,
+                rl.item_id,
+                rl.talla_id,
+                rl.cantidad_reservada,
+                rl.cantidad_liberada,
+                (rl.cantidad_reservada - rl.cantidad_liberada) as cantidad_activa,
+                res.id as reserva_id,
+                res.registro_id,
+                res.estado as reserva_estado,
+                res.fecha as reserva_fecha,
+                reg.n_corte,
+                reg.estado as registro_estado,
+                m.nombre as modelo_nombre,
+                tc.nombre as talla_nombre
+            FROM prod_inventario_reservas_linea rl
+            JOIN prod_inventario_reservas res ON rl.reserva_id = res.id
+            JOIN prod_registros reg ON res.registro_id = reg.id
+            LEFT JOIN prod_modelos m ON reg.modelo_id = m.id
+            LEFT JOIN prod_tallas_catalogo tc ON rl.talla_id = tc.id
+            WHERE rl.item_id = $1 AND res.estado = 'ACTIVA' AND (rl.cantidad_reservada - rl.cantidad_liberada) > 0
+            ORDER BY res.fecha DESC
+        """, item_id)
+        
+        # Agrupar por registro
+        registros_map = {}
+        for r in rows:
+            reg_id = r['registro_id']
+            if reg_id not in registros_map:
+                registros_map[reg_id] = {
+                    'registro_id': reg_id,
+                    'n_corte': r['n_corte'],
+                    'registro_estado': r['registro_estado'],
+                    'modelo_nombre': r['modelo_nombre'],
+                    'total_reservado': 0,
+                    'lineas': []
+                }
+            registros_map[reg_id]['total_reservado'] += float(r['cantidad_activa'])
+            registros_map[reg_id]['lineas'].append({
+                'id': r['id'],
+                'talla_nombre': r['talla_nombre'],
+                'cantidad_reservada': float(r['cantidad_reservada']),
+                'cantidad_liberada': float(r['cantidad_liberada']),
+                'cantidad_activa': float(r['cantidad_activa']),
+                'reserva_fecha': r['reserva_fecha'].isoformat() if r['reserva_fecha'] else None
+            })
+        
+        total_reservado = sum(reg['total_reservado'] for reg in registros_map.values())
+        
+        return {
+            'item_id': item_id,
+            'item_codigo': item['codigo'],
+            'item_nombre': item['nombre'],
+            'stock_actual': float(item['stock_actual']),
+            'total_reservado': total_reservado,
+            'stock_disponible': max(0, float(item['stock_actual']) - total_reservado),
+            'registros': list(registros_map.values())
+        }
+
+
 @api_router.post("/inventario")
 async def create_item_inventario(input: ItemInventarioCreate):
     pool = await get_pool()
