@@ -630,20 +630,156 @@ const SalidasTab = ({ registroId }) => {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="font-semibold">Registrar Salida de MP</h3>
-        <p className="text-sm text-muted-foreground">Consume material reservado</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">Registrar Salida de MP</h3>
+          <p className="text-sm text-muted-foreground">
+            {modoExtra ? 'Salida extra: sin validar reserva previa' : 'Consume material reservado'}
+          </p>
+        </div>
+        <Button 
+          variant={modoExtra ? "default" : "outline"}
+          onClick={() => {
+            setModoExtra(!modoExtra);
+            setSelectedItem(null);
+            setCantidad('');
+            setSelectedRollo('');
+          }}
+          data-testid="btn-modo-extra"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          {modoExtra ? 'Modo Extra ACTIVO' : 'Salida Extra'}
+        </Button>
       </div>
 
-      {pendientes.length === 0 && requerimiento.lineas.length > 0 ? (
+      {modoExtra ? (
+        /* MODO EXTRA: Seleccionar cualquier item del inventario */
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Seleccionar Item del Inventario</CardTitle>
+              <CardDescription>Cualquier item con stock disponible</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select onValueChange={handleSelectItemExtra}>
+                <SelectTrigger data-testid="select-item-extra">
+                  <SelectValue placeholder="Buscar item..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {inventario.filter(i => parseFloat(i.stock_actual) > 0).map(i => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.codigo} - {i.nombre} ({i.stock_actual} disp.)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Formulario de salida extra */}
+          <Card className="border-orange-200 bg-orange-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-orange-700">Nueva Salida Extra</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedItem ? (
+                <>
+                  <div className="p-3 bg-orange-100/50 rounded-lg">
+                    <div className="font-medium">{selectedItem.item_nombre}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Stock disponible: {parseFloat(selectedItem.pendiente_consumir).toFixed(2)} {selectedItem.item_unidad}
+                    </div>
+                  </div>
+
+                  {selectedItem.control_por_rollos && (
+                    <div>
+                      <label className="text-sm font-medium">Rollo *</label>
+                      <Select value={selectedRollo} onValueChange={setSelectedRollo}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar rollo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rollosDisponibles.map(r => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.numero_rollo || r.id.slice(0, 8)} - {r.metraje_disponible}m disp.
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedRollo && (
+                        <Button type="button" variant="link" size="sm" className="mt-1 h-auto p-0" onClick={usarTodoRollo}>
+                          Usar todo el rollo
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-sm font-medium">Cantidad *</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={cantidad}
+                      onChange={(e) => setCantidad(e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Motivo</label>
+                    <Select value={motivoExtra} onValueChange={setMotivoExtra}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Consumo adicional">Consumo adicional</SelectItem>
+                        <SelectItem value="Reposición por defecto">Reposición por defecto</SelectItem>
+                        <SelectItem value="Ajuste de producción">Ajuste de producción</SelectItem>
+                        <SelectItem value="Material dañado">Material dañado</SelectItem>
+                        <SelectItem value="Otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Observaciones</label>
+                    <Input
+                      value={observaciones}
+                      onChange={(e) => setObservaciones(e.target.value)}
+                      placeholder="Detalles adicionales..."
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleCrearSalida}
+                    disabled={creando}
+                    className="w-full bg-orange-600 hover:bg-orange-700"
+                    data-testid="btn-crear-salida-extra"
+                  >
+                    {creando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                    Registrar Salida Extra
+                  </Button>
+                </>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Selecciona un item del inventario</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : pendientes.length === 0 && requerimiento.lineas.length > 0 ? (
         <div className="text-center py-4 bg-green-50 rounded-lg">
           <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-600" />
           <p className="text-green-700">Todo el requerimiento ha sido consumido</p>
+          <p className="text-sm text-green-600 mt-1">¿Necesitas más? Usa el botón "Salida Extra"</p>
         </div>
       ) : requerimiento.lineas.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed rounded-lg">
           <LogOut className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">Primero genera y reserva el requerimiento</p>
+          <p className="text-sm text-muted-foreground mt-1">O usa "Salida Extra" para consumir sin reserva</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
@@ -656,9 +792,9 @@ const SalidasTab = ({ registroId }) => {
               {pendientes.map(l => (
                 <div
                   key={l.id}
-                  onClick={() => handleSelectItem(l)}
+                  onClick={() => { setModoExtra(false); handleSelectItem(l); }}
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedItem?.id === l.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                    selectedItem?.id === l.id && !modoExtra ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
                   }`}
                 >
                   <div className="flex justify-between items-start">
