@@ -215,80 +215,174 @@ export const Inventario = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No hay items en el inventario
                     </TableCell>
                   </TableRow>
                 ) : (
                   items.map((item) => (
-                    <TableRow key={item.id} className="data-table-row" data-testid={`item-row-${item.id}`}>
-                      <TableCell className="font-mono font-medium">{item.codigo}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            {item.nombre}
-                            {item.control_por_rollos && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                <Layers className="h-3 w-3 mr-1" />
-                                Rollos
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getCategoriaColor(item.categoria)}>
-                          {item.categoria || 'Otros'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="capitalize">{item.unidad_medida}</TableCell>
-                      <TableCell className="text-right font-mono font-semibold">
-                        {item.stock_actual}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-muted-foreground">
-                        {item.stock_minimo}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={getStockStatus(item) === 'success' ? 'default' : getStockStatus(item)}
-                          className={getStockStatus(item) === 'success' ? 'bg-green-600' : getStockStatus(item) === 'warning' ? 'bg-yellow-500' : ''}
-                        >
-                          {item.stock_actual <= item.stock_minimo && item.stock_actual > 0 && (
-                            <AlertTriangle className="h-3 w-3 mr-1" />
+                    <>
+                      <TableRow key={item.id} className="data-table-row" data-testid={`item-row-${item.id}`}>
+                        <TableCell className="p-1">
+                          {hasActiveReservas(item) && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => toggleExpandItem(item.id)}
+                                    data-testid={`expand-reservas-${item.id}`}
+                                  >
+                                    {expandedItemId === item.id ? (
+                                      <ChevronUp className="h-4 w-4" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Ver detalle de reservas</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
-                          {getStockLabel(item)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenDialog(item)}
-                            title="Editar"
-                            data-testid={`edit-item-${item.id}`}
+                        </TableCell>
+                        <TableCell className="font-mono font-medium">{item.codigo}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              {item.nombre}
+                              {item.control_por_rollos && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  <Layers className="h-3 w-3 mr-1" />
+                                  Rollos
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getCategoriaColor(item.categoria)}>
+                            {item.categoria || 'Otros'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="capitalize">{item.unidad_medida}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold">
+                          {item.stock_actual}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {item.total_reservado > 0 ? (
+                            <span className="text-orange-500 font-medium">{item.total_reservado}</span>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-semibold">
+                          <span className={item.stock_disponible <= item.stock_minimo ? 'text-red-500' : 'text-green-600'}>
+                            {item.stock_disponible}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {item.stock_minimo}
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={getStockStatus(item) === 'success' ? 'default' : getStockStatus(item)}
+                            className={getStockStatus(item) === 'success' ? 'bg-green-600' : getStockStatus(item) === 'warning' ? 'bg-yellow-500' : ''}
                           >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(item.id)}
-                            title="Eliminar"
-                            data-testid={`delete-item-${item.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                            {item.stock_actual <= item.stock_minimo && item.stock_actual > 0 && (
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                            )}
+                            {getStockLabel(item)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenDialog(item)}
+                              title="Editar"
+                              data-testid={`edit-item-${item.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(item.id)}
+                              title="Eliminar"
+                              data-testid={`delete-item-${item.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {/* Fila expandible con detalle de reservas */}
+                      {expandedItemId === item.id && (
+                        <TableRow key={`${item.id}-detail`} className="bg-muted/30">
+                          <TableCell colSpan={11} className="p-0">
+                            {loadingReservas ? (
+                              <div className="p-4 text-center text-muted-foreground">
+                                Cargando detalle de reservas...
+                              </div>
+                            ) : reservasDetalle && reservasDetalle.registros.length > 0 ? (
+                              <div className="p-4 space-y-3">
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                  <Info className="h-4 w-4 text-blue-500" />
+                                  Reservas activas para: <span className="text-primary">{reservasDetalle.item_nombre}</span>
+                                </div>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>N° Corte</TableHead>
+                                      <TableHead>Modelo</TableHead>
+                                      <TableHead>Estado Registro</TableHead>
+                                      <TableHead className="text-right">Cantidad Reservada</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {reservasDetalle.registros.map((reg) => (
+                                      <TableRow key={reg.registro_id} data-testid={`reserva-row-${reg.registro_id}`}>
+                                        <TableCell className="font-mono font-medium">{reg.n_corte}</TableCell>
+                                        <TableCell>{reg.modelo_nombre || '-'}</TableCell>
+                                        <TableCell>
+                                          <Badge variant="outline">{reg.registro_estado}</Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-orange-500 font-semibold">
+                                          {reg.total_reservado}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                                <div className="flex justify-end text-sm text-muted-foreground pt-2 border-t">
+                                  <span>Total reservado: <strong className="text-orange-500">{reservasDetalle.total_reservado}</strong></span>
+                                  <span className="mx-4">|</span>
+                                  <span>Stock actual: <strong>{reservasDetalle.stock_actual}</strong></span>
+                                  <span className="mx-4">|</span>
+                                  <span>Disponible: <strong className="text-green-600">{reservasDetalle.stock_disponible}</strong></span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-4 text-center text-muted-foreground">
+                                No hay reservas activas para este item
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
                   ))
                 )}
               </TableBody>
