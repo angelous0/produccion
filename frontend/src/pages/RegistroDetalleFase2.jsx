@@ -23,7 +23,7 @@ import {
 import { Separator } from '../components/ui/separator';
 import { 
   Scissors, Package, BookmarkCheck, LogOut, RefreshCw, 
-  AlertTriangle, CheckCircle2, Clock, Loader2 
+  AlertTriangle, CheckCircle2, Clock, Loader2, Plus 
 } from 'lucide-react';
 import { toast } from 'sonner';
 
