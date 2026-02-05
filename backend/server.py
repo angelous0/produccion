@@ -3193,7 +3193,20 @@ async def get_inventario():
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT * FROM prod_inventario ORDER BY nombre ASC")
-        return [row_to_dict(r) for r in rows]
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            # Calcular total reservado para este item
+            total_reservado = await conn.fetchval("""
+                SELECT COALESCE(SUM(rl.cantidad_reservada - rl.cantidad_liberada), 0)
+                FROM prod_inventario_reservas_linea rl
+                JOIN prod_inventario_reservas res ON rl.reserva_id = res.id
+                WHERE rl.item_id = $1 AND res.estado = 'ACTIVA'
+            """, d['id'])
+            d['total_reservado'] = float(total_reservado or 0)
+            d['stock_disponible'] = max(0, float(d['stock_actual']) - d['total_reservado'])
+            result.append(d)
+        return result
 
 @api_router.get("/inventario/{item_id}")
 async def get_item_inventario(item_id: str):
