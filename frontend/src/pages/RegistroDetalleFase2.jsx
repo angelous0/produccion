@@ -481,8 +481,10 @@ const ReservasTab = ({ registroId }) => {
 const SalidasTab = ({ registroId }) => {
   const [requerimiento, setRequerimiento] = useState({ lineas: [] });
   const [salidas, setSalidas] = useState([]);
+  const [inventario, setInventario] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creando, setCreando] = useState(false);
+  const [modoExtra, setModoExtra] = useState(false);
   
   // Form state
   const [selectedItem, setSelectedItem] = useState(null);
@@ -490,16 +492,19 @@ const SalidasTab = ({ registroId }) => {
   const [cantidad, setCantidad] = useState('');
   const [rollosDisponibles, setRollosDisponibles] = useState([]);
   const [observaciones, setObservaciones] = useState('');
+  const [motivoExtra, setMotivoExtra] = useState('Consumo adicional');
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [reqRes, salRes] = await Promise.all([
+      const [reqRes, salRes, invRes] = await Promise.all([
         axios.get(`${API}/registros/${registroId}/requerimiento`).catch(() => ({ data: { lineas: [] } })),
         axios.get(`${API}/inventario-salidas?registro_id=${registroId}`).catch(() => ({ data: [] })),
+        axios.get(`${API}/inventario`).catch(() => ({ data: [] })),
       ]);
       setRequerimiento(reqRes.data);
       setSalidas(salRes.data);
+      setInventario(invRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
@@ -520,6 +525,33 @@ const SalidasTab = ({ registroId }) => {
     if (linea.control_por_rollos) {
       try {
         const res = await axios.get(`${API}/inventario/${linea.item_id}`);
+        setRollosDisponibles(res.data.rollos || []);
+      } catch (error) {
+        toast.error('Error al cargar rollos');
+      }
+    }
+  };
+
+  const handleSelectItemExtra = async (itemId) => {
+    const item = inventario.find(i => i.id === itemId);
+    if (!item) return;
+    
+    setSelectedItem({
+      item_id: item.id,
+      item_nombre: item.nombre,
+      item_codigo: item.codigo,
+      item_unidad: item.unidad_medida,
+      control_por_rollos: item.control_por_rollos,
+      talla_id: null,
+      pendiente_consumir: item.stock_actual
+    });
+    setSelectedRollo('');
+    setCantidad('');
+    setRollosDisponibles([]);
+
+    if (item.control_por_rollos) {
+      try {
+        const res = await axios.get(`${API}/inventario/${item.id}`);
         setRollosDisponibles(res.data.rollos || []);
       } catch (error) {
         toast.error('Error al cargar rollos');
