@@ -3180,6 +3180,352 @@ async def liberar_reservas(registro_id: str, input: LiberarReservaInput):
         return {"message": "Reservas liberadas", "liberadas": liberadas}
 
 
+# ==================== FASE 2C: CIERRE/ANULACIÓN OP ====================
+
+async def liberar_reservas_pendientes_auto(conn, registro_id: str):
+    """
+    Libera automáticamente todas las reservas pendientes de un registro.
+    Usado al cerrar o anular una OP.
+    Retorna resumen de liberaciones.
+    """
+    items_liberados = []
+    total_liberado = 0.0
+    
+    # Obtener todas las reservas activas del registro
+    reservas = await conn.fetch("""
+        SELECT id FROM prod_inventario_reservas
+        WHERE registro_id = $1 AND estado = 'ACTIVA'
+    """, registro_id)
+    
+    for reserva in reservas:
+        # Obtener líneas con cantidad pendiente
+        lineas = await conn.fetch("""
+            SELECT rl.*, i.nombre as item_nombre
+            FROM prod_inventario_reservas_linea rl
+            JOIN prod_inventario i ON rl.item_id = i.id
+            WHERE rl.reserva_id = $1 
+              AND (rl.cantidad_reservada - rl.cantidad_liberada) > 0
+        """, reserva['id'])
+        
+        for linea in lineas:
+            liberable = float(linea['cantidad_reservada']) - float(linea['cantidad_liberada'])
+            if liberable <= 0:
+                continue
+            
+            # Actualizar línea de reserva: marcar como liberada
+            await conn.execute("""
+                UPDATE prod_inventario_reservas_linea
+                SET cantidad_liberada = cantidad_reservada, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+            """, linea['id'])
+            
+            # Actualizar requerimiento: bajar cantidad_reservada
+            if linea['talla_id']:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_reservada = GREATEST(0, cantidad_reservada - $1), updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id = $4
+                """, liberable, registro_id, linea['item_id'], linea['talla_id'])
+            else:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_reservada = GREATEST(0, cantidad_reservada - $1), updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
+                """, liberable, registro_id, linea['item_id'])
+            
+            items_liberados.append({
+                "item_id": linea['item_id'],
+                "item_nombre": linea['item_nombre'],
+                "talla_id": linea['talla_id'],
+                "cantidad": liberable
+            })
+            total_liberado += liberable
+        
+        # Marcar cabecera de reserva como CERRADA
+        await conn.execute("""
+            UPDATE prod_inventario_reservas
+            SET estado = 'CERRADA', updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+        """, reserva['id'])
+    
+    # Recalcular estados de requerimiento
+    await conn.execute("""
+        UPDATE prod_registro_requerimiento_mp
+        SET estado = CASE
+            WHEN cantidad_consumida >= cantidad_requerida AND cantidad_requerida > 0 THEN 'COMPLETO'
+            WHEN cantidad_reservada > 0 OR cantidad_consumida > 0 THEN 'PARCIAL'
+            ELSE 'PENDIENTE'
+        END
+        WHERE registro_id = $1
+    """, registro_id)
+    
+    return {
+        "total_liberado": total_liberado,
+        "items_liberados": items_liberados
+    }
+
+
+@api_router.post("/registros/{registro_id}/cerrar")
+async def cerrar_registro(registro_id: str):
+    """
+    Cierra una OP (Orden de Producción).
+    - Cambia estado a CERRADA
+    - Libera automáticamente todas las reservas pendientes
+    - No revierte salidas ya realizadas
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # Validar registro
+            registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+            if not registro:
+                raise HTTPException(status_code=404, detail="Registro no encontrado")
+            
+            estado_actual = registro['estado']
+            if estado_actual == 'ANULADA':
+                raise HTTPException(status_code=400, detail="No se puede cerrar una OP que ya está ANULADA")
+            
+            if estado_actual == 'CERRADA':
+                raise HTTPException(status_code=400, detail="La OP ya está CERRADA")
+            
+            # Cambiar estado a CERRADA
+            await conn.execute("""
+                UPDATE prod_registros 
+                SET estado = 'CERRADA', updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+            """, registro_id)
+            
+            # Liberar reservas pendientes automáticamente
+            liberacion = await liberar_reservas_pendientes_auto(conn, registro_id)
+            
+            return {
+                "message": "OP cerrada correctamente",
+                "estado_nuevo": "CERRADA",
+                "estado_anterior": estado_actual,
+                "reservas_liberadas_total": liberacion["total_liberado"],
+                "items_liberados": liberacion["items_liberados"]
+            }
+
+
+@api_router.post("/registros/{registro_id}/anular")
+async def anular_registro(registro_id: str):
+    """
+    Anula una OP (Orden de Producción).
+    - Cambia estado a ANULADA
+    - Libera automáticamente TODAS las reservas pendientes
+    - NO revierte salidas ya realizadas (mantiene trazabilidad FIFO)
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # Validar registro
+            registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+            if not registro:
+                raise HTTPException(status_code=404, detail="Registro no encontrado")
+            
+            estado_actual = registro['estado']
+            if estado_actual == 'ANULADA':
+                raise HTTPException(status_code=400, detail="La OP ya está ANULADA")
+            
+            # Cambiar estado a ANULADA
+            await conn.execute("""
+                UPDATE prod_registros 
+                SET estado = 'ANULADA', updated_at = CURRENT_TIMESTAMP
+                WHERE id = $1
+            """, registro_id)
+            
+            # Liberar reservas pendientes automáticamente
+            liberacion = await liberar_reservas_pendientes_auto(conn, registro_id)
+            
+            # Obtener info de salidas ya realizadas (para trazabilidad)
+            salidas_realizadas = await conn.fetchval("""
+                SELECT COUNT(*) FROM prod_inventario_salidas WHERE registro_id = $1
+            """, registro_id)
+            
+            return {
+                "message": "OP anulada correctamente",
+                "estado_nuevo": "ANULADA",
+                "estado_anterior": estado_actual,
+                "reservas_liberadas_total": liberacion["total_liberado"],
+                "items_liberados": liberacion["items_liberados"],
+                "salidas_no_revertidas": salidas_realizadas,
+                "nota": "Las salidas de inventario ya realizadas NO se revierten para mantener trazabilidad FIFO"
+            }
+
+
+@api_router.get("/registros/{registro_id}/resumen")
+async def get_resumen_registro(registro_id: str):
+    """
+    Devuelve un resumen completo de la OP:
+    - Total de prendas (sum tallas)
+    - Requerimiento: requerida/reservada/consumida/pendiente por item/talla
+    - Reservas: estado y detalle
+    - Salidas: total consumido por item/talla, detalle por rollo si aplica
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Validar registro
+        registro = await conn.fetchrow("""
+            SELECT r.*, m.nombre as modelo_nombre
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            WHERE r.id = $1
+        """, registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # Total de prendas (sum de tallas)
+        total_prendas = await conn.fetchval("""
+            SELECT COALESCE(SUM(cantidad_real), 0) FROM prod_registro_tallas WHERE registro_id = $1
+        """, registro_id)
+        
+        # Detalle de tallas
+        tallas = await conn.fetch("""
+            SELECT rt.*, tc.nombre as talla_nombre
+            FROM prod_registro_tallas rt
+            LEFT JOIN prod_tallas_catalogo tc ON rt.talla_id = tc.id
+            WHERE rt.registro_id = $1
+            ORDER BY tc.orden
+        """, registro_id)
+        
+        # Requerimiento de MP
+        requerimiento = await conn.fetch("""
+            SELECT req.*, 
+                   i.codigo as item_codigo, i.nombre as item_nombre, i.unidad_medida,
+                   tc.nombre as talla_nombre,
+                   GREATEST(0, req.cantidad_requerida - req.cantidad_consumida) as pendiente_consumir,
+                   GREATEST(0, req.cantidad_reservada - req.cantidad_consumida) as reserva_disponible
+            FROM prod_registro_requerimiento_mp req
+            JOIN prod_inventario i ON req.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON req.talla_id = tc.id
+            WHERE req.registro_id = $1
+            ORDER BY i.nombre, tc.orden
+        """, registro_id)
+        
+        # Reservas
+        reservas_raw = await conn.fetch("""
+            SELECT res.id, res.estado as reserva_estado, res.fecha as reserva_fecha,
+                   rl.item_id, rl.talla_id, rl.cantidad_reservada, rl.cantidad_liberada,
+                   i.nombre as item_nombre, tc.nombre as talla_nombre
+            FROM prod_inventario_reservas res
+            JOIN prod_inventario_reservas_linea rl ON rl.reserva_id = res.id
+            JOIN prod_inventario i ON rl.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON rl.talla_id = tc.id
+            WHERE res.registro_id = $1
+            ORDER BY res.fecha DESC
+        """, registro_id)
+        
+        # Agrupar reservas
+        reservas_totales = {
+            "total_reservado": 0,
+            "total_liberado": 0,
+            "activas": 0,
+            "cerradas": 0,
+            "detalle": []
+        }
+        for r in reservas_raw:
+            reservas_totales["total_reservado"] += float(r['cantidad_reservada'])
+            reservas_totales["total_liberado"] += float(r['cantidad_liberada'])
+            if r['reserva_estado'] == 'ACTIVA':
+                reservas_totales["activas"] += 1
+            else:
+                reservas_totales["cerradas"] += 1
+            reservas_totales["detalle"].append({
+                "item_id": r['item_id'],
+                "item_nombre": r['item_nombre'],
+                "talla_id": r['talla_id'],
+                "talla_nombre": r['talla_nombre'],
+                "cantidad_reservada": float(r['cantidad_reservada']),
+                "cantidad_liberada": float(r['cantidad_liberada']),
+                "pendiente": float(r['cantidad_reservada']) - float(r['cantidad_liberada']),
+                "reserva_estado": r['reserva_estado']
+            })
+        
+        # Salidas
+        salidas = await conn.fetch("""
+            SELECT s.*, 
+                   i.codigo as item_codigo, i.nombre as item_nombre, i.control_por_rollos,
+                   tc.nombre as talla_nombre,
+                   ro.numero_rollo, ro.tono
+            FROM prod_inventario_salidas s
+            JOIN prod_inventario i ON s.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON s.talla_id = tc.id
+            LEFT JOIN prod_inventario_rollos ro ON s.rollo_id = ro.id
+            WHERE s.registro_id = $1
+            ORDER BY s.fecha DESC
+        """, registro_id)
+        
+        # Agrupar salidas por item/talla
+        salidas_por_item = {}
+        for s in salidas:
+            key = f"{s['item_id']}_{s['talla_id'] or 'null'}"
+            if key not in salidas_por_item:
+                salidas_por_item[key] = {
+                    "item_id": s['item_id'],
+                    "item_nombre": s['item_nombre'],
+                    "talla_id": s['talla_id'],
+                    "talla_nombre": s['talla_nombre'],
+                    "total_consumido": 0,
+                    "costo_total": 0,
+                    "detalle_salidas": []
+                }
+            salidas_por_item[key]["total_consumido"] += float(s['cantidad'])
+            salidas_por_item[key]["costo_total"] += float(s['costo_total']) if s['costo_total'] else 0
+            salidas_por_item[key]["detalle_salidas"].append({
+                "id": s['id'],
+                "cantidad": float(s['cantidad']),
+                "costo_total": float(s['costo_total']) if s['costo_total'] else 0,
+                "fecha": s['fecha'].isoformat() if s['fecha'] else None,
+                "rollo_id": s['rollo_id'],
+                "numero_rollo": s['numero_rollo'],
+                "tono": s['tono']
+            })
+        
+        return {
+            "registro": {
+                "id": registro['id'],
+                "n_corte": registro['n_corte'],
+                "estado": registro['estado'],
+                "modelo_nombre": registro['modelo_nombre'],
+                "fecha_creacion": registro['fecha_creacion'].isoformat() if registro['fecha_creacion'] else None,
+                "urgente": registro['urgente']
+            },
+            "total_prendas": int(total_prendas or 0),
+            "tallas": [
+                {
+                    "talla_id": t['talla_id'],
+                    "talla_nombre": t['talla_nombre'],
+                    "cantidad": int(t['cantidad_real']) if t['cantidad_real'] else 0
+                }
+                for t in tallas
+            ],
+            "requerimiento": [
+                {
+                    "id": r['id'],
+                    "item_id": r['item_id'],
+                    "item_codigo": r['item_codigo'],
+                    "item_nombre": r['item_nombre'],
+                    "unidad_medida": r['unidad_medida'],
+                    "talla_id": r['talla_id'],
+                    "talla_nombre": r['talla_nombre'],
+                    "cantidad_requerida": float(r['cantidad_requerida']),
+                    "cantidad_reservada": float(r['cantidad_reservada']),
+                    "cantidad_consumida": float(r['cantidad_consumida']),
+                    "pendiente_consumir": float(r['pendiente_consumir']),
+                    "reserva_disponible": float(r['reserva_disponible']),
+                    "estado": r['estado']
+                }
+                for r in requerimiento
+            ],
+            "reservas": reservas_totales,
+            "salidas": {
+                "total_salidas": len(salidas),
+                "costo_total": sum(float(s['costo_total'] or 0) for s in salidas),
+                "por_item": list(salidas_por_item.values())
+            }
+        }
+
+
 # ==================== ENDPOINTS INVENTARIO ====================
 
 CATEGORIAS_INVENTARIO = ["Telas", "Avios", "Otros"]
