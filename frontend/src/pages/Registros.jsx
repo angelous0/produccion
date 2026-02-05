@@ -538,7 +538,7 @@ export const Registros = () => {
 
       {/* Dialog para ver detalle */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalle del Registro</DialogTitle>
             <DialogDescription>
@@ -546,158 +546,177 @@ export const Registros = () => {
             </DialogDescription>
           </DialogHeader>
           {viewingItem && (
-            <div className="space-y-6 py-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    {viewingItem.urgente && (
-                      <AlertTriangle className="h-5 w-5 text-destructive badge-urgent" />
-                    )}
-                    Corte #{viewingItem.n_corte}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Fecha:</span>
-                      <p className="font-mono">{formatDate(viewingItem.fecha_creacion)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Modelo:</span>
-                      <p className="font-medium">{viewingItem.modelo_nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Marca:</span>
-                      <p>{viewingItem.marca_nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Tipo:</span>
-                      <p>{viewingItem.tipo_nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Entalle:</span>
-                      <p>{viewingItem.entalle_nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Tela:</span>
-                      <p>{viewingItem.tela_nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Hilo:</span>
-                      <p>{viewingItem.hilo_nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Curva:</span>
-                      <p className="font-mono">{viewingItem.curva || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Estado:</span>
-                      <p>
-                        <Badge variant="outline" className={getStatusClass(viewingItem.estado)}>
-                          {viewingItem.estado}
-                        </Badge>
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Total Piezas:</span>
-                      <p className="font-mono font-bold text-lg">{getTotalPiezas(viewingItem)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            <Tabs defaultValue="info" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="info">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Información General
+                </TabsTrigger>
+                <TabsTrigger value="mp" data-testid="tab-materia-prima">
+                  <Package className="h-4 w-4 mr-2" />
+                  Materia Prima
+                </TabsTrigger>
+              </TabsList>
 
-              {viewingItem.tallas && viewingItem.tallas.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Tallas</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-3">
-                      {viewingItem.tallas.map((t) => (
-                        <div key={t.talla_id} className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-                          <span className="font-medium">{t.talla_nombre}:</span>
-                          <span className="font-mono font-bold">{t.cantidad}</span>
+              <TabsContent value="info" className="mt-4">
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        {viewingItem.urgente && (
+                          <AlertTriangle className="h-5 w-5 text-destructive badge-urgent" />
+                        )}
+                        Corte #{viewingItem.n_corte}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Fecha:</span>
+                          <p className="font-mono">{formatDate(viewingItem.fecha_creacion)}</p>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                        <div>
+                          <span className="text-muted-foreground">Modelo:</span>
+                          <p className="font-medium">{viewingItem.modelo_nombre || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Marca:</span>
+                          <p>{viewingItem.marca_nombre || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Tipo:</span>
+                          <p>{viewingItem.tipo_nombre || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Entalle:</span>
+                          <p>{viewingItem.entalle_nombre || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Tela:</span>
+                          <p>{viewingItem.tela_nombre || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Hilo:</span>
+                          <p>{viewingItem.hilo_nombre || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Curva:</span>
+                          <p className="font-mono">{viewingItem.curva || '-'}</p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Estado:</span>
+                          <p>
+                            <Badge variant="outline" className={getStatusClass(viewingItem.estado)}>
+                              {viewingItem.estado}
+                            </Badge>
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Total Piezas:</span>
+                          <p className="font-mono font-bold text-lg">{getTotalPiezas(viewingItem)}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-              {viewingItem.distribucion_colores && viewingItem.distribucion_colores.some(t => t.colores?.length > 0) && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Distribución por Color</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse text-sm">
-                        <thead>
-                          <tr>
-                            <th className="bg-muted/50 p-2 border text-left font-semibold">Color</th>
-                            {viewingItem.tallas.map((t) => (
-                              <th key={t.talla_id} className="bg-muted/50 p-2 border text-center font-semibold">
-                                {t.talla_nombre}
-                              </th>
-                            ))}
-                            <th className="bg-muted/70 p-2 border text-center font-semibold">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(() => {
-                            const coloresUnicos = new Map();
-                            viewingItem.distribucion_colores.forEach(t => {
-                              (t.colores || []).forEach(c => {
-                                if (!coloresUnicos.has(c.color_id)) {
-                                  coloresUnicos.set(c.color_id, c.color_nombre);
-                                }
-                              });
-                            });
-                            
-                            return Array.from(coloresUnicos.entries()).map(([colorId, colorNombre]) => (
-                              <tr key={colorId}>
-                                <td className="bg-muted/30 p-2 border font-medium">{colorNombre}</td>
+                  {viewingItem.tallas && viewingItem.tallas.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Tallas (Curva)</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-3">
+                          {viewingItem.tallas.map((t) => (
+                            <div key={t.talla_id} className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+                              <span className="font-medium">{t.talla_nombre}:</span>
+                              <span className="font-mono font-bold">{t.cantidad}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {viewingItem.distribucion_colores && viewingItem.distribucion_colores.some(t => t.colores?.length > 0) && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Distribución por Color</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-sm">
+                            <thead>
+                              <tr>
+                                <th className="bg-muted/50 p-2 border text-left font-semibold">Color</th>
+                                {viewingItem.tallas.map((t) => (
+                                  <th key={t.talla_id} className="bg-muted/50 p-2 border text-center font-semibold">
+                                    {t.talla_nombre}
+                                  </th>
+                                ))}
+                                <th className="bg-muted/70 p-2 border text-center font-semibold">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(() => {
+                                const coloresUnicos = new Map();
+                                viewingItem.distribucion_colores.forEach(t => {
+                                  (t.colores || []).forEach(c => {
+                                    if (!coloresUnicos.has(c.color_id)) {
+                                      coloresUnicos.set(c.color_id, c.color_nombre);
+                                    }
+                                  });
+                                });
+                                
+                                return Array.from(coloresUnicos.entries()).map(([colorId, colorNombre]) => (
+                                  <tr key={colorId}>
+                                    <td className="bg-muted/30 p-2 border font-medium">{colorNombre}</td>
+                                    {viewingItem.tallas.map((t) => {
+                                      const distTalla = viewingItem.distribucion_colores.find(d => d.talla_id === t.talla_id);
+                                      const colorData = (distTalla?.colores || []).find(c => c.color_id === colorId);
+                                      return (
+                                        <td key={t.talla_id} className="p-2 border text-center font-mono">
+                                          {colorData?.cantidad || 0}
+                                        </td>
+                                      );
+                                    })}
+                                    <td className="bg-muted/50 p-2 border text-center font-mono font-semibold">
+                                      {viewingItem.distribucion_colores.reduce((sum, t) => {
+                                        const colorData = (t.colores || []).find(c => c.color_id === colorId);
+                                        return sum + (colorData?.cantidad || 0);
+                                      }, 0)}
+                                    </td>
+                                  </tr>
+                                ));
+                              })()}
+                              <tr>
+                                <td className="bg-muted/70 p-2 border font-semibold">Total</td>
                                 {viewingItem.tallas.map((t) => {
                                   const distTalla = viewingItem.distribucion_colores.find(d => d.talla_id === t.talla_id);
-                                  const colorData = (distTalla?.colores || []).find(c => c.color_id === colorId);
                                   return (
-                                    <td key={t.talla_id} className="p-2 border text-center font-mono">
-                                      {colorData?.cantidad || 0}
+                                    <td key={t.talla_id} className="bg-muted/50 p-2 border text-center font-mono font-semibold">
+                                      {(distTalla?.colores || []).reduce((sum, c) => sum + (c.cantidad || 0), 0)}
                                     </td>
                                   );
                                 })}
-                                <td className="bg-muted/50 p-2 border text-center font-mono font-semibold">
-                                  {viewingItem.distribucion_colores.reduce((sum, t) => {
-                                    const colorData = (t.colores || []).find(c => c.color_id === colorId);
-                                    return sum + (colorData?.cantidad || 0);
-                                  }, 0)}
+                                <td className="bg-primary/10 p-2 border text-center font-mono font-bold text-primary">
+                                  {viewingItem.distribucion_colores.reduce((sum, t) => 
+                                    sum + (t.colores || []).reduce((s, c) => s + (c.cantidad || 0), 0), 0
+                                  )}
                                 </td>
                               </tr>
-                            ));
-                          })()}
-                          <tr>
-                            <td className="bg-muted/70 p-2 border font-semibold">Total</td>
-                            {viewingItem.tallas.map((t) => {
-                              const distTalla = viewingItem.distribucion_colores.find(d => d.talla_id === t.talla_id);
-                              return (
-                                <td key={t.talla_id} className="bg-muted/50 p-2 border text-center font-mono font-semibold">
-                                  {(distTalla?.colores || []).reduce((sum, c) => sum + (c.cantidad || 0), 0)}
-                                </td>
-                              );
-                            })}
-                            <td className="bg-primary/10 p-2 border text-center font-mono font-bold text-primary">
-                              {viewingItem.distribucion_colores.reduce((sum, t) => 
-                                sum + (t.colores || []).reduce((s, c) => s + (c.cantidad || 0), 0), 0
-                              )}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="mp" className="mt-4">
+                <RegistroDetalleFase2 registroId={viewingItem.id} registro={viewingItem} />
+              </TabsContent>
+            </Tabs>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
