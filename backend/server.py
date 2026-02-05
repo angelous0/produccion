@@ -3518,6 +3518,131 @@ async def create_salida(input: SalidaInventarioCreate):
         
         return salida
 
+
+# OPCIÓN 2: Endpoint para Salida Extra (sin validación de reserva)
+class SalidaExtraCreate(BaseModel):
+    item_id: str
+    cantidad: float
+    registro_id: str
+    talla_id: Optional[str] = None
+    observaciones: str = ""
+    rollo_id: Optional[str] = None
+    motivo: str = "Consumo adicional"
+
+@api_router.post("/inventario-salidas/extra")
+async def create_salida_extra(input: SalidaExtraCreate):
+    """
+    Crea una salida SIN validar reserva previa.
+    Útil para excedentes, reposiciones o ajustes.
+    Solo valida stock/rollo disponible.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+        
+        control_por_rollos = item['control_por_rollos']
+        
+        # Validar regla de rollo según control_por_rollos
+        if control_por_rollos:
+            if not input.rollo_id:
+                raise HTTPException(status_code=400, detail="Este item requiere seleccionar un rollo")
+            rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
+            if not rollo:
+                raise HTTPException(status_code=404, detail="Rollo no encontrado")
+            if rollo['item_id'] != input.item_id:
+                raise HTTPException(status_code=400, detail="El rollo no pertenece a este item")
+            if float(rollo['metraje_disponible']) < input.cantidad:
+                raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo['metraje_disponible']}")
+        else:
+            if input.rollo_id:
+                raise HTTPException(status_code=400, detail="Este item no usa control por rollos")
+            if float(item['stock_actual']) < input.cantidad:
+                raise HTTPException(status_code=400, detail=f"Stock insuficiente. Disponible: {item['stock_actual']}")
+        
+        # Validar registro
+        if input.registro_id:
+            reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
+            if not reg:
+                raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # NO validamos reserva - es salida extra
+        
+        costo_total = 0.0
+        detalle_fifo = []
+        
+        if input.rollo_id:
+            rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
+            ingreso = await conn.fetchrow("SELECT costo_unitario FROM prod_inventario_ingresos WHERE id = $1", rollo['ingreso_id'])
+            costo_unitario = float(ingreso['costo_unitario']) if ingreso else 0
+            costo_total = input.cantidad * costo_unitario
+            detalle_fifo = [{"rollo_id": input.rollo_id, "cantidad": input.cantidad, "costo_unitario": costo_unitario}]
+            await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1 WHERE id = $2", input.cantidad, input.rollo_id)
+            await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
+        else:
+            ingresos = await conn.fetch(
+                "SELECT * FROM prod_inventario_ingresos WHERE item_id = $1 AND cantidad_disponible > 0 ORDER BY fecha ASC", input.item_id
+            )
+            cantidad_restante = input.cantidad
+            for ing in ingresos:
+                if cantidad_restante <= 0:
+                    break
+                disponible = float(ing['cantidad_disponible'])
+                consumir = min(disponible, cantidad_restante)
+                costo_unitario = float(ing['costo_unitario'])
+                costo_total += consumir * costo_unitario
+                detalle_fifo.append({"ingreso_id": ing['id'], "cantidad": consumir, "costo_unitario": costo_unitario})
+                await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", consumir, ing['id'])
+                cantidad_restante -= consumir
+        
+        salida_id = str(uuid.uuid4())
+        fecha = datetime.now(timezone.utc)
+        observaciones = f"[EXTRA] {input.motivo}. {input.observaciones}".strip()
+        
+        await conn.execute(
+            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            salida_id, input.item_id, input.cantidad, input.registro_id, input.talla_id, observaciones,
+            input.rollo_id, costo_total, json.dumps(detalle_fifo), fecha.replace(tzinfo=None)
+        )
+        await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
+        
+        # Actualizar requerimiento si existe (suma al consumido aunque no tenga reserva)
+        if input.registro_id:
+            if input.talla_id:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_consumida = cantidad_consumida + $1,
+                        estado = CASE
+                            WHEN cantidad_consumida + $1 >= cantidad_requerida THEN 'COMPLETO'
+                            ELSE 'PARCIAL'
+                        END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id = $4
+                """, input.cantidad, input.registro_id, input.item_id, input.talla_id)
+            else:
+                await conn.execute("""
+                    UPDATE prod_registro_requerimiento_mp
+                    SET cantidad_consumida = cantidad_consumida + $1,
+                        estado = CASE
+                            WHEN cantidad_consumida + $1 >= cantidad_requerida THEN 'COMPLETO'
+                            ELSE 'PARCIAL'
+                        END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
+                """, input.cantidad, input.registro_id, input.item_id)
+        
+        return {
+            "id": salida_id,
+            "item_id": input.item_id,
+            "cantidad": input.cantidad,
+            "costo_total": costo_total,
+            "tipo": "EXTRA",
+            "message": "Salida extra registrada"
+        }
+
+
 class SalidaUpdateData(BaseModel):
     observaciones: str = ""
 
