@@ -2988,13 +2988,8 @@ async def crear_reserva(registro_id: str, input: ReservaCreateInput):
                 errores.append(f"Línea {idx+1}: No existe requerimiento para item_id={linea.item_id}, talla_id={linea.talla_id}")
                 continue
             
-            # Validar cantidad vs pendiente en requerimiento
-            pendiente_req = float(req['cantidad_requerida']) - float(req['cantidad_reservada'])
-            if linea.cantidad > pendiente_req:
-                errores.append(f"Línea {idx+1}: Cantidad ({linea.cantidad}) excede pendiente de reservar ({pendiente_req})")
-                continue
-            
-            # Validar disponibilidad global
+            # OPCIÓN 1: Ya NO limitamos al pendiente_reservar - se puede reservar más si hay stock disponible
+            # Solo validamos disponibilidad global
             disp = await get_disponibilidad_item(conn, linea.item_id)
             if not disp:
                 errores.append(f"Línea {idx+1}: Item no encontrado")
