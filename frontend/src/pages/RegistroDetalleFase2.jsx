@@ -783,13 +783,13 @@ const SalidasTab = ({ registroId }) => {
         <div className="text-center py-4 bg-green-50 rounded-lg">
           <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-600" />
           <p className="text-green-700">Todo el requerimiento ha sido consumido</p>
-          <p className="text-sm text-green-600 mt-1">¿Necesitas más? Usa el botón "Salida Extra"</p>
+          <p className="text-sm text-green-600 mt-1">¿Necesitas más? Usa el botón &quot;Salida Extra&quot;</p>
         </div>
       ) : requerimiento.lineas.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed rounded-lg">
           <LogOut className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">Primero genera y reserva el requerimiento</p>
-          <p className="text-sm text-muted-foreground mt-1">O usa "Salida Extra" para consumir sin reserva</p>
+          <p className="text-sm text-muted-foreground mt-1">O usa &quot;Salida Extra&quot; para consumir sin reserva</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-4">
