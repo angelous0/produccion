@@ -199,11 +199,14 @@ export const Inventario = () => {
             <Table>
               <TableHeader>
                 <TableRow className="data-table-header">
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Unidad</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
+                  <TableHead className="text-right">Reservado</TableHead>
+                  <TableHead className="text-right">Disponible</TableHead>
                   <TableHead className="text-right">Stock Mínimo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-[100px]">Acciones</TableHead>
