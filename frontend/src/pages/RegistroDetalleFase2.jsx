@@ -213,7 +213,7 @@ const RequerimientoTab = ({ registroId, totalPrendas }) => {
         <div className="text-center py-8 border-2 border-dashed rounded-lg">
           <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">No hay requerimiento generado</p>
-          <p className="text-sm text-muted-foreground">Haz clic en "Generar desde BOM" para calcular</p>
+          <p className="text-sm text-muted-foreground">Haz clic en &quot;Generar desde BOM&quot; para calcular</p>
         </div>
       ) : (
         <>
