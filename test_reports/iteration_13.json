@@ -1,0 +1,69 @@
+{
+  "summary": "Tested new Inventario feature for showing stock disponible (available stock) and reservation details. All features working correctly - both backend APIs and frontend UI.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/inventario returns total_reservado field for all items",
+    "Backend: GET /api/inventario returns stock_disponible field for all items",
+    "Backend: stock_disponible = max(0, stock_actual - total_reservado) calculation is correct",
+    "Backend: GET /api/inventario/{item_id}/reservas-detalle returns correct structure",
+    "Backend: reservas-detalle includes: item_id, item_codigo, item_nombre, stock_actual, total_reservado, stock_disponible, registros",
+    "Backend: registros array includes: registro_id, n_corte, registro_estado, modelo_nombre, total_reservado, lineas",
+    "Backend: Data consistency between /inventario and /reservas-detalle endpoints verified",
+    "Backend: reservas-detalle returns empty registros array for items without reservations",
+    "Backend: reservas-detalle returns 404 for invalid item_id",
+    "Frontend: Inventario table shows 11 columns including Stock Actual, Reservado, Disponible",
+    "Frontend: Items with active reservations show chevron (expand) button",
+    "Frontend: 3 items with reservations found: B01, B01-0001, DENIM-001",
+    "Frontend: Clicking expand button shows detail table with N° Corte, Modelo, Estado Registro, Cantidad Reservada",
+    "Frontend: Summary section shows Total reservado, Stock actual, Disponible",
+    "Frontend: All 3 expand buttons work correctly and show correct data"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_inventario_reservas.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Code is well structured with proper data-testid attributes for testing",
+    "Backend correctly calculates stock_disponible as max(0, stock_actual - total_reservado)",
+    "Frontend properly handles loading states and empty data scenarios"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_inventario_reservas.py - Created new test file for inventario reservas feature"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "No new seed data created - used existing items with reservations (B01, B01-0001, DENIM-001)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Inventario reservas feature is fully functional. Items with active reservations: B01 (BOTON AMARILLO - 17 reserved), B01-0001 (Boton Pretinero Negro Test - 200 reserved), DENIM-001 (Denim Azul Stretch - 30 reserved). The expand button uses data-testid='expand-reservas-{item_id}' pattern.",
+  "features_verified": {
+    "inventario_table_columns": {
+      "new_columns": ["Stock Actual", "Reservado", "Disponible"],
+      "total_columns": 11,
+      "column_order": ["(expand)", "Código", "Nombre", "Categoría", "Unidad", "Stock Actual", "Reservado", "Disponible", "Stock Mínimo", "Estado", "Acciones"]
+    },
+    "expand_reservas_detail": {
+      "trigger": "ChevronDown/ChevronUp button for items with total_reservado > 0",
+      "detail_columns": ["N° Corte", "Modelo", "Estado Registro", "Cantidad Reservada"],
+      "summary_fields": ["Total reservado", "Stock actual", "Disponible"]
+    },
+    "backend_endpoints": {
+      "GET /api/inventario": "Returns total_reservado and stock_disponible for each item",
+      "GET /api/inventario/{item_id}/reservas-detalle": "Returns detailed reservation info grouped by registro"
+    }
+  }
+}
