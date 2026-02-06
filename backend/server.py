@@ -4287,13 +4287,31 @@ async def delete_ajuste(ajuste_id: str):
         ajuste = await conn.fetchrow("SELECT * FROM prod_inventario_ajustes WHERE id = $1", ajuste_id)
         if not ajuste:
             raise HTTPException(status_code=404, detail="Ajuste no encontrado")
+        
+        item = await conn.fetchrow("SELECT control_por_rollos FROM prod_inventario WHERE id = $1", ajuste['item_id'])
+        
         incremento = -float(ajuste['cantidad']) if ajuste['tipo'] == "entrada" else float(ajuste['cantidad'])
         if ajuste['tipo'] == "entrada":
-            item = await conn.fetchrow("SELECT stock_actual FROM prod_inventario WHERE id = $1", ajuste['item_id'])
-            if item and float(item['stock_actual']) < float(ajuste['cantidad']):
+            current_item = await conn.fetchrow("SELECT stock_actual FROM prod_inventario WHERE id = $1", ajuste['item_id'])
+            if current_item and float(current_item['stock_actual']) < float(ajuste['cantidad']):
                 raise HTTPException(status_code=400, detail="No se puede eliminar: dejaría el stock negativo")
+        
         await conn.execute("DELETE FROM prod_inventario_ajustes WHERE id = $1", ajuste_id)
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", incremento, ajuste['item_id'])
+        
+        # Revertir metraje del rollo si aplica
+        if item and item['control_por_rollos'] and ajuste.get('rollo_id'):
+            rollo = await conn.fetchrow("SELECT ingreso_id FROM prod_inventario_rollos WHERE id = $1", ajuste['rollo_id'])
+            if rollo:
+                if ajuste['tipo'] == "entrada":
+                    # Revertir entrada = restar metraje
+                    await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1, metraje = metraje - $1 WHERE id = $2", float(ajuste['cantidad']), ajuste['rollo_id'])
+                    await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1, cantidad = cantidad - $1 WHERE id = $2", float(ajuste['cantidad']), rollo['ingreso_id'])
+                else:
+                    # Revertir salida = sumar metraje
+                    await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible + $1 WHERE id = $2", float(ajuste['cantidad']), ajuste['rollo_id'])
+                    await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible + $1 WHERE id = $2", float(ajuste['cantidad']), rollo['ingreso_id'])
+        
         return {"message": "Ajuste eliminado"}
 
 # ==================== ENDPOINTS MOVIMIENTOS PRODUCCION ====================
