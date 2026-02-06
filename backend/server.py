@@ -2552,8 +2552,22 @@ async def get_registro(registro_id: str):
         if not row:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         d = row_to_dict(row)
-        d['tallas'] = parse_jsonb(d.get('tallas'))
+        tallas_raw = parse_jsonb(d.get('tallas'))
         d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
+        
+        # Enriquecer tallas con nombre
+        tallas_enriquecidas = []
+        for t in tallas_raw:
+            talla_id = t.get('talla_id')
+            if talla_id:
+                talla_info = await conn.fetchrow("SELECT nombre FROM prod_tallas_catalogo WHERE id = $1", talla_id)
+                tallas_enriquecidas.append({
+                    'talla_id': talla_id,
+                    'talla_nombre': talla_info['nombre'] if talla_info else '',
+                    'cantidad': t.get('cantidad', 0)
+                })
+        d['tallas'] = tallas_enriquecidas
+        
         modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
         if modelo:
             d['modelo_nombre'] = modelo['nombre']
