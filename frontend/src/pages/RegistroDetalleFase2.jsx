@@ -1047,6 +1047,134 @@ const SalidasTab = ({ registroId }) => {
           </CardContent>
         </Card>
       )}
+
+      {/* MODAL DE SELECCIÓN DE ROLLO */}
+      <Dialog open={rolloModalOpen} onOpenChange={setRolloModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Seleccionar Rollo - {rolloModalLinea?.item_nombre}
+            </DialogTitle>
+            <DialogDescription>
+              Pendiente a consumir: <strong>{rolloModalLinea ? parseFloat(rolloModalLinea.pendiente_consumir).toFixed(2) : 0}</strong> metros
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Buscador */}
+            <Input
+              placeholder="Buscar por número de rollo o tono..."
+              value={rolloModalSearch}
+              onChange={(e) => setRolloModalSearch(e.target.value)}
+              className="mb-2"
+            />
+
+            {/* Lista de rollos */}
+            <div className="border rounded-lg max-h-64 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead>Rollo</TableHead>
+                    <TableHead>Tono</TableHead>
+                    <TableHead className="text-right">Metraje Disp.</TableHead>
+                    <TableHead className="w-[100px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rollosFiltrados.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                        No hay rollos disponibles
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rollosFiltrados.map((rollo) => (
+                      <TableRow 
+                        key={rollo.id}
+                        className={`cursor-pointer transition-colors ${rolloModalSelected?.id === rollo.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                        onClick={() => setRolloModalSelected(rollo)}
+                      >
+                        <TableCell>
+                          {rolloModalSelected?.id === rollo.id && (
+                            <CheckCircle2 className="h-5 w-5 text-primary" />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono font-medium">{rollo.numero_rollo}</TableCell>
+                        <TableCell>{rollo.tono || '-'}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold">
+                          {parseFloat(rollo.metraje_disponible).toFixed(2)} m
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRolloModalSelected(rollo);
+                              setRolloModalCantidad(rollo.metraje_disponible.toString());
+                            }}
+                          >
+                            Todo
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Cantidad a consumir (consumo parcial) */}
+            {rolloModalSelected && (
+              <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">Rollo seleccionado:</span>
+                  <Badge variant="outline" className="font-mono">
+                    {rolloModalSelected.numero_rollo} - {rolloModalSelected.metraje_disponible}m disponible
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="text-sm font-medium whitespace-nowrap">Cantidad a consumir:</label>
+                  <Input
+                    type="number"
+                    min="0.01"
+                    max={rolloModalSelected.metraje_disponible}
+                    step="0.01"
+                    value={rolloModalCantidad}
+                    onChange={(e) => setRolloModalCantidad(e.target.value)}
+                    className="font-mono w-32"
+                  />
+                  <span className="text-sm text-muted-foreground">metros</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setRolloModalCantidad(rolloModalSelected.metraje_disponible.toString())}
+                  >
+                    Usar Todo
+                  </Button>
+                </div>
+                {parseFloat(rolloModalCantidad) < rolloModalSelected.metraje_disponible && parseFloat(rolloModalCantidad) > 0 && (
+                  <p className="text-sm text-amber-600">
+                    ⚠️ Consumo parcial: quedarán {(rolloModalSelected.metraje_disponible - parseFloat(rolloModalCantidad)).toFixed(2)}m en el rollo
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRolloModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmarRollo} disabled={!rolloModalSelected}>
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Confirmar Selección
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
