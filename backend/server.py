@@ -4216,7 +4216,7 @@ async def create_ajuste(input: AjusteInventarioCreate):
         # Validaciones para items con control por rollos
         if control_por_rollos:
             if input.tipo == "salida":
-                # Para salida de rollo, necesitamos el rollo_id
+                # Para salida de rollo, necesitamos el rollo_id OBLIGATORIO
                 if not input.rollo_id:
                     raise HTTPException(status_code=400, detail="Este item requiere seleccionar un rollo para ajuste de salida")
                 rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
@@ -4226,15 +4226,14 @@ async def create_ajuste(input: AjusteInventarioCreate):
                     raise HTTPException(status_code=400, detail="El rollo no pertenece a este item")
                 if float(rollo['metraje_disponible']) < input.cantidad:
                     raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo. Disponible: {rollo['metraje_disponible']}")
-            elif input.tipo == "entrada":
-                # Para entrada de rollo, también necesitamos rollo_id para aumentar su metraje
-                if not input.rollo_id:
-                    raise HTTPException(status_code=400, detail="Este item requiere seleccionar un rollo para ajuste de entrada")
+            elif input.tipo == "entrada" and input.rollo_id:
+                # Entrada con rollo específico (opcional) - aumentar metraje del rollo
                 rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
                 if not rollo:
                     raise HTTPException(status_code=404, detail="Rollo no encontrado")
                 if rollo['item_id'] != input.item_id:
                     raise HTTPException(status_code=400, detail="El rollo no pertenece a este item")
+            # Si es entrada sin rollo_id, solo se aumenta el stock general (permitido)
         else:
             # Items sin control por rollos no deben tener rollo_id
             if input.rollo_id:
@@ -4253,15 +4252,16 @@ async def create_ajuste(input: AjusteInventarioCreate):
         incremento = input.cantidad if input.tipo == "entrada" else -input.cantidad
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", incremento, input.item_id)
         
-        # Actualizar metraje del rollo si aplica
+        # Actualizar metraje del rollo si aplica (solo si hay rollo_id)
         if control_por_rollos and input.rollo_id:
             rollo = await conn.fetchrow("SELECT ingreso_id FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
-            if input.tipo == "entrada":
-                await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible + $1, metraje = metraje + $1 WHERE id = $2", input.cantidad, input.rollo_id)
-                await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible + $1, cantidad = cantidad + $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
-            else:  # salida
-                await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1 WHERE id = $2", input.cantidad, input.rollo_id)
-                await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
+            if rollo:
+                if input.tipo == "entrada":
+                    await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible + $1, metraje = metraje + $1 WHERE id = $2", input.cantidad, input.rollo_id)
+                    await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible + $1, cantidad = cantidad + $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
+                else:  # salida
+                    await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1 WHERE id = $2", input.cantidad, input.rollo_id)
+                    await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
         
         return ajuste
 
