@@ -329,27 +329,77 @@ export const InventarioAjustes = () => {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Item *</Label>
-                <Select
-                  value={formData.item_id}
-                  onValueChange={handleItemChange}
-                  required
-                >
-                  <SelectTrigger data-testid="select-item">
-                    <SelectValue placeholder="Seleccionar item..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {items.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        <span className="font-mono mr-2">{item.codigo}</span>
-                        {item.nombre}
-                        <span className="ml-2 text-muted-foreground">(Stock: {item.stock_actual})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={itemSearchOpen} onOpenChange={setItemSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={itemSearchOpen}
+                      className="w-full justify-between font-normal"
+                      disabled={editingAjuste}
+                      data-testid="select-item"
+                    >
+                      {selectedItem ? (
+                        <span>
+                          <span className="font-mono mr-2">{selectedItem.codigo}</span>
+                          {selectedItem.nombre}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Buscar item...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar por código o nombre..." 
+                        value={itemSearchQuery}
+                        onValueChange={setItemSearchQuery}
+                      />
+                      <CommandList>
+                        <CommandEmpty>No se encontraron items</CommandEmpty>
+                        <CommandGroup>
+                          {filteredItems.map((item) => (
+                            <CommandItem
+                              key={item.id}
+                              value={item.id}
+                              onSelect={() => {
+                                handleItemChange(item.id);
+                                setItemSearchOpen(false);
+                                setItemSearchQuery('');
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedItem?.id === item.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <span className="font-mono mr-2 text-sm">{item.codigo}</span>
+                              <span className="flex-1">{item.nombre}</span>
+                              <span className="text-xs text-muted-foreground ml-2">
+                                Stock: {item.stock_actual}
+                              </span>
+                              {item.control_por_rollos && (
+                                <Layers className="h-3 w-3 ml-1 text-blue-500" />
+                              )}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 {selectedItem && (
                   <p className="text-sm text-muted-foreground">
                     Stock actual: <span className="font-mono font-semibold">{selectedItem.stock_actual}</span> {selectedItem.unidad_medida}
+                    {selectedItem.control_por_rollos && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        <Layers className="h-3 w-3 mr-1" />
+                        Control por rollos
+                      </Badge>
+                    )}
                   </p>
                 )}
               </div>
