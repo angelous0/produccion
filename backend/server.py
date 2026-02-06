@@ -749,6 +749,7 @@ class AjusteInventarioBase(BaseModel):
     cantidad: float
     motivo: str = ""
     observaciones: str = ""
+    rollo_id: Optional[str] = None
 
 class AjusteInventarioCreate(AjusteInventarioBase):
     pass
