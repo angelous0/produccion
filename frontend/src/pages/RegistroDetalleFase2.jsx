@@ -498,8 +498,17 @@ const SalidasTab = ({ registroId }) => {
   
   // Estado para cantidades en lote (por item_id + talla_id)
   const [cantidadesLote, setCantidadesLote] = useState({});
-  // Estado para rollos seleccionados auto (por item_id)
+  // Estado para rollos seleccionados (por item_id_talla_id)
+  const [rollosSeleccionados, setRollosSeleccionados] = useState({});
+  // Estado para datos de rollos por item
   const [rollosData, setRollosData] = useState({});
+  
+  // Modal de selección de rollo
+  const [rolloModalOpen, setRolloModalOpen] = useState(false);
+  const [rolloModalLinea, setRolloModalLinea] = useState(null);
+  const [rolloModalSearch, setRolloModalSearch] = useState('');
+  const [rolloModalCantidad, setRolloModalCantidad] = useState('');
+  const [rolloModalSelected, setRolloModalSelected] = useState(null);
   
   // Form state para modo extra
   const [selectedItemExtra, setSelectedItemExtra] = useState(null);
@@ -534,14 +543,8 @@ const SalidasTab = ({ registroId }) => {
       const rollosResults = await Promise.all(rollosPromises);
       const rollosMap = {};
       rollosResults.forEach(r => {
-        // Auto-seleccionar el rollo con más metraje disponible (FIFO)
         const rollosActivos = r.rollos.filter(ro => ro.activo && ro.metraje_disponible > 0);
-        const mejorRollo = rollosActivos.sort((a, b) => b.metraje_disponible - a.metraje_disponible)[0];
-        rollosMap[r.itemId] = {
-          rollos: rollosActivos,
-          selectedRollo: mejorRollo?.id || '',
-          mejorRollo
-        };
+        rollosMap[r.itemId] = rollosActivos;
       });
       setRollosData(rollosMap);
       
