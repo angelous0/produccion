@@ -351,7 +351,7 @@ export const InventarioAjustes = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0" align="start">
-                    <Command>
+                    <Command shouldFilter={false}>
                       <CommandInput 
                         placeholder="Buscar por código o nombre..." 
                         value={itemSearchQuery}
@@ -363,7 +363,7 @@ export const InventarioAjustes = () => {
                           {filteredItems.map((item) => (
                             <CommandItem
                               key={item.id}
-                              value={item.id}
+                              value={`${item.codigo} ${item.nombre}`}
                               onSelect={() => {
                                 handleItemChange(item.id);
                                 setItemSearchOpen(false);
