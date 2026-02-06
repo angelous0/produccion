@@ -23,9 +23,17 @@ import {
 import { Separator } from '../components/ui/separator';
 import { 
   Scissors, Package, BookmarkCheck, LogOut, RefreshCw, 
-  AlertTriangle, CheckCircle2, Clock, Loader2, Plus, Lock, XCircle, Info
+  AlertTriangle, CheckCircle2, Clock, Loader2, Plus, Lock, XCircle, Info, Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
