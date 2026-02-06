@@ -493,15 +493,20 @@ const SalidasTab = ({ registroId }) => {
   const [salidas, setSalidas] = useState([]);
   const [inventario, setInventario] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [creando, setCreando] = useState(false);
+  const [procesando, setProcesando] = useState(false);
   const [modoExtra, setModoExtra] = useState(false);
   
-  // Form state
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [selectedRollo, setSelectedRollo] = useState('');
-  const [cantidad, setCantidad] = useState('');
-  const [rollosDisponibles, setRollosDisponibles] = useState([]);
-  const [observaciones, setObservaciones] = useState('');
+  // Estado para cantidades en lote (por item_id + talla_id)
+  const [cantidadesLote, setCantidadesLote] = useState({});
+  // Estado para rollos seleccionados auto (por item_id)
+  const [rollosData, setRollosData] = useState({});
+  
+  // Form state para modo extra
+  const [selectedItemExtra, setSelectedItemExtra] = useState(null);
+  const [selectedRolloExtra, setSelectedRolloExtra] = useState('');
+  const [cantidadExtra, setCantidadExtra] = useState('');
+  const [rollosDisponiblesExtra, setRollosDisponiblesExtra] = useState([]);
+  const [observacionesExtra, setObservacionesExtra] = useState('');
   const [motivoExtra, setMotivoExtra] = useState('Consumo adicional');
 
   const fetchData = async () => {
@@ -515,6 +520,31 @@ const SalidasTab = ({ registroId }) => {
       setRequerimiento(reqRes.data);
       setSalidas(salRes.data);
       setInventario(invRes.data);
+      
+      // Cargar rollos para items que lo necesitan
+      const itemsConRollos = (reqRes.data.lineas || []).filter(l => l.control_por_rollos && l.pendiente_consumir > 0);
+      const rollosPromises = itemsConRollos.map(async (l) => {
+        try {
+          const res = await axios.get(`${API}/inventario/${l.item_id}`);
+          return { itemId: l.item_id, rollos: res.data.rollos || [] };
+        } catch {
+          return { itemId: l.item_id, rollos: [] };
+        }
+      });
+      const rollosResults = await Promise.all(rollosPromises);
+      const rollosMap = {};
+      rollosResults.forEach(r => {
+        // Auto-seleccionar el rollo con más metraje disponible (FIFO)
+        const rollosActivos = r.rollos.filter(ro => ro.activo && ro.metraje_disponible > 0);
+        const mejorRollo = rollosActivos.sort((a, b) => b.metraje_disponible - a.metraje_disponible)[0];
+        rollosMap[r.itemId] = {
+          rollos: rollosActivos,
+          selectedRollo: mejorRollo?.id || '',
+          mejorRollo
+        };
+      });
+      setRollosData(rollosMap);
+      
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
@@ -526,28 +556,467 @@ const SalidasTab = ({ registroId }) => {
     if (registroId) fetchData();
   }, [registroId]);
 
-  const handleSelectItem = async (linea) => {
-    setSelectedItem(linea);
-    setSelectedRollo('');
-    setCantidad('');
-    setRollosDisponibles([]);
+  const getLineaKey = (linea) => `${linea.item_id}_${linea.talla_id || 'null'}`;
 
-    if (linea.control_por_rollos) {
+  const handleCantidadChange = (linea, value) => {
+    const key = getLineaKey(linea);
+    const numValue = parseFloat(value) || 0;
+    const maxValue = parseFloat(linea.pendiente_consumir);
+    
+    // Para items con rollos, también considerar metraje disponible del rollo
+    let maxPermitido = maxValue;
+    if (linea.control_por_rollos && rollosData[linea.item_id]?.mejorRollo) {
+      maxPermitido = Math.min(maxValue, rollosData[linea.item_id].mejorRollo.metraje_disponible);
+    }
+    
+    setCantidadesLote(prev => ({
+      ...prev,
+      [key]: Math.min(numValue, maxPermitido)
+    }));
+  };
+
+  const handleRolloChange = (itemId, rolloId) => {
+    setRollosData(prev => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        selectedRollo: rolloId,
+        mejorRollo: prev[itemId]?.rollos?.find(r => r.id === rolloId)
+      }
+    }));
+  };
+
+  const usarTodoLoReservado = (linea) => {
+    const key = getLineaKey(linea);
+    let cantidad = parseFloat(linea.pendiente_consumir);
+    
+    if (linea.control_por_rollos && rollosData[linea.item_id]?.mejorRollo) {
+      cantidad = Math.min(cantidad, rollosData[linea.item_id].mejorRollo.metraje_disponible);
+    }
+    
+    setCantidadesLote(prev => ({ ...prev, [key]: cantidad }));
+  };
+
+  const limpiarTodo = () => {
+    setCantidadesLote({});
+  };
+
+  const llenarTodo = () => {
+    const nuevasCantidades = {};
+    pendientes.forEach(linea => {
+      const key = getLineaKey(linea);
+      let cantidad = parseFloat(linea.pendiente_consumir);
+      
+      if (linea.control_por_rollos && rollosData[linea.item_id]?.mejorRollo) {
+        cantidad = Math.min(cantidad, rollosData[linea.item_id].mejorRollo.metraje_disponible);
+      }
+      
+      nuevasCantidades[key] = cantidad;
+    });
+    setCantidadesLote(nuevasCantidades);
+  };
+
+  const registrarTodasLasSalidas = async () => {
+    const salidasARegistrar = pendientes.filter(linea => {
+      const key = getLineaKey(linea);
+      return cantidadesLote[key] > 0;
+    });
+
+    if (salidasARegistrar.length === 0) {
+      toast.error('No hay cantidades para registrar');
+      return;
+    }
+
+    setProcesando(true);
+    let exitosas = 0;
+    let errores = [];
+
+    for (const linea of salidasARegistrar) {
+      const key = getLineaKey(linea);
+      const cantidad = cantidadesLote[key];
+      
       try {
-        const res = await axios.get(`${API}/inventario/${linea.item_id}`);
-        setRollosDisponibles(res.data.rollos || []);
+        await axios.post(`${API}/inventario-salidas`, {
+          item_id: linea.item_id,
+          cantidad: cantidad,
+          registro_id: registroId,
+          talla_id: linea.talla_id || null,
+          rollo_id: linea.control_por_rollos ? rollosData[linea.item_id]?.selectedRollo : null,
+          observaciones: ''
+        });
+        exitosas++;
+      } catch (error) {
+        errores.push(`${linea.item_nombre}: ${error.response?.data?.detail || 'Error'}`);
+      }
+    }
+
+    setProcesando(false);
+    
+    if (exitosas > 0) {
+      toast.success(`${exitosas} salida(s) registrada(s) correctamente`);
+      setCantidadesLote({});
+      fetchData();
+    }
+    
+    if (errores.length > 0) {
+      toast.error(`Errores: ${errores.join(', ')}`);
+    }
+  };
+
+  // Modo Extra handlers
+  const handleSelectItemExtra = async (itemId) => {
+    const item = inventario.find(i => i.id === itemId);
+    if (!item) return;
+    
+    setSelectedItemExtra({
+      item_id: item.id,
+      item_nombre: item.nombre,
+      item_codigo: item.codigo,
+      item_unidad: item.unidad_medida,
+      control_por_rollos: item.control_por_rollos,
+      talla_id: null,
+      pendiente_consumir: item.stock_actual
+    });
+    setSelectedRolloExtra('');
+    setCantidadExtra('');
+    setRollosDisponiblesExtra([]);
+
+    if (item.control_por_rollos) {
+      try {
+        const res = await axios.get(`${API}/inventario/${item.id}`);
+        const rollosActivos = (res.data.rollos || []).filter(r => r.activo && r.metraje_disponible > 0);
+        setRollosDisponiblesExtra(rollosActivos);
+        // Auto-seleccionar el mejor rollo
+        if (rollosActivos.length > 0) {
+          const mejor = rollosActivos.sort((a, b) => b.metraje_disponible - a.metraje_disponible)[0];
+          setSelectedRolloExtra(mejor.id);
+        }
       } catch (error) {
         toast.error('Error al cargar rollos');
       }
     }
   };
 
-  const handleSelectItemExtra = async (itemId) => {
-    const item = inventario.find(i => i.id === itemId);
-    if (!item) return;
+  const handleCrearSalidaExtra = async () => {
+    if (!selectedItemExtra) {
+      toast.error('Selecciona un item');
+      return;
+    }
     
-    setSelectedItem({
-      item_id: item.id,
+    const cant = parseFloat(cantidadExtra);
+    if (!cant || cant <= 0) {
+      toast.error('Ingresa una cantidad válida');
+      return;
+    }
+
+    if (selectedItemExtra.control_por_rollos && !selectedRolloExtra) {
+      toast.error('Selecciona un rollo para este item');
+      return;
+    }
+
+    setProcesando(true);
+    try {
+      await axios.post(`${API}/inventario-salidas/extra`, {
+        item_id: selectedItemExtra.item_id,
+        cantidad: cant,
+        registro_id: registroId,
+        talla_id: selectedItemExtra.talla_id || null,
+        rollo_id: selectedItemExtra.control_por_rollos ? selectedRolloExtra : null,
+        observaciones: observacionesExtra,
+        motivo: motivoExtra
+      });
+      toast.success('Salida extra registrada');
+      setSelectedItemExtra(null);
+      setCantidadExtra('');
+      setSelectedRolloExtra('');
+      setObservacionesExtra('');
+      setMotivoExtra('Consumo adicional');
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear salida');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const usarTodoRolloExtra = () => {
+    const rollo = rollosDisponiblesExtra.find(r => r.id === selectedRolloExtra);
+    if (rollo) {
+      setCantidadExtra(rollo.metraje_disponible.toString());
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
+  }
+
+  const pendientes = requerimiento.lineas.filter(l => l.pendiente_consumir > 0);
+  const totalARegistrar = Object.values(cantidadesLote).reduce((sum, c) => sum + (c || 0), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold">Registrar Salidas de MP</h3>
+          <p className="text-sm text-muted-foreground">
+            {modoExtra ? 'Salida extra: sin validar reserva previa' : 'Ingresa las cantidades y registra todas de una vez'}
+          </p>
+        </div>
+        <Button 
+          variant={modoExtra ? "default" : "outline"}
+          onClick={() => {
+            setModoExtra(!modoExtra);
+            setSelectedItemExtra(null);
+            setCantidadExtra('');
+            setSelectedRolloExtra('');
+          }}
+          data-testid="btn-modo-extra"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          {modoExtra ? 'Modo Extra ACTIVO' : 'Salida Extra'}
+        </Button>
+      </div>
+
+      {modoExtra ? (
+        /* MODO EXTRA: Seleccionar cualquier item del inventario */
+        <div className="grid md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Seleccionar Item del Inventario</CardTitle>
+              <CardDescription>Cualquier item con stock disponible</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select onValueChange={handleSelectItemExtra}>
+                <SelectTrigger data-testid="select-item-extra">
+                  <SelectValue placeholder="Buscar item..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {inventario.filter(i => parseFloat(i.stock_actual) > 0).map(i => (
+                    <SelectItem key={i.id} value={i.id}>
+                      {i.codigo} - {i.nombre} ({i.stock_actual} disp.)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          {/* Formulario de salida extra */}
+          <Card className="border-orange-200 bg-orange-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-orange-700">Nueva Salida Extra</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {selectedItemExtra ? (
+                <>
+                  <div className="p-3 bg-orange-100/50 rounded-lg">
+                    <div className="font-medium">{selectedItemExtra.item_nombre}</div>
+                    <div className="text-sm text-muted-foreground">
+                      Stock disponible: {parseFloat(selectedItemExtra.pendiente_consumir).toFixed(2)} {selectedItemExtra.item_unidad}
+                    </div>
+                  </div>
+
+                  {selectedItemExtra.control_por_rollos && (
+                    <div>
+                      <label className="text-sm font-medium">Rollo *</label>
+                      <Select value={selectedRolloExtra} onValueChange={setSelectedRolloExtra}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar rollo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rollosDisponiblesExtra.map(r => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.numero_rollo || r.id.slice(0, 8)} - {r.metraje_disponible}m disp.
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedRolloExtra && (
+                        <Button type="button" variant="link" size="sm" className="mt-1 h-auto p-0" onClick={usarTodoRolloExtra}>
+                          Usar todo el rollo
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-sm font-medium">Cantidad *</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={cantidadExtra}
+                      onChange={(e) => setCantidadExtra(e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium">Motivo</label>
+                    <Select value={motivoExtra} onValueChange={setMotivoExtra}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Consumo adicional">Consumo adicional</SelectItem>
+                        <SelectItem value="Reposición por defecto">Reposición por defecto</SelectItem>
+                        <SelectItem value="Ajuste de producción">Ajuste de producción</SelectItem>
+                        <SelectItem value="Material dañado">Material dañado</SelectItem>
+                        <SelectItem value="Otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button 
+                    onClick={handleCrearSalidaExtra} 
+                    disabled={procesando}
+                    className="w-full bg-orange-600 hover:bg-orange-700"
+                  >
+                    {procesando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Registrar Salida Extra
+                  </Button>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Selecciona un item del inventario
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : pendientes.length === 0 && requerimiento.lineas.length > 0 ? (
+        <div className="text-center py-4 bg-green-50 rounded-lg">
+          <CheckCircle2 className="h-6 w-6 mx-auto mb-2 text-green-600" />
+          <p className="text-green-700">Todo el requerimiento ha sido consumido</p>
+          <p className="text-sm text-green-600 mt-1">¿Necesitas más? Usa el botón &quot;Salida Extra&quot;</p>
+        </div>
+      ) : requerimiento.lineas.length === 0 ? (
+        <div className="text-center py-8 border-2 border-dashed rounded-lg">
+          <LogOut className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+          <p className="text-muted-foreground">Primero genera y reserva el requerimiento</p>
+          <p className="text-sm text-muted-foreground mt-1">O usa &quot;Salida Extra&quot; para consumir sin reserva</p>
+        </div>
+      ) : (
+        /* MODO NORMAL: Tabla editable en lote */
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm">Items con Reserva Pendiente</CardTitle>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={limpiarTodo}>
+                  Limpiar
+                </Button>
+                <Button variant="outline" size="sm" onClick={llenarTodo}>
+                  Llenar Todo
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Item</TableHead>
+                  <TableHead>Talla</TableHead>
+                  <TableHead className="text-right">Pendiente</TableHead>
+                  <TableHead className="w-[150px]">Rollo</TableHead>
+                  <TableHead className="w-[140px]">Cantidad a Consumir</TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendientes.map((linea) => {
+                  const key = getLineaKey(linea);
+                  const cantidadActual = cantidadesLote[key] || '';
+                  const tieneRollos = linea.control_por_rollos && rollosData[linea.item_id];
+                  const maxDisponible = tieneRollos && rollosData[linea.item_id]?.mejorRollo
+                    ? Math.min(parseFloat(linea.pendiente_consumir), rollosData[linea.item_id].mejorRollo.metraje_disponible)
+                    : parseFloat(linea.pendiente_consumir);
+                  
+                  return (
+                    <TableRow key={key}>
+                      <TableCell>
+                        <div className="font-medium">{linea.item_nombre}</div>
+                        <div className="text-xs text-muted-foreground">{linea.item_codigo}</div>
+                      </TableCell>
+                      <TableCell>
+                        {linea.talla_nombre || '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {parseFloat(linea.pendiente_consumir).toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        {tieneRollos ? (
+                          <Select 
+                            value={rollosData[linea.item_id]?.selectedRollo || ''} 
+                            onValueChange={(v) => handleRolloChange(linea.item_id, v)}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Rollo..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {rollosData[linea.item_id]?.rollos?.map(r => (
+                                <SelectItem key={r.id} value={r.id}>
+                                  {r.numero_rollo} ({r.metraje_disponible}m)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          max={maxDisponible}
+                          step="0.01"
+                          value={cantidadActual}
+                          onChange={(e) => handleCantidadChange(linea, e.target.value)}
+                          className="h-8 font-mono text-center"
+                          placeholder="0"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => usarTodoLoReservado(linea)}
+                          className="h-8 text-xs"
+                          title="Usar todo"
+                        >
+                          Max
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+
+            {/* Barra de acción */}
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Total a registrar: </span>
+                <span className="font-mono font-bold">{totalARegistrar.toFixed(2)}</span>
+              </div>
+              <Button 
+                onClick={registrarTodasLasSalidas}
+                disabled={procesando || totalARegistrar === 0}
+                className="min-w-[200px]"
+              >
+                {procesando ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                )}
+                Registrar Todas las Salidas
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       item_nombre: item.nombre,
       item_codigo: item.codigo,
       item_unidad: item.unidad_medida,
