@@ -66,6 +66,8 @@ export const InventarioAjustes = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAjuste, setEditingAjuste] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [itemSearchOpen, setItemSearchOpen] = useState(false);
+  const [itemSearchQuery, setItemSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     item_id: '',
     tipo: 'entrada',
@@ -74,6 +76,16 @@ export const InventarioAjustes = () => {
     observaciones: '',
     rollo_id: '',
   });
+
+  // Filtrar items por búsqueda
+  const filteredItems = useMemo(() => {
+    if (!itemSearchQuery) return items;
+    const query = itemSearchQuery.toLowerCase();
+    return items.filter(item => 
+      item.nombre.toLowerCase().includes(query) || 
+      item.codigo.toLowerCase().includes(query)
+    );
+  }, [items, itemSearchQuery]);
 
   const fetchData = async () => {
     try {
