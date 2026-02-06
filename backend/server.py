@@ -2555,17 +2555,34 @@ async def get_registro(registro_id: str):
         tallas_raw = parse_jsonb(d.get('tallas'))
         d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
         
-        # Enriquecer tallas con nombre
-        tallas_enriquecidas = []
-        for t in tallas_raw:
-            talla_id = t.get('talla_id')
-            if talla_id:
-                talla_info = await conn.fetchrow("SELECT nombre FROM prod_tallas_catalogo WHERE id = $1", talla_id)
-                tallas_enriquecidas.append({
-                    'talla_id': talla_id,
-                    'talla_nombre': talla_info['nombre'] if talla_info else '',
-                    'cantidad': t.get('cantidad', 0)
-                })
+        # Obtener tallas de la tabla prod_registro_tallas (si existen)
+        tallas_tabla = await conn.fetch("""
+            SELECT rt.talla_id, rt.cantidad_real, tc.nombre as talla_nombre
+            FROM prod_registro_tallas rt
+            LEFT JOIN prod_tallas_catalogo tc ON rt.talla_id = tc.id
+            WHERE rt.registro_id = $1
+            ORDER BY tc.orden
+        """, registro_id)
+        
+        if tallas_tabla:
+            # Usar datos de la tabla (más actualizados)
+            tallas_enriquecidas = [{
+                'talla_id': str(t['talla_id']),
+                'talla_nombre': t['talla_nombre'] or '',
+                'cantidad': int(t['cantidad_real']) if t['cantidad_real'] else 0
+            } for t in tallas_tabla]
+        else:
+            # Fallback al campo JSONB
+            tallas_enriquecidas = []
+            for t in tallas_raw:
+                talla_id = t.get('talla_id')
+                if talla_id:
+                    talla_info = await conn.fetchrow("SELECT nombre FROM prod_tallas_catalogo WHERE id = $1", talla_id)
+                    tallas_enriquecidas.append({
+                        'talla_id': talla_id,
+                        'talla_nombre': talla_info['nombre'] if talla_info else '',
+                        'cantidad': t.get('cantidad', 0)
+                    })
         d['tallas'] = tallas_enriquecidas
         
         modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
