@@ -403,17 +403,27 @@ export const InventarioAjustes = () => {
                 <Input
                   id="cantidad"
                   type="number"
-                  min="1"
-                  max={formData.tipo === 'salida' ? (selectedItem?.stock_actual || 999999) : 999999}
+                  min="0.01"
+                  step="0.01"
+                  max={
+                    formData.tipo === 'salida' 
+                      ? (selectedItem?.control_por_rollos 
+                          ? (rollos.find(r => r.id === formData.rollo_id)?.metraje_disponible || 999999)
+                          : (selectedItem?.stock_actual || 999999))
+                      : 999999
+                  }
                   value={formData.cantidad}
-                  onChange={(e) => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 1 })}
+                  onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 0.01 })}
                   required
+                  disabled={editingAjuste}
                   className="font-mono"
                   data-testid="input-cantidad"
                 />
                 {selectedItem && formData.tipo === 'salida' && (
                   <p className="text-xs text-muted-foreground">
-                    Máximo: {selectedItem.stock_actual}
+                    Máximo: {selectedItem.control_por_rollos 
+                      ? (rollos.find(r => r.id === formData.rollo_id)?.metraje_disponible || 'Seleccione un rollo')
+                      : selectedItem.stock_actual}
                   </p>
                 )}
               </div>
