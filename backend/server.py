@@ -4189,9 +4189,15 @@ async def get_ajustes():
         result = []
         for r in rows:
             d = row_to_dict(r)
-            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
+            item = await conn.fetchrow("SELECT nombre, codigo, control_por_rollos FROM prod_inventario WHERE id = $1", d.get('item_id'))
             d['item_nombre'] = item['nombre'] if item else ""
             d['item_codigo'] = item['codigo'] if item else ""
+            d['control_por_rollos'] = item['control_por_rollos'] if item else False
+            # Info del rollo si existe
+            if d.get('rollo_id'):
+                rollo = await conn.fetchrow("SELECT numero_rollo, tono FROM prod_inventario_rollos WHERE id = $1", d['rollo_id'])
+                d['numero_rollo'] = rollo['numero_rollo'] if rollo else ""
+                d['tono'] = rollo['tono'] if rollo else ""
             result.append(d)
         return result
 
