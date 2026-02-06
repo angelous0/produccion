@@ -123,9 +123,11 @@ export const InventarioAjustes = () => {
     if (item?.control_por_rollos) {
       try {
         const res = await axios.get(`${API}/inventario/${itemId}/rollos`);
-        setRollos(res.data.filter(r => r.activo));
+        // Filtrar solo rollos activos
+        const rollosActivos = res.data.filter(r => r.activo);
+        setRollos(rollosActivos);
       } catch (error) {
-        toast.error('Error al cargar rollos');
+        console.error('Error al cargar rollos:', error);
         setRollos([]);
       }
     } else {
