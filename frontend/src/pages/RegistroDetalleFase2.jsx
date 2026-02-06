@@ -658,6 +658,7 @@ const SalidasTab = ({ registroId }) => {
     if (exitosas > 0) {
       toast.success(`${exitosas} salida(s) registrada(s) correctamente`);
       setCantidadesLote({});
+      setRollosSeleccionados({});
       fetchData();
     }
     
