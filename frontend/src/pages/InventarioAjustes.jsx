@@ -332,6 +332,7 @@ export const InventarioAjustes = () => {
                   value={formData.tipo}
                   onValueChange={(value) => setFormData({ ...formData, tipo: value })}
                   required
+                  disabled={editingAjuste}
                 >
                   <SelectTrigger data-testid="select-tipo">
                     <SelectValue />
@@ -352,6 +353,50 @@ export const InventarioAjustes = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Selector de Rollo - solo para items con control por rollos */}
+              {selectedItem?.control_por_rollos && (
+                <div className="space-y-2">
+                  <Label>Rollo *</Label>
+                  <Select
+                    value={formData.rollo_id}
+                    onValueChange={(value) => {
+                      const rollo = rollos.find(r => r.id === value);
+                      setFormData({ 
+                        ...formData, 
+                        rollo_id: value,
+                        cantidad: formData.tipo === 'salida' ? Math.min(formData.cantidad, rollo?.metraje_disponible || 1) : formData.cantidad
+                      });
+                    }}
+                    required
+                    disabled={editingAjuste}
+                  >
+                    <SelectTrigger data-testid="select-rollo">
+                      <SelectValue placeholder="Seleccionar rollo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rollos.length === 0 ? (
+                        <SelectItem value="_empty" disabled>No hay rollos disponibles</SelectItem>
+                      ) : (
+                        rollos.map((rollo) => (
+                          <SelectItem key={rollo.id} value={rollo.id}>
+                            <span className="font-mono mr-2">{rollo.numero_rollo}</span>
+                            {rollo.tono && <span className="text-muted-foreground mr-2">({rollo.tono})</span>}
+                            <span className="text-muted-foreground">Disp: {rollo.metraje_disponible} m</span>
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {formData.rollo_id && (
+                    <p className="text-sm text-muted-foreground">
+                      Metraje disponible: <span className="font-mono font-semibold">
+                        {rollos.find(r => r.id === formData.rollo_id)?.metraje_disponible || 0}
+                      </span> metros
+                    </p>
+                  )}
+                </div>
+              )}
               
               <div className="space-y-2">
                 <Label htmlFor="cantidad">Cantidad *</Label>
