@@ -189,6 +189,7 @@ export const InventarioAjustes = () => {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Item</TableHead>
+                  <TableHead>Rollo</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Cantidad</TableHead>
                   <TableHead>Motivo</TableHead>
@@ -198,13 +199,13 @@ export const InventarioAjustes = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : ajustes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No hay ajustes registrados
                     </TableCell>
                   </TableRow>
@@ -219,7 +220,21 @@ export const InventarioAjustes = () => {
                         <div className="flex items-center gap-2">
                           <RefreshCw className="h-4 w-4 text-blue-500" />
                           {ajuste.item_nombre}
+                          {ajuste.control_por_rollos && (
+                            <Badge variant="outline" className="text-xs">
+                              <Layers className="h-3 w-3 mr-1" />
+                              Rollos
+                            </Badge>
+                          )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {ajuste.numero_rollo ? (
+                          <Badge variant="secondary">
+                            {ajuste.numero_rollo}
+                            {ajuste.tono && <span className="ml-1 text-muted-foreground">({ajuste.tono})</span>}
+                          </Badge>
+                        ) : '-'}
                       </TableCell>
                       <TableCell>
                         <Badge 
