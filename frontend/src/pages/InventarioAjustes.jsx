@@ -87,8 +87,10 @@ export const InventarioAjustes = () => {
       cantidad: 1,
       motivo: '',
       observaciones: '',
+      rollo_id: '',
     });
     setSelectedItem(null);
+    setRollos([]);
   };
 
   const handleOpenDialog = () => {
@@ -107,14 +109,28 @@ export const InventarioAjustes = () => {
       cantidad: ajuste.cantidad,
       motivo: ajuste.motivo || '',
       observaciones: ajuste.observaciones || '',
+      rollo_id: ajuste.rollo_id || '',
     });
     setDialogOpen(true);
   };
 
-  const handleItemChange = (itemId) => {
+  const handleItemChange = async (itemId) => {
     const item = items.find(i => i.id === itemId);
     setSelectedItem(item);
-    setFormData({ ...formData, item_id: itemId });
+    setFormData({ ...formData, item_id: itemId, rollo_id: '' });
+    
+    // Si el item tiene control por rollos, cargar los rollos disponibles
+    if (item?.control_por_rollos) {
+      try {
+        const res = await axios.get(`${API}/inventario/${itemId}/rollos`);
+        setRollos(res.data.filter(r => r.activo));
+      } catch (error) {
+        toast.error('Error al cargar rollos');
+        setRollos([]);
+      }
+    } else {
+      setRollos([]);
+    }
   };
 
   const handleSubmit = async (e) => {
