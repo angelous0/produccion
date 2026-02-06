@@ -29,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Trash2, RefreshCw, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, ArrowUp, ArrowDown, Pencil, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/dateUtils';
 
@@ -47,6 +47,7 @@ const MOTIVOS = [
 export const InventarioAjustes = () => {
   const [ajustes, setAjustes] = useState([]);
   const [items, setItems] = useState([]);
+  const [rollos, setRollos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAjuste, setEditingAjuste] = useState(null);
@@ -57,6 +58,7 @@ export const InventarioAjustes = () => {
     cantidad: 1,
     motivo: '',
     observaciones: '',
+    rollo_id: '',
   });
 
   const fetchData = async () => {
