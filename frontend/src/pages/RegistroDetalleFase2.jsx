@@ -1017,187 +1017,44 @@ const SalidasTab = ({ registroId }) => {
           </CardContent>
         </Card>
       )}
-      item_nombre: item.nombre,
-      item_codigo: item.codigo,
-      item_unidad: item.unidad_medida,
-      control_por_rollos: item.control_por_rollos,
-      talla_id: null,
-      pendiente_consumir: item.stock_actual
-    });
-    setSelectedRollo('');
-    setCantidad('');
-    setRollosDisponibles([]);
 
-    if (item.control_por_rollos) {
-      try {
-        const res = await axios.get(`${API}/inventario/${item.id}`);
-        setRollosDisponibles(res.data.rollos || []);
-      } catch (error) {
-        toast.error('Error al cargar rollos');
-      }
-    }
-  };
-
-  const handleCrearSalida = async () => {
-    if (!selectedItem) {
-      toast.error('Selecciona un item');
-      return;
-    }
-    
-    const cant = parseFloat(cantidad);
-    if (!cant || cant <= 0) {
-      toast.error('Ingresa una cantidad válida');
-      return;
-    }
-
-    if (selectedItem.control_por_rollos && !selectedRollo) {
-      toast.error('Selecciona un rollo para este item');
-      return;
-    }
-
-    setCreando(true);
-    try {
-      if (modoExtra) {
-        // Salida Extra - sin validar reserva
-        await axios.post(`${API}/inventario-salidas/extra`, {
-          item_id: selectedItem.item_id,
-          cantidad: cant,
-          registro_id: registroId,
-          talla_id: selectedItem.talla_id || null,
-          rollo_id: selectedItem.control_por_rollos ? selectedRollo : null,
-          observaciones,
-          motivo: motivoExtra
-        });
-        toast.success('Salida extra registrada');
-      } else {
-        // Salida normal - valida reserva
-        await axios.post(`${API}/inventario-salidas`, {
-          item_id: selectedItem.item_id,
-          cantidad: cant,
-          registro_id: registroId,
-          talla_id: selectedItem.talla_id || null,
-          rollo_id: selectedItem.control_por_rollos ? selectedRollo : null,
-          observaciones
-        });
-        toast.success('Salida registrada');
-      }
-      setSelectedItem(null);
-      setCantidad('');
-      setSelectedRollo('');
-      setObservaciones('');
-      setMotivoExtra('Consumo adicional');
-      fetchData();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Error al crear salida');
-    } finally {
-      setCreando(false);
-    }
-  };
-
-  const usarTodoRollo = () => {
-    const rollo = rollosDisponibles.find(r => r.id === selectedRollo);
-    if (rollo) {
-      setCantidad(rollo.metraje_disponible.toString());
-    }
-  };
-
-  if (loading) {
-    return <div className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
-  }
-
-  const pendientes = requerimiento.lineas.filter(l => l.pendiente_consumir > 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold">Registrar Salida de MP</h3>
-          <p className="text-sm text-muted-foreground">
-            {modoExtra ? 'Salida extra: sin validar reserva previa' : 'Consume material reservado'}
-          </p>
-        </div>
-        <Button 
-          variant={modoExtra ? "default" : "outline"}
-          onClick={() => {
-            setModoExtra(!modoExtra);
-            setSelectedItem(null);
-            setCantidad('');
-            setSelectedRollo('');
-          }}
-          data-testid="btn-modo-extra"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          {modoExtra ? 'Modo Extra ACTIVO' : 'Salida Extra'}
-        </Button>
-      </div>
-
-      {modoExtra ? (
-        /* MODO EXTRA: Seleccionar cualquier item del inventario */
-        <div className="grid md:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Seleccionar Item del Inventario</CardTitle>
-              <CardDescription>Cualquier item con stock disponible</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Select onValueChange={handleSelectItemExtra}>
-                <SelectTrigger data-testid="select-item-extra">
-                  <SelectValue placeholder="Buscar item..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {inventario.filter(i => parseFloat(i.stock_actual) > 0).map(i => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {i.codigo} - {i.nombre} ({i.stock_actual} disp.)
-                    </SelectItem>
+      {/* Historial de salidas */}
+      {salidas.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Historial de Salidas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-60 overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Talla</TableHead>
+                    <TableHead>Rollo</TableHead>
+                    <TableHead className="text-right">Cantidad</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {salidas.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="text-xs">{new Date(s.fecha).toLocaleString()}</TableCell>
+                      <TableCell>{s.item_nombre || s.item_id?.slice(0, 8)}</TableCell>
+                      <TableCell>{s.talla_nombre || '-'}</TableCell>
+                      <TableCell>{s.numero_rollo || '-'}</TableCell>
+                      <TableCell className="text-right font-mono">{parseFloat(s.cantidad).toFixed(2)}</TableCell>
+                    </TableRow>
                   ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
-
-          {/* Formulario de salida extra */}
-          <Card className="border-orange-200 bg-orange-50/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-orange-700">Nueva Salida Extra</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {selectedItem ? (
-                <>
-                  <div className="p-3 bg-orange-100/50 rounded-lg">
-                    <div className="font-medium">{selectedItem.item_nombre}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Stock disponible: {parseFloat(selectedItem.pendiente_consumir).toFixed(2)} {selectedItem.item_unidad}
-                    </div>
-                  </div>
-
-                  {selectedItem.control_por_rollos && (
-                    <div>
-                      <label className="text-sm font-medium">Rollo *</label>
-                      <Select value={selectedRollo} onValueChange={setSelectedRollo}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar rollo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {rollosDisponibles.map(r => (
-                            <SelectItem key={r.id} value={r.id}>
-                              {r.numero_rollo || r.id.slice(0, 8)} - {r.metraje_disponible}m disp.
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedRollo && (
-                        <Button type="button" variant="link" size="sm" className="mt-1 h-auto p-0" onClick={usarTodoRollo}>
-                          Usar todo el rollo
-                        </Button>
-                      )}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-sm font-medium">Cantidad *</label>
-                    <Input
-                      type="number"
-                      min="0"
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
                       step="0.01"
                       value={cantidad}
                       onChange={(e) => setCantidad(e.target.value)}
