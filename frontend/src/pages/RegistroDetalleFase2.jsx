@@ -906,14 +906,9 @@ const SalidasTab = ({ registroId }) => {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm">Items con Reserva Pendiente</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={limpiarTodo}>
-                  Limpiar
-                </Button>
-                <Button variant="outline" size="sm" onClick={llenarTodo}>
-                  Llenar Todo
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={limpiarTodo}>
+                Limpiar Todo
+              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -923,19 +918,16 @@ const SalidasTab = ({ registroId }) => {
                   <TableHead>Item</TableHead>
                   <TableHead>Talla</TableHead>
                   <TableHead className="text-right">Pendiente</TableHead>
-                  <TableHead className="w-[150px]">Rollo</TableHead>
-                  <TableHead className="w-[140px]">Cantidad a Consumir</TableHead>
-                  <TableHead className="w-[80px]"></TableHead>
+                  <TableHead className="w-[200px]">Acción</TableHead>
+                  <TableHead className="w-[120px] text-right">A Consumir</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pendientes.map((linea) => {
                   const key = getLineaKey(linea);
-                  const cantidadActual = cantidadesLote[key] || '';
-                  const tieneRollos = linea.control_por_rollos && rollosData[linea.item_id];
-                  const maxDisponible = tieneRollos && rollosData[linea.item_id]?.mejorRollo
-                    ? Math.min(parseFloat(linea.pendiente_consumir), rollosData[linea.item_id].mejorRollo.metraje_disponible)
-                    : parseFloat(linea.pendiente_consumir);
+                  const cantidadActual = cantidadesLote[key] || 0;
+                  const rolloSelec = rollosSeleccionados[key];
+                  const esRollo = linea.control_por_rollos;
                   
                   return (
                     <TableRow key={key}>
@@ -946,52 +938,51 @@ const SalidasTab = ({ registroId }) => {
                       <TableCell>
                         {linea.talla_nombre || '-'}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono font-semibold">
                         {parseFloat(linea.pendiente_consumir).toFixed(2)}
                       </TableCell>
                       <TableCell>
-                        {tieneRollos ? (
-                          <Select 
-                            value={rollosData[linea.item_id]?.selectedRollo || ''} 
-                            onValueChange={(v) => handleRolloChange(linea.item_id, v)}
+                        {esRollo ? (
+                          /* ITEM CON ROLLO: Botón para abrir modal */
+                          <Button
+                            variant={rolloSelec ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => abrirModalRollo(linea)}
+                            className="w-full"
                           >
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="Rollo..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {rollosData[linea.item_id]?.rollos?.map(r => (
-                                <SelectItem key={r.id} value={r.id}>
-                                  {r.numero_rollo} ({r.metraje_disponible}m)
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            {rolloSelec ? (
+                              <>
+                                <Layers className="h-4 w-4 mr-2" />
+                                {rolloSelec.numero_rollo} ({cantidadActual}m)
+                              </>
+                            ) : (
+                              <>
+                                <Layers className="h-4 w-4 mr-2" />
+                                Seleccionar Rollo
+                              </>
+                            )}
+                          </Button>
                         ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
+                          /* ITEM SIN ROLLO: Botón para copiar máximo */
+                          <Button
+                            variant={cantidadActual > 0 ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => copiarMaximo(linea)}
+                            className="w-full"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            {cantidadActual > 0 ? `Consumir ${cantidadActual}` : 'Usar Todo'}
+                          </Button>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max={maxDisponible}
-                          step="0.01"
-                          value={cantidadActual}
-                          onChange={(e) => handleCantidadChange(linea, e.target.value)}
-                          className="h-8 font-mono text-center"
-                          placeholder="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => usarTodoLoReservado(linea)}
-                          className="h-8 text-xs"
-                          title="Usar todo"
-                        >
-                          Max
-                        </Button>
+                      <TableCell className="text-right">
+                        {cantidadActual > 0 ? (
+                          <Badge variant="default" className="font-mono">
+                            {parseFloat(cantidadActual).toFixed(2)}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
