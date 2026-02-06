@@ -561,72 +561,71 @@ const SalidasTab = ({ registroId }) => {
 
   const getLineaKey = (linea) => `${linea.item_id}_${linea.talla_id || 'null'}`;
 
-  const handleCantidadChange = (linea, value) => {
+  // Copiar máximo pendiente a cantidad (para items SIN rollo)
+  const copiarMaximo = (linea) => {
     const key = getLineaKey(linea);
-    const numValue = parseFloat(value) || 0;
-    const maxValue = parseFloat(linea.pendiente_consumir);
-    
-    // Para items con rollos, también considerar metraje disponible del rollo
-    let maxPermitido = maxValue;
-    if (linea.control_por_rollos && rollosData[linea.item_id]?.mejorRollo) {
-      maxPermitido = Math.min(maxValue, rollosData[linea.item_id].mejorRollo.metraje_disponible);
-    }
-    
-    setCantidadesLote(prev => ({
-      ...prev,
-      [key]: Math.min(numValue, maxPermitido)
-    }));
+    setCantidadesLote(prev => ({ ...prev, [key]: parseFloat(linea.pendiente_consumir) }));
   };
 
-  const handleRolloChange = (itemId, rolloId) => {
-    setRollosData(prev => ({
-      ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        selectedRollo: rolloId,
-        mejorRollo: prev[itemId]?.rollos?.find(r => r.id === rolloId)
-      }
-    }));
+  // Abrir modal de selección de rollo
+  const abrirModalRollo = (linea) => {
+    setRolloModalLinea(linea);
+    setRolloModalSearch('');
+    setRolloModalCantidad(parseFloat(linea.pendiente_consumir).toString());
+    setRolloModalSelected(null);
+    setRolloModalOpen(true);
   };
 
-  const usarTodoLoReservado = (linea) => {
-    const key = getLineaKey(linea);
-    let cantidad = parseFloat(linea.pendiente_consumir);
-    
-    if (linea.control_por_rollos && rollosData[linea.item_id]?.mejorRollo) {
-      cantidad = Math.min(cantidad, rollosData[linea.item_id].mejorRollo.metraje_disponible);
+  // Confirmar selección de rollo desde el modal
+  const confirmarRollo = () => {
+    if (!rolloModalSelected) {
+      toast.error('Selecciona un rollo');
+      return;
+    }
+    const cantidad = parseFloat(rolloModalCantidad) || 0;
+    if (cantidad <= 0) {
+      toast.error('Ingresa una cantidad válida');
+      return;
+    }
+    if (cantidad > rolloModalSelected.metraje_disponible) {
+      toast.error(`Máximo disponible en rollo: ${rolloModalSelected.metraje_disponible}m`);
+      return;
     }
     
+    const key = getLineaKey(rolloModalLinea);
     setCantidadesLote(prev => ({ ...prev, [key]: cantidad }));
+    setRollosSeleccionados(prev => ({ ...prev, [key]: rolloModalSelected }));
+    setRolloModalOpen(false);
+    toast.success(`Rollo ${rolloModalSelected.numero_rollo} seleccionado: ${cantidad}m`);
   };
+
+  // Filtrar rollos en el modal
+  const rollosFiltrados = rolloModalLinea 
+    ? (rollosData[rolloModalLinea.item_id] || []).filter(r => {
+        if (!rolloModalSearch) return true;
+        const search = rolloModalSearch.toLowerCase();
+        return (r.numero_rollo?.toLowerCase().includes(search) || 
+                r.tono?.toLowerCase().includes(search));
+      })
+    : [];
 
   const limpiarTodo = () => {
     setCantidadesLote({});
-  };
-
-  const llenarTodo = () => {
-    const nuevasCantidades = {};
-    pendientes.forEach(linea => {
-      const key = getLineaKey(linea);
-      let cantidad = parseFloat(linea.pendiente_consumir);
-      
-      if (linea.control_por_rollos && rollosData[linea.item_id]?.mejorRollo) {
-        cantidad = Math.min(cantidad, rollosData[linea.item_id].mejorRollo.metraje_disponible);
-      }
-      
-      nuevasCantidades[key] = cantidad;
-    });
-    setCantidadesLote(nuevasCantidades);
+    setRollosSeleccionados({});
   };
 
   const registrarTodasLasSalidas = async () => {
     const salidasARegistrar = pendientes.filter(linea => {
       const key = getLineaKey(linea);
-      return cantidadesLote[key] > 0;
+      const cantidad = cantidadesLote[key];
+      if (!cantidad || cantidad <= 0) return false;
+      // Para items con rollo, verificar que haya rollo seleccionado
+      if (linea.control_por_rollos && !rollosSeleccionados[key]) return false;
+      return true;
     });
 
     if (salidasARegistrar.length === 0) {
-      toast.error('No hay cantidades para registrar');
+      toast.error('No hay salidas válidas para registrar');
       return;
     }
 
@@ -637,6 +636,7 @@ const SalidasTab = ({ registroId }) => {
     for (const linea of salidasARegistrar) {
       const key = getLineaKey(linea);
       const cantidad = cantidadesLote[key];
+      const rollo = rollosSeleccionados[key];
       
       try {
         await axios.post(`${API}/inventario-salidas`, {
@@ -644,7 +644,7 @@ const SalidasTab = ({ registroId }) => {
           cantidad: cantidad,
           registro_id: registroId,
           talla_id: linea.talla_id || null,
-          rollo_id: linea.control_por_rollos ? rollosData[linea.item_id]?.selectedRollo : null,
+          rollo_id: linea.control_por_rollos ? rollo?.id : null,
           observaciones: ''
         });
         exitosas++;
