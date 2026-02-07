@@ -575,36 +575,86 @@ const SalidasTab = ({ registroId }) => {
     setCantidadesLote(prev => ({ ...prev, [key]: parseFloat(linea.pendiente_consumir) }));
   };
 
-  // Abrir modal de selección de rollo
+  // Abrir modal de selección de rollos
   const abrirModalRollo = (linea) => {
     setRolloModalLinea(linea);
     setRolloModalSearch('');
-    setRolloModalCantidad(parseFloat(linea.pendiente_consumir).toString());
-    setRolloModalSelected(null);
+    setRolloModalSelections({});
     setRolloModalOpen(true);
   };
 
-  // Confirmar selección de rollo desde el modal
-  const confirmarRollo = () => {
-    if (!rolloModalSelected) {
-      toast.error('Selecciona un rollo');
-      return;
+  // Toggle selección de un rollo con cantidad completa
+  const toggleRolloSelection = (rollo) => {
+    setRolloModalSelections(prev => {
+      if (prev[rollo.id]) {
+        // Deseleccionar
+        const { [rollo.id]: _, ...rest } = prev;
+        return rest;
+      } else {
+        // Seleccionar con cantidad completa
+        return { ...prev, [rollo.id]: rollo.metraje_disponible };
+      }
+    });
+  };
+
+  // Cambiar cantidad de un rollo seleccionado
+  const cambiarCantidadRollo = (rolloId, cantidad, maxDisponible) => {
+    const numCantidad = parseFloat(cantidad) || 0;
+    if (numCantidad <= 0) {
+      // Si es 0, deseleccionar
+      setRolloModalSelections(prev => {
+        const { [rolloId]: _, ...rest } = prev;
+        return rest;
+      });
+    } else {
+      setRolloModalSelections(prev => ({
+        ...prev,
+        [rolloId]: Math.min(numCantidad, maxDisponible)
+      }));
     }
-    const cantidad = parseFloat(rolloModalCantidad) || 0;
-    if (cantidad <= 0) {
-      toast.error('Ingresa una cantidad válida');
-      return;
+  };
+
+  // Seleccionar todos los rollos
+  const seleccionarTodosRollos = () => {
+    const pendiente = parseFloat(rolloModalLinea?.pendiente_consumir || 0);
+    let acumulado = 0;
+    const nuevasSelecciones = {};
+    
+    for (const rollo of rollosFiltrados) {
+      if (acumulado >= pendiente) break;
+      const disponible = parseFloat(rollo.metraje_disponible);
+      const necesario = Math.min(disponible, pendiente - acumulado);
+      nuevasSelecciones[rollo.id] = necesario;
+      acumulado += necesario;
     }
-    if (cantidad > rolloModalSelected.metraje_disponible) {
-      toast.error(`Máximo disponible en rollo: ${rolloModalSelected.metraje_disponible}m`);
+    
+    setRolloModalSelections(nuevasSelecciones);
+  };
+
+  // Calcular total seleccionado en el modal
+  const totalSeleccionadoModal = Object.values(rolloModalSelections).reduce((sum, c) => sum + (c || 0), 0);
+
+  // Confirmar selección de rollos desde el modal
+  const confirmarRollos = () => {
+    const selecciones = Object.entries(rolloModalSelections)
+      .filter(([_, cantidad]) => cantidad > 0)
+      .map(([rolloId, cantidad]) => {
+        const rollo = rollosFiltrados.find(r => r.id === rolloId);
+        return { rollo, cantidad };
+      });
+    
+    if (selecciones.length === 0) {
+      toast.error('Selecciona al menos un rollo');
       return;
     }
     
     const key = getLineaKey(rolloModalLinea);
-    setCantidadesLote(prev => ({ ...prev, [key]: cantidad }));
-    setRollosSeleccionados(prev => ({ ...prev, [key]: rolloModalSelected }));
+    const totalCantidad = selecciones.reduce((sum, s) => sum + s.cantidad, 0);
+    
+    setCantidadesLote(prev => ({ ...prev, [key]: totalCantidad }));
+    setRollosSeleccionados(prev => ({ ...prev, [key]: selecciones }));
     setRolloModalOpen(false);
-    toast.success(`Rollo ${rolloModalSelected.numero_rollo} seleccionado: ${cantidad}m`);
+    toast.success(`${selecciones.length} rollo(s) seleccionado(s): ${totalCantidad.toFixed(2)}m total`);
   };
 
   // Filtrar rollos en el modal
