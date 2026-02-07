@@ -506,17 +506,17 @@ const SalidasTab = ({ registroId }) => {
   
   // Estado para cantidades en lote (por item_id + talla_id)
   const [cantidadesLote, setCantidadesLote] = useState({});
-  // Estado para rollos seleccionados (por item_id_talla_id)
+  // Estado para rollos seleccionados (por item_id_talla_id) - ahora es un array de {rollo, cantidad}
   const [rollosSeleccionados, setRollosSeleccionados] = useState({});
   // Estado para datos de rollos por item
   const [rollosData, setRollosData] = useState({});
   
-  // Modal de selección de rollo
+  // Modal de selección de rollos (MÚLTIPLE)
   const [rolloModalOpen, setRolloModalOpen] = useState(false);
   const [rolloModalLinea, setRolloModalLinea] = useState(null);
   const [rolloModalSearch, setRolloModalSearch] = useState('');
-  const [rolloModalCantidad, setRolloModalCantidad] = useState('');
-  const [rolloModalSelected, setRolloModalSelected] = useState(null);
+  // Rollos seleccionados en el modal: { [rolloId]: cantidad }
+  const [rolloModalSelections, setRolloModalSelections] = useState({});
   
   // Form state para modo extra
   const [selectedItemExtra, setSelectedItemExtra] = useState(null);
