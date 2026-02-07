@@ -677,8 +677,8 @@ const SalidasTab = ({ registroId }) => {
       const key = getLineaKey(linea);
       const cantidad = cantidadesLote[key];
       if (!cantidad || cantidad <= 0) return false;
-      // Para items con rollo, verificar que haya rollo seleccionado
-      if (linea.control_por_rollos && !rollosSeleccionados[key]) return false;
+      // Para items con rollo, verificar que haya rollos seleccionados
+      if (linea.control_por_rollos && (!rollosSeleccionados[key] || rollosSeleccionados[key].length === 0)) return false;
       return true;
     });
 
@@ -693,21 +693,41 @@ const SalidasTab = ({ registroId }) => {
 
     for (const linea of salidasARegistrar) {
       const key = getLineaKey(linea);
-      const cantidad = cantidadesLote[key];
-      const rollo = rollosSeleccionados[key];
       
-      try {
-        await axios.post(`${API}/inventario-salidas`, {
-          item_id: linea.item_id,
-          cantidad: cantidad,
-          registro_id: registroId,
-          talla_id: linea.talla_id || null,
-          rollo_id: linea.control_por_rollos ? rollo?.id : null,
-          observaciones: ''
-        });
-        exitosas++;
-      } catch (error) {
-        errores.push(`${linea.item_nombre}: ${error.response?.data?.detail || 'Error'}`);
+      if (linea.control_por_rollos) {
+        // Para items con rollo, registrar una salida por cada rollo seleccionado
+        const selecciones = rollosSeleccionados[key] || [];
+        for (const { rollo, cantidad } of selecciones) {
+          try {
+            await axios.post(`${API}/inventario-salidas`, {
+              item_id: linea.item_id,
+              cantidad: cantidad,
+              registro_id: registroId,
+              talla_id: linea.talla_id || null,
+              rollo_id: rollo.id,
+              observaciones: ''
+            });
+            exitosas++;
+          } catch (error) {
+            errores.push(`${linea.item_nombre} (${rollo.numero_rollo || 'rollo'}): ${error.response?.data?.detail || 'Error'}`);
+          }
+        }
+      } else {
+        // Para items sin rollo, una sola salida
+        const cantidad = cantidadesLote[key];
+        try {
+          await axios.post(`${API}/inventario-salidas`, {
+            item_id: linea.item_id,
+            cantidad: cantidad,
+            registro_id: registroId,
+            talla_id: linea.talla_id || null,
+            rollo_id: null,
+            observaciones: ''
+          });
+          exitosas++;
+        } catch (error) {
+          errores.push(`${linea.item_nombre}: ${error.response?.data?.detail || 'Error'}`);
+        }
       }
     }
 
