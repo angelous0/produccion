@@ -1023,20 +1023,20 @@ const SalidasTab = ({ registroId }) => {
                         {esRollo ? (
                           /* ITEM CON ROLLO: Botón para abrir modal */
                           <Button
-                            variant={rolloSelec ? "default" : "outline"}
+                            variant={rolloSelec && rolloSelec.length > 0 ? "default" : "outline"}
                             size="sm"
                             onClick={() => abrirModalRollo(linea)}
                             className="w-full"
                           >
-                            {rolloSelec ? (
+                            {rolloSelec && rolloSelec.length > 0 ? (
                               <>
                                 <Layers className="h-4 w-4 mr-2" />
-                                {rolloSelec.numero_rollo} ({cantidadActual}m)
+                                {rolloSelec.length} rollo(s) ({cantidadActual}m)
                               </>
                             ) : (
                               <>
                                 <Layers className="h-4 w-4 mr-2" />
-                                Seleccionar Rollo
+                                Seleccionar Rollos
                               </>
                             )}
                           </Button>
