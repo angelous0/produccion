@@ -1,40 +1,36 @@
 <analysis>**original_problem_statement:**
-El usuario ha solicitado una serie de funcionalidades complejas para una aplicación de gestión de producción textil. Las solicitudes clave de esta sesión son:
-1.  **Nuevo Reporte de Producción**: Crear un reporte de producción por estado que muestre un resumen pivotado de los artículos de producción y su estado actual (ej. Para Corte, Para Costura), con exportación a Excel/PDF.
-2.  **Migración de Base de Datos**: Migrar la aplicación de su base de datos PostgreSQL existente a una nueva instancia PostgreSQL proporcionada por el usuario (), creando y utilizando un nuevo schema llamado  sin afectar el schema .
-3.  **Refactor Módulo Colores**: Simplificar la interfaz de Colores Catálogo, eliminando el campo de código hexadecimal () y reemplazándolo con un selector para asociarlo a un Color General predefinido.
-4.  **Implementación del Módulo BOM (Bill of Materials)**:
-    *   Crear la estructura de base de datos (, ) para permitir que cada Modelo defina las tallas que utiliza y su receta de materiales (BOM).
-    - El BOM debe soportar líneas de consumo generales (para todas las tallas) y específicas por talla.
-    *   Desarrollar una nueva UI en la página de Modelos con pestañas para Tallas y BOM / Receta.
-    *   La UI debe tener una experiencia de usuario tipo Excel, con edición en línea, guardado automático (autosave), y sin recargar la página o cerrar modales al guardar/editar.
-    *   Implementar reordenamiento de filas mediante arrastrar y soltar (drag-and-drop) tanto en la tabla de Tallas como en la de BOM.
-    *   Implementar una lógica de borrado inteligente para las líneas del BOM: borrado físico si no está vinculada a producción, y borrado lógico (desactivación) si ya tiene vínculos.
+El usuario ha solicitado una serie de funcionalidades para una aplicación de gestión de producción textil. Tras completar varias fases, el enfoque actual es mejorar significativamente la experiencia de usuario (UX) en los flujos de trabajo de inventario y consumo de materiales.
+
+Las solicitudes clave recientes incluyen:
+- **Fase 2C (Completada en esta sesión):** Implementar el cierre y anulación de Órdenes de Producción (OP), con liberación automática de reservas de materia prima y bloqueo de acciones futuras sobre dichas OPs.
+- **Limpieza de Base de Datos:** El usuario solicitó vaciar toda la base de datos para comenzar pruebas desde cero.
+- **Mejora en Ajustes de Inventario:**
+    - Agregar un campo de búsqueda para seleccionar ítems fácilmente, en lugar de un dropdown simple.
+    - Hacer que la selección de un rollo sea opcional para ajustes de **ENTRADA** (aumento de stock) pero obligatoria para ajustes de **SALIDA** (disminución de stock) en ítems controlados por rollos.
+- **Mejora Radical en Salidas de Material (Consumo):**
+    - Transformar la interfaz de registro de salidas de un proceso de un solo ítem a una tabla de **salida en lote** (tipo Excel) para registrar múltiples consumos a la vez.
+    - Para ítems controlados por rollos, reemplazar el selector de rollo en línea por un botón que abre un modal con una lista filtrable de rollos.
+    - Mejorar el modal de selección de rollos para permitir **selección múltiple** (con checkboxes) y consumir de varios rollos en una sola operación.
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
 La aplicación es un sistema full-stack (React/FastAPI/PostgreSQL) para la gestión de producción.
-- **Base de Datos**: La aplicación se conecta a una base de datos PostgreSQL externa definida por el usuario, operando sobre un schema . Las tablas  fueron migradas a este nuevo schema.
-- **Reportes**: Se implementó un nuevo Reporte de Estados de Ítem con una vista de tabla pivotada y exportación a Excel/PDF.
-- **Módulo de Colores**: La página  fue refactorizada para usar un combobox () en lugar de un input de código hexadecimal.
-- **Módulo BOM (Bill of Materials)**:
-    - Se crearon las tablas  y  en la base de datos.
-    - Se desarrollaron los endpoints de backend para el CRUD completo de las tallas y el BOM de un modelo, incluyendo un endpoint genérico para reordenar.
-    - La página de  ahora tiene una interfaz con pestañas para Detalles, Tallas y BOM / Receta.
-    - Las pestañas de Tallas y BOM presentan una UI tipo Excel con edición en línea y guardado automático ().
-    - Se implementó la funcionalidad de arrastrar y soltar para reordenar las filas en la pestaña de Tallas.
-    - Se implementó una lógica de borrado para el BOM que realiza un borrado físico o lógico (desactivación) basado en una comprobación (actualmente placeholder) de si la línea está vinculada a producción.
+- **Gestión de OP (Fase 2C):** Se implementaron y probaron los endpoints de backend (, ) y la UI correspondiente (botones en el modal de detalle con confirmación) para cerrar y anular órdenes de producción, liberando automáticamente las reservas pendientes.
+- **Base de Datos Limpia:** Se ejecutó un script que vació todas las tablas del esquema . La aplicación está lista para la entrada de nuevos datos de prueba.
+- **UI de Inventario:** La página principal de inventario muestra ,  y , con un detalle expandible para ver las reservas por ítem.
+- **UI de Ajustes de Inventario:** El formulario de ajustes ahora cuenta con un campo de búsqueda para ítems y la lógica de selección de rollos se ha refinado (opcional para entradas, obligatorio para salidas).
+- **UI de Salidas de Material:** La pestaña Salidas en el detalle de la OP fue completamente rediseñada. Ahora presenta una tabla editable para registrar consumos en lote. Para los ítems controlados por rollos, un botón abre un modal avanzado que permite la selección múltiple de rollos con checkboxes y un buscador.
 
 **Last working item**:
-- Last item agent was working: El agente estaba implementando la funcionalidad de arrastrar y soltar (drag-and-drop) para reordenar las filas en la tabla del **BOM** (), a petición del usuario. Ya había implementado la misma funcionalidad para la pestaña de Tallas.
+- Last item agent was working: Finalizar la implementación del modal de selección de rollos para que admita **selección múltiple** mediante checkboxes, permitiendo al usuario consumir de varios rollos de tela en una sola transacción.
 - Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? frontend testing agent
+- Which testing method agent to use? screenshot tool
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1:  **Finalizar y probar el reordenamiento (drag-and-drop) en la tabla del BOM** (P0)
+  - Issue 1:  **Verificar y finalizar la UI de selección múltiple de rollos** (P0)
   - Issue 2:  **Clarificar e implementar la lógica de borrado inteligente del BOM** (P1)
   - Issue 3:  **Finalizar la exportación a Excel/PDF en la página de Kardex** (P2)
   - Issue 4:  **Aplicar permisos granulares en toda la UI con el hook ** (P3)
@@ -42,57 +38,56 @@ La aplicación es un sistema full-stack (React/FastAPI/PostgreSQL) para la gesti
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: Se añadió la columna  a la tabla  y su lógica en el backend. Se integró el componente  en  y se crearon las funciones  y los endpoints correspondientes.
+     - Attempted fixes: Se refactorizó el componente  en . Se modificó el estado para manejar un objeto de rollos seleccionados (). Se actualizó el modal para usar  y se reescribieron las funciones ,  y  para soportar la selección múltiple.
      - Next debug checklist: 
-        1. Probar la interacción de arrastrar y soltar en la UI de la pestaña BOM / Receta.
-        2. Verificar que la llamada al endpoint  se realiza correctamente con el nuevo orden.
-        3. Asegurarse de que la UI se actualice correctamente después de reordenar sin necesidad de recargar la página.
-     - Why fix this issue and what will be achieved with the fix?: Completar una solicitud explícita del usuario para mejorar la UX del módulo BOM, permitiendo organizar visualmente la receta.
+        1. Tomar un screenshot de la aplicación después de hacer login, navegar a Registros, abrir el detalle de una OP con requerimientos de tela, ir a la pestaña Salidas y hacer clic en el botón Seleccionar Rollo.
+        2. Verificar que el modal muestra checkboxes junto a cada rollo.
+        3. Probar la selección/deselección de múltiples rollos y confirmar que el total a consumir se actualiza correctamente.
+        4. Confirmar la selección y verificar que la cantidad a consumir en la tabla principal refleje la suma de los rollos seleccionados.
+     - Why fix this issue and what will be achieved with the fix?: Completa una solicitud de mejora de UX crucial del usuario, haciendo el proceso de consumo de tela mucho más rápido y eficiente.
      - Status:  IN PROGRESS
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: No
   - Issue 2: 
-     - Attempted fixes: Se creó un endpoint  con una lógica placeholder que simula la comprobación de vínculos.
+     - Attempted fixes: Se creó un endpoint placeholder .
      - Next debug checklist: 
-        1. Preguntar al usuario qué tabla o campo específico indica que una línea de BOM está vinculada a producción (ej. ¿una tabla  futura?).
-        2. Actualizar la consulta SQL en el backend para que verifique la existencia de registros en dicha tabla antes de decidir si hacer un borrado físico o lógico.
-     - Why fix this issue and what will be achieved with the fix?: Asegura la integridad de los datos, previniendo que se borren recetas que ya han sido utilizadas en procesos de producción registrados.
+        1. Preguntar al usuario qué tabla o campo específico indica que una línea de BOM está vinculada a producción (p. ej., si existe un consumo registrado en  para esa OP y ese ítem).
+        2. Actualizar la consulta SQL en el backend para realizar esa comprobación antes de permitir el borrado.
+     - Why fix this issue and what will be achieved with the fix?: Asegura la integridad de los datos, previniendo que se borren recetas de materiales que ya han sido utilizadas en producción.
      - Status:  IN PROGRESS
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? backend
-     - Blocked on other issue: No, pero requiere información del usuario.
+     - Blocked on other issue: Requiere información del usuario.
   - Issue 3: 
-     - Attempted fixes: (De la sesión anterior) Se añadieron botones de exportación a .
-     - Next debug checklist: 
-        1. Crear los endpoints de backend para generar los archivos Excel y PDF con los datos del Kardex.
-        2. Conectar los botones del frontend a estos nuevos endpoints.
-     - Why fix this issue and what will be achieved with the fix?: Completa una funcionalidad de reportes clave solicitada por el usuario.
+     - Attempted fixes: Ninguno en esta sesión.
+     - Next debug checklist: Crear endpoints de backend para generar los archivos Excel/PDF y conectarlos a los botones de la UI en la página de Kardex.
+     - Why fix this issue and what will be achieved with the fix?: Completa una funcionalidad de reportes clave solicitada en fases anteriores.
      - Status:  NOT STARTED
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: No
   - Issue 4: 
-     - Attempted fixes: (De la sesión anterior) Se creó el hook  y se usó en .
-     - Next debug checklist: Integrar el hook  en todas las páginas con acciones CRUD (Modelos, BOM, Reportes, etc.) para ocultar/deshabilitar botones según el rol del usuario.
-     - Why fix this issue and what will be achieved with the fix?: Es un requisito de seguridad fundamental para que la aplicación esté lista para un entorno multiusuario.
+     - Attempted fixes: Ninguno en esta sesión.
+     - Next debug checklist: Importar y usar el hook  en todos los componentes que contienen acciones CRUD para mostrar/ocultar o deshabilitar botones y funcionalidades según el rol del usuario.
+     - Why fix this issue and what will be achieved with the fix?: Es un requisito de seguridad fundamental para un entorno multiusuario.
      - Status:  NOT STARTED
      - Is recurring issue? N
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: No
   - Issue 5: 
      - Attempted fixes: Ninguno.
-     - Next debug checklist: Revisar todos los componentes  y asegurar que siempre incluyan  y  para mejorar la accesibilidad.
-     - Why fix this issue and what will be achieved with the fix?: Soluciona una deuda técnica recurrente y mejora la calidad y accesibilidad de la aplicación.
+     - Next debug checklist: Revisar todos los componentes que usan  y  para asegurar que incluyan los componentes  y  para mejorar la accesibilidad.
+     - Why fix this issue and what will be achieved with the fix?: Mejora la calidad y accesibilidad de la aplicación, cumpliendo con las buenas prácticas de desarrollo web.
      - Status:  NOT STARTED
      - Is recurring issue? Y
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1:  **Implementar Drag-and-Drop en la UI del BOM** (P0)
-     - Where to resume: . La estructura está montada. Hay que depurar la interacción y la comunicación con el backend para asegurar que el reordenamiento funcione y persista correctamente.
-     - What will be achieved with this?: Se completará la experiencia de usuario tipo Excel para la gestión de la receta del modelo.
+  - Task 1:  **Finalizar UI para selección múltiple de rollos en Salidas** (P0)
+     - Where to resume: . El código del frontend ha sido implementado. El siguiente paso es la verificación visual mediante un  para confirmar que el modal de selección de rollos ahora muestra checkboxes y funciona como se espera.
+     - What will be achieved with this?: Se completará la última solicitud de mejora de UX del usuario, proporcionando un flujo de trabajo muy rápido para el consumo de tela.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix? frontend
      - Blocked on something: No
@@ -101,47 +96,44 @@ La aplicación es un sistema full-stack (React/FastAPI/PostgreSQL) para la gesti
 - **Upcoming Tasks**:
     - **(P1)** Implementar vista de detalle (drill-down) en el Reporte Item-Estados.
     - **(P1)** Añadir filtros y ordenamiento avanzados a la tabla del Reporte Item-Estados.
-    - **(P2)** Implementar la explosión del BOM para calcular requerimientos de materiales basados en una orden de producción.
 - **Future Tasks**:
     - **(P3)** Crear el reporte de Productividad por persona/servicio.
-    - **(P4)** Implementar la funcionalidad de Pre-llenado de tarifa en el formulario de registro.
+    - **(P3)** Implementar la capacidad de reordenar tallas con drag-and-drop en los formularios.
 
 **Completed work in this session**
-- **Migración a PostgreSQL Externo**: Se migró la conexión y los datos de la aplicación a una nueva base de datos PostgreSQL en un schema , actualizando el backend para que opere sobre él.
-- **Nuevo Reporte de Estados de Ítem**: Se creó desde cero la página y el endpoint para un nuevo reporte pivotado de producción, incluyendo exportación a Excel y PDF.
-- **Refactor del Módulo de Colores**: Se modernizó la UI de Colores Catálogo para eliminar el input de código hexadecimal y usar un combobox de colores generales.
-- **Implementación del Módulo BOM (completo)**:
-    - **DB y API**: Se crearon las tablas (, ) y todos los endpoints CRUD necesarios para gestionar las tallas y la receta (BOM) de un modelo.
-    - **UI Avanzada**: Se rediseñó la página de Modelos con una interfaz de pestañas, implementando una UI de tipo Excel con edición en línea y guardado automático () para las tablas de Tallas y BOM.
-    - **Reordenamiento y Borrado**: Se implementó el reordenamiento por arrastrar y soltar en la tabla de Tallas y una lógica de borrado inteligente (con placeholder) para el BOM.
-    - **Simplificación**: Se limpió la tabla y UI del BOM eliminando los campos de merma y notas según la solicitud del usuario.
+- **Finalización UI de Inventario (Tarea P0 inicial)**: Se implementó y probó la visualización de Stock Disponible y el detalle de reservas en la página de Inventario.
+- **Implementación Fase 2C (Backend y Frontend)**: Se crearon los flujos completos para cerrar y anular Órdenes de Producción, incluyendo la lógica de liberación automática de reservas y los botones con modales de confirmación en la UI.
+- **Limpieza de Base de Datos**: Se vaciaron todas las tablas de producción a petición del usuario.
+- **Mejora UX en Ajustes de Inventario**: Se implementó un buscador de ítems y se refinó la lógica de selección de rollos (opcional para entradas, requerido para salidas).
+- **Mejora UX en Salidas de Material (en Lote)**: Se rediseñó la UI de consumo a un formato de tabla editable para registrar múltiples salidas a la vez.
+- **Mejora UX de Selección de Rollo (Modal)**: Se implementó un modal para seleccionar rollos, que fue posteriormente mejorado para soportar selección múltiple.
+- **Bug Fix (Tallas en Edición)**: Se corrigió un problema por el cual las tallas y cantidades no se mostraban en el formulario de edición de registros.
+- **Bug Fix (Buscador de Items)**: Se arregló el buscador en la página de ajustes de inventario que no filtraba correctamente.
 
 **Earlier issues found/mentioned but not fixed**
    - Issue 1: **Auditoría de accesibilidad en Componentes **.
-     - Debug checklist: Revisar archivos que usan  y asegurar la presencia de  y .
+     - Debug checklist: Revisar archivos que usan  y  para asegurar la presencia de  y .
      - Why to solve this issue and what will be achieved with this?: Mejora la accesibilidad general de la aplicación.
      - Should Test frontend/backend/both after fix: frontend
      - Is recurring issue? Y
 
 **Known issue recurrence from previous fork**
   - Issue recurrence in previous fork: El problema de accesibilidad en los componentes  sigue sin abordarse.
-  - Recurrence count: 4
+  - Recurrence count: 6
   - Status: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend**: FastAPI, AsyncPG, manipulación de schemas de PostgreSQL, ejecución de DDL en el arranque, Foreign Keys, Índices únicos.
-- **Frontend**: React,  (para drag-and-drop), ,  para guardado automático, manejo de estado complejo para UI tipo Excel.
+- **Backend**: FastAPI, AsyncPG, transacciones PostgreSQL, lógica de negocio para MRP y ATP.
+- **Frontend**: React, , . Gestión de estado compleja con React Hooks (, , ) para UIs interactivas como tablas editables en lote, modales con búsqueda y selección múltiple.
 
 **key DB schema**
--  (NUEVA): 
--  (NUEVA): 
-- Todas las tablas  ahora residen en el schema .
+- : Se añadió la columna  (nullable, FK a ).
 
 **changes in tech stack**
-- **Frontend**: Se añadió y utilizó intensivamente la librería  para la funcionalidad de arrastrar y soltar.
+- Ninguno.
 
 **All files of reference**
 - 
@@ -150,44 +142,46 @@ La aplicación es un sistema full-stack (React/FastAPI/PostgreSQL) para la gesti
 - 
 - 
 - 
-- 
 
 **Areas that need refactoring**:
-- La lógica de creación de tablas (DDL) dentro del evento  de  es funcional pero no escalable. Debería considerarse el uso de una herramienta de migración como Alembic en el futuro.
-- El archivo  ha crecido considerablemente y podría ser dividido en módulos (routers, servicios) para mejorar la mantenibilidad.
+- ****: El archivo sigue creciendo y es extremadamente monolítico (superó las 5000 líneas). Es crítico y urgente dividirlo en módulos/routers por funcionalidad (inventario, registros, modelos, etc.) para mantener la escalabilidad y facilitar el mantenimiento.
+- ****: Este componente se ha vuelto muy grande y complejo, manejando la lógica de varias pestañas y múltiples modales. Podría beneficiarse de una mayor componentización, extrayendo la lógica de cada pestaña y modal a sus propios archivos.
 
 **key api endpoints**
--  (NUEVOS)
--  (NUEVOS)
--  (NUEVO)
--  (NUEVO)
--  (NUEVO)
--  (NUEVO)
+- **Nuevos**:
+  - 
+  - 
+  - 
+- **Modificados**:
+  - : Ahora maneja  (opcional para entradas, actualiza stock de rollo para salidas).
+  - : Ahora revierte el metraje del rollo si aplica.
+  - : Enriquecido para devolver nombres de tallas y cantidades desde la tabla .
+  - , , etc.: Añadida validación para bloquear acciones en OPs con estado 'CERRADA' o 'ANULADA'.
 
 **Critical Info for New Agent**
-- La aplicación ahora está conectada a la base de datos PostgreSQL del usuario: . Todo el desarrollo de backend debe operar sobre el schema .
-- La principal prioridad del usuario es la experiencia de usuario del módulo BOM. Se debe prestar especial atención a que la interfaz sea fluida, con guardado automático y sin recargas de página.
-- Es crucial obtener la clarificación del usuario sobre cómo detectar si una línea del BOM está vinculada a producción para implementar correctamente la lógica de borrado inteligente. La última pista fue que está relacionado con salida de materia prima.
-- El reordenamiento de filas (drag-and-drop) es una característica clave para el usuario. Ya funciona en Tallas y debe finalizarse para BOM.
+- **La base de datos está vacía.** Antes de cualquier prueba, será necesario crear datos maestros (ítems, modelos, tallas, etc.) y luego datos transaccionales (órdenes de producción).
+- El foco principal del usuario es la **velocidad y eficiencia del flujo de trabajo (UX)**. Las últimas implementaciones (búsqueda, salidas en lote, selección múltiple) han sido muy bien recibidas. Cualquier nueva funcionalidad debe priorizar la facilidad de uso.
+- El  es la culminación de una serie de mejoras en la UI. El siguiente paso es verificar visualmente la implementación de la selección múltiple de rollos.
+- Persiste una deuda técnica en la forma en que se manejan las tallas de una OP (campo JSONB en  vs. tabla ). El agente aplicó un parche en el backend para la lectura de datos, pero esto podría generar inconsistencias al escribir.
 
 **documents and test reports created in this job**
-- No se crearon documentos formales. Se generaron múltiples capturas de pantalla y logs durante las pruebas automatizadas del frontend.
+- 
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1.  **User**: Pide poder ordenar las filas del BOM arrastrando y soltando.
-2.  **User**: Clarifica que vinculado a producción se refiere a una salida de materia prima, no directamente a .
-3.  **User**: Pide poder eliminar filas del BOM (con la condición de borrado inteligente) y que el campo cantidad por prenda sea más grande.
-4.  **User**: Confirma que el agente puede proceder con la implementación del borrado inteligente.
-5.  **User**: Pide al agente que proceda.
-6.  **User**: Confirma el plan para eliminar las columnas ,  y  del BOM.
-7.  **User**: Acepta que los datos de las columnas a eliminar se pierdan.
-8.  **User**: Pide al agente que elija la mejor opción para eliminar las columnas.
-9.  **User**: Expresa confusión porque las columnas , ,  todavía aparecen en la UI del BOM después de haber pedido su eliminación.
-10. **User**: Pide implementar el comportamiento tipo Excel con autosave y sin cerrar la edición.
+10. **Usuario pide selección múltiple de rollos:** en rollos de tela esta bien opero hay forma de seleccionar varios polos para confirmar y no hacerlo uno por uno.
+9. **Usuario pide un modal para rollos:** en tela con rollo no se ve bien la columna rollo que sea el boton y habra un cuadro y con buscador seleccione rollo.
+8. **Usuario elige opción de UI:** opcion 1 (para la salida en lote).
+7. **Usuario reporta lentitud en salidas:** ...lo ciento muy lento haciendo click uno por uno poner la cantidad y poner registrar salida no hay otra forma mas rápida.
+6. **Usuario aclara confusión de contexto:** a no ya entendiii eso de hace en modelos y no en registros no dije nada.
+5. **Usuario pregunta sobre agregar tallas:** ...y como agrego mas tallas no esta como la anterior versión....
+4. **Usuario reporta bug de cantidades en edición:** ...ahora si se muestran las cantidades correctamente!.
+3. **Usuario reporta bug de tallas en edición:** dh creado un registro puse tallas pero cuando entro para editar no veo las tallas.
+2. **Usuario reporta bug en buscador:** ESE BUSCADOR QUE BUSCA?? PONGO EL CODIGO O EL NOMBRE Y NO BUSCA BIEN....
+1. **Usuario pide limpieza de DB:** YA QUIERO QUE ELIMINES TODO PARA HACER PRUEBAS DEDE CERO.
 
 **Project Health Check:**
-- **Broken**: No. La aplicación es funcional y las nuevas características están en una etapa avanzada de desarrollo.
-- **Mocked**: La lógica para comprobar si una línea de BOM está vinculada a producción es un placeholder y no funciona con datos reales todavía.
+- **Broken**: No. La aplicación es funcional, aunque requiere datos de prueba para ser utilizada.
+- **Mocked**: No hay componentes .
 
 **3rd Party Integrations**
 - , , 
@@ -197,15 +191,15 @@ La aplicación es un sistema full-stack (React/FastAPI/PostgreSQL) para la gesti
 - 
 
 **Testing status**
-- Testing agent used after significant changes: YES. Se utilizó el agente de testing de frontend (screenshot) en numerosas ocasiones para verificar la UI, depurar flujos y confirmar correcciones, especialmente en el módulo BOM.
-- Troubleshoot agent used after agent stuck in loop: NO.
-- Test files created: No.
-- Known regressions: No.
+  - Testing agent used after significant changes: YES, al principio de la sesión.
+  - Troubleshoot agent used after agent stuck in loop: NO.
+  - Test files created: No.
+  - Known regressions: No.
 
 **Credentials to test flow:**
 - **Usuario**: 
 - **Contraseña**: 
 
 **What agent forgot to execute**
-- El agente pidió clarificación sobre la lógica de vinculado a producción para el borrado inteligente, pero el usuario cambió de tema. Este punto sigue pendiente de una respuesta definitiva para su correcta implementación.
-- Las tareas heredadas de la anterior sesión (exportación de Kardex, aplicación global de permisos) fueron pospuestas en favor de las nuevas solicitudes del usuario y siguen pendientes.</analysis>
+- No se ha vuelto a preguntar al usuario por la clarificación necesaria para implementar el borrado inteligente del BOM, por lo que esa tarea sigue bloqueada.
+- Las tareas heredadas de exportación de Kardex y la implementación global de permisos () siguen pendientes y no se han abordado.</analysis>

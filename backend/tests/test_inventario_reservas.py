@@ -7,7 +7,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://production-hub-67.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://textile-production-2.preview.emergentagent.com')
 
 class TestInventarioReservas:
     """Tests for inventory reservations feature"""
