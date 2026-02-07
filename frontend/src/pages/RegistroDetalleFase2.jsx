@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Separator } from '../components/ui/separator';
+import { Checkbox } from '../components/ui/checkbox';
 import { 
   Scissors, Package, BookmarkCheck, LogOut, RefreshCw, 
   AlertTriangle, CheckCircle2, Clock, Loader2, Plus, Lock, XCircle, Info, Layers
@@ -1126,38 +1127,47 @@ const SalidasTab = ({ registroId }) => {
         </Card>
       )}
 
-      {/* MODAL DE SELECCIÓN DE ROLLO */}
+      {/* MODAL DE SELECCIÓN MÚLTIPLE DE ROLLOS */}
       <Dialog open={rolloModalOpen} onOpenChange={setRolloModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Layers className="h-5 w-5" />
-              Seleccionar Rollo - {rolloModalLinea?.item_nombre}
+              Seleccionar Rollos - {rolloModalLinea?.item_nombre}
             </DialogTitle>
             <DialogDescription>
               Pendiente a consumir: <strong>{rolloModalLinea ? parseFloat(rolloModalLinea.pendiente_consumir).toFixed(2) : 0}</strong> metros
+              {Object.keys(rolloModalSelections).length > 0 && (
+                <span className="ml-2">| Seleccionado: <strong>{totalSeleccionadoModal.toFixed(2)}</strong> m</span>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Buscador */}
-            <Input
-              placeholder="Buscar por número de rollo o tono..."
-              value={rolloModalSearch}
-              onChange={(e) => setRolloModalSearch(e.target.value)}
-              className="mb-2"
-            />
+            {/* Buscador + Seleccionar Todos */}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Buscar por número de rollo o tono..."
+                value={rolloModalSearch}
+                onChange={(e) => setRolloModalSearch(e.target.value)}
+                className="flex-1"
+                data-testid="rollo-modal-search"
+              />
+              <Button variant="outline" size="sm" onClick={seleccionarTodosRollos} data-testid="btn-seleccionar-todos-rollos">
+                Sel. Todos
+              </Button>
+            </div>
 
-            {/* Lista de rollos */}
-            <div className="border rounded-lg max-h-64 overflow-auto">
+            {/* Lista de rollos con checkboxes */}
+            <div className="border rounded-lg max-h-72 overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="w-[40px]"></TableHead>
                     <TableHead>Rollo</TableHead>
                     <TableHead>Tono</TableHead>
-                    <TableHead className="text-right">Metraje Disp.</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
+                    <TableHead className="text-right">Disponible</TableHead>
+                    <TableHead className="w-[130px] text-right">A Consumir</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1168,76 +1178,66 @@ const SalidasTab = ({ registroId }) => {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rollosFiltrados.map((rollo) => (
-                      <TableRow 
-                        key={rollo.id}
-                        className={`cursor-pointer transition-colors ${rolloModalSelected?.id === rollo.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                        onClick={() => setRolloModalSelected(rollo)}
-                      >
-                        <TableCell>
-                          {rolloModalSelected?.id === rollo.id && (
-                            <CheckCircle2 className="h-5 w-5 text-primary" />
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono font-medium">{rollo.numero_rollo}</TableCell>
-                        <TableCell>{rollo.tono || '-'}</TableCell>
-                        <TableCell className="text-right font-mono font-semibold">
-                          {parseFloat(rollo.metraje_disponible).toFixed(2)} m
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRolloModalSelected(rollo);
-                              setRolloModalCantidad(rollo.metraje_disponible.toString());
-                            }}
-                          >
-                            Todo
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    rollosFiltrados.map((rollo) => {
+                      const isSelected = !!rolloModalSelections[rollo.id];
+                      return (
+                        <TableRow 
+                          key={rollo.id}
+                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                          onClick={() => toggleRolloSelection(rollo)}
+                          data-testid={`rollo-row-${rollo.id}`}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleRolloSelection(rollo)}
+                              onClick={(e) => e.stopPropagation()}
+                              data-testid={`rollo-checkbox-${rollo.id}`}
+                            />
+                          </TableCell>
+                          <TableCell className="font-mono font-medium">{rollo.numero_rollo}</TableCell>
+                          <TableCell>{rollo.tono || '-'}</TableCell>
+                          <TableCell className="text-right font-mono">
+                            {parseFloat(rollo.metraje_disponible).toFixed(2)} m
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isSelected ? (
+                              <Input
+                                type="number"
+                                min="0.01"
+                                max={rollo.metraje_disponible}
+                                step="0.01"
+                                value={rolloModalSelections[rollo.id] || ''}
+                                onChange={(e) => cambiarCantidadRollo(rollo.id, e.target.value, rollo.metraje_disponible)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="font-mono w-24 h-8 text-right ml-auto"
+                                data-testid={`rollo-cantidad-${rollo.id}`}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
             </div>
 
-            {/* Cantidad a consumir (consumo parcial) */}
-            {rolloModalSelected && (
-              <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Rollo seleccionado:</span>
-                  <Badge variant="outline" className="font-mono">
-                    {rolloModalSelected.numero_rollo} - {rolloModalSelected.metraje_disponible}m disponible
-                  </Badge>
+            {/* Resumen de selección */}
+            {Object.keys(rolloModalSelections).length > 0 && (
+              <div className="p-3 bg-muted/50 rounded-lg flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Rollos seleccionados: </span>
+                  <strong>{Object.keys(rolloModalSelections).length}</strong>
+                  <span className="mx-2">|</span>
+                  <span className="text-muted-foreground">Total: </span>
+                  <strong className="font-mono">{totalSeleccionadoModal.toFixed(2)} m</strong>
                 </div>
-                <div className="flex items-center gap-4">
-                  <label className="text-sm font-medium whitespace-nowrap">Cantidad a consumir:</label>
-                  <Input
-                    type="number"
-                    min="0.01"
-                    max={rolloModalSelected.metraje_disponible}
-                    step="0.01"
-                    value={rolloModalCantidad}
-                    onChange={(e) => setRolloModalCantidad(e.target.value)}
-                    className="font-mono w-32"
-                  />
-                  <span className="text-sm text-muted-foreground">metros</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setRolloModalCantidad(rolloModalSelected.metraje_disponible.toString())}
-                  >
-                    Usar Todo
-                  </Button>
-                </div>
-                {parseFloat(rolloModalCantidad) < rolloModalSelected.metraje_disponible && parseFloat(rolloModalCantidad) > 0 && (
-                  <p className="text-sm text-amber-600">
-                    ⚠️ Consumo parcial: quedarán {(rolloModalSelected.metraje_disponible - parseFloat(rolloModalCantidad)).toFixed(2)}m en el rollo
-                  </p>
-                )}
+                <Button variant="ghost" size="sm" onClick={() => setRolloModalSelections({})}>
+                  Limpiar
+                </Button>
               </div>
             )}
           </div>
@@ -1246,9 +1246,9 @@ const SalidasTab = ({ registroId }) => {
             <Button variant="outline" onClick={() => setRolloModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={confirmarRollo} disabled={!rolloModalSelected}>
+            <Button onClick={confirmarRollos} disabled={Object.keys(rolloModalSelections).length === 0} data-testid="btn-confirmar-rollos">
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Confirmar Selección
+              Confirmar ({Object.keys(rolloModalSelections).length} rollos)
             </Button>
           </DialogFooter>
         </DialogContent>
