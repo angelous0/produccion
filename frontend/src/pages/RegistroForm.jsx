@@ -204,6 +204,7 @@ export const RegistroForm = () => {
         estado: registro.estado,
         urgente: registro.urgente,
         hilo_especifico_id: registro.hilo_especifico_id || '',
+        pt_item_id: registro.pt_item_id || '',
       });
       
       setTallasSeleccionadas(registro.tallas || []);
