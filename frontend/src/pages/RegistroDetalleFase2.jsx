@@ -1557,7 +1557,7 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
       )}
 
       <Tabs defaultValue="tallas" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="tallas" data-testid="tab-tallas">
             <Scissors className="h-4 w-4 mr-2" />
             Tallas
@@ -1573,6 +1573,14 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
           <TabsTrigger value="salidas" data-testid="tab-salidas">
             <LogOut className="h-4 w-4 mr-2" />
             Salidas
+          </TabsTrigger>
+          <TabsTrigger value="costos" data-testid="tab-costos">
+            <DollarSign className="h-4 w-4 mr-2" />
+            Costos
+          </TabsTrigger>
+          <TabsTrigger value="cierre" data-testid="tab-cierre">
+            <Lock className="h-4 w-4 mr-2" />
+            Cierre
           </TabsTrigger>
         </TabsList>
 
