@@ -559,6 +559,8 @@ class RegistroBase(BaseModel):
     estado: str = "Para Corte"
     urgente: bool = False
     hilo_especifico_id: Optional[str] = None
+    pt_item_id: Optional[str] = None
+    empresa_id: Optional[int] = 6
 
 class RegistroCreate(RegistroBase):
     tallas: List[TallaCantidadItem] = []
