@@ -24,7 +24,8 @@ import { Separator } from '../components/ui/separator';
 import { Checkbox } from '../components/ui/checkbox';
 import { 
   Scissors, Package, BookmarkCheck, LogOut, RefreshCw, 
-  AlertTriangle, CheckCircle2, Clock, Loader2, Plus, Lock, XCircle, Info, Layers
+  AlertTriangle, CheckCircle2, Clock, Loader2, Plus, Lock, XCircle, Info, Layers,
+  DollarSign, Trash2, Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
