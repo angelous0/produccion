@@ -54,6 +54,7 @@ export const RegistroForm = () => {
     estado: 'Para Corte',
     urgente: false,
     hilo_especifico_id: '',
+    pt_item_id: '',
   });
 
   // Datos del modelo seleccionado
