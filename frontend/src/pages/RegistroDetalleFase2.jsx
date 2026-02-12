@@ -1259,6 +1259,177 @@ const SalidasTab = ({ registroId }) => {
 };
 
 
+
+// ==================== PESTAÑA COSTOS DE SERVICIO ====================
+const CostosTab = ({ registroId, empresaId = 6 }) => {
+  const [costos, setCostos] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ descripcion: '', monto: '', proveedor_texto: '', fecha: '' });
+  const [editingId, setEditingId] = useState(null);
+
+  const fetchCostos = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API}/registros/${registroId}/costos-servicio`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCostos(res.data.costos || []);
+      setTotal(res.data.total || 0);
+    } catch (err) {
+      toast.error('Error al cargar costos');
+    } finally {
+      setLoading(false);
+    }
+  }, [registroId]);
+
+  useEffect(() => { if (registroId) fetchCostos(); }, [registroId, fetchCostos]);
+
+  const handleSubmit = async () => {
+    if (!form.descripcion || !form.monto) {
+      toast.error('Descripción y monto son requeridos');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      if (editingId) {
+        await axios.put(`${API}/registros/${registroId}/costos-servicio/${editingId}`, 
+          { descripcion: form.descripcion, monto: parseFloat(form.monto), proveedor_texto: form.proveedor_texto || null, fecha: form.fecha || null },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success('Costo actualizado');
+      } else {
+        await axios.post(`${API}/registros/${registroId}/costos-servicio`,
+          { empresa_id: empresaId, registro_id: registroId, descripcion: form.descripcion, monto: parseFloat(form.monto), proveedor_texto: form.proveedor_texto || null, fecha: form.fecha || null },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success('Costo registrado');
+      }
+      setForm({ descripcion: '', monto: '', proveedor_texto: '', fecha: '' });
+      setEditingId(null);
+      fetchCostos();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al guardar');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API}/registros/${registroId}/costos-servicio/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Costo eliminado');
+      fetchCostos();
+    } catch (err) {
+      toast.error('Error al eliminar');
+    }
+  };
+
+  const handleEdit = (costo) => {
+    setEditingId(costo.id);
+    setForm({ 
+      descripcion: costo.descripcion, 
+      monto: costo.monto.toString(), 
+      proveedor_texto: costo.proveedor_texto || '',
+      fecha: costo.fecha || '' 
+    });
+  };
+
+  if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-4" data-testid="costos-tab">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Costos de Servicio</h3>
+        <Badge variant="outline" className="font-mono text-base">
+          Total: S/ {total.toFixed(2)}
+        </Badge>
+      </div>
+
+      {/* Formulario */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-4 gap-3">
+            <Input
+              placeholder="Descripción del servicio"
+              value={form.descripcion}
+              onChange={(e) => setForm(f => ({ ...f, descripcion: e.target.value }))}
+              className="col-span-2"
+              data-testid="costo-descripcion"
+            />
+            <Input
+              placeholder="Proveedor (opcional)"
+              value={form.proveedor_texto}
+              onChange={(e) => setForm(f => ({ ...f, proveedor_texto: e.target.value }))}
+              data-testid="costo-proveedor"
+            />
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Monto"
+                value={form.monto}
+                onChange={(e) => setForm(f => ({ ...f, monto: e.target.value }))}
+                className="font-mono"
+                data-testid="costo-monto"
+              />
+              <Button onClick={handleSubmit} data-testid="btn-guardar-costo">
+                {editingId ? 'Actualizar' : 'Agregar'}
+              </Button>
+              {editingId && (
+                <Button variant="ghost" onClick={() => { setEditingId(null); setForm({ descripcion: '', monto: '', proveedor_texto: '', fecha: '' }); }}>
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista */}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Fecha</TableHead>
+            <TableHead>Descripción</TableHead>
+            <TableHead>Proveedor</TableHead>
+            <TableHead className="text-right">Monto</TableHead>
+            <TableHead className="w-[80px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {costos.map((c) => (
+            <TableRow key={c.id}>
+              <TableCell className="font-mono text-sm">{c.fecha}</TableCell>
+              <TableCell>{c.descripcion}</TableCell>
+              <TableCell className="text-muted-foreground">{c.proveedor_texto || '-'}</TableCell>
+              <TableCell className="text-right font-mono font-semibold">S/ {parseFloat(c.monto).toFixed(2)}</TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(c)}>
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(c.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+          {costos.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                No hay costos registrados
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+};
+
+
 // ==================== COMPONENTE PRINCIPAL ====================
 export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) => {
   const [totalPrendas, setTotalPrendas] = useState(0);
