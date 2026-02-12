@@ -21,6 +21,33 @@ class CierreRegistroInput(BaseModel):
     qty_terminada: Optional[float] = None  # If None, uses total prendas from tallas
 
 
+class PtItemUpdate(BaseModel):
+    pt_item_id: Optional[str] = None
+
+
+@router.put("/registros/{registro_id}/pt-item")
+async def update_pt_item(registro_id: str, data: PtItemUpdate, current_user: dict = Depends(get_current_user)):
+    """Asignar o cambiar el artículo PT de un registro"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        reg = await conn.fetchrow("SELECT id, estado FROM prod_registros WHERE id = $1", registro_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        if reg['estado'] in ('CERRADA', 'ANULADA'):
+            raise HTTPException(status_code=400, detail="No se puede modificar una OP cerrada/anulada")
+        
+        if data.pt_item_id:
+            item = await conn.fetchrow("SELECT id, codigo, nombre FROM prod_inventario WHERE id = $1", data.pt_item_id)
+            if not item:
+                raise HTTPException(status_code=404, detail="Item PT no encontrado en inventario")
+        
+        await conn.execute(
+            "UPDATE prod_registros SET pt_item_id = $1 WHERE id = $2",
+            data.pt_item_id, registro_id
+        )
+        return {"message": "PT item actualizado", "pt_item_id": data.pt_item_id}
+
+
 @router.get("/registros/{registro_id}/preview-cierre")
 async def preview_cierre(registro_id: str, current_user: dict = Depends(get_current_user)):
     """Preview del cierre: calcula costos sin ejecutar"""
