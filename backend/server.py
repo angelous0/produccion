@@ -2614,10 +2614,11 @@ async def create_registro(input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
         dist_json = json.dumps([d.model_dump() for d in registro.distribucion_colores])
         await conn.execute(
-            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion) 
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id) 
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
             registro.id, registro.n_corte, registro.modelo_id, registro.curva, registro.estado, registro.urgente,
-            registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None)
+            registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None),
+            registro.pt_item_id, registro.empresa_id
         )
     return registro
 
