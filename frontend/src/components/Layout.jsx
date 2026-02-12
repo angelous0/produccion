@@ -109,6 +109,12 @@ const documentosItems = [
   { to: '/guias', icon: FileText, label: 'Guías de Remisión' },
 ];
 
+const valorizacionItems = [
+  { to: '/reportes/mp-valorizado', icon: Package, label: 'MP Valorizado' },
+  { to: '/reportes/wip', icon: ClipboardList, label: 'WIP (En Proceso)' },
+  { to: '/reportes/pt-valorizado', icon: Box, label: 'PT Valorizado' },
+];
+
 export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isAdmin } = useAuth();
