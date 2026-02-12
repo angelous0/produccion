@@ -73,6 +73,27 @@ async def migrate():
             except Exception:
                 pass
             
+            # Ensure PK constraints exist on key tables (some may lack them)
+            print("\n=== ENSURE PRIMARY KEYS ===")
+            pk_tables = [
+                'prod_inventario', 'prod_registros', 'prod_inventario_ingresos',
+                'prod_inventario_salidas', 'prod_inventario_rollos',
+                'prod_inventario_reservas', 'prod_inventario_reservas_linea',
+                'prod_registro_tallas', 'prod_registro_requerimiento_mp'
+            ]
+            for tbl in pk_tables:
+                has_pk = await conn.fetchval(f"""
+                    SELECT EXISTS(
+                        SELECT 1 FROM pg_constraint 
+                        WHERE conrelid = 'produccion.{tbl}'::regclass AND contype = 'p'
+                    )
+                """)
+                if not has_pk:
+                    print(f"  ADD PK to {tbl}")
+                    await conn.execute(f"ALTER TABLE produccion.{tbl} ADD PRIMARY KEY (id)")
+                else:
+                    print(f"  {tbl} already has PK")
+            
             print("\n=== FASE B: pt_item_id en prod_registros ===")
             col_exists = await conn.fetchval("""
                 SELECT EXISTS(
@@ -84,7 +105,13 @@ async def migrate():
             """)
             if not col_exists:
                 print("  ADD pt_item_id VARCHAR to prod_registros")
-                await conn.execute("ALTER TABLE produccion.prod_registros ADD COLUMN pt_item_id VARCHAR REFERENCES produccion.prod_inventario(id)")
+                await conn.execute("ALTER TABLE produccion.prod_registros ADD COLUMN pt_item_id VARCHAR")
+                # FK to prod_inventario (now that PK exists)
+                await conn.execute("""
+                    ALTER TABLE produccion.prod_registros 
+                    ADD CONSTRAINT prod_registros_pt_item_fk 
+                    FOREIGN KEY (pt_item_id) REFERENCES produccion.prod_inventario(id)
+                """)
             else:
                 print("  pt_item_id already exists")
             
