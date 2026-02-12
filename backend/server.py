@@ -5693,6 +5693,11 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+# ==================== NUEVOS ROUTERS (Valorización/Costos/Cierre) ====================
+from routes.costos import router as costos_router
+from routes.cierre import router as cierre_router
+from routes.reportes_valorizacion import router as reportes_val_router
+
 # ==================== STARTUP/SHUTDOWN ====================
 
 @app.on_event("startup")
@@ -5722,3 +5727,6 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(costos_router)
+app.include_router(cierre_router)
+app.include_router(reportes_val_router)
