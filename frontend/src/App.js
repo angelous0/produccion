@@ -127,6 +127,9 @@ function AppRoutes() {
         <Route path="calidad/reporte-mermas" element={<ReporteMermas />} />
         <Route path="reportes/estados-item" element={<ReporteEstadosItem />} />
         <Route path="guias" element={<GuiasRemision />} />
+        <Route path="reportes/mp-valorizado" element={<ReporteMPValorizado />} />
+        <Route path="reportes/wip" element={<ReporteWIP />} />
+        <Route path="reportes/pt-valorizado" element={<ReportePTValorizado />} />
       </Route>
       
       {/* Redirigir cualquier ruta desconocida a login */}
