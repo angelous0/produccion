@@ -925,6 +925,26 @@ export const RegistroForm = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label>Artículo PT (Producto Terminado)</Label>
+                    <Select
+                      value={formData.pt_item_id || ""}
+                      onValueChange={(value) => setFormData({ ...formData, pt_item_id: value === "none" ? "" : value })}
+                    >
+                      <SelectTrigger data-testid="select-pt-item">
+                        <SelectValue placeholder="Seleccionar artículo PT" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin artículo PT</SelectItem>
+                        {itemsInventario.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.codigo} - {item.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2 pt-2">
