@@ -461,6 +461,29 @@ export const Layout = () => {
                 <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
+
+            {/* Separador Valorización */}
+            <div className="mt-4 mb-2">
+              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
+                Valorización
+              </p>
+              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
+            </div>
+            {valorizacionItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
+                }
+                data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
+              </NavLink>
+            ))}
           </nav>
         </aside>
 
