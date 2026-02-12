@@ -1430,6 +1430,216 @@ const CostosTab = ({ registroId, empresaId = 6 }) => {
 };
 
 
+
+// ==================== PESTAÑA CIERRE PRODUCCIÓN ====================
+const CierreTab = ({ registroId, registro, empresaId = 6, onCierreComplete }) => {
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [procesando, setProcesando] = useState(false);
+  const [cierre, setCierre] = useState(null);
+
+  const fetchPreview = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Check if already closed
+      const cierreRes = await axios.get(`${API}/registros/${registroId}/cierre-produccion`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => ({ data: null }));
+      
+      if (cierreRes.data) {
+        setCierre(cierreRes.data);
+        setLoading(false);
+        return;
+      }
+      
+      const res = await axios.get(`${API}/registros/${registroId}/preview-cierre`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setPreview(res.data);
+    } catch (err) {
+      if (err.response?.status !== 400) toast.error('Error al cargar preview');
+    } finally {
+      setLoading(false);
+    }
+  }, [registroId]);
+
+  useEffect(() => { if (registroId) fetchPreview(); }, [registroId, fetchPreview]);
+
+  const handleCierre = async () => {
+    if (!preview?.puede_cerrar) {
+      toast.error('No se puede cerrar: falta asignar PT o no hay prendas');
+      return;
+    }
+    setProcesando(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(`${API}/registros/${registroId}/cierre-produccion`, {
+        empresa_id: empresaId,
+        qty_terminada: preview.qty_terminada
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success(res.data.message);
+      if (onCierreComplete) onCierreComplete();
+      fetchPreview();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al cerrar');
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+
+  // If already closed, show cierre info
+  if (cierre) {
+    return (
+      <div className="space-y-4" data-testid="cierre-completado">
+        <div className="flex items-center gap-3">
+          <CheckCircle2 className="h-6 w-6 text-green-500" />
+          <h3 className="text-lg font-semibold">Cierre Completado</h3>
+          <Badge className="bg-green-500">CERRADA</Badge>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Fecha Cierre</p>
+                <p className="font-semibold font-mono">{cierre.fecha}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Qty Terminada</p>
+                <p className="font-semibold font-mono">{parseFloat(cierre.qty_terminada).toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Costo MP</p>
+                <p className="font-semibold font-mono">S/ {parseFloat(cierre.costo_mp).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Costo Servicios</p>
+                <p className="font-semibold font-mono">S/ {parseFloat(cierre.costo_servicios).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Costo Total</p>
+                <p className="text-xl font-bold font-mono">S/ {parseFloat(cierre.costo_total).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Costo Unit PT</p>
+                <p className="text-xl font-bold font-mono text-primary">S/ {parseFloat(cierre.costo_unit_pt).toFixed(4)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!preview) return <p className="text-center text-muted-foreground py-8">No se pudo cargar el preview de cierre</p>;
+
+  return (
+    <div className="space-y-4" data-testid="cierre-tab">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Preview de Cierre</h3>
+        {!preview.pt_item && (
+          <Badge variant="destructive" className="gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            Falta asignar PT
+          </Badge>
+        )}
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-sm text-muted-foreground">Artículo PT</p>
+              {preview.pt_item ? (
+                <p className="font-semibold">{preview.pt_item.codigo} - {preview.pt_item.nombre}</p>
+              ) : (
+                <p className="text-destructive text-sm">Asigne un artículo PT en el formulario de edición</p>
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Prendas Terminadas</p>
+              <p className="font-semibold font-mono">{preview.qty_terminada}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Estado</p>
+              <Badge variant="outline">{preview.estado}</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Detalle MP */}
+      {preview.salidas_mp_detalle?.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Consumos de MP (FIFO)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead className="text-right">Cantidad</TableHead>
+                  <TableHead className="text-right">Costo Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {preview.salidas_mp_detalle.map((s, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-mono">{s.codigo}</TableCell>
+                    <TableCell>{s.nombre}</TableCell>
+                    <TableCell className="text-right font-mono">{parseFloat(s.cantidad_total).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">S/ {parseFloat(s.costo_total).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Resumen */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Costo MP</p>
+              <p className="text-lg font-bold font-mono">S/ {preview.costo_mp.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Costo Servicios</p>
+              <p className="text-lg font-bold font-mono">S/ {preview.costo_servicios.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Costo Total</p>
+              <p className="text-xl font-bold font-mono">S/ {preview.costo_total.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Costo Unit PT</p>
+              <p className="text-xl font-bold font-mono text-primary">S/ {preview.costo_unit_pt.toFixed(4)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-3">
+        <Button
+          onClick={handleCierre}
+          disabled={!preview.puede_cerrar || procesando}
+          className="gap-2"
+          data-testid="btn-ejecutar-cierre"
+        >
+          {procesando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+          Ejecutar Cierre de Producción
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+
 // ==================== COMPONENTE PRINCIPAL ====================
 export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) => {
   const [totalPrendas, setTotalPrendas] = useState(0);
