@@ -37,6 +37,7 @@ import { ReporteMermas } from "./pages/ReporteMermas";
 import { ReporteEstadosItem } from "./pages/ReporteEstadosItem";
 import { GuiasRemision } from "./pages/GuiasRemision";
 import { HilosEspecificos } from "./pages/HilosEspecificos";
+import { ReporteMPValorizado, ReporteWIP, ReportePTValorizado } from "./pages/ReportesValorizacion";
 import { Loader2 } from "lucide-react";
 
 // Componente de ruta protegida
