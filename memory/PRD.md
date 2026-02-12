@@ -1,130 +1,105 @@
 # Módulo de Producción Textil - PRD
 
 ## Problema Original
-Crear un módulo de producción textil con las siguientes tablas y relaciones:
-- **Marca, Tipo, Entalle, Tela, Hilo**: Tablas maestras simples
-- **Tallas (catálogo)**: Tabla maestra de tallas con orden
-- **Colores (catálogo)**: Tabla maestra de colores con código hex
-- **Modelo**: Con relaciones muchos-a-uno con Marca, Tipo, Entalle, Tela, Hilo
-- **Registro**: Con N Corte, Fecha Creación, relación con Modelo, Curva (texto), Estado, Urgente
-
-## Flujo de Tallas y Colores
-1. **Paso 1 - En Corte**: Al crear registro, seleccionar tallas del catálogo con cantidades
-2. **Paso 2 - En Lavandería**: Distribuir cantidades por colores usando botón de paleta
-   - Validación: suma de colores no puede exceder cantidad total de la talla
-
-## Preferencias del Usuario
-- Diseño corporativo minimalista claro con dark mode
-- Todo en español
-- Estados: Para Corte, Corte, Para Costura, Costura, Para Atraque, Atraque, Para Lavandería, Muestra Lavanderia, Lavandería, Para Acabado, Acabado, Almacén PT, Tienda
-- Inputs numéricos sin flechitas (spinners)
-- Eliminación directa sin confirmación
+Sistema de gestión de producción textil con inventario FIFO, MRP, reservas y valorización.
 
 ## Arquitectura
+- **Backend**: FastAPI + asyncpg + PostgreSQL
+- **Frontend**: React + Shadcn/UI
+- **DB**: PostgreSQL con schemas `produccion` y `finanzas2` (misma DB)
+- **Empresa activa**: id=6 (Ambission Industries SAC)
 
-### Backend (FastAPI + PostgreSQL)
-- `/api/marcas`, `/api/tipos`, `/api/entalles`, `/api/telas`, `/api/hilos` - CRUDs básicos
-- `/api/tallas-catalogo` - CRUD tallas maestras
-- `/api/colores-catalogo` - CRUD colores maestros con hex
-- `/api/modelos` - CRUD modelos con relaciones
-- `/api/registros` - CRUD registros con tallas y distribución colores
-- `/api/estados` - Lista de estados
-- `/api/stats` - Estadísticas dashboard
-- `/api/inventario` - CRUD items de inventario
-- `/api/inventario-ingresos` - Entradas de inventario
-- `/api/inventario-salidas` - Salidas de inventario con método FIFO
-- `/api/inventario-ajustes` - Ajustes de inventario
-- `/api/servicios-produccion` - CRUD servicios de producción
-- `/api/personas-produccion` - CRUD personas de producción
-- `/api/movimientos-produccion` - CRUD movimientos de producción
-- `/api/registros/{id}/generar-requerimiento` - Genera requerimiento de MP
-- `/api/registros/{id}/requerimiento` - Obtiene requerimiento
-- `/api/registros/{id}/reservas` - Gestión de reservas
-- `/api/registros/{id}/cerrar` - Cerrar OP
-- `/api/registros/{id}/anular` - Anular OP
-- `/api/registros/{id}/resumen` - Resumen completo de OP
-
-### Frontend (React + Shadcn/UI)
-- Dashboard con contadores
-- CRUDs para todas las entidades
-- Registros con flujo de 2 pasos
-- Dark/Light mode toggle
-- Módulo de Inventario FIFO con navegación separada
-- Sección "Maestros" con Servicios y Personas
-- Movimientos de Producción integrados en formulario de Registro
+### Estructura de Routers
+```
+/app/backend/
+├── server.py                    # App principal + legacy routes (5700+ líneas)
+├── db.py                        # Pool asyncpg compartido
+├── auth.py                      # Auth dependencies
+├── helpers.py                   # Funciones helper
+├── routes/
+│   ├── costos.py                # CRUD costos servicio por registro
+│   ├── cierre.py                # Preview/ejecutar cierre + asignar PT
+│   └── reportes_valorizacion.py # Reportes MP/WIP/PT + ingresos from-finanzas + empresas
+└── migrations/
+    └── 001_multiempresa_valorizacion.py
+```
 
 ## Implementado
 
-### Enero 2025 - MVP
-- Backend completo con todos los endpoints
-- Frontend con todas las páginas y CRUDs
-- Catálogo de Tallas y Colores
-- Flujo de 2 pasos para tallas/colores
-- Validación de cantidades en distribución
-- Dark mode toggle
-- Inputs sin spinners
-- Eliminación directa
-
-### Enero 2025 - Fase 1 (Inventario FIFO)
-- Módulo completo de inventario con control FIFO
-- Ingresos y salidas con trazabilidad
-- Kardex por item
-- Ajustes de inventario
-- Items con control por rollos (telas)
-- Gestión de rollos (metraje, tono, activo)
+### Enero 2025 - MVP + Fase 1 (Inventario FIFO)
+- CRUDs para marcas, tipos, entalles, telas, hilos, modelos, registros
+- Inventario FIFO con ingresos/salidas/rollos/ajustes/kardex
+- Dark mode, tallas catálogo, colores catálogo
 
 ### Enero 2025 - Fase 2 (MRP y Reservas)
-- Generación de requerimiento de MP desde BOM del modelo
-- Sistema de reservas de inventario (ATP)
-- Salidas de MP con validación contra reservas
-- Visualización de stock disponible vs reservado
-- Detalle de reservas por item
+- Requerimiento de MP desde BOM, reservas ATP, salidas con validación
 
-### Febrero 2025 - Fase 2C (Cierre/Anulación de OP)
-- Endpoints cerrar/anular OP con liberación automática de reservas
-- Bloqueos automáticos en OP cerrada/anulada
-- UI con botones Cerrar/Anular OP en detalle de registro
-- Modal de confirmación con resumen
-- Resumen endpoint GET /api/registros/{id}/resumen
+### Febrero 2025 - Fase 2C + UX
+- Cerrar/Anular OP, liberación automática de reservas
+- Salidas en lote, selección múltiple de rollos con checkboxes
+- Búsqueda de ítems en ajustes
 
-### Febrero 2025 - UX Mejoras
-- Buscador de ítems en ajustes de inventario
-- Lógica condicional de rollos (opcional para entradas, obligatorio para salidas)
-- Salidas de material en lote (tabla editable)
-- Modal de selección de rollo para ítems con control_por_rollos
+### Febrero 7, 2025 - Selección Múltiple de Rollos (P0)
+- Modal multi-select con checkboxes y distribución inteligente
 
-### Febrero 7, 2025 - Selección Múltiple de Rollos (P0 COMPLETADO)
-- Modal de selección múltiple de rollos con checkboxes
-- Botón "Sel. Todos" con distribución inteligente del metraje pendiente
-- Cantidades editables por rollo individual
-- Buscador por número de rollo o tono
-- Resumen de selección (rollos seleccionados, total metraje)
-- Confirmación actualiza la tabla principal con conteo de rollos y total
-- Registro en lote: una salida por cada rollo seleccionado
+### Febrero 12, 2025 - Valorización MP + WIP + Cierre PT
+- **A) Multiempresa**: empresa_id en todas las tablas de producción, FK a finanzas2.cont_empresa, backfill a id=6
+- **B) PT por registro**: pt_item_id en prod_registros, selector en formulario de edición
+- **C) Trazabilidad financiera**: fin_origen_tipo, fin_origen_id, fin_numero_doc en ingresos
+- **D) Ingresos from-finanzas**: POST /api/inventario/ingresos/from-finanzas con idempotencia
+- **E) Costos servicio**: CRUD completo + tabla prod_registro_costos_servicio + UI pestaña Costos
+- **F) Cierre producción**: Preview + ejecución de cierre, cálculo FIFO, ingreso PT automático, tabla prod_registro_cierre
+- **G) Reportes valorización**: MP Valorizado, WIP, PT Valorizado con UI completa
+- **Router split**: Nuevos endpoints en routes/costos.py, routes/cierre.py, routes/reportes_valorizacion.py
+- **Navegación**: Sección "Valorización" en sidebar con 3 reportes
+- **6 pestañas en detalle registro**: Tallas, Requerimiento, Reservas, Salidas, Costos, Cierre
+
+## DB Schema Producción
+### Tablas nuevas
+- `prod_registro_costos_servicio` (id, empresa_id, registro_id, fecha, descripcion, proveedor_texto, monto, fin_origen_tipo, fin_origen_id)
+- `prod_registro_cierre` (id, empresa_id, registro_id, fecha, qty_terminada, costo_mp, costo_servicios, costo_total, costo_unit_pt, pt_ingreso_id)
+
+### Columnas nuevas
+- `prod_registros.pt_item_id` (FK a prod_inventario)
+- `prod_registros.empresa_id` (FK a finanzas2.cont_empresa)
+- `prod_inventario_ingresos.fin_origen_tipo`, `.fin_origen_id`, `.fin_numero_doc`
+- `empresa_id` en: prod_registro_tallas, prod_registro_requerimiento_mp, prod_inventario_ingresos, prod_inventario_salidas, prod_inventario_rollos, prod_inventario_reservas, prod_inventario_reservas_linea
+
+## Key API Endpoints
+### Nuevos
+- `GET/POST /api/registros/{id}/costos-servicio` - CRUD costos
+- `PUT/DELETE /api/registros/{id}/costos-servicio/{costo_id}`
+- `GET /api/registros/{id}/preview-cierre` - Preview costos
+- `POST /api/registros/{id}/cierre-produccion` - Ejecutar cierre
+- `GET /api/registros/{id}/cierre-produccion` - Consultar cierre
+- `PUT /api/registros/{id}/pt-item` - Asignar artículo PT
+- `GET /api/reportes/inventario-mp-valorizado?empresa_id=X`
+- `GET /api/reportes/wip?empresa_id=X`
+- `GET /api/reportes/inventario-pt-valorizado?empresa_id=X`
+- `POST /api/inventario/ingresos/from-finanzas` - Ingresos desde finanzas
+- `GET /api/empresas` - Lista empresas
 
 ## Backlog
 
 ### P1 - Importante
-- [ ] Clarificar lógica de "borrado inteligente" del BOM (vinculación con producción)
-- [ ] Vista de detalle (drill-down) en "Reporte Item-Estados"
+- [ ] Completar split de server.py en routers (mover legacy routes)
+- [ ] Clarificar lógica de "borrado inteligente" del BOM
+- [ ] Vista drill-down en "Reporte Item-Estados"
 - [ ] Filtros y ordenamiento avanzados en "Reporte Item-Estados"
 
 ### P2 - Mejoras
-- [ ] Finalizar exportación Excel/PDF en página de Kardex
+- [ ] Exportación Excel/PDF en Kardex
 - [ ] Dashboard de Producción con gráficos
-- [ ] Reportes de producción con costos de materiales
-- [ ] Reportes de Merma por período o persona
+- [ ] Filtro de fecha/período en reportes de valorización
+- [ ] Reportes de Merma por período
 
 ### P3 - Futuro
-- [ ] Reporte de "Productividad por persona/servicio"
-- [ ] Drag-and-drop para reordenar tallas en formularios
-- [ ] Aplicar permisos granulares con hook `usePermissions` en toda la UI
-- [ ] Auditar accesibilidad en componentes `Dialog` (DialogTitle, DialogDescription) - Issue recurrente x6
-
-### Refactoring Necesario
-- [ ] Dividir `server.py` (5700+ líneas) en módulos/routers por funcionalidad
-- [ ] Componentizar `RegistroDetalleFase2.jsx` (extraer lógica de pestañas y modales)
+- [ ] Reporte productividad por persona/servicio
+- [ ] Drag-and-drop para reordenar tallas
+- [ ] Permisos granulares con usePermissions
+- [ ] Auditoría accesibilidad Dialog (issue recurrente x6)
 
 ## Credenciales de Prueba
 - **Usuario**: `eduard`
 - **Contraseña**: `eduard123`
+- **Empresa**: id=6 (Ambission Industries SAC)
