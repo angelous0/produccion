@@ -2604,6 +2604,11 @@ async def get_registro(registro_id: str):
         if d.get('hilo_especifico_id'):
             hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
             d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
+        # Enriquecer PT item
+        if d.get('pt_item_id'):
+            pt_item = await conn.fetchrow("SELECT id, codigo, nombre FROM prod_inventario WHERE id = $1", d['pt_item_id'])
+            d['pt_item_nombre'] = pt_item['nombre'] if pt_item else None
+            d['pt_item_codigo'] = pt_item['codigo'] if pt_item else None
         return d
 
 @api_router.post("/registros")
