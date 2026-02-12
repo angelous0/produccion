@@ -2632,8 +2632,8 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in input.tallas])
         dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8 WHERE id=$9""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, registro_id
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9 WHERE id=$10""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, registro_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
