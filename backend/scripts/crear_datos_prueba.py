@@ -141,6 +141,8 @@ async def main():
         
         total_costo_mp = 0
         for line in req_lines:
+            cantidad = float(line['cantidad_requerida'])
+            
             if line['control_por_rollos']:
                 # For rolls, consume from rollos
                 rollos = await conn.fetch("""
@@ -150,18 +152,17 @@ async def main():
                     ORDER BY created_at ASC
                 """, line['item_id'])
                 
-                remaining = float(line['cantidad_requerida'])
+                remaining = cantidad
                 for rollo in rollos:
                     if remaining <= 0:
                         break
                     consume = min(remaining, float(rollo['metraje_disponible']))
                     
-                    # Get FIFO cost from oldest ingreso
                     ingreso = await conn.fetchrow("""
                         SELECT id, costo_unitario, cantidad_disponible
                         FROM produccion.prod_inventario_ingresos
                         WHERE item_id = $1 AND cantidad_disponible > 0
-                        ORDER BY fecha ASC, created_at ASC
+                        ORDER BY fecha ASC
                         LIMIT 1
                     """, line['item_id'])
                     
@@ -169,54 +170,40 @@ async def main():
                     costo_total = consume * costo_unit
                     total_costo_mp += costo_total
                     
-                    # Create salida
                     sal_id = str(uuid.uuid4())
                     await conn.execute("""
                         INSERT INTO produccion.prod_inventario_salidas
-                        (id, item_id, cantidad, registro_id, costo_total, fecha, rollo_id, empresa_id,
-                         detalle_fifo)
+                        (id, item_id, cantidad, registro_id, costo_total, fecha, rollo_id, empresa_id, detalle_fifo)
                         VALUES ($1, $2, $3, $4, $5, CURRENT_DATE, $6, $7, $8)
                     """, sal_id, line['item_id'], consume, reg01_id, costo_total,
                         rollo['id'], EMPRESA_ID,
-                        json.dumps([{"ingreso_id": ingreso['id'], "cantidad": consume, "costo_unitario": costo_unit}])
-                    )
+                        json.dumps([{"ingreso_id": ingreso['id'], "cantidad": consume, "costo_unitario": costo_unit}]))
                     
-                    # Update rollo
-                    await conn.execute("""
-                        UPDATE produccion.prod_inventario_rollos 
-                        SET metraje_disponible = metraje_disponible - $1 WHERE id = $2
-                    """, consume, rollo['id'])
-                    
-                    # Update ingreso
-                    await conn.execute("""
-                        UPDATE produccion.prod_inventario_ingresos 
-                        SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2
-                    """, consume, ingreso['id'])
-                    
-                    # Update stock
-                    await conn.execute("""
-                        UPDATE produccion.prod_inventario 
-                        SET stock_actual = stock_actual - $1 WHERE id = $2
-                    """, consume, line['item_id'])
+                    await conn.execute(
+                        "UPDATE produccion.prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1 WHERE id = $2",
+                        consume, rollo['id'])
+                    await conn.execute(
+                        "UPDATE produccion.prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2",
+                        consume, ingreso['id'])
+                    await conn.execute(
+                        "UPDATE produccion.prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2",
+                        consume, line['item_id'])
                     
                     print(f"  {line['codigo']}: Rollo #{rollo['numero_rollo']} - {consume:.2f}m x S/{costo_unit:.2f} = S/ {costo_total:.2f}")
                     remaining -= consume
             else:
-                # Non-roll items
-                cantidad = float(line['cantidad_requerida'])
-                
-                # FIFO consumption
+                # FIFO from ingresos
                 remaining_qty = cantidad
                 fifo_details = []
+                costo_total_linea = 0
                 
                 ingresos_fifo = await conn.fetch("""
                     SELECT id, costo_unitario, cantidad_disponible
                     FROM produccion.prod_inventario_ingresos
                     WHERE item_id = $1 AND cantidad_disponible > 0
-                    ORDER BY fecha ASC, created_at ASC
+                    ORDER BY fecha ASC
                 """, line['item_id'])
                 
-                costo_total_linea = 0
                 for ing in ingresos_fifo:
                     if remaining_qty <= 0:
                         break
@@ -225,17 +212,13 @@ async def main():
                     costo = take * cu
                     costo_total_linea += costo
                     fifo_details.append({"ingreso_id": ing['id'], "cantidad": take, "costo_unitario": cu})
-                    
-                    await conn.execute("""
-                        UPDATE produccion.prod_inventario_ingresos 
-                        SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2
-                    """, take, ing['id'])
-                    
+                    await conn.execute(
+                        "UPDATE produccion.prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2",
+                        take, ing['id'])
                     remaining_qty -= take
                 
                 total_costo_mp += costo_total_linea
                 
-                # Create salida
                 sal_id = str(uuid.uuid4())
                 await conn.execute("""
                     INSERT INTO produccion.prod_inventario_salidas
@@ -244,14 +227,11 @@ async def main():
                 """, sal_id, line['item_id'], cantidad, reg01_id, costo_total_linea,
                     EMPRESA_ID, json.dumps(fifo_details))
                 
-                # Update stock
-                await conn.execute("""
-                    UPDATE produccion.prod_inventario 
-                    SET stock_actual = stock_actual - $1 WHERE id = $2
-                """, cantidad, line['item_id'])
+                await conn.execute(
+                    "UPDATE produccion.prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2",
+                    cantidad, line['item_id'])
                 
-                talla = f" (talla:{line['talla_id'][:8]})" if line['talla_id'] else ""
-                print(f"  {line['codigo']}: {cantidad:.0f} x FIFO = S/ {costo_total_linea:.2f}{talla}")
+                print(f"  {line['codigo']}: {cantidad:.0f} uds FIFO = S/ {costo_total_linea:.2f}")
         
         print(f"\n  TOTAL COSTO MP (FIFO): S/ {total_costo_mp:.2f}")
         print(f"  TOTAL COSTOS SERVICIO: S/ {total_costos:.2f}")
