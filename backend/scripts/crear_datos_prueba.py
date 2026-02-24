@@ -257,8 +257,8 @@ async def main():
             talla_id = str(uuid.uuid4())
             await conn.execute("""
                 INSERT INTO produccion.prod_registro_tallas 
-                (id, registro_id, talla_id, cantidad, cantidad_real, empresa_id)
-                VALUES ($1, $2, $3, $4, $4, $5)
+                (id, registro_id, talla_id, cantidad_real, empresa_id)
+                VALUES ($1, $2, $3, $4, $5)
             """, talla_id, reg02_id, talla['id'], cantidades_02[i], EMPRESA_ID)
         
         total_02 = sum(cantidades_02)
@@ -327,8 +327,8 @@ async def main():
             tid = str(uuid.uuid4())
             await conn.execute("""
                 INSERT INTO produccion.prod_registro_tallas 
-                (id, registro_id, talla_id, cantidad, cantidad_real, empresa_id)
-                VALUES ($1, $2, $3, $4, $4, $5)
+                (id, registro_id, talla_id, cantidad_real, empresa_id)
+                VALUES ($1, $2, $3, $4, $5)
             """, tid, reg03_id, talla['id'], cantidades_03[i], EMPRESA_ID)
         
         total_03 = sum(cantidades_03)
