@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://textile-production-2.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://prod-valorizacion.preview.emergentagent.com').rstrip('/')
 
 @pytest.fixture(scope="module")
 def api_client():
