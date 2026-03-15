@@ -218,6 +218,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
   const [loading, setLoading] = useState(true);
   const [loadingLineas, setLoadingLineas] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
+  const [creando, setCreando] = useState(false);
 
   // Load initial data
   const fetchCabeceras = useCallback(async () => {
@@ -270,20 +271,25 @@ export const ModelosBOMTab = ({ modeloId }) => {
 
   // Create new BOM
   const crearBom = async () => {
+    if (creando) return;
+    setCreando(true);
     try {
       const res = await axios.post(`${API}/bom`, { modelo_id: modeloId });
-      const cabs = await fetchCabeceras();
+      await fetchCabeceras();
       setActiveBomId(res.data.id);
       fetchBomDetalle(res.data.id);
       toast.success(`BOM v${res.data.version} creado`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Error al crear BOM');
+    } finally {
+      setCreando(false);
     }
   };
 
   // Duplicate BOM
   const duplicarBom = async () => {
-    if (!activeBomId) return;
+    if (!activeBomId || creando) return;
+    setCreando(true);
     try {
       const res = await axios.post(`${API}/bom/${activeBomId}/duplicar`);
       await fetchCabeceras();
@@ -292,6 +298,8 @@ export const ModelosBOMTab = ({ modeloId }) => {
       toast.success(`BOM v${res.data.version} duplicado`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || 'Error al duplicar');
+    } finally {
+      setCreando(false);
     }
   };
 
@@ -416,11 +424,11 @@ export const ModelosBOMTab = ({ modeloId }) => {
                   </SelectContent>
                 </Select>
               )}
-              <Button size="sm" variant="outline" onClick={crearBom} data-testid="btn-crear-bom">
-                <Plus className="h-4 w-4 mr-1" /> Nuevo BOM
+              <Button size="sm" variant="outline" onClick={crearBom} disabled={creando} data-testid="btn-crear-bom">
+                <Plus className="h-4 w-4 mr-1" /> {creando ? 'Creando...' : 'Nuevo BOM'}
               </Button>
               {activeBomId && (
-                <Button size="sm" variant="outline" onClick={duplicarBom} data-testid="btn-duplicar-bom">
+                <Button size="sm" variant="outline" onClick={duplicarBom} disabled={creando} data-testid="btn-duplicar-bom">
                   <Copy className="h-4 w-4 mr-1" /> Duplicar
                 </Button>
               )}
