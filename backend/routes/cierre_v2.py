@@ -231,11 +231,11 @@ async def ejecutar_cierre(
             await conn.execute("""
                 INSERT INTO prod_inventario_ingresos 
                 (id, item_id, fecha, cantidad, cantidad_disponible, costo_unitario, 
-                 costo_total, tipo, referencia, proveedor, observaciones)
-                VALUES ($1, $2, CURRENT_DATE, $3, $3, $4, $5, 'PRODUCCION', $6, 'Producción Interna', $7)
+                 proveedor, observaciones, empresa_id)
+                VALUES ($1, $2, CURRENT_DATE, $3, $3, $4, 'Producción Interna', $5, $6)
             """, ingreso_inv_id, orden['pt_item_id'], data.cantidad_terminada,
-                 costo_unitario, costo_total, f"OP: {orden['n_corte']}",
-                 f"Cierre de OP {orden['n_corte']}. {data.observaciones}")
+                 costo_unitario, f"Cierre OP {orden['n_corte']}. {data.observaciones}",
+                 orden['empresa_id'])
             
             # Update prod_ingreso_pt with ingreso_inventario_id
             await conn.execute("""
