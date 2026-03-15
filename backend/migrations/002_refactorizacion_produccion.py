@@ -666,6 +666,26 @@ async def create_views(conn):
     """)
     print("  ✓ Vista v_wip_resumen creada")
     
+    # Create prod_registro_tallas if not exists
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS public.prod_registro_tallas (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            registro_id VARCHAR NOT NULL,
+            talla_id VARCHAR NOT NULL,
+            cantidad_real INT NOT NULL DEFAULT 0,
+            empresa_id INTEGER DEFAULT 6,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_registro_tallas_registro ON public.prod_registro_tallas(registro_id)
+    """)
+    await conn.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_registro_tallas_unique ON public.prod_registro_tallas(registro_id, talla_id)
+    """)
+    print("  ✓ Tabla prod_registro_tallas creada/verificada")
+    
     # Vista de órdenes con info completa
     await conn.execute("""
         CREATE OR REPLACE VIEW public.v_orden_completa AS
