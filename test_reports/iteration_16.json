@@ -1,0 +1,120 @@
+{
+  "summary": "BOM Module (Bill of Materials) testing complete. Backend: 28 tests passed, 1 skipped. Fixed critical bug in duplicar_bom endpoint (unique constraint violation). Frontend UI verified with all BOM features accessible.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/bom/{bom_id}", "issue": "Some inventario_nombre fields return null for old BOM lines where the referenced inventario_id no longer exists in prod_inventario table (migrated/orphan data)"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "GET /api/bom?modelo_id={id} - returns list of BOM cabeceras with version, estado, total_lineas",
+    "GET /api/bom?modelo_id={id}&estado=BORRADOR - filters by estado",
+    "POST /api/bom - creates new BOM cabecera with auto-incremented version",
+    "POST /api/bom with invalid modelo_id - returns 404",
+    "GET /api/bom/{bom_id} - returns cabecera with lineas array including inventario_nombre, tipo_componente, merma_pct, cantidad_total",
+    "PUT /api/bom/{bom_id} estado=APROBADO - changes estado BORRADOR->APROBADO",
+    "PUT /api/bom/{bom_id} estado=INACTIVO - changes estado APROBADO->INACTIVO",
+    "PUT /api/bom/{bom_id} invalid estado - returns 400",
+    "POST /api/bom/{bom_id}/lineas tipo_componente=TELA - creates line with correct cantidad_total calculation",
+    "POST /api/bom/{bom_id}/lineas tipo_componente=AVIO - creates line correctly",
+    "POST /api/bom/{bom_id}/lineas cantidad_base=0 - returns 400 validation error",
+    "POST /api/bom/{bom_id}/lineas merma_pct=150 - returns 400 validation error (must be 0-100)",
+    "POST /api/bom/{bom_id}/lineas invalid tipo_componente - returns 400",
+    "PUT /api/bom/{bom_id}/lineas/{linea_id} - updates line and recalculates cantidad_total",
+    "DELETE /api/bom/{bom_id}/lineas/{linea_id} - deletes line",
+    "GET /api/bom/{bom_id}/costo-estandar?cantidad_prendas=100 - returns costo_estandar_unitario, costo_estandar_lote, costo_por_tipo, detalle",
+    "Costo estándar detalle includes all required fields (linea_id, inventario_nombre, tipo_componente, cantidad_total, precio_unitario, costo_por_prenda)",
+    "Costo estándar calculation: costo_lote = costo_unitario * cantidad_prendas",
+    "Costo estándar excludes optional items from total",
+    "POST /api/bom/{bom_id}/duplicar - creates new version with copied active lines",
+    "POST /api/bom/{bom_id}/duplicar invalid bom_id - returns 404",
+    "cantidad_total = cantidad_base * (1 + merma_pct/100) verified with multiple test cases",
+    "GET /api/reportes/wip - non-regression: still returns correct WIP data",
+    "GET /api/reportes/mp-valorizado - non-regression: still returns correct MP data",
+    "GET /api/reportes/pt-valorizado - non-regression: still returns correct PT data",
+    "GET /api/reportes/resumen-general - non-regression: still returns correct summary",
+    "GET /api/etapas?empresa_id=7 - returns etapas for BOM line assignments",
+    "Frontend: BOM/Receta tab accessible from Editar Modelo dialog",
+    "Frontend: Version selector dropdown with all BOM versions",
+    "Frontend: Estado badge (Borrador/Aprobado/Inactivo) displayed",
+    "Frontend: Nuevo BOM, Duplicar buttons present",
+    "Frontend: Aprobar/Inactivar/Reactivar buttons based on estado",
+    "Frontend: BOM table shows Tipo, Item, Talla, Etapa, Cant. Base, Merma %, Cant. Total, Opc. columns",
+    "Frontend: Add component buttons (Tela, Avío, Servicio, Empaque, Otro)",
+    "Frontend: Costo estándar display with S/ format"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_bom_cabecera.py",
+    "/app/test_reports/pytest/pytest_bom_cabecera.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fixed unique constraint uq_bom_linea_activo to include bom_id, allowing multiple BOM versions to have same inventario items",
+    "Old constraint prevented duplicar_bom from working correctly"
+  ],
+  "updated_files": [
+    "/app/backend/server.py - Changed unique index from (modelo_id, inventario_id, talla_id) to (bom_id, inventario_id, COALESCE(talla_id, '__NULL__'))",
+    "/app/backend/tests/test_bom_cabecera.py - Created comprehensive test suite for BOM cabecera + lineas"
+  ],
+  "success_rate": {
+    "backend": "96.6% (28/29 passed, 1 skipped)",
+    "frontend": "100% (all BOM UI features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123",
+    "empresa_id": 7,
+    "modelo_id": "f5d3b229-7a6b-4d62-888d-80f60c3b1f73",
+    "bom_id_with_data": "db92cc93-d42e-4038-abe6-f2e18ac4e68e",
+    "inventario_tela_id": "91135a62-b4d5-4df9-8516-c64709f77b91",
+    "inventario_avio_id": "cabbd10c-84c9-49b4-9610-deef3a573fa6"
+  },
+  "seed_data_creation": "Multiple test BOMs created and marked as INACTIVO during cleanup. BOM-EDUARD-V1 retained with 10 lines for future testing.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "BOM Module fully functional. New table prod_bom_cabecera stores BOM headers with version/estado. Table prod_modelo_bom_linea extended with bom_id, tipo_componente, merma_pct, cantidad_total, es_opcional, etapa_id. Unique constraint changed to allow same items across different BOM versions. BOM-EDUARD-V1 (db92cc93-d42e-4038-abe6-f2e18ac4e68e) has 10 lines with data. Some old inventario items referenced in BOM lines no longer exist (show null inventario_nombre).",
+  "features_verified": {
+    "bom_cabecera_api": {
+      "list": "GET /api/bom?modelo_id={id} with optional estado filter",
+      "create": "POST /api/bom auto-increments version",
+      "detail": "GET /api/bom/{bom_id} includes lineas with all fields",
+      "update_estado": "PUT /api/bom/{bom_id} for BORRADOR->APROBADO->INACTIVO transitions",
+      "duplicar": "POST /api/bom/{bom_id}/duplicar creates new version with copied lines"
+    },
+    "bom_lineas_api": {
+      "create": "POST /api/bom/{bom_id}/lineas with tipo_componente, merma_pct, es_opcional",
+      "update": "PUT /api/bom/{bom_id}/lineas/{linea_id} recalculates cantidad_total",
+      "delete": "DELETE /api/bom/{bom_id}/lineas/{linea_id}"
+    },
+    "costo_estandar_api": {
+      "endpoint": "GET /api/bom/{bom_id}/costo-estandar?cantidad_prendas={n}",
+      "response": "Returns costo_estandar_unitario, costo_estandar_lote, costo_por_tipo breakdown, detalle with per-item costs"
+    },
+    "validations": {
+      "cantidad_base": "Must be > 0",
+      "merma_pct": "Must be 0-100",
+      "tipo_componente": "Must be TELA/AVIO/SERVICIO/EMPAQUE/OTRO",
+      "cantidad_total": "Auto-calculated as cantidad_base * (1 + merma_pct/100)"
+    },
+    "frontend_ui": {
+      "bom_tab": "BOM / Receta tab in Editar Modelo dialog",
+      "version_selector": "Dropdown to select BOM version",
+      "estado_badge": "Shows Borrador/Aprobado/Inactivo",
+      "action_buttons": "Nuevo BOM, Duplicar, Aprobar/Inactivar/Reactivar",
+      "lineas_table": "Tipo, Item, Talla, Etapa, Cant. Base, Merma %, Cant. Total, Opc.",
+      "add_buttons": "Tela, Avío, Servicio, Empaque, Otro",
+      "costo_display": "Costo est./prenda: S/ X.XX"
+    }
+  },
+  "bug_fixed": {
+    "issue": "POST /api/bom/{bom_id}/duplicar returned 500 error - UniqueViolationError on uq_bom_linea_activo",
+    "root_cause": "Old unique index was (modelo_id, inventario_id, talla_id) WHERE activo=TRUE, preventing duplicate lines across different BOM versions for same modelo",
+    "fix": "Changed unique index to (bom_id, inventario_id, COALESCE(talla_id, '__NULL__')) WHERE activo=TRUE",
+    "file_modified": "/app/backend/server.py line 133-139"
+  }
+}

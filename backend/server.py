@@ -98,6 +98,31 @@ async def ensure_bom_tables():
         )
         # Si la tabla ya existía de antes, aseguramos columnas nuevas sin romper datos
         await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS orden INT DEFAULT 10")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS bom_id VARCHAR NULL")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS tipo_componente VARCHAR DEFAULT 'TELA'")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS merma_pct NUMERIC(5,2) DEFAULT 0")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS cantidad_total NUMERIC(14,4) NULL")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS es_opcional BOOLEAN DEFAULT FALSE")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS etapa_id VARCHAR NULL")
+        await conn.execute("ALTER TABLE prod_modelo_bom_linea ADD COLUMN IF NOT EXISTS observaciones TEXT NULL")
+
+        # Tabla cabecera BOM
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_bom_cabecera (
+                id VARCHAR PRIMARY KEY,
+                modelo_id VARCHAR NOT NULL,
+                codigo VARCHAR,
+                version INT NOT NULL DEFAULT 1,
+                estado VARCHAR NOT NULL DEFAULT 'BORRADOR',
+                vigente_desde TIMESTAMP NULL,
+                vigente_hasta TIMESTAMP NULL,
+                observaciones TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_cab_modelo ON prod_bom_cabecera(modelo_id)")
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_linea_bom_id ON prod_modelo_bom_linea(bom_id)")
 
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_bom_inventario_id ON prod_modelo_bom_linea(inventario_id)"
@@ -105,10 +130,12 @@ async def ensure_bom_tables():
         await conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_bom_talla_id ON prod_modelo_bom_linea(talla_id)"
         )
+        # Old constraint was too restrictive - needs to include bom_id for multiple versions
+        await conn.execute("DROP INDEX IF EXISTS uq_bom_linea_activo")
         await conn.execute(
             """
-            CREATE UNIQUE INDEX IF NOT EXISTS uq_bom_linea_activo
-            ON prod_modelo_bom_linea(modelo_id, inventario_id, talla_id)
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_bom_linea_activo_v2
+            ON prod_modelo_bom_linea(bom_id, inventario_id, COALESCE(talla_id, '__NULL__'))
             WHERE activo = TRUE
             """
         )
@@ -5741,3 +5768,7 @@ app.include_router(consumo_router)
 app.include_router(servicios_router)
 app.include_router(cierre_v2_router)
 app.include_router(reportes_router)
+
+# BOM router
+from routes.bom import router as bom_router
+app.include_router(bom_router)

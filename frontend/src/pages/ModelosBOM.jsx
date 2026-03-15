@@ -1,52 +1,56 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { Plus, Copy, ChevronDown, Package, Scissors, Truck, Box, MoreHorizontal } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../components/ui/table';
 import { Switch } from '../components/ui/switch';
+import { Badge } from '../components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 
 import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { InventarioCombobox } from '../components/InventarioCombobox';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const DEBOUNCE_MS = 800; // recomendado (balance entre UX y carga)
+const DEBOUNCE_MS = 800;
 
-const mkTempId = () => `draft_${Math.random().toString(36).slice(2, 10)}`;
+const TIPOS_COMPONENTE = [
+  { value: 'TELA', label: 'Tela', icon: Scissors },
+  { value: 'AVIO', label: 'Avío', icon: Package },
+  { value: 'SERVICIO', label: 'Servicio', icon: Truck },
+  { value: 'EMPAQUE', label: 'Empaque', icon: Box },
+  { value: 'OTRO', label: 'Otro', icon: MoreHorizontal },
+];
 
+const ESTADOS_BOM = {
+  BORRADOR: { label: 'Borrador', variant: 'outline' },
+  APROBADO: { label: 'Aprobado', variant: 'default' },
+  INACTIVO: { label: 'Inactivo', variant: 'secondary' },
+};
+
+const formatNum = (n, dec = 4) => n != null ? Number(n).toFixed(dec) : '—';
+const formatCurrency = (n) => n != null ? `S/ ${Number(n).toFixed(2)}` : '—';
+
+// ==================== TALLAS TAB (sin cambios) ====================
 export const ModelosTallasTab = ({ modeloId }) => {
   const [catalogoTallas, setCatalogoTallas] = useState([]);
-  const [rows, setRows] = useState([]); // incluye activas e inactivas
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [newTallaId, setNewTallaId] = useState('');
   const [verInactivas, setVerInactivas] = useState(false);
-
-  // Autosave por fila (solo activo por ahora)
   const timersRef = useRef({});
-  const [rowState, setRowState] = useState({}); // { [id]: 'idle'|'saving'|'saved'|'error' }
+  const [rowState, setRowState] = useState({});
 
   const { sensors, handleDragEnd, isSaving, modifiers } = useSortableTable(
-    rows,
-    setRows,
-    `modelos/${modeloId}/tallas/reorder`
+    rows, setRows, `modelos/${modeloId}/tallas/reorder`
   );
 
   const fetchAll = async () => {
@@ -67,7 +71,6 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
   useEffect(() => {
     if (modeloId) fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeloId]);
 
   const availableTallas = useMemo(() => {
@@ -76,26 +79,17 @@ export const ModelosTallasTab = ({ modeloId }) => {
   }, [catalogoTallas, rows]);
 
   const visibleRows = useMemo(() => {
-    const list = verInactivas ? rows : rows.filter((r) => r.activo);
-    // mantener orden ya calculado (drag&drop)
-    return list;
+    return verInactivas ? rows : rows.filter((r) => r.activo);
   }, [rows, verInactivas]);
 
   const addTalla = async (e) => {
     e?.preventDefault?.();
-
-    if (!newTallaId) {
-      toast.error('Selecciona una talla');
-      return;
-    }
+    if (!newTallaId) { toast.error('Selecciona una talla'); return; }
     try {
       const res = await axios.post(`${API}/modelos/${modeloId}/tallas`, {
-        talla_id: newTallaId,
-        orden: rows.length + 1,
-        activo: true,
+        talla_id: newTallaId, orden: rows.length + 1, activo: true,
       });
-      const created = res.data;
-      setRows((prev) => [...prev, created]);
+      setRows((prev) => [...prev, res.data]);
       setNewTallaId('');
       toast.success('Talla agregada');
     } catch (e2) {
@@ -105,17 +99,13 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
   const scheduleAutosave = (relId, payload) => {
     if (!relId) return;
-
     if (timersRef.current[relId]) clearTimeout(timersRef.current[relId]);
     setRowState((prev) => ({ ...prev, [relId]: 'saving' }));
-
     timersRef.current[relId] = setTimeout(async () => {
       try {
         await axios.put(`${API}/modelos/${modeloId}/tallas/${relId}`, payload);
         setRowState((prev) => ({ ...prev, [relId]: 'saved' }));
-        setTimeout(() => {
-          setRowState((prev) => ({ ...prev, [relId]: 'idle' }));
-        }, 900);
+        setTimeout(() => setRowState((prev) => ({ ...prev, [relId]: 'idle' })), 900);
       } catch (e2) {
         setRowState((prev) => ({ ...prev, [relId]: 'error' }));
         toast.error(e2?.response?.data?.detail || 'Error al guardar');
@@ -136,7 +126,7 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
   const rowStatusLabel = (id) => {
     const s = rowState[id];
-    if (s === 'saving') return 'Guardando…';
+    if (s === 'saving') return 'Guardando...';
     if (s === 'saved') return 'Guardado';
     if (s === 'error') return 'Error';
     return '';
@@ -158,30 +148,19 @@ export const ModelosTallasTab = ({ modeloId }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div className="space-y-2">
               <Label>Talla</Label>
-              <Select
-                value={newTallaId || 'none'}
-                onValueChange={(v) => setNewTallaId(v === 'none' ? '' : v)}
-              >
-                <SelectTrigger data-testid="select-new-talla">
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
+              <Select value={newTallaId || 'none'} onValueChange={(v) => setNewTallaId(v === 'none' ? '' : v)}>
+                <SelectTrigger data-testid="select-new-talla"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Seleccionar</SelectItem>
-                  {availableTallas.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>
-                  ))}
+                  {availableTallas.map((t) => (<SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
-
             <Button type="button" onClick={addTalla} data-testid="btn-add-talla">Agregar</Button>
           </div>
 
           <div className="overflow-auto">
-            {isSaving && (
-              <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>
-            )}
-
+            {isSaving && <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>}
             <SortableTableWrapper items={visibleRows} sensors={sensors} handleDragEnd={handleDragEnd} modifiers={modifiers}>
               <Table>
                 <TableHeader>
@@ -195,52 +174,31 @@ export const ModelosTallasTab = ({ modeloId }) => {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell></TableRow>
                   ) : visibleRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleRows.map((r) => (
-                      <SortableRow key={r.id} id={r.id}>
-                        <TableCell className="font-medium">{r.talla_nombre || r.talla_id}</TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={Boolean(r.activo)}
-                            onCheckedChange={(checked) => {
-                              setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: checked } : x));
-                              scheduleAutosave(r.id, { activo: Boolean(checked) });
-                            }}
-                            data-testid={`talla-activo-${r.id}`}
-                          />
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {rowStatusLabel(r.id)}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => hardDelete(r, e)}
-                            data-testid={`talla-borrar-${r.id}`}
-                          >
-                            Borrar
-                          </Button>
-                        </TableCell>
-                      </SortableRow>
-                    ))
-                  )}
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Sin tallas</TableCell></TableRow>
+                  ) : visibleRows.map((r) => (
+                    <SortableRow key={r.id} id={r.id}>
+                      <TableCell className="font-medium">{r.talla_nombre || r.talla_id}</TableCell>
+                      <TableCell>
+                        <Switch checked={Boolean(r.activo)}
+                          onCheckedChange={(checked) => {
+                            setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: checked } : x));
+                            scheduleAutosave(r.id, { activo: Boolean(checked) });
+                          }}
+                          data-testid={`talla-activo-${r.id}`} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{rowStatusLabel(r.id)}</TableCell>
+                      <TableCell>
+                        <Button type="button" size="sm" variant="outline" onClick={(e) => hardDelete(r, e)} data-testid={`talla-borrar-${r.id}`}>Borrar</Button>
+                      </TableCell>
+                    </SortableRow>
+                  ))}
                 </TableBody>
               </Table>
             </SortableTableWrapper>
           </div>
-
-          <p className="text-xs text-muted-foreground">
-            Arrastra las filas para reordenar. Los cambios se guardan automáticamente.
-          </p>
+          <p className="text-xs text-muted-foreground">Arrastra las filas para reordenar.</p>
         </CardContent>
       </Card>
     </div>
@@ -248,265 +206,335 @@ export const ModelosTallasTab = ({ modeloId }) => {
 };
 
 
+// ==================== BOM TAB (mejorado) ====================
 export const ModelosBOMTab = ({ modeloId }) => {
+  const [cabeceras, setCabeceras] = useState([]);
+  const [activeBomId, setActiveBomId] = useState(null);
+  const [bomDetalle, setBomDetalle] = useState(null);
+  const [costoEstandar, setCostoEstandar] = useState(null);
   const [inventario, setInventario] = useState([]);
-  const [tallas, setTallas] = useState([]); // solo activas del modelo
-  const [rows, setRows] = useState([]); // incluye activas/inactivas
+  const [tallas, setTallas] = useState([]);
+  const [etapas, setEtapas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingLineas, setLoadingLineas] = useState(false);
+  const [savingEstado, setSavingEstado] = useState(false);
 
-  const [verInactivos, setVerInactivos] = useState(false);
-
-  // Orden visual: drafts siempre arriba; persisted pueden ordenarse por drag&drop (orden en BD)
-  const visibleRows = useMemo(() => {
-    const list = verInactivos ? rows : rows.filter((r) => r.activo);
-    const drafts = list.filter((r) => !r.id);
-    const persisted = list.filter((r) => r.id);
-
-    persisted.sort((a, b) => {
-      const ao = a.orden ?? 10;
-      const bo = b.orden ?? 10;
-      if (ao != null && bo != null && ao !== bo) return ao - bo;
-      return String(a.created_at || '').localeCompare(String(b.created_at || ''));
-    });
-
-    return [...drafts, ...persisted];
-  }, [rows, verInactivos]);
-
-  // Función para obtener el ID de una fila (soporta drafts con __tempId)
-  const keyOf = (r) => r.id || r.__tempId;
-
-  const { sensors: sensorsBOM, handleDragEnd: handleDragEndBOM, isSaving: isSavingBOM, modifiers: modifiersBOM } = useSortableTable(
-    visibleRows,
-    // reordenamiento local
-    (next) => {
-      setRows((prev) => {
-        const drafts = prev.filter((r) => !r.id);
-        const persisted = prev.filter((r) => r.id);
-        const map = new Map(persisted.map((r) => [r.id, r]));
-        const reordered = [];
-        next.forEach((it) => {
-          if (it.id && map.has(it.id)) reordered.push(map.get(it.id));
-        });
-        const remaining = persisted.filter((r) => !reordered.some((x) => x.id === r.id));
-        return [...drafts, ...reordered, ...remaining];
-      });
-    },
-    `modelos/${modeloId}/bom/reorder`,
-    keyOf
-  );
-
-
-  const timersRef = useRef({});
-  const [rowState, setRowState] = useState({}); // { [key]: 'idle'|'saving'|'saved'|'error'|'draft' }
-
-  const fetchAll = async () => {
-    setLoading(true);
+  // Load initial data
+  const fetchCabeceras = useCallback(async () => {
     try {
-      const [invRes, tallasRes, bomRes] = await Promise.all([
-        axios.get(`${API}/inventario`),
-        axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`),
-        axios.get(`${API}/modelos/${modeloId}/bom?activo=all`),
-      ]);
-      setInventario(invRes.data || []);
-      setTallas(tallasRes.data || []);
-      setRows(bomRes.data || []);
+      const res = await axios.get(`${API}/bom?modelo_id=${modeloId}`);
+      setCabeceras(res.data || []);
+      return res.data || [];
     } catch {
-      toast.error('Error al cargar BOM');
-    } finally {
-      setLoading(false);
+      toast.error('Error al cargar BOMs');
+      return [];
     }
-  };
-
-  useEffect(() => {
-    if (modeloId) fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modeloId]);
 
-
-
-  const resumen = useMemo(() => {
-    const act = (rows || []).filter((r) => r.activo);
-    const itemsUnicos = new Set(act.map((r) => r.inventario_id)).size;
-    const porTalla = act.filter((r) => r.talla_id).length;
-    const generales = act.filter((r) => !r.talla_id).length;
-    return {
-      lineasActivas: act.length,
-      itemsUnicos,
-      porTalla,
-      generales,
-    };
-  }, [rows]);
-
-  const validate = (r) => {
-    const cantidad = Number(r.cantidad_base);
-
-    if (!r.inventario_id) return 'Selecciona un item de inventario';
-    if (!(cantidad > 0)) return 'Cantidad por prenda debe ser > 0';
-
-    if (r.talla_id) {
-      const ok = tallas.some((t) => t.talla_id === r.talla_id);
-      if (!ok) return 'La talla debe pertenecer al modelo';
+  const fetchBomDetalle = useCallback(async (bomId) => {
+    if (!bomId) return;
+    setLoadingLineas(true);
+    try {
+      const [detRes, costoRes] = await Promise.all([
+        axios.get(`${API}/bom/${bomId}`),
+        axios.get(`${API}/bom/${bomId}/costo-estandar?cantidad_prendas=1`).catch(() => ({ data: null })),
+      ]);
+      setBomDetalle(detRes.data);
+      setCostoEstandar(costoRes.data);
+    } catch {
+      toast.error('Error al cargar detalle BOM');
+    } finally {
+      setLoadingLineas(false);
     }
-    return null;
-  };
+  }, []);
 
-  const setStatus = (key, status) => {
-    setRowState((prev) => ({ ...prev, [key]: status }));
-  };
+  useEffect(() => {
+    if (!modeloId) return;
+    setLoading(true);
+    Promise.all([
+      fetchCabeceras(),
+      axios.get(`${API}/inventario`).then(r => r.data).catch(() => []),
+      axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`).then(r => r.data).catch(() => []),
+      axios.get(`${API}/etapas?empresa_id=7`).then(r => r.data).catch(() => []),
+    ]).then(([cabs, inv, tal, eta]) => {
+      setInventario(inv || []);
+      setTallas(tal || []);
+      setEtapas(eta || []);
+      if (cabs.length > 0) {
+        setActiveBomId(cabs[0].id);
+        fetchBomDetalle(cabs[0].id);
+      }
+      setLoading(false);
+    });
+  }, [modeloId, fetchCabeceras, fetchBomDetalle]);
 
-  const rowStatusLabel = (key) => {
-    const s = rowState[key];
-    if (s === 'saving') return 'Guardando…';
-    if (s === 'saved') return 'Guardado';
-    if (s === 'error') return 'Error';
-    if (s === 'draft') return 'DRAFT';
-    return '';
-  };
-
-  const scheduleSave = (row) => {
-    const key = keyOf(row);
-    if (!key) return;
-
-    const err = validate(row);
-    if (err) {
-      setStatus(key, 'draft');
-      return;
+  // Create new BOM
+  const crearBom = async () => {
+    try {
+      const res = await axios.post(`${API}/bom`, { modelo_id: modeloId });
+      const cabs = await fetchCabeceras();
+      setActiveBomId(res.data.id);
+      fetchBomDetalle(res.data.id);
+      toast.success(`BOM v${res.data.version} creado`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Error al crear BOM');
     }
+  };
 
-    if (timersRef.current[key]) clearTimeout(timersRef.current[key]);
-    setStatus(key, 'saving');
+  // Duplicate BOM
+  const duplicarBom = async () => {
+    if (!activeBomId) return;
+    try {
+      const res = await axios.post(`${API}/bom/${activeBomId}/duplicar`);
+      await fetchCabeceras();
+      setActiveBomId(res.data.id);
+      fetchBomDetalle(res.data.id);
+      toast.success(`BOM v${res.data.version} duplicado`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Error al duplicar');
+    }
+  };
 
-    timersRef.current[key] = setTimeout(async () => {
+  // Change BOM estado
+  const cambiarEstado = async (nuevoEstado) => {
+    if (!activeBomId) return;
+    setSavingEstado(true);
+    try {
+      await axios.put(`${API}/bom/${activeBomId}`, { estado: nuevoEstado });
+      setBomDetalle(prev => prev ? { ...prev, estado: nuevoEstado } : prev);
+      await fetchCabeceras();
+      toast.success(`Estado cambiado a ${nuevoEstado}`);
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Error al cambiar estado');
+    } finally {
+      setSavingEstado(false);
+    }
+  };
+
+  // Add line
+  const addLinea = async (tipo = 'TELA') => {
+    if (!activeBomId) return;
+    // Need at least one inventario item
+    const firstInv = inventario.find(i => i.id);
+    if (!firstInv) { toast.error('No hay ítems de inventario disponibles'); return; }
+    try {
+      const res = await axios.post(`${API}/bom/${activeBomId}/lineas`, {
+        inventario_id: firstInv.id,
+        tipo_componente: tipo,
+        cantidad_base: 1.0,
+        merma_pct: 0,
+      });
+      setBomDetalle(prev => prev ? { ...prev, lineas: [...(prev.lineas || []), res.data] } : prev);
+      toast.success('Línea agregada');
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Error al agregar línea');
+    }
+  };
+
+  // Update line (debounced)
+  const timersRef = useRef({});
+  const updateLinea = (lineaId, patch) => {
+    // Optimistic update
+    setBomDetalle(prev => {
+      if (!prev) return prev;
+      const lineas = prev.lineas.map(l => {
+        if (l.id !== lineaId) return l;
+        const merged = { ...l, ...patch };
+        // Recalculate cantidad_total locally
+        const base = parseFloat(merged.cantidad_base) || 0;
+        const merma = parseFloat(merged.merma_pct) || 0;
+        merged.cantidad_total = (base * (1 + merma / 100)).toFixed(4);
+        return merged;
+      });
+      return { ...prev, lineas };
+    });
+
+    // Debounced save
+    if (timersRef.current[lineaId]) clearTimeout(timersRef.current[lineaId]);
+    timersRef.current[lineaId] = setTimeout(async () => {
       try {
-        if (!row.id) {
-          // Create (POST) desde draft
-          const res = await axios.post(`${API}/modelos/${modeloId}/bom`, {
-            inventario_id: row.inventario_id,
-            talla_id: row.talla_id || null,
-            cantidad_base: Number(row.cantidad_base),
-            activo: Boolean(row.activo),
-          });
-          const created = res.data;
-
-          setRows((prev) => prev.map((x) => (x.__tempId && x.__tempId === row.__tempId ? created : x)));
-          setRowState((prev) => {
-            const next = { ...prev };
-            delete next[key];
-            next[created.id] = 'saved';
-            return next;
-          });
-          setTimeout(() => setStatus(created.id, 'idle'), 900);
-          return;
-        }
-
-        // Update (PUT parcial)
-        await axios.put(`${API}/modelos/${modeloId}/bom/${row.id}`, {
-          inventario_id: row.inventario_id,
-          talla_id: row.talla_id || null,
-          cantidad_base: Number(row.cantidad_base),
-          activo: Boolean(row.activo),
-        });
-
-        setStatus(key, 'saved');
-        setTimeout(() => setStatus(key, 'idle'), 900);
-      } catch (e2) {
-        setStatus(key, 'error');
-        toast.error(e2?.response?.data?.detail || 'Error al guardar');
+        await axios.put(`${API}/bom/${activeBomId}/lineas/${lineaId}`, patch);
+        // Refresh costo
+        const costoRes = await axios.get(`${API}/bom/${activeBomId}/costo-estandar?cantidad_prendas=1`).catch(() => ({ data: null }));
+        setCostoEstandar(costoRes.data);
+      } catch (e) {
+        toast.error(e?.response?.data?.detail || 'Error al guardar');
       }
     }, DEBOUNCE_MS);
   };
 
-  const addDraftRow = () => {
-    const r = {
-      __tempId: mkTempId(),
-      inventario_id: '',
-      talla_id: null,
-      cantidad_base: '',
-      activo: true,
-    };
-    setRows((prev) => [r, ...prev]);
-    setStatus(r.__tempId, 'draft');
+  // Delete line
+  const deleteLinea = async (lineaId) => {
+    try {
+      await axios.delete(`${API}/bom/${activeBomId}/lineas/${lineaId}`);
+      setBomDetalle(prev => prev ? { ...prev, lineas: prev.lineas.filter(l => l.id !== lineaId) } : prev);
+      const costoRes = await axios.get(`${API}/bom/${activeBomId}/costo-estandar?cantidad_prendas=1`).catch(() => ({ data: null }));
+      setCostoEstandar(costoRes.data);
+      toast.success('Línea eliminada');
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Error');
+    }
   };
 
-  const updateRow = (rowKey, patch) => {
-    setRows((prev) => {
-      const next = prev.map((r) => {
-        const k = keyOf(r);
-        if (k !== rowKey) return r;
-        const merged = { ...r, ...patch };
-        // schedule save with merged snapshot
-        setTimeout(() => scheduleSave(merged), 0);
-        return merged;
-      });
-      return next;
+  // Resumen
+  const resumen = useMemo(() => {
+    if (!bomDetalle?.lineas) return { total: 0, porTipo: {} };
+    const activas = bomDetalle.lineas.filter(l => l.activo !== false);
+    const porTipo = {};
+    activas.forEach(l => {
+      const t = l.tipo_componente || 'OTRO';
+      porTipo[t] = (porTipo[t] || 0) + 1;
     });
-  };
+    return { total: activas.length, porTipo };
+  }, [bomDetalle]);
+
+  const lineas = bomDetalle?.lineas || [];
+  const estado = bomDetalle?.estado || 'BORRADOR';
+  const estadoInfo = ESTADOS_BOM[estado] || ESTADOS_BOM.BORRADOR;
+
+  if (loading) return <div className="py-8 text-center text-muted-foreground">Cargando BOM...</div>;
 
   return (
     <div className="space-y-4" data-testid="tab-modelo-bom">
+      {/* Cabecera BOM */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <CardTitle className="text-base">BOM / Receta (por prenda)</CardTitle>
+            <CardTitle className="text-base">BOM / Receta</CardTitle>
             <div className="flex items-center gap-2">
-              <Label className="text-sm">Ver inactivos</Label>
-              <Switch checked={verInactivos} onCheckedChange={setVerInactivos} data-testid="toggle-ver-inactivos-bom" />
+              {cabeceras.length > 0 && (
+                <Select value={activeBomId || ''} onValueChange={(v) => { setActiveBomId(v); fetchBomDetalle(v); }}>
+                  <SelectTrigger className="w-[220px]" data-testid="select-bom-version">
+                    <SelectValue placeholder="Seleccionar BOM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cabeceras.map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.codigo} (v{c.version}) - {c.estado}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button size="sm" variant="outline" onClick={crearBom} data-testid="btn-crear-bom">
+                <Plus className="h-4 w-4 mr-1" /> Nuevo BOM
+              </Button>
+              {activeBomId && (
+                <Button size="sm" variant="outline" onClick={duplicarBom} data-testid="btn-duplicar-bom">
+                  <Copy className="h-4 w-4 mr-1" /> Duplicar
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-sm text-muted-foreground">Líneas activas: <span className="font-medium text-foreground">{resumen.lineasActivas}</span></div>
-            <div className="text-sm text-muted-foreground">Items únicos: <span className="font-medium text-foreground">{resumen.itemsUnicos}</span></div>
-            <div className="text-sm text-muted-foreground">Líneas por talla: <span className="font-medium text-foreground">{resumen.porTalla}</span></div>
-            <div className="text-sm text-muted-foreground">Líneas generales: <span className="font-medium text-foreground">{resumen.generales}</span></div>
-          </div>
 
-          <div className="overflow-auto">
-            {isSavingBOM && (
-              <div className="text-xs text-muted-foreground pb-2">Guardando orden...</div>
-            )}
-            <SortableTableWrapper items={visibleRows} sensors={sensorsBOM} handleDragEnd={handleDragEndBOM} modifiers={modifiersBOM} getItemId={keyOf}>
-              <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]"></TableHead>
-                  <TableHead className="min-w-[340px]">Item</TableHead>
-                  <TableHead className="min-w-[160px]">Talla</TableHead>
-                  <TableHead className="w-[220px] text-right">Cant. por prenda</TableHead>
-                  <TableHead className="w-[90px]">Activo</TableHead>
-                  <TableHead className="w-[120px]">Borrar</TableHead>
-                  <TableHead className="w-[120px]">Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell>
-                  </TableRow>
-                ) : visibleRows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Sin líneas</TableCell>
-                  </TableRow>
-                ) : (
-                  visibleRows.map((r) => {
-                    const k = keyOf(r);
-                    const isDraft = !r.id;
-                    return (
-                      <SortableRow key={k} id={k} disabled={isDraft}>
+        {bomDetalle && (
+          <CardContent className="space-y-4">
+            {/* Estado + Info */}
+            <div className="flex items-center justify-between gap-4 flex-wrap border-b pb-3">
+              <div className="flex items-center gap-3">
+                <Badge variant={estadoInfo.variant} data-testid="bom-estado-badge">{estadoInfo.label}</Badge>
+                <span className="text-sm text-muted-foreground">
+                  {bomDetalle.codigo} | v{bomDetalle.version}
+                </span>
+                {bomDetalle.observaciones && (
+                  <span className="text-xs text-muted-foreground italic">{bomDetalle.observaciones}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {estado === 'BORRADOR' && (
+                  <Button size="sm" onClick={() => cambiarEstado('APROBADO')} disabled={savingEstado} data-testid="btn-aprobar-bom">
+                    Aprobar
+                  </Button>
+                )}
+                {estado === 'APROBADO' && (
+                  <Button size="sm" variant="outline" onClick={() => cambiarEstado('INACTIVO')} disabled={savingEstado} data-testid="btn-inactivar-bom">
+                    Inactivar
+                  </Button>
+                )}
+                {estado === 'INACTIVO' && (
+                  <Button size="sm" variant="outline" onClick={() => cambiarEstado('BORRADOR')} disabled={savingEstado}>
+                    Reactivar
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Resumen por tipo + Costo estándar */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Líneas: </span>
+                <span className="font-medium">{resumen.total}</span>
+              </div>
+              {Object.entries(resumen.porTipo).map(([tipo, count]) => (
+                <div key={tipo} className="text-sm">
+                  <span className="text-muted-foreground">{tipo}: </span>
+                  <span className="font-medium">{count}</span>
+                </div>
+              ))}
+              {costoEstandar && (
+                <div className="text-sm" data-testid="bom-costo-estandar">
+                  <span className="text-muted-foreground">Costo est./prenda: </span>
+                  <span className="font-semibold">{formatCurrency(costoEstandar.costo_estandar_unitario)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Tabla de líneas */}
+            {loadingLineas ? (
+              <div className="py-6 text-center text-muted-foreground">Cargando líneas...</div>
+            ) : (
+              <div className="overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Tipo</TableHead>
+                      <TableHead className="min-w-[280px]">Item</TableHead>
+                      <TableHead className="min-w-[130px]">Talla</TableHead>
+                      <TableHead className="w-[120px]">Etapa</TableHead>
+                      <TableHead className="w-[110px] text-right">Cant. Base</TableHead>
+                      <TableHead className="w-[90px] text-right">Merma %</TableHead>
+                      <TableHead className="w-[110px] text-right">Cant. Total</TableHead>
+                      <TableHead className="w-[70px]">Opc.</TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lineas.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          Sin líneas. Agrega componentes al BOM.
+                        </TableCell>
+                      </TableRow>
+                    ) : lineas.map((l) => (
+                      <TableRow key={l.id} className={l.activo === false ? 'opacity-40' : ''}>
+                        <TableCell>
+                          <Select value={l.tipo_componente || 'TELA'}
+                            onValueChange={(v) => updateLinea(l.id, { tipo_componente: v })}>
+                            <SelectTrigger className="h-8 text-xs" data-testid={`bom-tipo-${l.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TIPOS_COMPONENTE.map(t => (
+                                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
                         <TableCell>
                           <InventarioCombobox
                             options={inventario}
-                            value={r.inventario_id}
-                            onChange={(id) => updateRow(k, { inventario_id: id })}
+                            value={l.inventario_id}
+                            onChange={(id) => updateLinea(l.id, { inventario_id: id })}
                           />
+                          {!l.inventario_nombre && l.inventario_id && (
+                            <span className="text-xs text-destructive">Item no encontrado</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={r.talla_id || 'all'}
-                            onValueChange={(v) => updateRow(k, { talla_id: v === 'all' ? null : v })}
-                          >
-                            <SelectTrigger>
+                          <Select value={l.talla_id || 'all'}
+                            onValueChange={(v) => updateLinea(l.id, { talla_id: v === 'all' ? null : v })}>
+                            <SelectTrigger className="h-8 text-xs">
                               <SelectValue placeholder="Todas" />
                             </SelectTrigger>
                             <SelectContent>
@@ -518,69 +546,131 @@ export const ModelosBOMTab = ({ modeloId }) => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.0001"
-                            className="text-right font-mono min-w-[160px]"
-                            value={r.cantidad_base}
-                            onChange={(e) => updateRow(k, { cantidad_base: e.target.value })}
-                            data-testid={isDraft ? 'input-draft-cantidad' : undefined}
-                          />
+                          <Select value={l.etapa_id || 'none'}
+                            onValueChange={(v) => updateLinea(l.id, { etapa_id: v === 'none' ? null : v })}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="—" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">—</SelectItem>
+                              {etapas.map(e => (
+                                <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
-                          <Switch
-                            checked={Boolean(r.activo)}
-                            onCheckedChange={(checked) => updateRow(k, { activo: checked })}
-                          />
+                          <Input type="number" min="0" step="0.0001"
+                            className="text-right font-mono h-8 text-sm"
+                            value={l.cantidad_base}
+                            onChange={(e) => updateLinea(l.id, { cantidad_base: parseFloat(e.target.value) || 0 })}
+                            data-testid={`bom-cant-base-${l.id}`} />
                         </TableCell>
                         <TableCell>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={!r.id}
-                            onClick={async () => {
-                              if (!r.id) return;
-                              try {
-                                const res = await axios.delete(`${API}/modelos/${modeloId}/bom/${r.id}/hard`);
-                                const action = res?.data?.action;
-
-                                if (action === 'deleted') {
-                                  setRows((prev) => prev.filter((x) => x.id !== r.id));
-                                } else {
-                                  // deactivated
-                                  setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, activo: false } : x));
-                                }
-
-                                toast.success(res?.data?.message || 'Listo');
-                              } catch (e2) {
-                                toast.error(e2?.response?.data?.detail || 'No se pudo borrar');
-                              }
-                            }}
-                          >
+                          <Input type="number" min="0" max="100" step="0.1"
+                            className="text-right font-mono h-8 text-sm"
+                            value={l.merma_pct ?? 0}
+                            onChange={(e) => updateLinea(l.id, { merma_pct: parseFloat(e.target.value) || 0 })}
+                            data-testid={`bom-merma-${l.id}`} />
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm font-medium" data-testid={`bom-cant-total-${l.id}`}>
+                          {formatNum(l.cantidad_total)}
+                        </TableCell>
+                        <TableCell>
+                          <Switch checked={Boolean(l.es_opcional)}
+                            onCheckedChange={(v) => updateLinea(l.id, { es_opcional: v })}
+                            data-testid={`bom-opcional-${l.id}`} />
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="text-destructive h-7 px-2"
+                            onClick={() => deleteLinea(l.id)} data-testid={`bom-delete-${l.id}`}>
                             Borrar
                           </Button>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {rowStatusLabel(k)}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {/* Botones agregar línea por tipo */}
+            <div className="flex gap-2 flex-wrap">
+              {TIPOS_COMPONENTE.map(t => {
+                const Icon = t.icon;
+                return (
+                  <Button key={t.value} type="button" variant="outline" size="sm"
+                    onClick={() => addLinea(t.value)} data-testid={`btn-add-${t.value.toLowerCase()}`}>
+                    <Icon className="h-3.5 w-3.5 mr-1" /> {t.label}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Leyenda */}
+            <div className="text-xs text-muted-foreground space-y-1 border-t pt-3">
+              <p><strong>Talla = Todas</strong> (null): aplica a todas las tallas. Con talla específica, aplica solo a esa.</p>
+              <p><strong>Opc.</strong>: componente opcional, no se suma al costo estándar.</p>
+              <p><strong>Costo estándar</strong>: referencial, basado en costo promedio actual de inventario. No reemplaza el costo real de producción.</p>
+            </div>
+
+            {/* Desglose costo estándar */}
+            {costoEstandar && costoEstandar.detalle && costoEstandar.detalle.length > 0 && (
+              <Card className="bg-muted/30">
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-sm">Costo Estándar por Prenda (Referencial)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">Cant. Total</TableHead>
+                        <TableHead className="text-right">Precio Unit.</TableHead>
+                        <TableHead className="text-right">Costo/Prenda</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {costoEstandar.detalle.map((d, i) => (
+                        <TableRow key={i} className={d.es_opcional ? 'opacity-50' : ''}>
+                          <TableCell><Badge variant="outline" className="text-xs">{d.tipo_componente}</Badge></TableCell>
+                          <TableCell className="text-sm">{d.inventario_nombre || d.inventario_codigo || '?'}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatNum(d.cantidad_total)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm">{formatCurrency(d.precio_unitario)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm font-medium">
+                            {d.es_opcional ? <span className="text-muted-foreground">{formatCurrency(d.costo_por_prenda)} (opc)</span> : formatCurrency(d.costo_por_prenda)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="border-t-2">
+                        <TableCell colSpan={4} className="text-right font-semibold">Total estándar/prenda:</TableCell>
+                        <TableCell className="text-right font-mono font-bold" data-testid="bom-costo-total">
+                          {formatCurrency(costoEstandar.costo_estandar_unitario)}
                         </TableCell>
-                      </SortableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-            </SortableTableWrapper>
-          </div>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                  {costoEstandar.costo_por_tipo && Object.keys(costoEstandar.costo_por_tipo).length > 0 && (
+                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                      {Object.entries(costoEstandar.costo_por_tipo).map(([t, v]) => (
+                        <span key={t}>{t}: {formatCurrency(v)}</span>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </CardContent>
+        )}
 
-          <Button type="button" onClick={addDraftRow} variant="secondary" data-testid="btn-add-bom-linea">Agregar línea</Button>
-
-          <p className="text-xs text-muted-foreground">
-            Regla: si la línea tiene <span className="font-medium">Talla = Todas</span> (talla_id = NULL) aplica a todas las tallas.
-            Si tiene una talla específica, aplica solo a esa talla.
-          </p>
-        </CardContent>
+        {!bomDetalle && !loading && cabeceras.length === 0 && (
+          <CardContent>
+            <p className="text-center text-muted-foreground py-6">
+              No hay BOM para este modelo. Crea uno para definir materiales estándar.
+            </p>
+          </CardContent>
+        )}
       </Card>
     </div>
   );
