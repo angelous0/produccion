@@ -449,7 +449,7 @@ async def get_resumen_general(
             WHERE i.empresa_id = $1 AND i.tipo_item IN ('MP', 'AVIO') AND ing.cantidad_disponible > 0
         """, empresa_id)
         
-        # WIP value
+        # WIP value - Solo órdenes ABIERTA/EN_PROCESO
         wip_valor = await conn.fetchval("""
             SELECT COALESCE(SUM(w.costo_total), 0)
             FROM v_wip_resumen w
