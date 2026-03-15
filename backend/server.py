@@ -36,19 +36,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Security
 security = HTTPBearer(auto_error=False)
 
-# Connection pool
-pool = None
-
-async def get_pool():
-    global pool
-    if pool is None:
-        pool = await asyncpg.create_pool(
-            DATABASE_URL,
-            min_size=2,
-            max_size=10,
-            server_settings={"search_path": "public"},
-        )
-    return pool
+# Pool is now managed by db.py - removed local pool variable
 
 
 # ==================== DDL HELPERS (TABLAS NUEVAS) ====================
