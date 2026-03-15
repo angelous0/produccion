@@ -46,7 +46,7 @@ async def get_pool():
             DATABASE_URL,
             min_size=2,
             max_size=10,
-            server_settings={"search_path": "produccion,public"},
+            server_settings={"search_path": "public"},
         )
     return pool
 
