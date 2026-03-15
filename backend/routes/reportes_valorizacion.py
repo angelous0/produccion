@@ -70,7 +70,7 @@ async def reporte_mp_valorizado(
         }
 
 
-@router.get("/reportes/wip")
+@router.get("/reportes/wip-legacy")
 async def reporte_wip(
     empresa_id: int = Query(...),
     current_user: dict = Depends(get_current_user)
