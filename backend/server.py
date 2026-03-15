@@ -22,8 +22,8 @@ from jose import JWTError, jwt
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# PostgreSQL connection
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://admin:admin@72.60.241.216:9091/datos?sslmode=disable')
+# PostgreSQL connection - Use shared pool from db.py
+from db import get_pool, close_pool
 
 # JWT Configuration
 SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'tu-clave-secreta-muy-segura-cambiar-en-produccion-2024')
