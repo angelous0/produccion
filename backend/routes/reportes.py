@@ -104,7 +104,7 @@ async def get_wip_valorizado(
 ):
     """
     Trabajo en Proceso (WIP) valorizado.
-    Muestra órdenes abiertas con costo acumulado.
+    Solo muestra órdenes con estado_op IN ('ABIERTA', 'EN_PROCESO').
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
