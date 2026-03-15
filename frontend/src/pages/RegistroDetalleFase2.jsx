@@ -1811,7 +1811,7 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
         </TabsContent>
 
         <TabsContent value="costos" className="mt-4">
-          <CostosTab registroId={registroId} empresaId={registro?.empresa_id || 6} />
+          <CostosTab registroId={registroId} empresaId={registro?.empresa_id || 7} />
         </TabsContent>
 
         <TabsContent value="cierre" className="mt-4">
