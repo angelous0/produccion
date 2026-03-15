@@ -40,10 +40,10 @@ async def backup_tables(conn):
             
             if exists:
                 await conn.execute(f"""
-                    CREATE TABLE IF NOT EXISTS produccion.{backup_name} AS 
-                    SELECT * FROM produccion.{table}
+                    CREATE TABLE IF NOT EXISTS public.{backup_name} AS 
+                    SELECT * FROM public.{table}
                 """)
-                count = await conn.fetchval(f"SELECT COUNT(*) FROM produccion.{backup_name}")
+                count = await conn.fetchval(f"SELECT COUNT(*) FROM public.{backup_name}")
                 print(f"  ✓ Backup {backup_name}: {count} rows")
         except Exception as e:
             print(f"  ⚠ Backup {table}: {e}")
@@ -65,7 +65,7 @@ async def migrate_tipo_item(conn):
     
     if not col_exists:
         await conn.execute("""
-            ALTER TABLE produccion.prod_inventario 
+            ALTER TABLE public.prod_inventario 
             ADD COLUMN tipo_item VARCHAR(20) DEFAULT 'MP'
         """)
         print("  ✓ Columna tipo_item agregada")
@@ -74,7 +74,7 @@ async def migrate_tipo_item(conn):
     
     # Migrate based on categoria and existing tipo_articulo
     await conn.execute("""
-        UPDATE produccion.prod_inventario SET tipo_item = 
+        UPDATE public.prod_inventario SET tipo_item = 
             CASE 
                 WHEN tipo_articulo = 'PT' THEN 'PT'
                 WHEN categoria ILIKE '%tela%' THEN 'MP'
@@ -88,7 +88,7 @@ async def migrate_tipo_item(conn):
     # Count by type
     counts = await conn.fetch("""
         SELECT tipo_item, COUNT(*) as cnt 
-        FROM produccion.prod_inventario 
+        FROM public.prod_inventario 
         GROUP BY tipo_item
     """)
     for c in counts:
@@ -122,7 +122,7 @@ async def migrate_rollos(conn):
         
         if not col_exists:
             await conn.execute(f"""
-                ALTER TABLE produccion.prod_inventario_rollos 
+                ALTER TABLE public.prod_inventario_rollos 
                 ADD COLUMN {col_name} {col_type}
             """)
             print(f"  ✓ Columna {col_name} agregada")
@@ -131,18 +131,18 @@ async def migrate_rollos(conn):
     
     # Migrate data from existing columns
     await conn.execute("""
-        UPDATE produccion.prod_inventario_rollos r
+        UPDATE public.prod_inventario_rollos r
         SET 
             metros_iniciales = COALESCE(metros_iniciales, metraje),
             metros_saldo = COALESCE(metros_saldo, metraje_disponible),
             costo_unitario_metro = COALESCE(costo_unitario_metro, (
                 SELECT ing.costo_unitario 
-                FROM produccion.prod_inventario_ingresos ing 
+                FROM public.prod_inventario_ingresos ing 
                 WHERE ing.id = r.ingreso_id
             )),
             costo_total_inicial = COALESCE(costo_total_inicial, metraje * (
                 SELECT ing.costo_unitario 
-                FROM produccion.prod_inventario_ingresos ing 
+                FROM public.prod_inventario_ingresos ing 
                 WHERE ing.id = r.ingreso_id
             )),
             estado = CASE 
@@ -153,7 +153,7 @@ async def migrate_rollos(conn):
         WHERE metros_iniciales IS NULL OR metros_saldo IS NULL
     """)
     
-    count = await conn.fetchval("SELECT COUNT(*) FROM produccion.prod_inventario_rollos")
+    count = await conn.fetchval("SELECT COUNT(*) FROM public.prod_inventario_rollos")
     print(f"  ✓ {count} rollos actualizados")
 
 
@@ -162,7 +162,7 @@ async def create_orden_etapa(conn):
     print("\n=== FASE 1C: TABLA PROD_ORDEN_ETAPA ===")
     
     await conn.execute("""
-        CREATE TABLE IF NOT EXISTS produccion.prod_orden_etapa (
+        CREATE TABLE IF NOT EXISTS public.prod_orden_etapa (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
             empresa_id INTEGER NOT NULL,
             codigo VARCHAR(50) NOT NULL,
@@ -188,12 +188,12 @@ async def create_orden_etapa(conn):
     
     for codigo, nombre, orden in etapas_default:
         await conn.execute("""
-            INSERT INTO produccion.prod_orden_etapa (empresa_id, codigo, nombre, orden)
+            INSERT INTO public.prod_orden_etapa (empresa_id, codigo, nombre, orden)
             VALUES (6, $1, $2, $3)
             ON CONFLICT (empresa_id, codigo) DO NOTHING
         """, codigo, nombre, orden)
     
-    count = await conn.fetchval("SELECT COUNT(*) FROM produccion.prod_orden_etapa")
+    count = await conn.fetchval("SELECT COUNT(*) FROM public.prod_orden_etapa")
     print(f"  ✓ {count} etapas configuradas")
 
 
@@ -213,7 +213,7 @@ async def migrate_registros_estado(conn):
     
     if not col_exists:
         await conn.execute("""
-            ALTER TABLE produccion.prod_registros 
+            ALTER TABLE public.prod_registros 
             ADD COLUMN estado_op VARCHAR(20) DEFAULT 'EN_PROCESO'
         """)
         print("  ✓ Columna estado_op agregada")
@@ -230,14 +230,14 @@ async def migrate_registros_estado(conn):
     
     if not col_exists:
         await conn.execute("""
-            ALTER TABLE produccion.prod_registros 
+            ALTER TABLE public.prod_registros 
             ADD COLUMN etapa_actual_id VARCHAR
         """)
         print("  ✓ Columna etapa_actual_id agregada")
     
     # Migrate estado to estado_op
     await conn.execute("""
-        UPDATE produccion.prod_registros SET estado_op = 
+        UPDATE public.prod_registros SET estado_op = 
             CASE 
                 WHEN estado = 'CERRADA' THEN 'CERRADA'
                 WHEN estado = 'ANULADA' THEN 'ANULADA'
@@ -249,9 +249,9 @@ async def migrate_registros_estado(conn):
     
     # Map etapa from estado
     await conn.execute("""
-        UPDATE produccion.prod_registros r
+        UPDATE public.prod_registros r
         SET etapa_actual_id = (
-            SELECT e.id FROM produccion.prod_orden_etapa e
+            SELECT e.id FROM public.prod_orden_etapa e
             WHERE e.empresa_id = 6
             AND e.codigo = CASE 
                 WHEN r.estado ILIKE '%corte%' THEN 'CORTE'
@@ -269,7 +269,7 @@ async def migrate_registros_estado(conn):
     
     counts = await conn.fetch("""
         SELECT estado_op, COUNT(*) as cnt 
-        FROM produccion.prod_registros 
+        FROM public.prod_registros 
         GROUP BY estado_op
     """)
     for c in counts:
@@ -281,7 +281,7 @@ async def create_consumo_mp(conn):
     print("\n=== FASE 1E: TABLA PROD_CONSUMO_MP ===")
     
     await conn.execute("""
-        CREATE TABLE IF NOT EXISTS produccion.prod_consumo_mp (
+        CREATE TABLE IF NOT EXISTS public.prod_consumo_mp (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
             empresa_id INTEGER NOT NULL,
             orden_id VARCHAR NOT NULL,
@@ -297,26 +297,26 @@ async def create_consumo_mp(conn):
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW(),
             CONSTRAINT fk_consumo_orden FOREIGN KEY (orden_id) 
-                REFERENCES produccion.prod_registros(id) ON DELETE CASCADE,
+                REFERENCES public.prod_registros(id) ON DELETE CASCADE,
             CONSTRAINT fk_consumo_item FOREIGN KEY (item_id) 
-                REFERENCES produccion.prod_inventario(id),
+                REFERENCES public.prod_inventario(id),
             CONSTRAINT fk_consumo_rollo FOREIGN KEY (rollo_id) 
-                REFERENCES produccion.prod_inventario_rollos(id)
+                REFERENCES public.prod_inventario_rollos(id)
         )
     """)
     
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_consumo_mp_orden ON produccion.prod_consumo_mp(orden_id)
+        CREATE INDEX IF NOT EXISTS idx_consumo_mp_orden ON public.prod_consumo_mp(orden_id)
     """)
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_consumo_mp_item ON produccion.prod_consumo_mp(item_id)
+        CREATE INDEX IF NOT EXISTS idx_consumo_mp_item ON public.prod_consumo_mp(item_id)
     """)
     
     print("  ✓ Tabla prod_consumo_mp creada")
     
     # Migrate from prod_inventario_salidas where registro_id is not null
     migrated = await conn.execute("""
-        INSERT INTO produccion.prod_consumo_mp 
+        INSERT INTO public.prod_consumo_mp 
             (empresa_id, orden_id, item_id, rollo_id, talla_id, cantidad, 
              costo_unitario, costo_total, fecha, observaciones, salida_id)
         SELECT 
@@ -331,14 +331,14 @@ async def create_consumo_mp(conn):
             COALESCE(s.fecha, NOW())::date,
             s.observaciones,
             s.id
-        FROM produccion.prod_inventario_salidas s
+        FROM public.prod_inventario_salidas s
         WHERE s.registro_id IS NOT NULL
         AND NOT EXISTS (
-            SELECT 1 FROM produccion.prod_consumo_mp c WHERE c.salida_id = s.id
+            SELECT 1 FROM public.prod_consumo_mp c WHERE c.salida_id = s.id
         )
     """)
     
-    count = await conn.fetchval("SELECT COUNT(*) FROM produccion.prod_consumo_mp")
+    count = await conn.fetchval("SELECT COUNT(*) FROM public.prod_consumo_mp")
     print(f"  ✓ {count} consumos migrados desde salidas")
 
 
@@ -347,7 +347,7 @@ async def create_servicio_orden(conn):
     print("\n=== FASE 1F: TABLA PROD_SERVICIO_ORDEN ===")
     
     await conn.execute("""
-        CREATE TABLE IF NOT EXISTS produccion.prod_servicio_orden (
+        CREATE TABLE IF NOT EXISTS public.prod_servicio_orden (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
             empresa_id INTEGER NOT NULL,
             orden_id VARCHAR NOT NULL,
@@ -371,19 +371,19 @@ async def create_servicio_orden(conn):
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW(),
             CONSTRAINT fk_servicio_orden FOREIGN KEY (orden_id) 
-                REFERENCES produccion.prod_registros(id) ON DELETE CASCADE
+                REFERENCES public.prod_registros(id) ON DELETE CASCADE
         )
     """)
     
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_servicio_orden_orden ON produccion.prod_servicio_orden(orden_id)
+        CREATE INDEX IF NOT EXISTS idx_servicio_orden_orden ON public.prod_servicio_orden(orden_id)
     """)
     
     print("  ✓ Tabla prod_servicio_orden creada")
     
     # Migrate from prod_movimientos_produccion
     await conn.execute("""
-        INSERT INTO produccion.prod_servicio_orden 
+        INSERT INTO public.prod_servicio_orden 
             (empresa_id, orden_id, servicio_id, persona_id, 
              cantidad_enviada, cantidad_recibida, cantidad_merma,
              tarifa_unitaria, costo_total, fecha_inicio, fecha_fin,
@@ -410,16 +410,16 @@ async def create_servicio_orden(conn):
             END,
             m.observaciones,
             m.id
-        FROM produccion.prod_movimientos_produccion m
+        FROM public.prod_movimientos_produccion m
         WHERE m.registro_id IS NOT NULL
         AND NOT EXISTS (
-            SELECT 1 FROM produccion.prod_servicio_orden s WHERE s.legacy_movimiento_id = m.id
+            SELECT 1 FROM public.prod_servicio_orden s WHERE s.legacy_movimiento_id = m.id
         )
     """)
     
     # Migrate from prod_registro_costos_servicio (those without movimiento match)
     await conn.execute("""
-        INSERT INTO produccion.prod_servicio_orden 
+        INSERT INTO public.prod_servicio_orden 
             (empresa_id, orden_id, proveedor_texto, descripcion,
              costo_total, fecha_inicio, estado, legacy_costo_id)
         SELECT 
@@ -431,13 +431,13 @@ async def create_servicio_orden(conn):
             c.fecha,
             'COMPLETADO',
             c.id
-        FROM produccion.prod_registro_costos_servicio c
+        FROM public.prod_registro_costos_servicio c
         WHERE NOT EXISTS (
-            SELECT 1 FROM produccion.prod_servicio_orden s WHERE s.legacy_costo_id = c.id
+            SELECT 1 FROM public.prod_servicio_orden s WHERE s.legacy_costo_id = c.id
         )
     """)
     
-    count = await conn.fetchval("SELECT COUNT(*) FROM produccion.prod_servicio_orden")
+    count = await conn.fetchval("SELECT COUNT(*) FROM public.prod_servicio_orden")
     print(f"  ✓ {count} servicios migrados")
 
 
@@ -446,7 +446,7 @@ async def create_wip_movimiento(conn):
     print("\n=== FASE 1G: TABLA PROD_WIP_MOVIMIENTO ===")
     
     await conn.execute("""
-        CREATE TABLE IF NOT EXISTS produccion.prod_wip_movimiento (
+        CREATE TABLE IF NOT EXISTS public.prod_wip_movimiento (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
             empresa_id INTEGER NOT NULL,
             orden_id VARCHAR NOT NULL,
@@ -457,22 +457,22 @@ async def create_wip_movimiento(conn):
             descripcion TEXT,
             created_at TIMESTAMP DEFAULT NOW(),
             CONSTRAINT fk_wip_orden FOREIGN KEY (orden_id) 
-                REFERENCES produccion.prod_registros(id) ON DELETE CASCADE
+                REFERENCES public.prod_registros(id) ON DELETE CASCADE
         )
     """)
     
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_wip_orden ON produccion.prod_wip_movimiento(orden_id)
+        CREATE INDEX IF NOT EXISTS idx_wip_orden ON public.prod_wip_movimiento(orden_id)
     """)
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_wip_origen ON produccion.prod_wip_movimiento(origen_tipo, origen_id)
+        CREATE INDEX IF NOT EXISTS idx_wip_origen ON public.prod_wip_movimiento(origen_tipo, origen_id)
     """)
     
     print("  ✓ Tabla prod_wip_movimiento creada")
     
     # Populate from prod_consumo_mp
     await conn.execute("""
-        INSERT INTO produccion.prod_wip_movimiento 
+        INSERT INTO public.prod_wip_movimiento 
             (empresa_id, orden_id, origen_tipo, origen_id, costo, fecha, descripcion)
         SELECT 
             c.empresa_id,
@@ -482,17 +482,17 @@ async def create_wip_movimiento(conn):
             c.costo_total,
             c.fecha,
             'Consumo MP: ' || COALESCE(i.nombre, '')
-        FROM produccion.prod_consumo_mp c
-        LEFT JOIN produccion.prod_inventario i ON c.item_id = i.id
+        FROM public.prod_consumo_mp c
+        LEFT JOIN public.prod_inventario i ON c.item_id = i.id
         WHERE NOT EXISTS (
-            SELECT 1 FROM produccion.prod_wip_movimiento w 
+            SELECT 1 FROM public.prod_wip_movimiento w 
             WHERE w.origen_tipo = 'CONSUMO_MP' AND w.origen_id = c.id
         )
     """)
     
     # Populate from prod_servicio_orden
     await conn.execute("""
-        INSERT INTO produccion.prod_wip_movimiento 
+        INSERT INTO public.prod_wip_movimiento 
             (empresa_id, orden_id, origen_tipo, origen_id, costo, fecha, descripcion)
         SELECT 
             s.empresa_id,
@@ -502,16 +502,16 @@ async def create_wip_movimiento(conn):
             s.costo_total,
             COALESCE(s.fecha_fin, s.fecha_inicio, CURRENT_DATE),
             'Servicio: ' || COALESCE(s.descripcion, srv.nombre, 'Externo')
-        FROM produccion.prod_servicio_orden s
-        LEFT JOIN produccion.prod_servicios_produccion srv ON s.servicio_id = srv.id
+        FROM public.prod_servicio_orden s
+        LEFT JOIN public.prod_servicios_produccion srv ON s.servicio_id = srv.id
         WHERE s.costo_total > 0
         AND NOT EXISTS (
-            SELECT 1 FROM produccion.prod_wip_movimiento w 
+            SELECT 1 FROM public.prod_wip_movimiento w 
             WHERE w.origen_tipo = 'SERVICIO' AND w.origen_id = s.id
         )
     """)
     
-    count = await conn.fetchval("SELECT COUNT(*) FROM produccion.prod_wip_movimiento")
+    count = await conn.fetchval("SELECT COUNT(*) FROM public.prod_wip_movimiento")
     print(f"  ✓ {count} movimientos WIP generados")
 
 
@@ -520,7 +520,7 @@ async def create_ingreso_pt(conn):
     print("\n=== FASE 1H: TABLA PROD_INGRESO_PT ===")
     
     await conn.execute("""
-        CREATE TABLE IF NOT EXISTS produccion.prod_ingreso_pt (
+        CREATE TABLE IF NOT EXISTS public.prod_ingreso_pt (
             id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
             empresa_id INTEGER NOT NULL,
             cierre_id VARCHAR,
@@ -534,21 +534,21 @@ async def create_ingreso_pt(conn):
             ingreso_inventario_id VARCHAR,
             created_at TIMESTAMP DEFAULT NOW(),
             CONSTRAINT fk_ingreso_pt_orden FOREIGN KEY (orden_id) 
-                REFERENCES produccion.prod_registros(id),
+                REFERENCES public.prod_registros(id),
             CONSTRAINT fk_ingreso_pt_item FOREIGN KEY (item_pt_id) 
-                REFERENCES produccion.prod_inventario(id)
+                REFERENCES public.prod_inventario(id)
         )
     """)
     
     await conn.execute("""
-        CREATE INDEX IF NOT EXISTS idx_ingreso_pt_orden ON produccion.prod_ingreso_pt(orden_id)
+        CREATE INDEX IF NOT EXISTS idx_ingreso_pt_orden ON public.prod_ingreso_pt(orden_id)
     """)
     
     print("  ✓ Tabla prod_ingreso_pt creada")
     
     # Migrate from existing cierres
     await conn.execute("""
-        INSERT INTO produccion.prod_ingreso_pt 
+        INSERT INTO public.prod_ingreso_pt 
             (empresa_id, cierre_id, orden_id, item_pt_id, cantidad, 
              costo_unitario, costo_total, fecha, ingreso_inventario_id)
         SELECT 
@@ -561,15 +561,15 @@ async def create_ingreso_pt(conn):
             c.costo_total,
             c.fecha,
             c.pt_ingreso_id
-        FROM produccion.prod_registro_cierre c
-        JOIN produccion.prod_registros r ON c.registro_id = r.id
+        FROM public.prod_registro_cierre c
+        JOIN public.prod_registros r ON c.registro_id = r.id
         WHERE r.pt_item_id IS NOT NULL
         AND NOT EXISTS (
-            SELECT 1 FROM produccion.prod_ingreso_pt p WHERE p.cierre_id = c.id
+            SELECT 1 FROM public.prod_ingreso_pt p WHERE p.cierre_id = c.id
         )
     """)
     
-    count = await conn.fetchval("SELECT COUNT(*) FROM produccion.prod_ingreso_pt")
+    count = await conn.fetchval("SELECT COUNT(*) FROM public.prod_ingreso_pt")
     print(f"  ✓ {count} ingresos PT migrados")
 
 
@@ -579,7 +579,7 @@ async def create_views(conn):
     
     # Vista de resumen WIP por orden
     await conn.execute("""
-        CREATE OR REPLACE VIEW produccion.v_wip_resumen AS
+        CREATE OR REPLACE VIEW public.v_wip_resumen AS
         SELECT 
             orden_id,
             SUM(CASE WHEN origen_tipo = 'CONSUMO_MP' THEN costo ELSE 0 END) as costo_mp,
@@ -587,14 +587,14 @@ async def create_views(conn):
             SUM(CASE WHEN origen_tipo = 'AJUSTE' THEN costo ELSE 0 END) as costo_ajuste,
             SUM(costo) as costo_total,
             COUNT(*) as total_movimientos
-        FROM produccion.prod_wip_movimiento
+        FROM public.prod_wip_movimiento
         GROUP BY orden_id
     """)
     print("  ✓ Vista v_wip_resumen creada")
     
     # Vista de órdenes con info completa
     await conn.execute("""
-        CREATE OR REPLACE VIEW produccion.v_orden_completa AS
+        CREATE OR REPLACE VIEW public.v_orden_completa AS
         SELECT 
             r.id,
             r.n_corte,
@@ -610,15 +610,15 @@ async def create_views(conn):
             e.nombre as etapa_nombre,
             r.fecha_creacion,
             r.urgente,
-            COALESCE((SELECT SUM(cantidad_real) FROM produccion.prod_registro_tallas WHERE registro_id = r.id), 0) as total_prendas,
+            COALESCE((SELECT SUM(cantidad_real) FROM public.prod_registro_tallas WHERE registro_id = r.id), 0) as total_prendas,
             COALESCE(w.costo_mp, 0) as costo_mp,
             COALESCE(w.costo_servicio, 0) as costo_servicio,
             COALESCE(w.costo_total, 0) as costo_wip_total
-        FROM produccion.prod_registros r
-        LEFT JOIN produccion.prod_modelos m ON r.modelo_id = m.id
-        LEFT JOIN produccion.prod_inventario pt ON r.pt_item_id = pt.id
-        LEFT JOIN produccion.prod_orden_etapa e ON r.etapa_actual_id = e.id
-        LEFT JOIN produccion.v_wip_resumen w ON r.id = w.orden_id
+        FROM public.prod_registros r
+        LEFT JOIN public.prod_modelos m ON r.modelo_id = m.id
+        LEFT JOIN public.prod_inventario pt ON r.pt_item_id = pt.id
+        LEFT JOIN public.prod_orden_etapa e ON r.etapa_actual_id = e.id
+        LEFT JOIN public.v_wip_resumen w ON r.id = w.orden_id
     """)
     print("  ✓ Vista v_orden_completa creada")
 
@@ -639,12 +639,12 @@ async def verify_migration(conn):
     ]
     
     for table in tables:
-        count = await conn.fetchval(f"SELECT COUNT(*) FROM produccion.{table}")
+        count = await conn.fetchval(f"SELECT COUNT(*) FROM public.{table}")
         print(f"  {table}: {count} registros")
     
     # Verify WIP consistency
     wip_total = await conn.fetchval("""
-        SELECT SUM(costo_total) FROM produccion.v_wip_resumen
+        SELECT SUM(costo_total) FROM public.v_wip_resumen
     """)
     print(f"\n  Total WIP acumulado: {wip_total or 0:.2f}")
 
