@@ -7,7 +7,10 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgres://admin:admin@72.60.241.216:9091/datos?sslmode=disable')
+# Conexión única - NO usar fallbacks
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL no configurado en .env")
 
 pool = None
 
@@ -26,3 +29,4 @@ async def close_pool():
     global pool
     if pool:
         await pool.close()
+        pool = None
