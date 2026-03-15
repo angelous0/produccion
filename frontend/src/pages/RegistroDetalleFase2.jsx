@@ -231,7 +231,7 @@ const RequerimientoTab = ({ registroId, totalPrendas }) => {
         <div>
           <h3 className="font-semibold">Requerimiento de Materia Prima</h3>
           <p className="text-sm text-muted-foreground">
-            Explosión BOM basada en {totalPrendas || '?'} prendas planificadas
+            Explosión BOM basada en {totalPrendas > 0 ? totalPrendas : '—'} prendas planificadas
           </p>
         </div>
         <Button onClick={handleGenerar} disabled={generating} data-testid="btn-generar-req">
