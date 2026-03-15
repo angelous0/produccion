@@ -5745,5 +5745,14 @@ app.add_middleware(
 
 app.include_router(api_router)
 app.include_router(costos_router)
-app.include_router(cierre_router)
+app.include_router(cierre_legacy_router)
 app.include_router(reportes_val_router)
+
+# Include refactored routers
+app.include_router(inventario_router)
+app.include_router(rollos_router)
+app.include_router(ordenes_router)
+app.include_router(consumo_router)
+app.include_router(servicios_router)
+app.include_router(cierre_v2_router)
+app.include_router(reportes_router)
