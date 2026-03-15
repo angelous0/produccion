@@ -1,105 +1,80 @@
-# Módulo de Producción Textil - PRD
+# Producción Textil - PRD
 
 ## Problema Original
-Sistema de gestión de producción textil con inventario FIFO, MRP, reservas y valorización.
+Refactorización arquitectónica masiva del módulo de Producción Textil: separar dominios, normalizar tablas, tipificación fuerte de ítems, lógica de costos y flujo de producción.
 
-## Arquitectura
-- **Backend**: FastAPI + asyncpg + PostgreSQL
-- **Frontend**: React + Shadcn/UI
-- **DB**: PostgreSQL con schemas `produccion` y `finanzas2` (misma DB)
-- **Empresa activa**: id=6 (Ambission Industries SAC)
+## Stack Técnico
+- **Backend**: FastAPI, AsyncPG, PostgreSQL (puerto 9090, schema `produccion`)
+- **Frontend**: React, axios, Shadcn/UI, Recharts
+- **Auth**: JWT (passlib + python-jose)
+- **DB**: PostgreSQL con search_path=produccion,public
 
-### Estructura de Routers
+## Empresa de prueba
+- empresa_id = 7
+- Usuario: eduard / eduard123
+
+## Arquitectura de Routers (Backend)
 ```
-/app/backend/
-├── server.py                    # App principal + legacy routes (5700+ líneas)
-├── db.py                        # Pool asyncpg compartido
-├── auth.py                      # Auth dependencies
-├── helpers.py                   # Funciones helper
-├── routes/
-│   ├── costos.py                # CRUD costos servicio por registro
-│   ├── cierre.py                # Preview/ejecutar cierre + asignar PT
-│   └── reportes_valorizacion.py # Reportes MP/WIP/PT + ingresos from-finanzas + empresas
-└── migrations/
-    └── 001_multiempresa_valorizacion.py
+/app/backend/routes/
+├── inventario.py    # CRUD inventario con tipo_item (MP, AVIO, SERVICIO, PT)
+├── rollos.py        # CRUD rollos de tela, disponibles/{item_id}
+├── ordenes.py       # CRUD ordenes de producción
+├── consumo.py       # Consumo MP simple y multi-rollo + WIP
+├── servicios.py     # Servicios externos por orden + WIP
+├── cierre_v2.py     # Preview y ejecución cierre OP → Ingreso PT
+├── reportes.py      # MP/WIP/PT valorizado, Kardex, Ordenes, Resumen
+├── costos.py        # Legacy costos
+└── cierre.py        # Legacy cierre
 ```
 
-## Implementado
+## Tablas Principales (schema: produccion)
+- `prod_registros` (ordenes de producción) → estado_op: ABIERTA, EN_PROCESO, CERRADA, ANULADA
+- `prod_inventario` → tipo_item: MP, AVIO, SERVICIO, PT; control_por_rollos
+- `prod_inventario_rollos` → metros_iniciales, metros_saldo, costo_unitario_metro
+- `prod_consumo_mp` → consumo por orden con rollo_id, costo FIFO
+- `prod_servicio_orden` → servicios externos sin inventario, con WIP
+- `prod_wip_movimiento` → movimientos WIP por orden (CONSUMO_MP, SERVICIO, AJUSTE)
+- `v_wip_resumen` → vista que acumula WIP por orden
+- `prod_registro_cierre` → cierre de OP con costos finales
+- `prod_ingreso_pt` → ingreso de PT al inventario post-cierre
 
-### Enero 2025 - MVP + Fase 1 (Inventario FIFO)
-- CRUDs para marcas, tipos, entalles, telas, hilos, modelos, registros
-- Inventario FIFO con ingresos/salidas/rollos/ajustes/kardex
-- Dark mode, tallas catálogo, colores catálogo
+## Endpoints Principales
+- `GET /api/reportes/wip?empresa_id=7` → ordenes en proceso con costos
+- `GET /api/reportes/mp-valorizado?empresa_id=7` → MP con FIFO
+- `GET /api/reportes/pt-valorizado?empresa_id=7` → PT con cierres
+- `GET /api/reportes/resumen-general?empresa_id=7` → MP+WIP+PT total
+- `GET /api/rollos/disponibles/{item_id}` → rollos activos
+- `POST /api/consumos` → consumo simple
+- `POST /api/consumos/multi-rollo` → consumo múltiples rollos
+- `POST /api/servicios-orden` → registrar servicio
+- `GET /api/ordenes/{id}/cierre/preview` → preview cierre
+- `POST /api/ordenes/{id}/cierre` → ejecutar cierre
 
-### Enero 2025 - Fase 2 (MRP y Reservas)
-- Requerimiento de MP desde BOM, reservas ATP, salidas con validación
+## Estado Actual (Dic 2025)
 
-### Febrero 2025 - Fase 2C + UX
-- Cerrar/Anular OP, liberación automática de reservas
-- Salidas en lote, selección múltiple de rollos con checkboxes
-- Búsqueda de ítems en ajustes
+### Completado
+- [x] Refactorización arquitectónica DB (schema produccion, tablas normalizadas)
+- [x] Modularización backend (routers por dominio)
+- [x] Resolución conflicto rutas /api/reportes/wip (legacy removido)
+- [x] Frontend actualizado para nuevos campos API
+- [x] Validación multi-rollo (consumo, saldos, costos por rollo)
+- [x] Flujo E2E: Ingreso MP → Consumo → Servicio → WIP → Cierre → Ingreso PT
+- [x] Reportes MP/WIP/PT/Resumen funcionando con empresa_id=7
+- [x] Testing completo: 20/20 tests backend + frontend OK
 
-### Febrero 7, 2025 - Selección Múltiple de Rollos (P0)
-- Modal multi-select con checkboxes y distribución inteligente
+### Backlog P2
+- [ ] Implementar vista drill-down en Reporte Item-Estados
+- [ ] Filtros avanzados en tabla Reporte Item-Estados
+- [ ] Ajustes frontend adicionales para empresa_id=7
 
-### Febrero 12, 2025 - Valorización MP + WIP + Cierre PT
-- **A) Multiempresa**: empresa_id en todas las tablas de producción, FK a finanzas2.cont_empresa, backfill a id=6
-- **B) PT por registro**: pt_item_id en prod_registros, selector en formulario de edición
-- **C) Trazabilidad financiera**: fin_origen_tipo, fin_origen_id, fin_numero_doc en ingresos
-- **D) Ingresos from-finanzas**: POST /api/inventario/ingresos/from-finanzas con idempotencia
-- **E) Costos servicio**: CRUD completo + tabla prod_registro_costos_servicio + UI pestaña Costos
-- **F) Cierre producción**: Preview + ejecución de cierre, cálculo FIFO, ingreso PT automático, tabla prod_registro_cierre
-- **G) Reportes valorización**: MP Valorizado, WIP, PT Valorizado con UI completa
-- **Router split**: Nuevos endpoints en routes/costos.py, routes/cierre.py, routes/reportes_valorizacion.py
-- **Navegación**: Sección "Valorización" en sidebar con 3 reportes
-- **6 pestañas en detalle registro**: Tallas, Requerimiento, Reservas, Salidas, Costos, Cierre
-
-## DB Schema Producción
-### Tablas nuevas
-- `prod_registro_costos_servicio` (id, empresa_id, registro_id, fecha, descripcion, proveedor_texto, monto, fin_origen_tipo, fin_origen_id)
-- `prod_registro_cierre` (id, empresa_id, registro_id, fecha, qty_terminada, costo_mp, costo_servicios, costo_total, costo_unit_pt, pt_ingreso_id)
-
-### Columnas nuevas
-- `prod_registros.pt_item_id` (FK a prod_inventario)
-- `prod_registros.empresa_id` (FK a finanzas2.cont_empresa)
-- `prod_inventario_ingresos.fin_origen_tipo`, `.fin_origen_id`, `.fin_numero_doc`
-- `empresa_id` en: prod_registro_tallas, prod_registro_requerimiento_mp, prod_inventario_ingresos, prod_inventario_salidas, prod_inventario_rollos, prod_inventario_reservas, prod_inventario_reservas_linea
-
-## Key API Endpoints
-### Nuevos
-- `GET/POST /api/registros/{id}/costos-servicio` - CRUD costos
-- `PUT/DELETE /api/registros/{id}/costos-servicio/{costo_id}`
-- `GET /api/registros/{id}/preview-cierre` - Preview costos
-- `POST /api/registros/{id}/cierre-produccion` - Ejecutar cierre
-- `GET /api/registros/{id}/cierre-produccion` - Consultar cierre
-- `PUT /api/registros/{id}/pt-item` - Asignar artículo PT
-- `GET /api/reportes/inventario-mp-valorizado?empresa_id=X`
-- `GET /api/reportes/wip?empresa_id=X`
-- `GET /api/reportes/inventario-pt-valorizado?empresa_id=X`
-- `POST /api/inventario/ingresos/from-finanzas` - Ingresos desde finanzas
-- `GET /api/empresas` - Lista empresas
-
-## Backlog
-
-### P1 - Importante
-- [ ] Completar split de server.py en routers (mover legacy routes)
-- [ ] Clarificar lógica de "borrado inteligente" del BOM
-- [ ] Vista drill-down en "Reporte Item-Estados"
-- [ ] Filtros y ordenamiento avanzados en "Reporte Item-Estados"
-
-### P2 - Mejoras
-- [ ] Exportación Excel/PDF en Kardex
-- [ ] Dashboard de Producción con gráficos
-- [ ] Filtro de fecha/período en reportes de valorización
-- [ ] Reportes de Merma por período
-
-### P3 - Futuro
+### Backlog P3
+- [ ] Continuar refactorización server.py (mover lógica legacy a routers)
 - [ ] Reporte productividad por persona/servicio
-- [ ] Drag-and-drop para reordenar tallas
-- [ ] Permisos granulares con usePermissions
-- [ ] Auditoría accesibilidad Dialog (issue recurrente x6)
+- [ ] Drag-and-drop tallas
+- [ ] Exportación Excel/PDF Kardex
+- [ ] Permisos granulares usePermissions
+- [ ] Accesibilidad Dialog (DialogTitle/DialogDescription)
 
-## Credenciales de Prueba
-- **Usuario**: `eduard`
-- **Contraseña**: `eduard123`
-- **Empresa**: id=6 (Ambission Industries SAC)
+### Backlog P4
+- [ ] Puente Producción ↔ Finanzas
+- [ ] Lógica borrado inteligente BOM
