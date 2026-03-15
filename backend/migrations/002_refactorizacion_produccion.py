@@ -356,6 +356,7 @@ async def create_consumo_mp(conn):
     
     if has_registro:
         # Migrate from prod_inventario_salidas where registro_id is not null
+        # Note: talla_id might not exist in old schema, use NULL
         await conn.execute("""
             INSERT INTO public.prod_consumo_mp 
                 (empresa_id, orden_id, item_id, rollo_id, talla_id, cantidad, 
@@ -365,7 +366,7 @@ async def create_consumo_mp(conn):
                 s.registro_id,
                 s.item_id,
                 s.rollo_id,
-                s.talla_id,
+                NULL,
                 s.cantidad,
                 CASE WHEN s.cantidad > 0 THEN COALESCE(s.costo_total, 0) / s.cantidad ELSE 0 END,
                 COALESCE(s.costo_total, 0),
