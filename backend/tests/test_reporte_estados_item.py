@@ -16,7 +16,7 @@ import json
 from datetime import datetime
 
 class ReporteEstadosItemTester:
-    def __init__(self, base_url="https://prod-valorizacion.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://fabric-cost-flow.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.auth_token = None
         self.tests_run = 0

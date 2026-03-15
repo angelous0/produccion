@@ -53,7 +53,7 @@ export function ReporteMPValorizado() {
             <DollarSign className="h-8 w-8 text-primary" />
             <div>
               <p className="text-sm text-muted-foreground">Valor Total MP</p>
-              <p className="text-xl font-bold font-mono" data-testid="total-valor-mp">{formatCurrency(data.resumen.total_valor)}</p>
+              <p className="text-xl font-bold font-mono" data-testid="total-valor-mp">{formatCurrency(data.resumen.valor_total_inventario)}</p>
             </div>
           </CardContent>
         </Card>
@@ -84,10 +84,10 @@ export function ReporteMPValorizado() {
                   </TableCell>
                   <TableCell>{item.unidad_medida}</TableCell>
                   <TableCell className="text-right font-mono">{formatNumber(item.stock_actual)}</TableCell>
-                  <TableCell className="text-right font-mono">{formatNumber(item.reservado)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatNumber(item.total_reservado)}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">{formatNumber(item.disponible)}</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(item.costo_promedio)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valor_stock)}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valor_total)}</TableCell>
                 </TableRow>
               ))}
               {data.items.length === 0 && (
@@ -160,11 +160,11 @@ export function ReporteWIP() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.registros.map((reg) => (
+              {(data.ordenes || []).map((reg) => (
                 <TableRow key={reg.id}>
                   <TableCell className="font-mono font-semibold">{reg.n_corte}</TableCell>
                   <TableCell>{reg.modelo_nombre}</TableCell>
-                  <TableCell><Badge variant="outline">{reg.estado}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{reg.estado_op}</Badge></TableCell>
                   <TableCell>
                     {reg.pt_codigo ? (
                       <span className="font-mono text-sm">{reg.pt_codigo}</span>
@@ -174,11 +174,11 @@ export function ReporteWIP() {
                   </TableCell>
                   <TableCell className="text-right font-mono">{reg.total_prendas}</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(reg.costo_mp)}</TableCell>
-                  <TableCell className="text-right font-mono">{formatCurrency(reg.costo_servicios)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{formatCurrency(reg.costo_total)}</TableCell>
+                  <TableCell className="text-right font-mono">{formatCurrency(reg.costo_servicio)}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold">{formatCurrency(reg.costo_wip)}</TableCell>
                 </TableRow>
               ))}
-              {data.registros.length === 0 && (
+              {(data.ordenes || []).length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No hay registros en proceso</TableCell>
                 </TableRow>
@@ -226,7 +226,7 @@ export function ReportePTValorizado() {
             <Package className="h-8 w-8 text-green-500" />
             <div>
               <p className="text-sm text-muted-foreground">Valor Total PT</p>
-              <p className="text-xl font-bold font-mono" data-testid="total-valor-pt">{formatCurrency(data.resumen.total_valor)}</p>
+              <p className="text-xl font-bold font-mono" data-testid="total-valor-pt">{formatCurrency(data.resumen.valor_total_pt)}</p>
             </div>
           </CardContent>
         </Card>
@@ -252,8 +252,8 @@ export function ReportePTValorizado() {
                   <TableCell>{item.nombre}</TableCell>
                   <TableCell className="text-right font-mono">{formatNumber(item.stock_actual)}</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(item.costo_promedio)}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valor_stock)}</TableCell>
-                  <TableCell className="text-right font-mono">{item.ops_cerradas}</TableCell>
+                  <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valor_total)}</TableCell>
+                  <TableCell className="text-right font-mono">{item.total_cierres}</TableCell>
                 </TableRow>
               ))}
               {data.items.length === 0 && (

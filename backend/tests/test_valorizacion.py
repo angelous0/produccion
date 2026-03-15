@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://prod-valorizacion.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://fabric-cost-flow.preview.emergentagent.com')
 EMPRESA_ID = 6
 TEST_REGISTRO_ID = "83fb4c4b-e4ef-459b-bf07-20f24a555123"
 

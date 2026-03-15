@@ -5692,7 +5692,7 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
 # ==================== NUEVOS ROUTERS (Valorización/Costos/Cierre) ====================
 from routes.costos import router as costos_router
 from routes.cierre import router as cierre_legacy_router
-from routes.reportes_valorizacion import router as reportes_val_router
+# reportes_valorizacion deprecado - lógica unificada en routes/reportes.py
 
 # ==================== ROUTERS REFACTORIZADOS (v2) ====================
 from routes.inventario import router as inventario_router
@@ -5732,7 +5732,6 @@ app.add_middleware(
 app.include_router(api_router)
 app.include_router(costos_router)
 app.include_router(cierre_legacy_router)
-app.include_router(reportes_val_router)
 
 # Include refactored routers
 app.include_router(inventario_router)
