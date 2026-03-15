@@ -5703,8 +5703,17 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
 
 # ==================== NUEVOS ROUTERS (Valorización/Costos/Cierre) ====================
 from routes.costos import router as costos_router
-from routes.cierre import router as cierre_router
+from routes.cierre import router as cierre_legacy_router
 from routes.reportes_valorizacion import router as reportes_val_router
+
+# ==================== ROUTERS REFACTORIZADOS (v2) ====================
+from routes.inventario import router as inventario_router
+from routes.rollos import router as rollos_router
+from routes.ordenes import router as ordenes_router
+from routes.consumo import router as consumo_router
+from routes.servicios import router as servicios_router
+from routes.cierre_v2 import router as cierre_v2_router
+from routes.reportes import router as reportes_router
 
 # ==================== STARTUP/SHUTDOWN ====================
 
