@@ -1815,7 +1815,7 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
         </TabsContent>
 
         <TabsContent value="cierre" className="mt-4">
-          <CierreTab registroId={registroId} registro={registro} empresaId={registro?.empresa_id || 6} onCierreComplete={() => {
+          <CierreTab registroId={registroId} registro={registro} empresaId={registro?.empresa_id || 7} onCierreComplete={() => {
             setEstadoActual('CERRADA');
             if (onEstadoChange) onEstadoChange();
           }} />
