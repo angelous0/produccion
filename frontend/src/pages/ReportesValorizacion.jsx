@@ -25,7 +25,7 @@ export function ReporteMPValorizado() {
   const fetchData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API}/api/reportes/inventario-mp-valorizado?empresa_id=${EMPRESA_ID}`, {
+      const res = await axios.get(`${API}/api/reportes/mp-valorizado?empresa_id=${EMPRESA_ID}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(res.data);
