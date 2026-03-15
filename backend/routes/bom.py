@@ -157,6 +157,20 @@ async def get_bom_detalle(bom_id: str):
     return cab_dict
 
 
+@router.delete("/{bom_id}")
+async def delete_bom_cabecera(bom_id: str):
+    """Elimina una cabecera BOM y todas sus líneas."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        cab = await conn.fetchrow("SELECT * FROM prod_bom_cabecera WHERE id = $1", bom_id)
+        if not cab:
+            raise HTTPException(status_code=404, detail="BOM no encontrado")
+        await conn.execute("DELETE FROM prod_modelo_bom_linea WHERE bom_id = $1", bom_id)
+        await conn.execute("DELETE FROM prod_bom_cabecera WHERE id = $1", bom_id)
+    return {"message": "BOM eliminado", "codigo": cab['codigo']}
+
+
+
 @router.put("/{bom_id}")
 async def update_bom_cabecera(bom_id: str, data: BomCabeceraUpdate):
     """Actualiza estado/observaciones de la cabecera BOM."""

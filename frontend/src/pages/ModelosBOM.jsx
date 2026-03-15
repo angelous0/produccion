@@ -319,6 +319,30 @@ export const ModelosBOMTab = ({ modeloId }) => {
     }
   };
 
+  // Delete BOM
+  const eliminarBom = async () => {
+    if (!activeBomId || creando) return;
+    if (!window.confirm('¿Eliminar este BOM y todas sus líneas?')) return;
+    setCreando(true);
+    try {
+      await axios.delete(`${API}/bom/${activeBomId}`);
+      toast.success('BOM eliminado');
+      const cabs = await fetchCabeceras();
+      if (cabs.length > 0) {
+        setActiveBomId(cabs[0].id);
+        fetchBomDetalle(cabs[0].id);
+      } else {
+        setActiveBomId(null);
+        setBomDetalle(null);
+        setCostoEstandar(null);
+      }
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Error al eliminar');
+    } finally {
+      setCreando(false);
+    }
+  };
+
   // Add line
   const addLinea = async (tipo = 'TELA') => {
     if (!activeBomId) return;
@@ -465,6 +489,9 @@ export const ModelosBOMTab = ({ modeloId }) => {
                     Reactivar
                   </Button>
                 )}
+                <Button size="sm" variant="ghost" className="text-destructive" onClick={eliminarBom} disabled={creando} data-testid="btn-eliminar-bom">
+                  Eliminar
+                </Button>
               </div>
             </div>
 
