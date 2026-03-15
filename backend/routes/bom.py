@@ -439,3 +439,231 @@ async def duplicar_bom(bom_id: str):
         """, new_cab_id)
 
     return row_to_dict(row)
+
+
+# ==================== EXPLOSIÓN BOM → REQUERIMIENTO MP ====================
+
+class ExplosionBomRequest(BaseModel):
+    empresa_id: int = 7
+    bom_id: Optional[str] = None  # Si no se pasa, busca el mejor BOM para el modelo de la orden
+    regenerar: bool = False  # Si true, borra requerimiento anterior y regenera
+
+
+@router.post("/explosion/{orden_id}")
+async def explosion_bom_requerimiento(orden_id: str, data: ExplosionBomRequest):
+    """Explota el BOM de un modelo para generar el requerimiento de MP de una orden.
+    Solo genera requerimiento para TELA, AVIO, EMPAQUE (no SERVICIO).
+    Lógica de tallas: talla_id=null en BOM → aplica a TODAS las tallas de la orden."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # 1. Obtener la orden
+        orden = await conn.fetchrow(
+            "SELECT id, n_corte, modelo_id, tallas, estado_op, empresa_id FROM prod_registros WHERE id = $1",
+            orden_id
+        )
+        if not orden:
+            raise HTTPException(status_code=404, detail="Orden no encontrada")
+        if orden['estado_op'] == 'CERRADA':
+            raise HTTPException(status_code=400, detail="No se puede generar requerimiento para una orden cerrada")
+
+        modelo_id = orden['modelo_id']
+        empresa_id = data.empresa_id or orden['empresa_id']
+
+        # 2. Parsear tallas de la orden
+        import json
+        tallas_raw = json.loads(orden['tallas']) if orden['tallas'] else []
+        tallas_orden = []
+        total_prendas = 0
+        for t in tallas_raw:
+            cant = t.get('cantidad', 0)
+            tallas_orden.append({
+                "talla_id": t.get('talla_id'),
+                "talla_nombre": t.get('talla_nombre', t.get('nombre', '?')),
+                "cantidad": cant,
+            })
+            total_prendas += cant
+
+        if total_prendas == 0:
+            raise HTTPException(status_code=400, detail="La orden no tiene tallas/cantidades definidas")
+
+        # 3. Encontrar el BOM
+        if data.bom_id:
+            bom = await conn.fetchrow("SELECT * FROM prod_bom_cabecera WHERE id = $1", data.bom_id)
+        else:
+            # Buscar mejor BOM: APROBADO primero, luego BORRADOR, versión más reciente
+            bom = await conn.fetchrow("""
+                SELECT * FROM prod_bom_cabecera
+                WHERE modelo_id = $1 AND estado != 'INACTIVO'
+                ORDER BY CASE estado WHEN 'APROBADO' THEN 1 WHEN 'BORRADOR' THEN 2 ELSE 3 END, version DESC
+                LIMIT 1
+            """, modelo_id)
+
+        if not bom:
+            raise HTTPException(status_code=404, detail=f"No hay BOM disponible para el modelo de esta orden")
+
+        # 4. Obtener líneas activas del BOM (solo TELA, AVIO, EMPAQUE - NO SERVICIO)
+        lineas = await conn.fetch("""
+            SELECT bl.*, i.nombre as inv_nombre, i.codigo as inv_codigo,
+                   i.stock_actual, i.unidad_medida as inv_unidad, i.costo_promedio
+            FROM prod_modelo_bom_linea bl
+            LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
+            WHERE bl.bom_id = $1 AND bl.activo = true
+              AND COALESCE(bl.tipo_componente, 'TELA') IN ('TELA', 'AVIO', 'EMPAQUE', 'OTRO')
+            ORDER BY bl.tipo_componente, bl.orden
+        """, bom['id'])
+
+        if not lineas:
+            raise HTTPException(status_code=400, detail="El BOM no tiene líneas de material activas (TELA/AVIO/EMPAQUE)")
+
+        # 5. Verificar si ya existe requerimiento previo
+        existing = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_registro_requerimiento_mp WHERE registro_id = $1", orden_id
+        )
+        if existing > 0 and not data.regenerar:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Ya existe un requerimiento con {existing} líneas para esta orden. Usa regenerar=true para reemplazar."
+            )
+        if existing > 0 and data.regenerar:
+            await conn.execute("DELETE FROM prod_registro_requerimiento_mp WHERE registro_id = $1", orden_id)
+
+        # 6. Calcular requerimiento por cada línea del BOM
+        requerimiento = []
+        for linea in lineas:
+            l = row_to_dict(linea)
+            cant_total_bom = float(l.get('cantidad_total') or l.get('cantidad_base', 0))
+            tipo = l.get('tipo_componente') or 'TELA'
+            inv_nombre = l.get('inv_nombre') or '(sin referencia)'
+            inv_unidad = l.get('inv_unidad') or ''
+            stock = float(l.get('stock_actual') or 0)
+            costo_prom = float(l.get('costo_promedio') or 0)
+
+            if l.get('talla_id'):
+                # Línea aplica a talla específica
+                talla_match = next((t for t in tallas_orden if t['talla_id'] == l['talla_id']), None)
+                if not talla_match:
+                    continue  # Talla no existe en la orden, skip
+                cant_req = round(cant_total_bom * talla_match['cantidad'], 4)
+                talla_id = l['talla_id']
+            else:
+                # Línea aplica a TODAS las tallas → multiplicar por total
+                cant_req = round(cant_total_bom * total_prendas, 4)
+                talla_id = None
+
+            if cant_req <= 0:
+                continue
+
+            req_id = str(uuid4())
+            await conn.execute("""
+                INSERT INTO prod_registro_requerimiento_mp
+                    (id, registro_id, item_id, talla_id, cantidad_requerida,
+                     cantidad_reservada, cantidad_consumida, estado,
+                     bom_id, bom_linea_id, tipo_componente, unidad_medida,
+                     inventario_nombre, merma_pct, empresa_id, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5,
+                        0, 0, 'PENDIENTE',
+                        $6, $7, $8, $9,
+                        $10, $11, $12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, req_id, orden_id, l['inventario_id'], talla_id, cant_req,
+                bom['id'], l['id'], tipo, inv_unidad,
+                inv_nombre, float(l.get('merma_pct') or 0), empresa_id)
+
+            requerimiento.append({
+                "id": req_id,
+                "item_id": l['inventario_id'],
+                "inventario_nombre": inv_nombre,
+                "inventario_codigo": l.get('inv_codigo'),
+                "tipo_componente": tipo,
+                "unidad_medida": inv_unidad,
+                "talla_id": talla_id,
+                "cantidad_base_bom": float(l.get('cantidad_base', 0)),
+                "merma_pct": float(l.get('merma_pct') or 0),
+                "cantidad_total_bom": cant_total_bom,
+                "prendas_aplicadas": talla_match['cantidad'] if l.get('talla_id') and 'talla_match' in dir() else total_prendas,
+                "cantidad_requerida": cant_req,
+                "stock_actual": stock,
+                "deficit": max(0, cant_req - stock),
+                "costo_estimado": round(cant_req * costo_prom, 2),
+            })
+
+        # 7. Servicios como referencia (no generan requerimiento)
+        servicios_ref = await conn.fetch("""
+            SELECT bl.*, i.nombre as inv_nombre, i.costo_promedio
+            FROM prod_modelo_bom_linea bl
+            LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
+            WHERE bl.bom_id = $1 AND bl.activo = true AND bl.tipo_componente = 'SERVICIO'
+        """, bom['id'])
+        servicios_estandar = []
+        for s in servicios_ref:
+            sd = row_to_dict(s)
+            servicios_estandar.append({
+                "inventario_nombre": sd.get('inv_nombre') or '(servicio)',
+                "cantidad_base": float(sd.get('cantidad_base', 0)),
+                "costo_unitario_ref": float(sd.get('costo_promedio') or 0),
+                "costo_total_ref": round(float(sd.get('cantidad_base', 0)) * float(sd.get('costo_promedio') or 0) * total_prendas, 2),
+                "nota": "Solo referencial. El costo real se registra en servicios de producción.",
+            })
+
+    total_costo_mp = sum(r['costo_estimado'] for r in requerimiento)
+    total_costo_serv = sum(s['costo_total_ref'] for s in servicios_estandar)
+
+    return {
+        "orden_id": orden_id,
+        "n_corte": orden['n_corte'],
+        "bom_id": bom['id'],
+        "bom_codigo": bom['codigo'],
+        "bom_version": bom['version'],
+        "bom_estado": bom['estado'],
+        "total_prendas": total_prendas,
+        "tallas": tallas_orden,
+        "requerimiento_mp": requerimiento,
+        "servicios_estandar": servicios_estandar,
+        "resumen": {
+            "total_lineas_mp": len(requerimiento),
+            "total_costo_mp_estimado": round(total_costo_mp, 2),
+            "total_costo_servicios_ref": round(total_costo_serv, 2),
+            "total_costo_estimado": round(total_costo_mp + total_costo_serv, 2),
+            "items_con_deficit": sum(1 for r in requerimiento if r['deficit'] > 0),
+        },
+    }
+
+
+@router.get("/requerimiento/{orden_id}")
+async def get_requerimiento_orden(orden_id: str):
+    """Obtiene el requerimiento MP generado por explosión BOM para una orden."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        orden = await conn.fetchrow(
+            "SELECT id, n_corte, modelo_id, estado_op FROM prod_registros WHERE id = $1", orden_id
+        )
+        if not orden:
+            raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+        rows = await conn.fetch("""
+            SELECT r.*, i.stock_actual, i.costo_promedio, i.codigo as inv_codigo,
+                   tc.nombre as talla_nombre
+            FROM prod_registro_requerimiento_mp r
+            LEFT JOIN prod_inventario i ON r.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON r.talla_id = tc.id
+            WHERE r.registro_id = $1
+            ORDER BY r.tipo_componente, r.inventario_nombre
+        """, orden_id)
+
+        items = []
+        for r in rows:
+            d = row_to_dict(r)
+            stock = float(d.get('stock_actual') or 0)
+            cant_req = float(d.get('cantidad_requerida') or 0)
+            items.append({
+                **d,
+                "stock_actual": stock,
+                "deficit": max(0, cant_req - stock),
+                "costo_estimado": round(cant_req * float(d.get('costo_promedio') or 0), 2),
+            })
+
+    return {
+        "orden_id": orden_id,
+        "n_corte": orden['n_corte'],
+        "total_lineas": len(items),
+        "items": items,
+    }

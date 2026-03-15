@@ -1,0 +1,128 @@
+{
+  "summary": "BOM Explosion → Requerimiento MP feature testing complete. Backend: 18/18 tests passed. Frontend: All RequerimientoTab UI elements verified working correctly including 4 summary cards, table with correct columns, deficit highlighting in red, and Regenerar button.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Requerimiento Tab",
+        "issues": ["Minor: 'Explosión BOM basada en ? prendas planificadas' shows '?' instead of actual count - should show 500"]
+      }
+    ]
+  },
+  "passed_tests": [
+    "Backend: POST /api/bom/explosion/{orden_id} - generates requerimiento MP from BOM",
+    "Backend: POST /api/bom/explosion/{orden_id} with regenerar=true - replaces existing requerimiento",
+    "Backend: POST /api/bom/explosion/{orden_id} for closed order - returns 400 error",
+    "Backend: POST /api/bom/explosion/{orden_id} without BOM - returns 404 error",
+    "Backend: POST /api/bom/explosion/{orden_id} with existing requerimiento (no regenerar) - returns 409 conflict",
+    "Backend: POST /api/bom/explosion/{orden_id} for order without tallas - returns 400 error",
+    "Backend: Calculation validated: cantidad_requerida = cantidad_total_bom * total_prendas (772.5 = 1.545 * 500)",
+    "Backend: Deficit calculation correct: deficit = max(0, requerido - stock)",
+    "Backend: SERVICIO lines excluded from requerimiento_mp (only TELA/AVIO/EMPAQUE)",
+    "Backend: GET /api/bom/requerimiento/{orden_id} - returns items with stock_actual, deficit, costo_estimado",
+    "Backend: GET /api/bom/requerimiento/{orden_id} - all required fields present",
+    "Backend: Non-regression - GET /api/reportes/wip still works",
+    "Backend: Non-regression - GET /api/reportes/mp-valorizado still works",
+    "Backend: Non-regression - GET /api/reportes/pt-valorizado still works",
+    "Frontend: Login works with eduard/eduard123",
+    "Frontend: Navigate to Registros -> click order with 500 piezas -> Materia Prima tab -> Requerimiento sub-tab",
+    "Frontend: 4 summary cards displayed (Materiales=3, Costo=S/11538.75, Déficit=3, Reservado=0.00)",
+    "Frontend: Table shows columns: Tipo, Item, Talla, Requerido, Stock, Déficit, Costo Est., Estado",
+    "Frontend: Items with deficit (3) shown with red background highlighting",
+    "Frontend: Regenerar button present and functional",
+    "Frontend: Merma % shown below item name (+2.0%, +5.0%, +3.0%)"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_bom_explosion.py",
+    "/app/test_reports/pytest/pytest_bom_explosion.xml"
+  ],
+  "action_items": [
+    "Minor: Fix 'Explosión BOM basada en ? prendas planificadas' to show actual total_prendas value (500) instead of '?'"
+  ],
+  "critical_code_review_comments": [
+    "BOM explosion endpoint correctly excludes SERVICIO type from requerimiento_mp",
+    "Deficit calculation is correct: max(0, cantidad_requerida - stock_actual)",
+    "cantidad_requerida calculation is correct: cantidad_total_bom (with merma) * total_prendas",
+    "Frontend RequerimientoTab correctly fetches from /api/bom/requerimiento/{orden_id}",
+    "Frontend displays deficit items with bg-red-50 class for visual highlighting"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bom_explosion.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123",
+    "empresa_id": 7
+  },
+  "seed_data_creation": "Used existing test data: Order b4d2080f (n_corte=10, 500 prendas), BOM-JEAN-CLASS-V2 (APROBADO)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "BOM Explosion feature fully functional. Order b4d2080f-9e01-4380-ba54-809b1da8f2fa has 3 requerimiento lines generated from BOM-JEAN-CLASS-V2. Tallas: 28=100, 30=150, 32=150, 34=100 (total 500 prendas). BOM items: Tela Algodón (1.5m/prenda +3% merma), Denim (0.8m/prenda +5% merma), Boton (4/prenda +2% merma). All 3 items have deficit. RequerimientoTab in RegistroDetalleFase2.jsx correctly integrates with /api/bom/explosion and /api/bom/requerimiento endpoints.",
+  "features_verified": {
+    "backend_api": {
+      "explosion_endpoint": "POST /api/bom/explosion/{orden_id} - generates requerimiento from BOM",
+      "regenerar_flag": "regenerar=true replaces existing requerimiento",
+      "error_handling": {
+        "closed_order": "Returns 400 for estado_op=CERRADA",
+        "no_bom": "Returns 404 when no BOM exists for modelo",
+        "no_tallas": "Returns 400 when order has no tallas defined",
+        "conflict": "Returns 409 when requerimiento exists without regenerar flag"
+      },
+      "calculation": {
+        "cantidad_requerida": "cantidad_total_bom * total_prendas",
+        "cantidad_total_bom": "cantidad_base * (1 + merma_pct/100)",
+        "deficit": "max(0, requerido - stock_actual)",
+        "costo_estimado": "cantidad_requerida * costo_promedio"
+      },
+      "servicio_exclusion": "SERVICIO lines not included in requerimiento_mp, only in servicios_estandar"
+    },
+    "frontend_ui": {
+      "navigation": "Registros -> Order dialog -> Materia Prima tab -> Requerimiento sub-tab",
+      "summary_cards": {
+        "materiales": "Shows total line count (3)",
+        "costo_estimado": "Shows S/ 11538.75",
+        "items_con_deficit": "Shows 3 (in red when > 0)",
+        "total_reservado": "Shows 0.00"
+      },
+      "table_columns": ["Tipo", "Item", "Talla", "Requerido", "Stock", "Déficit", "Costo Est.", "Estado"],
+      "deficit_highlighting": "Rows with deficit > 0 have bg-red-50 background",
+      "regenerar_button": "Button text changes to 'Regenerar' when items exist",
+      "merma_display": "Shows +X.X% merma below item name"
+    }
+  },
+  "test_data_reference": {
+    "order_id": "b4d2080f-9e01-4380-ba54-809b1da8f2fa",
+    "n_corte": "10",
+    "total_prendas": 500,
+    "tallas": [
+      {"talla": "28", "cantidad": 100},
+      {"talla": "30", "cantidad": 150},
+      {"talla": "32", "cantidad": 150},
+      {"talla": "34", "cantidad": 100}
+    ],
+    "bom": {
+      "id": "94f2e969-459b-4f65-83b9-add8a5838e1f",
+      "codigo": "BOM-JEAN-CLASS-V2",
+      "estado": "APROBADO",
+      "lineas": [
+        {"item": "Tela Algodón", "tipo": "TELA", "base": 1.5, "merma": 3, "total": 1.545},
+        {"item": "Denim Azul Stretch", "tipo": "TELA", "base": 0.8, "merma": 5, "total": 0.84},
+        {"item": "Boton Pretinero", "tipo": "AVIO", "base": 4.0, "merma": 2, "total": 4.08}
+      ]
+    },
+    "requerimiento_generated": [
+      {"item": "Tela Algodón", "requerido": 772.5, "stock": 25, "deficit": 747.5, "costo": 4248.75},
+      {"item": "Denim", "requerido": 420, "stock": 411.75, "deficit": 8.25, "costo": 5250},
+      {"item": "Boton", "requerido": 2040, "stock": 2000, "deficit": 40, "costo": 2040}
+    ]
+  }
+}

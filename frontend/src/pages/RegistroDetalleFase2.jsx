@@ -162,18 +162,18 @@ const TallasTab = ({ registroId, onTotalChange }) => {
 
 // ==================== PESTAÑA REQUERIMIENTO ====================
 const RequerimientoTab = ({ registroId, totalPrendas }) => {
-  const [data, setData] = useState({ lineas: [], resumen: {} });
+  const [data, setData] = useState({ items: [], total_lineas: 0 });
+  const [explosionInfo, setExplosionInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
   const fetchRequerimiento = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API}/registros/${registroId}/requerimiento`);
+      const res = await axios.get(`${API}/bom/requerimiento/${registroId}`);
       setData(res.data);
-    } catch (error) {
-      // Si no hay requerimiento, es normal
-      setData({ lineas: [], resumen: {} });
+    } catch {
+      setData({ items: [], total_lineas: 0 });
     } finally {
       setLoading(false);
     }
@@ -184,15 +184,15 @@ const RequerimientoTab = ({ registroId, totalPrendas }) => {
   }, [registroId]);
 
   const handleGenerar = async () => {
-    if (totalPrendas <= 0) {
-      toast.error('Primero ingresa cantidades por talla en la pestaña "Tallas"');
-      return;
-    }
-    
     setGenerating(true);
     try {
-      const res = await axios.post(`${API}/registros/${registroId}/generar-requerimiento`);
-      toast.success(`Requerimiento generado: ${res.data.lineas_creadas} creadas, ${res.data.lineas_actualizadas} actualizadas`);
+      const regenerar = data.total_lineas > 0;
+      const res = await axios.post(`${API}/bom/explosion/${registroId}`, {
+        empresa_id: 7,
+        regenerar,
+      });
+      setExplosionInfo(res.data);
+      toast.success(`Requerimiento generado: ${res.data.resumen.total_lineas_mp} líneas MP`);
       fetchRequerimiento();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al generar requerimiento');
@@ -212,24 +212,35 @@ const RequerimientoTab = ({ registroId, totalPrendas }) => {
     }
   };
 
+  const formatNum = (n) => n != null ? parseFloat(n).toFixed(2) : '—';
+  const formatCurrency = (n) => n != null ? `S/ ${parseFloat(n).toFixed(2)}` : '—';
+
   if (loading) {
     return <div className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>;
   }
+
+  const items = data.items || [];
+  const totalRequerido = items.reduce((s, i) => s + parseFloat(i.cantidad_requerida || 0), 0);
+  const totalDeficit = items.reduce((s, i) => s + parseFloat(i.deficit || 0), 0);
+  const totalCosto = items.reduce((s, i) => s + parseFloat(i.costo_estimado || 0), 0);
+  const itemsDeficit = items.filter(i => parseFloat(i.deficit || 0) > 0).length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold">Requerimiento de Materia Prima</h3>
-          <p className="text-sm text-muted-foreground">Explosión del BOM basada en {totalPrendas} prendas</p>
+          <p className="text-sm text-muted-foreground">
+            Explosión BOM basada en {totalPrendas || '?'} prendas planificadas
+          </p>
         </div>
         <Button onClick={handleGenerar} disabled={generating} data-testid="btn-generar-req">
           {generating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          {data.lineas.length > 0 ? 'Regenerar' : 'Generar desde BOM'}
+          {items.length > 0 ? 'Regenerar' : 'Generar desde BOM'}
         </Button>
       </div>
 
-      {data.lineas.length === 0 ? (
+      {items.length === 0 ? (
         <div className="text-center py-8 border-2 border-dashed rounded-lg">
           <Package className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">No hay requerimiento generado</p>
@@ -237,62 +248,83 @@ const RequerimientoTab = ({ registroId, totalPrendas }) => {
         </div>
       ) : (
         <>
+          {/* Resumen cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-bold">{data.resumen.total_requerido?.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">Total Requerido</p>
+                <div className="text-2xl font-bold" data-testid="req-total-lineas">{items.length}</div>
+                <p className="text-xs text-muted-foreground">Materiales</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
-                <div className="text-2xl font-bold text-blue-600">{data.resumen.total_reservado?.toFixed(2)}</div>
+                <div className="text-2xl font-bold text-blue-600" data-testid="req-costo-total">{formatCurrency(totalCosto)}</div>
+                <p className="text-xs text-muted-foreground">Costo Estimado</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className={`text-2xl font-bold ${itemsDeficit > 0 ? 'text-red-600' : 'text-green-600'}`} data-testid="req-deficit-count">
+                  {itemsDeficit}
+                </div>
+                <p className="text-xs text-muted-foreground">Items con Déficit</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-4">
+                <div className="text-2xl font-bold text-green-600" data-testid="req-reservado">
+                  {formatNum(items.reduce((s, i) => s + parseFloat(i.cantidad_reservada || 0), 0))}
+                </div>
                 <p className="text-xs text-muted-foreground">Total Reservado</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-2xl font-bold text-green-600">{data.resumen.total_consumido?.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">Total Consumido</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-2xl font-bold text-orange-600">{data.resumen.pendiente_reservar?.toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">Pendiente Reservar</p>
               </CardContent>
             </Card>
           </div>
 
+          {/* Tabla de requerimiento */}
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px]">Tipo</TableHead>
                 <TableHead>Item</TableHead>
                 <TableHead>Talla</TableHead>
                 <TableHead className="text-right">Requerido</TableHead>
-                <TableHead className="text-right">Reservado</TableHead>
-                <TableHead className="text-right">Consumido</TableHead>
-                <TableHead className="text-right">Pend. Reservar</TableHead>
+                <TableHead className="text-right">Stock</TableHead>
+                <TableHead className="text-right">Déficit</TableHead>
+                <TableHead className="text-right">Costo Est.</TableHead>
                 <TableHead>Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.lineas.map(l => (
-                <TableRow key={l.id}>
-                  <TableCell>
-                    <div className="font-medium">{l.item_nombre}</div>
-                    <div className="text-xs text-muted-foreground">{l.item_codigo}</div>
-                  </TableCell>
-                  <TableCell>{l.talla_nombre || 'Todas'}</TableCell>
-                  <TableCell className="text-right font-mono">{parseFloat(l.cantidad_requerida).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono text-blue-600">{parseFloat(l.cantidad_reservada).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono text-green-600">{parseFloat(l.cantidad_consumida).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-mono text-orange-600">{parseFloat(l.pendiente_reservar).toFixed(2)}</TableCell>
-                  <TableCell>{getEstadoBadge(l.estado)}</TableCell>
-                </TableRow>
-              ))}
+              {items.map(l => {
+                const deficit = parseFloat(l.deficit || 0);
+                return (
+                  <TableRow key={l.id} className={deficit > 0 ? 'bg-red-50 dark:bg-red-950/20' : ''}>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">{l.tipo_componente || '—'}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{l.inventario_nombre || l.inv_codigo || '?'}</div>
+                      {l.merma_pct > 0 && (
+                        <div className="text-xs text-muted-foreground">+{parseFloat(l.merma_pct).toFixed(1)}% merma</div>
+                      )}
+                    </TableCell>
+                    <TableCell>{l.talla_nombre || 'Todas'}</TableCell>
+                    <TableCell className="text-right font-mono">{formatNum(l.cantidad_requerida)} {l.unidad_medida || ''}</TableCell>
+                    <TableCell className="text-right font-mono">{formatNum(l.stock_actual)}</TableCell>
+                    <TableCell className={`text-right font-mono font-semibold ${deficit > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {deficit > 0 ? formatNum(deficit) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">{formatCurrency(l.costo_estimado)}</TableCell>
+                    <TableCell>{getEstadoBadge(l.estado)}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
+
+          <p className="text-xs text-muted-foreground">
+            Costo estimado es referencial (basado en costo promedio actual). El costo real se determina al consumir MP.
+          </p>
         </>
       )}
     </div>
