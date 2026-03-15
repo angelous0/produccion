@@ -6,7 +6,7 @@ import asyncio
 import asyncpg
 from datetime import datetime
 
-DATABASE_URL = "postgres://admin:admin@72.60.241.216:9091/datos?sslmode=disable"
+DATABASE_URL = "postgres://admin:admin@72.60.241.216:9090/datos?sslmode=disable"
 
 async def backup_tables(conn):
     """Crea backup de tablas que serán modificadas"""
