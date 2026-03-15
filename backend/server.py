@@ -5717,9 +5717,7 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    global pool
-    if pool:
-        await pool.close()
+    await close_pool()
 
 # ==================== CORS & ROUTER ====================
 
