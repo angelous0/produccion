@@ -35,6 +35,7 @@ class BomLineaCreate(BaseModel):
     merma_pct: float = 0.0
     es_opcional: bool = False
     observaciones: Optional[str] = None
+    costo_manual: Optional[float] = None
 
 class BomLineaUpdate(BaseModel):
     inventario_id: Optional[str] = None
@@ -47,6 +48,7 @@ class BomLineaUpdate(BaseModel):
     observaciones: Optional[str] = None
     activo: Optional[bool] = None
     orden: Optional[int] = None
+    costo_manual: Optional[float] = None
 
 
 # ==================== HELPERS ====================
@@ -235,18 +237,19 @@ async def add_bom_linea(bom_id: str, data: BomLineaCreate):
         cantidad_total = round(data.cantidad_base * (1 + data.merma_pct / 100), 4)
 
         new_id = str(uuid4())
+        costo_manual = float(data.costo_manual) if data.costo_manual is not None else None
         await conn.execute("""
             INSERT INTO prod_modelo_bom_linea
                 (id, bom_id, modelo_id, inventario_id, tipo_componente, talla_id, etapa_id,
                  unidad_base, cantidad_base, merma_pct, cantidad_total, es_opcional,
-                 observaciones, orden, activo, created_at, updated_at)
+                 observaciones, orden, activo, costo_manual, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7,
                     'PRENDA', $8, $9, $10, $11,
-                    $12, 10, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    $12, 10, true, $13, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         """, new_id, bom_id, cab['modelo_id'], data.inventario_id, data.tipo_componente,
             data.talla_id, data.etapa_id,
             float(data.cantidad_base), float(data.merma_pct), cantidad_total, data.es_opcional,
-            data.observaciones)
+            data.observaciones, costo_manual)
 
         row = await conn.fetchrow("""
             SELECT bl.*, i.nombre as inventario_nombre, i.codigo as inventario_codigo,
@@ -284,6 +287,7 @@ async def update_bom_linea(bom_id: str, linea_id: str, data: BomLineaUpdate):
         obs = data.observaciones if data.observaciones is not None else bl.get('observaciones')
         activo = data.activo if data.activo is not None else bl['activo']
         orden = data.orden if data.orden is not None else bl.get('orden', 10)
+        costo_manual = float(data.costo_manual) if data.costo_manual is not None else (float(bl['costo_manual']) if bl.get('costo_manual') is not None else None)
 
         if tipo not in TIPOS_COMPONENTE:
             raise HTTPException(status_code=400, detail=f"tipo_componente inválido. Permitidos: {TIPOS_COMPONENTE}")
@@ -298,10 +302,10 @@ async def update_bom_linea(bom_id: str, linea_id: str, data: BomLineaUpdate):
             UPDATE prod_modelo_bom_linea
             SET inventario_id = $1, tipo_componente = $2, talla_id = $3, etapa_id = $4,
                 cantidad_base = $5, merma_pct = $6, cantidad_total = $7, es_opcional = $8,
-                observaciones = $9, activo = $10, orden = $12, updated_at = CURRENT_TIMESTAMP
+                observaciones = $9, activo = $10, orden = $12, costo_manual = $13, updated_at = CURRENT_TIMESTAMP
             WHERE id = $11
         """, inv_id, tipo, talla_id, etapa_id, cant_base, merma, cantidad_total,
-            es_opc, obs, activo, linea_id, orden)
+            es_opc, obs, activo, linea_id, orden, costo_manual)
 
         row = await conn.fetchrow("""
             SELECT bl.*, i.nombre as inventario_nombre, i.codigo as inventario_codigo,
@@ -361,7 +365,14 @@ async def get_bom_costo_estandar(bom_id: str, cantidad_prendas: int = Query(1, g
 
     for l in lineas:
         ld = row_to_dict(l)
-        precio = float(ld.get('precio_unitario') or 0)
+        # Para SERVICIO con costo_manual, usar costo_manual; sino, costo_promedio del inventario
+        costo_manual_val = ld.get('costo_manual')
+        precio_inv = float(ld.get('precio_unitario') or 0)
+        tipo = ld.get('tipo_componente') or 'OTRO'
+        if tipo == 'SERVICIO' and costo_manual_val is not None:
+            precio = float(costo_manual_val)
+        else:
+            precio = precio_inv
         cant_total = float(ld.get('cantidad_total') or ld.get('cantidad_base', 0))
         costo_unitario = round(cant_total * precio, 4)
         costo_lote = round(costo_unitario * cantidad_prendas, 2)
@@ -376,6 +387,7 @@ async def get_bom_costo_estandar(bom_id: str, cantidad_prendas: int = Query(1, g
             "merma_pct": float(ld.get('merma_pct') or 0),
             "cantidad_total": cant_total,
             "precio_unitario": precio,
+            "costo_manual": float(costo_manual_val) if costo_manual_val is not None else None,
             "costo_por_prenda": costo_unitario,
             "costo_lote": costo_lote,
             "es_opcional": ld.get('es_opcional', False),
@@ -436,16 +448,17 @@ async def duplicar_bom(bom_id: str):
                 INSERT INTO prod_modelo_bom_linea
                     (id, bom_id, modelo_id, inventario_id, tipo_componente, talla_id, etapa_id,
                      unidad_base, cantidad_base, merma_pct, cantidad_total, es_opcional,
-                     observaciones, orden, activo, created_at, updated_at)
+                     observaciones, orden, activo, costo_manual, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7,
-                        $8, $9, $10, $11, $12, $13, $14, true,
+                        $8, $9, $10, $11, $12, $13, $14, true, $15,
                         CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, new_linea_id, new_cab_id, modelo_id, l['inventario_id'],
                 l.get('tipo_componente') or 'TELA', l.get('talla_id'), l.get('etapa_id'),
                 l.get('unidad_base') or 'PRENDA', float(l['cantidad_base']),
                 float(l.get('merma_pct') or 0), float(l.get('cantidad_total') or l['cantidad_base']),
                 bool(l.get('es_opcional') or False), l.get('observaciones'),
-                l.get('orden') or 10)
+                l.get('orden') or 10,
+                float(l['costo_manual']) if l.get('costo_manual') is not None else None)
 
         row = await conn.fetchrow("""
             SELECT bc.*, m.nombre as modelo_nombre,
@@ -613,11 +626,15 @@ async def explosion_bom_requerimiento(orden_id: str, data: ExplosionBomRequest):
         servicios_estandar = []
         for s in servicios_ref:
             sd = row_to_dict(s)
+            # Usar costo_manual si existe, sino costo_promedio del inventario
+            costo_manual_val = sd.get('costo_manual')
+            costo_unit = float(costo_manual_val) if costo_manual_val is not None else float(sd.get('costo_promedio') or 0)
             servicios_estandar.append({
                 "inventario_nombre": sd.get('inv_nombre') or '(servicio)',
                 "cantidad_base": float(sd.get('cantidad_base', 0)),
-                "costo_unitario_ref": float(sd.get('costo_promedio') or 0),
-                "costo_total_ref": round(float(sd.get('cantidad_base', 0)) * float(sd.get('costo_promedio') or 0) * total_prendas, 2),
+                "costo_unitario_ref": costo_unit,
+                "costo_total_ref": round(float(sd.get('cantidad_base', 0)) * costo_unit * total_prendas, 2),
+                "costo_manual": float(costo_manual_val) if costo_manual_val is not None else None,
                 "nota": "Solo referencial. El costo real se registra en servicios de producción.",
             })
 

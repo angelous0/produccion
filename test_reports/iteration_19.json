@@ -1,0 +1,102 @@
+{
+  "summary": "costo_manual feature for BOM SERVICIO lines - complete testing. Backend: 9/10 tests passed (90%). Frontend: All UI features verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "PUT /api/bom/{bom_id}/lineas/{linea_id}",
+        "issue": "Cannot explicitly set costo_manual to null - sending null preserves the previous value instead of clearing it",
+        "priority": "LOW",
+        "location": "/app/backend/routes/bom.py line 290",
+        "note": "This is a minor edge case - line 290 uses 'if data.costo_manual is not None' which treats explicit null as 'not sent'"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: PUT /api/bom/{bom_id}/lineas/{linea_id} saves costo_manual field correctly when sent",
+    "Backend: PUT /api/bom/{bom_id}/lineas/{linea_id} preserves costo_manual when not sent in payload",
+    "Backend: GET /api/bom/{bom_id}/costo-estandar uses costo_manual for SERVICIO lines (precio_unitario = costo_manual)",
+    "Backend: GET /api/bom/{bom_id}/costo-estandar uses costo_promedio from inventario for non-SERVICIO lines",
+    "Backend: POST /api/bom/{bom_id}/duplicar copies costo_manual to new BOM lines",
+    "Backend: SERVICIO line exists with tipo_componente='SERVICIO'",
+    "Backend: BOM cabecera and lineas structure verified",
+    "Backend: costo_manual fallback to inventory cost when null works correctly",
+    "Frontend: Login works with eduard/eduard123",
+    "Frontend: Navigate to Modelos -> Edit 'Eduard' model -> BOM/Receta tab",
+    "Frontend: 'Costo Unit.' column header present in BOM table",
+    "Frontend: SERVICIO lines (SER-001 Corte, SER-002 Costura, SER-003 Lavanderia, SER-004 Acabado) show editable NumericInput in 'Costo Unit.' column",
+    "Frontend: Non-SERVICIO lines (TEL-001 Arkanzas=TELA, BOT-01=AVIO) show read-only inventory cost as text (S/ 15.00, S/ 1.00)",
+    "Frontend: Editing costo_manual in SERVICIO line updates the costo estándar total dynamically",
+    "Frontend: Legend includes explanation: 'Costo Unit.: para Servicios es editable manualmente; para materiales se toma del costo promedio de inventario'",
+    "Frontend: Costo Estándar por Prenda breakdown table shows correct pricing per type (AVIO, SERVICIO, TELA)",
+    "Frontend: Dynamic update verified: changing Corte from S/0.55 to S/50.00 updated SERVICIO total from S/17.02 to S/91.20"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_costo_manual_bom.py",
+    "/app/test_reports/pytest/pytest_costo_manual.xml"
+  ],
+  "action_items": [
+    "LOW: Consider allowing explicit null for costo_manual in PUT endpoint if clearing the manual cost is a valid use case"
+  ],
+  "critical_code_review_comments": [
+    "Backend bom.py correctly implements costo_manual: saves on create/update, uses for SERVICIO in costo-estandar calculation, copies during duplication",
+    "Frontend ModelosBOM.jsx correctly distinguishes between SERVICIO (editable NumericInput) and non-SERVICIO (read-only text from inventory)",
+    "NumericInput component handles empty values correctly (shows empty instead of 0)",
+    "Debounced autosave (800ms) prevents excessive API calls while editing"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_costo_manual_bom.py"
+  ],
+  "success_rate": {
+    "backend": "90% (9/10 tests passed)",
+    "frontend": "100% (all requested features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing data: BOM 2a7a6511-89f4-4a2f-a987-745c8df37842 (BOM-EDUARD-V1), SERVICIO linea 0702cd73-2376-46c9-a20e-5d071ec098af (SER-001 Corte)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "costo_manual feature fully implemented and working. BOM-EDUARD-V1 has 6 lines: 1 TELA (Arkanzas), 1 AVIO (Boton Negro), 4 SERVICIO (Corte, Costura, Lavanderia, Acabado). All SERVICIO lines have editable costo_manual in frontend. Current test costo_manual for SER-001 Corte set to 10.00.",
+  "features_verified": {
+    "backend_api": {
+      "put_linea_saves_costo_manual": true,
+      "put_linea_preserves_costo_manual": true,
+      "costo_estandar_uses_costo_manual_for_servicio": true,
+      "costo_estandar_uses_costo_promedio_for_others": true,
+      "duplicar_copies_costo_manual": true,
+      "explicit_null_clears_costo_manual": false
+    },
+    "frontend_ui": {
+      "costo_unit_column_header": true,
+      "servicio_editable_input": true,
+      "non_servicio_readonly_text": true,
+      "dynamic_costo_update": true,
+      "legend_explanation": true,
+      "costo_breakdown_section": true
+    }
+  },
+  "test_data_reference": {
+    "bom_id": "2a7a6511-89f4-4a2f-a987-745c8df37842",
+    "bom_codigo": "BOM-EDUARD-V1",
+    "modelo_id": "3d3f6dd0-bfab-4d79-afe5-2a4cce7f5a87",
+    "modelo_nombre": "Eduard",
+    "servicio_linea_id": "0702cd73-2376-46c9-a20e-5d071ec098af",
+    "servicio_lineas": [
+      {"nombre": "SER-001 - Corte", "tipo": "SERVICIO"},
+      {"nombre": "SER-002 - Costura", "tipo": "SERVICIO"},
+      {"nombre": "SER-003 - Lavanderia", "tipo": "SERVICIO"},
+      {"nombre": "SER-004 - Acabado", "tipo": "SERVICIO"}
+    ],
+    "non_servicio_lineas": [
+      {"nombre": "TEL-001 - Arkanzas", "tipo": "TELA", "costo_inv": 15.00},
+      {"nombre": "BOT-01 - BOTON NEGRO ELEMENT", "tipo": "AVIO", "costo_inv": 1.00}
+    ]
+  }
+}

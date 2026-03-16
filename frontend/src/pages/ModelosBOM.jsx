@@ -594,6 +594,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                       <TableHead className="w-[110px] text-right">Cant. Base</TableHead>
                       <TableHead className="w-[90px] text-right">Merma %</TableHead>
                       <TableHead className="w-[110px] text-right">Cant. Total</TableHead>
+                      <TableHead className="w-[110px] text-right">Costo Unit.</TableHead>
                       <TableHead className="w-[70px]">Opc.</TableHead>
                       <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
@@ -601,7 +602,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                   <TableBody>
                     {lineas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           Sin líneas. Agrega componentes al BOM.
                         </TableCell>
                       </TableRow>
@@ -676,6 +677,23 @@ export const ModelosBOMTab = ({ modeloId }) => {
                           {formatNum(l.cantidad_total)}
                         </TableCell>
                         <TableCell>
+                          {l.tipo_componente === 'SERVICIO' ? (
+                            <NumericInput min="0" step="0.01"
+                              className="text-right font-mono h-8 text-sm w-[100px]"
+                              value={l.costo_manual ?? ''}
+                              onChange={(e) => updateLinea(l.id, { costo_manual: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                              placeholder="S/ 0.00"
+                              data-testid={`bom-costo-manual-${l.id}`} />
+                          ) : (
+                            <span className="text-right font-mono text-sm text-muted-foreground block" data-testid={`bom-costo-inv-${l.id}`}>
+                              {(() => {
+                                const inv = inventario.find(i => i.id === l.inventario_id);
+                                return inv ? formatCurrency(inv.costo_promedio) : '—';
+                              })()}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Switch checked={Boolean(l.es_opcional)}
                             onCheckedChange={(v) => updateLinea(l.id, { es_opcional: v })}
                             data-testid={`bom-opcional-${l.id}`} />
@@ -722,6 +740,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
             <div className="text-xs text-muted-foreground space-y-1 border-t pt-3">
               <p><strong>Talla = Todas</strong> (null): aplica a todas las tallas. Con talla específica, aplica solo a esa.</p>
               <p><strong>Opc.</strong>: componente opcional, no se suma al costo estándar.</p>
+              <p><strong>Costo Unit.</strong>: para Servicios es editable manualmente; para materiales se toma del costo promedio de inventario.</p>
               <p><strong>Costo estándar</strong>: referencial, basado en costo promedio actual de inventario. No reemplaza el costo real de producción.</p>
             </div>
 
