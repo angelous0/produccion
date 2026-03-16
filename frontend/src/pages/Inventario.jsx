@@ -38,8 +38,8 @@ import { NumericInput } from '../components/ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const UNIDADES = ['unidad', 'metro', 'kg', 'litro', 'rollo', 'caja', 'par'];
-const CATEGORIAS = ['Telas', 'Avios', 'Otros'];
+const UNIDADES = ['unidad', 'metro', 'kg', 'litro', 'rollo', 'caja', 'par', 'servicio'];
+const CATEGORIAS = ['Telas', 'Avios', 'Servicios', 'Otros'];
 
 export const Inventario = () => {
   const [items, setItems] = useState([]);
@@ -127,6 +127,7 @@ export const Inventario = () => {
     switch (categoria) {
       case 'Telas': return 'bg-blue-500';
       case 'Avios': return 'bg-purple-500';
+      case 'Servicios': return 'bg-amber-500';
       default: return 'bg-gray-500';
     }
   };
@@ -278,43 +279,57 @@ export const Inventario = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="capitalize">{item.unidad_medida}</TableCell>
-                        <TableCell className="text-right font-mono font-semibold">
-                          {item.stock_actual}
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {item.total_reservado > 0 ? (
-                            <span className="text-orange-500 font-medium">{item.total_reservado}</span>
-                          ) : (
-                            <span className="text-muted-foreground">0</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-semibold">
-                          <span className={item.stock_disponible <= item.stock_minimo ? 'text-red-500' : 'text-green-600'}>
-                            {item.stock_disponible}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right font-mono" data-testid={`valorizado-${item.id}`}>
-                          {item.valorizado > 0 ? (
-                            <span className="font-semibold">
-                              {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(item.valorizado)}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-muted-foreground">
-                          {item.stock_minimo}
-                        </TableCell>
+                        {item.categoria === 'Servicios' ? (
+                          <>
+                            <TableCell className="text-center text-muted-foreground" colSpan={5}>
+                              <span className="text-xs italic">No aplica — servicio</span>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="text-right font-mono font-semibold">
+                              {item.stock_actual}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {item.total_reservado > 0 ? (
+                                <span className="text-orange-500 font-medium">{item.total_reservado}</span>
+                              ) : (
+                                <span className="text-muted-foreground">0</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono font-semibold">
+                              <span className={item.stock_disponible <= item.stock_minimo ? 'text-red-500' : 'text-green-600'}>
+                                {item.stock_disponible}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono" data-testid={`valorizado-${item.id}`}>
+                              {item.valorizado > 0 ? (
+                                <span className="font-semibold">
+                                  {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(item.valorizado)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              {item.stock_minimo}
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
-                          <Badge 
-                            variant={getStockStatus(item) === 'success' ? 'default' : getStockStatus(item)}
-                            className={getStockStatus(item) === 'success' ? 'bg-green-600' : getStockStatus(item) === 'warning' ? 'bg-yellow-500' : ''}
-                          >
-                            {item.stock_actual <= item.stock_minimo && item.stock_actual > 0 && (
-                              <AlertTriangle className="h-3 w-3 mr-1" />
-                            )}
-                            {getStockLabel(item)}
-                          </Badge>
+                          {item.categoria === 'Servicios' ? (
+                            <Badge className="bg-amber-500">Servicio</Badge>
+                          ) : (
+                            <Badge 
+                              variant={getStockStatus(item) === 'success' ? 'default' : getStockStatus(item)}
+                              className={getStockStatus(item) === 'success' ? 'bg-green-600' : getStockStatus(item) === 'warning' ? 'bg-yellow-500' : ''}
+                            >
+                              {item.stock_actual <= item.stock_minimo && item.stock_actual > 0 && (
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                              )}
+                              {getStockLabel(item)}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -429,11 +444,16 @@ export const Inventario = () => {
                   <Label>Categoría</Label>
                   <Select
                     value={formData.categoria}
-                    onValueChange={(value) => setFormData({ 
-                      ...formData, 
-                      categoria: value,
-                      control_por_rollos: value !== 'Telas' ? false : formData.control_por_rollos
-                    })}
+                    onValueChange={(value) => {
+                      const isServicio = value === 'Servicios';
+                      setFormData({ 
+                        ...formData, 
+                        categoria: value,
+                        control_por_rollos: value === 'Telas' ? formData.control_por_rollos : false,
+                        unidad_medida: isServicio ? 'servicio' : formData.unidad_medida,
+                        stock_minimo: isServicio ? 0 : formData.stock_minimo,
+                      });
+                    }}
                   >
                     <SelectTrigger data-testid="select-categoria">
                       <SelectValue />
@@ -461,67 +481,86 @@ export const Inventario = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="unidad_medida">Unidad de Medida</Label>
-                  <Select
-                    value={formData.unidad_medida}
-                    onValueChange={(value) => setFormData({ ...formData, unidad_medida: value })}
-                  >
-                    <SelectTrigger data-testid="select-unidad">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {UNIDADES.map((u) => (
-                        <SelectItem key={u} value={u} className="capitalize">
-                          {u}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="stock_minimo">Stock Mínimo</Label>
-                  <NumericInput
-                    id="stock_minimo"
-                    min="0"
-                    value={formData.stock_minimo}
-                    onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
-                    placeholder="0"
-                    className="font-mono"
-                    data-testid="input-stock-minimo"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="descripcion">Descripción</Label>
-                <Textarea
-                  id="descripcion"
-                  value={formData.descripcion}
-                  onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  placeholder="Descripción del item..."
-                  rows={2}
-                  data-testid="input-descripcion"
-                />
-              </div>
-              
-              {formData.categoria === 'Telas' && (
-                <div className="flex items-center space-x-2 p-3 border rounded-lg bg-muted/30">
-                  <Checkbox
-                    id="control_por_rollos"
-                    checked={formData.control_por_rollos}
-                    onCheckedChange={(checked) => setFormData({ ...formData, control_por_rollos: checked })}
-                    data-testid="checkbox-rollos"
-                  />
-                  <div>
-                    <Label htmlFor="control_por_rollos" className="cursor-pointer">
-                      Control por Rollos
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Permite registrar cada rollo con su metraje, ancho y tono individual
-                    </p>
+              {formData.categoria !== 'Servicios' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="unidad_medida">Unidad de Medida</Label>
+                      <Select
+                        value={formData.unidad_medida}
+                        onValueChange={(value) => setFormData({ ...formData, unidad_medida: value })}
+                      >
+                        <SelectTrigger data-testid="select-unidad">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {UNIDADES.map((u) => (
+                            <SelectItem key={u} value={u} className="capitalize">
+                              {u}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stock_minimo">Stock Mínimo</Label>
+                      <NumericInput
+                        id="stock_minimo"
+                        min="0"
+                        value={formData.stock_minimo}
+                        onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
+                        placeholder="0"
+                        className="font-mono"
+                        data-testid="input-stock-minimo"
+                      />
+                    </div>
                   </div>
+              
+                  <div className="space-y-2">
+                    <Label htmlFor="descripcion">Descripción</Label>
+                    <Textarea
+                      id="descripcion"
+                      value={formData.descripcion}
+                      onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                      placeholder="Descripción del item..."
+                      rows={2}
+                      data-testid="input-descripcion"
+                    />
+                  </div>
+              
+                  {formData.categoria === 'Telas' && (
+                    <div className="flex items-center space-x-2 p-3 border rounded-lg bg-muted/30">
+                      <Checkbox
+                        id="control_por_rollos"
+                        checked={formData.control_por_rollos}
+                        onCheckedChange={(checked) => setFormData({ ...formData, control_por_rollos: checked })}
+                        data-testid="checkbox-rollos"
+                      />
+                      <div>
+                        <Label htmlFor="control_por_rollos" className="cursor-pointer">
+                          Control por Rollos
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Permite registrar cada rollo con su metraje, ancho y tono individual
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="descripcion">Descripción</Label>
+                  <Textarea
+                    id="descripcion"
+                    value={formData.descripcion}
+                    onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+                    placeholder="Ej: Servicio de costura recta, overlock, etc."
+                    rows={2}
+                    data-testid="input-descripcion"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Los servicios no manejan stock físico. Se usan para costeo en BOM y producción.
+                  </p>
                 </div>
               )}
             </div>
