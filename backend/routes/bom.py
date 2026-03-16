@@ -147,7 +147,7 @@ async def get_bom_detalle(bom_id: str):
             FROM prod_modelo_bom_linea bl
             LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
             LEFT JOIN prod_tallas_catalogo tc ON bl.talla_id = tc.id
-            LEFT JOIN prod_orden_etapa et ON bl.etapa_id = et.id
+            LEFT JOIN prod_servicios_produccion et ON bl.etapa_id = et.id
             WHERE bl.bom_id = $1
             ORDER BY bl.orden ASC, bl.created_at ASC
         """, bom_id)
@@ -253,7 +253,7 @@ async def add_bom_linea(bom_id: str, data: BomLineaCreate):
             FROM prod_modelo_bom_linea bl
             LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
             LEFT JOIN prod_tallas_catalogo tc ON bl.talla_id = tc.id
-            LEFT JOIN prod_orden_etapa et ON bl.etapa_id = et.id
+            LEFT JOIN prod_servicios_produccion et ON bl.etapa_id = et.id
             WHERE bl.id = $1
         """, new_id)
 
@@ -307,7 +307,7 @@ async def update_bom_linea(bom_id: str, linea_id: str, data: BomLineaUpdate):
             FROM prod_modelo_bom_linea bl
             LEFT JOIN prod_inventario i ON bl.inventario_id = i.id
             LEFT JOIN prod_tallas_catalogo tc ON bl.talla_id = tc.id
-            LEFT JOIN prod_orden_etapa et ON bl.etapa_id = et.id
+            LEFT JOIN prod_servicios_produccion et ON bl.etapa_id = et.id
             WHERE bl.id = $1
         """, linea_id)
 

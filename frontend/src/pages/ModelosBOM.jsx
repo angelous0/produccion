@@ -282,6 +282,9 @@ export const ModelosBOMTab = ({ modeloId }) => {
         setActiveBomId(cabs[0].id);
         fetchBomDetalle(cabs[0].id);
       }
+    }).catch((err) => {
+      console.error('Error loading BOM data:', err);
+    }).finally(() => {
       setLoading(false);
     });
   }, [modeloId, fetchCabeceras, fetchBomDetalle]);
