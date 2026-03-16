@@ -142,11 +142,13 @@ export const InventarioIngresos = () => {
     setDialogOpen(true);
   };
 
+  const [saving, setSaving] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const payload = { ...formData };
-      // Si es item con control por rollos, incluir rollos
       if (selectedItem?.control_por_rollos && rollos.length > 0) {
         payload.rollos = rollos.map(r => ({
           ...r,
@@ -156,14 +158,13 @@ export const InventarioIngresos = () => {
       }
       
       if (editingIngreso) {
-        // Solo permitir editar campos no relacionados con cantidad
         await axios.put(`${API}/inventario-ingresos/${editingIngreso.id}`, {
           proveedor: formData.proveedor,
           numero_documento: formData.numero_documento,
           observaciones: formData.observaciones,
           costo_unitario: formData.costo_unitario,
         });
-        toast.success('Ingreso actualizado');
+        toast.success('Ingreso actualizado correctamente');
       } else {
         await axios.post(`${API}/inventario-ingresos`, payload);
         toast.success('Ingreso registrado');
@@ -174,6 +175,8 @@ export const InventarioIngresos = () => {
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -312,120 +315,140 @@ export const InventarioIngresos = () => {
           <DialogHeader>
             <DialogTitle>{editingIngreso ? 'Editar Ingreso' : 'Nuevo Ingreso'}</DialogTitle>
             <DialogDescription>
-              {editingIngreso ? 'Modificar datos del ingreso' : 'Registrar una entrada de inventario'}
+              {editingIngreso ? 'Modificar datos del ingreso (item y cantidad no son editables)' : 'Registrar una entrada de inventario'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Item *</Label>
-                <Select
-                  value={formData.item_id}
-                  onValueChange={handleItemChange}
-                  required
-                >
-                  <SelectTrigger data-testid="select-item">
-                    <SelectValue placeholder="Seleccionar item..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {items.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        <span className="font-mono mr-2">{item.codigo}</span>
-                        {item.nombre}
-                        {item.control_por_rollos && (
-                          <Badge variant="outline" className="ml-2 text-xs">Rollos</Badge>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* En modo edición: resumen de solo lectura */}
+              {editingIngreso ? (
+                <div className="rounded-md bg-muted/50 border p-3 space-y-1.5" data-testid="edit-summary">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Item</span>
+                    <span className="font-medium text-sm">{selectedItem?.codigo} — {selectedItem?.nombre}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Cantidad ingresada</span>
+                    <span className="font-mono font-semibold">{editingIngreso.cantidad}</span>
+                  </div>
+                  {editingIngreso.rollos_count > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Rollos</span>
+                      <Badge variant="outline" className="text-xs">
+                        <Layers className="h-3 w-3 mr-1" />
+                        {editingIngreso.rollos_count} rollos
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Item *</Label>
+                  <Select
+                    value={formData.item_id}
+                    onValueChange={handleItemChange}
+                    required
+                  >
+                    <SelectTrigger data-testid="select-item">
+                      <SelectValue placeholder="Seleccionar item..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {items.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          <span className="font-mono mr-2">{item.codigo}</span>
+                          {item.nombre}
+                          {item.control_por_rollos && (
+                            <Badge variant="outline" className="ml-2 text-xs">Rollos</Badge>
+                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               
-              {/* Si el item tiene control por rollos */}
-              {selectedItem?.control_por_rollos ? (
+              {/* Sección de rollos — solo en modo creación */}
+              {!editingIngreso && selectedItem?.control_por_rollos ? (
                 <>
-                  <div className="border rounded-lg p-4 space-y-4">
+                  <div className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Layers className="h-5 w-5 text-primary" />
-                        <Label className="text-base font-semibold">Rollos</Label>
+                        <Layers className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-semibold">Rollos</span>
                       </div>
-                      <Button type="button" size="sm" onClick={addRollo} data-testid="btn-agregar-rollo">
-                        <Plus className="h-4 w-4 mr-1" />
-                        Agregar Rollo
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addRollo} data-testid="btn-agregar-rollo">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Agregar
                       </Button>
                     </div>
                     
                     {rollos.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
+                      <p className="text-xs text-muted-foreground text-center py-3">
                         Agrega rollos para este ingreso
                       </p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-1">
+                        <div className="grid grid-cols-[1fr_80px_70px_1fr_28px] gap-1 px-0.5 text-[11px] text-muted-foreground font-medium">
+                          <div>N° Rollo</div>
+                          <div>Metraje</div>
+                          <div>Ancho</div>
+                          <div>Tono</div>
+                          <div></div>
+                        </div>
                         {rollos.map((rollo, index) => (
-                          <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 border rounded-lg bg-muted/30">
-                            <div className="col-span-3">
-                              <Label className="text-xs">N° Rollo</Label>
-                              <Input
-                                value={rollo.numero_rollo}
-                                onChange={(e) => updateRollo(index, 'numero_rollo', e.target.value)}
-                                placeholder="R001"
-                                className="font-mono"
-                                data-testid={`rollo-${index}-numero`}
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <Label className="text-xs">Metraje (m)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={rollo.metraje}
-                                onChange={(e) => updateRollo(index, 'metraje', e.target.value)}
-                                className="font-mono"
-                                data-testid={`rollo-${index}-metraje`}
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <Label className="text-xs">Ancho (cm)</Label>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                value={rollo.ancho}
-                                onChange={(e) => updateRollo(index, 'ancho', e.target.value)}
-                                className="font-mono"
-                                data-testid={`rollo-${index}-ancho`}
-                              />
-                            </div>
-                            <div className="col-span-4">
-                              <Label className="text-xs">Tono</Label>
-                              <Input
-                                value={rollo.tono}
-                                onChange={(e) => updateRollo(index, 'tono', e.target.value)}
-                                placeholder="Ej: Claro, Oscuro, Lote A"
-                                data-testid={`rollo-${index}-tono`}
-                              />
-                            </div>
-                            <div className="col-span-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeRollo(index)}
-                                data-testid={`rollo-${index}-eliminar`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                          <div key={index} className="grid grid-cols-[1fr_80px_70px_1fr_28px] gap-1 items-center" data-testid={`rollo-row-${index}`}>
+                            <Input
+                              value={rollo.numero_rollo}
+                              onChange={(e) => updateRollo(index, 'numero_rollo', e.target.value)}
+                              placeholder="R001"
+                              className="font-mono h-7 text-xs"
+                              data-testid={`rollo-${index}-numero`}
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={rollo.metraje}
+                              onChange={(e) => updateRollo(index, 'metraje', e.target.value)}
+                              placeholder="0.00"
+                              className="font-mono h-7 text-xs"
+                              data-testid={`rollo-${index}-metraje`}
+                            />
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={rollo.ancho}
+                              onChange={(e) => updateRollo(index, 'ancho', e.target.value)}
+                              placeholder="0"
+                              className="font-mono h-7 text-xs"
+                              data-testid={`rollo-${index}-ancho`}
+                            />
+                            <Input
+                              value={rollo.tono}
+                              onChange={(e) => updateRollo(index, 'tono', e.target.value)}
+                              placeholder="Claro, Oscuro..."
+                              className="h-7 text-xs"
+                              data-testid={`rollo-${index}-tono`}
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => removeRollo(index)}
+                              data-testid={`rollo-${index}-eliminar`}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
                           </div>
                         ))}
                       </div>
                     )}
                     
-                    <div className="flex justify-between items-center pt-2 border-t">
-                      <span className="text-sm text-muted-foreground">Total Metraje:</span>
-                      <span className="font-mono font-bold text-lg">{formData.cantidad.toFixed(2)} m</span>
+                    <div className="flex justify-between items-center pt-1.5 border-t">
+                      <span className="text-xs text-muted-foreground">Total Metraje:</span>
+                      <span className="font-mono font-bold text-sm">{formData.cantidad.toFixed(2)} m</span>
                     </div>
                   </div>
                   
@@ -443,7 +466,7 @@ export const InventarioIngresos = () => {
                     />
                   </div>
                 </>
-              ) : (
+              ) : !editingIngreso && !selectedItem?.control_por_rollos && formData.item_id ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="cantidad">Cantidad *</Label>
@@ -472,6 +495,23 @@ export const InventarioIngresos = () => {
                       data-testid="input-costo"
                     />
                   </div>
+                </div>
+              ) : null}
+
+              {/* Costo unitario en modo edición */}
+              {editingIngreso && (
+                <div className="space-y-2">
+                  <Label htmlFor="costo_unitario">Costo Unitario</Label>
+                  <Input
+                    id="costo_unitario"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.costo_unitario}
+                    onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                    className="font-mono"
+                    data-testid="input-costo"
+                  />
                 </div>
               )}
               
@@ -512,11 +552,11 @@ export const InventarioIngresos = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} data-testid="btn-cancelar">
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-ingreso">
-                Registrar Ingreso
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-ingreso">
+                {saving ? 'Guardando...' : editingIngreso ? 'Actualizar Ingreso' : 'Registrar Ingreso'}
               </Button>
             </DialogFooter>
           </form>
