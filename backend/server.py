@@ -3621,6 +3621,13 @@ async def get_inventario():
             """, d['id'])
             d['total_reservado'] = float(total_reservado or 0)
             d['stock_disponible'] = max(0, float(d['stock_actual']) - d['total_reservado'])
+            # Calcular valorizado desde ingresos disponibles
+            valorizado = await conn.fetchval("""
+                SELECT COALESCE(SUM(cantidad_disponible * costo_unitario), 0)
+                FROM prod_inventario_ingresos
+                WHERE item_id = $1 AND cantidad_disponible > 0
+            """, d['id'])
+            d['valorizado'] = float(valorizado or 0)
             result.append(d)
         return result
 

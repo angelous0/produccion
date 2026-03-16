@@ -207,6 +207,7 @@ export const Inventario = () => {
                   <TableHead className="text-right">Stock Actual</TableHead>
                   <TableHead className="text-right">Reservado</TableHead>
                   <TableHead className="text-right">Disponible</TableHead>
+                  <TableHead className="text-right">Valorizado</TableHead>
                   <TableHead className="text-right">Stock Mínimo</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="w-[100px]">Acciones</TableHead>
@@ -215,13 +216,13 @@ export const Inventario = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={12} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No hay items en el inventario
                     </TableCell>
                   </TableRow>
@@ -290,6 +291,15 @@ export const Inventario = () => {
                           <span className={item.stock_disponible <= item.stock_minimo ? 'text-red-500' : 'text-green-600'}>
                             {item.stock_disponible}
                           </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono" data-testid={`valorizado-${item.id}`}>
+                          {item.valorizado > 0 ? (
+                            <span className="font-semibold">
+                              {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(item.valorizado)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right font-mono text-muted-foreground">
                           {item.stock_minimo}
