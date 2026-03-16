@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -114,6 +115,12 @@ const valorizacionItems = [
   { to: '/reportes/wip', icon: ClipboardList, label: 'WIP (En Proceso)' },
   { to: '/reportes/pt-valorizado', icon: Box, label: 'PT Valorizado' },
 ];
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 
 export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
@@ -497,6 +504,7 @@ export const Layout = () => {
 
         {/* Main content */}
         <main className="flex-1 p-6 md:p-8">
+          <ScrollToTop />
           <Outlet />
         </main>
       </div>
