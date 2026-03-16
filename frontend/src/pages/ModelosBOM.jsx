@@ -35,7 +35,7 @@ const TIPOS_COMPONENTE = [
 const TIPO_TO_CATEGORIA = {
   'TELA': 'Telas',
   'AVIO': 'Avios',
-  'SERVICIO': 'Servicios',
+  'SERVICIO': null, // Servicios NO usan items de inventario
   'EMPAQUE': 'Avios',
   'OTRO': null, // muestra todos
 };
@@ -225,6 +225,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
   const [inventario, setInventario] = useState([]);
   const [tallas, setTallas] = useState([]);
   const [etapas, setEtapas] = useState([]);
+  const [serviciosProduccion, setServiciosProduccion] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingLineas, setLoadingLineas] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
@@ -283,10 +284,12 @@ export const ModelosBOMTab = ({ modeloId }) => {
       axios.get(`${API}/inventario`).then(r => r.data).catch(() => []),
       axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`).then(r => r.data).catch(() => []),
       loadEtapas(),
-    ]).then(([cabs, inv, tal, eta]) => {
+      axios.get(`${API}/servicios-produccion`).then(r => r.data).catch(() => []),
+    ]).then(([cabs, inv, tal, eta, servs]) => {
       setInventario(inv || []);
       setTallas(tal || []);
       setEtapas(eta || []);
+      setServiciosProduccion(servs || []);
       if (cabs.length > 0) {
         setActiveBomId(cabs[0].id);
         fetchBomDetalle(cabs[0].id);
@@ -404,6 +407,14 @@ export const ModelosBOMTab = ({ modeloId }) => {
             merged.inventario_nombre = inv.nombre;
             merged.inventario_codigo = inv.codigo;
             merged.inventario_unidad = inv.unidad_medida;
+          }
+        }
+        // Si cambió servicio_produccion_id, actualizar nombre desde servicios
+        if (patch.servicio_produccion_id) {
+          const srv = serviciosProduccion.find(s => s.id === patch.servicio_produccion_id);
+          if (srv) {
+            merged.servicio_nombre = srv.nombre;
+            merged.servicio_tarifa = srv.tarifa;
           }
         }
         // Recalculate cantidad_total locally
@@ -622,12 +633,28 @@ export const ModelosBOMTab = ({ modeloId }) => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <InventarioCombobox
-                            options={getFilteredInventario(l.tipo_componente)}
-                            value={l.inventario_id}
-                            onChange={(id) => updateLinea(l.id, { inventario_id: id })}
-                          />
-                          {!l.inventario_nombre && l.inventario_id && (
+                          {l.tipo_componente === 'SERVICIO' ? (
+                            <Select value={l.servicio_produccion_id || ''}
+                              onValueChange={(v) => updateLinea(l.id, { servicio_produccion_id: v })}>
+                              <SelectTrigger className="h-8 text-xs" data-testid={`bom-servicio-${l.id}`}>
+                                <SelectValue placeholder="Seleccionar servicio..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {serviciosProduccion.map(s => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.nombre} {s.tarifa ? `(S/ ${Number(s.tarifa).toFixed(2)})` : ''}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <InventarioCombobox
+                              options={getFilteredInventario(l.tipo_componente)}
+                              value={l.inventario_id}
+                              onChange={(id) => updateLinea(l.id, { inventario_id: id })}
+                            />
+                          )}
+                          {l.tipo_componente !== 'SERVICIO' && !l.inventario_nombre && l.inventario_id && (
                             <span className="text-xs text-destructive">Item no encontrado</span>
                           )}
                         </TableCell>
@@ -682,7 +709,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                               className="text-right font-mono h-8 text-sm w-[100px]"
                               value={l.costo_manual ?? ''}
                               onChange={(e) => updateLinea(l.id, { costo_manual: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                              placeholder="S/ 0.00"
+                              placeholder={l.servicio_tarifa ? `S/ ${Number(l.servicio_tarifa).toFixed(2)}` : 'S/ 0.00'}
                               data-testid={`bom-costo-manual-${l.id}`} />
                           ) : (
                             <span className="text-right font-mono text-sm text-muted-foreground block" data-testid={`bom-costo-inv-${l.id}`}>
@@ -740,8 +767,9 @@ export const ModelosBOMTab = ({ modeloId }) => {
             <div className="text-xs text-muted-foreground space-y-1 border-t pt-3">
               <p><strong>Talla = Todas</strong> (null): aplica a todas las tallas. Con talla específica, aplica solo a esa.</p>
               <p><strong>Opc.</strong>: componente opcional, no se suma al costo estándar.</p>
-              <p><strong>Costo Unit.</strong>: para Servicios es editable manualmente; para materiales se toma del costo promedio de inventario.</p>
-              <p><strong>Costo estándar</strong>: referencial, basado en costo promedio actual de inventario. No reemplaza el costo real de producción.</p>
+              <p><strong>Materiales</strong> (Tela, Avío, Empaque): usan items de inventario.</p>
+              <p><strong>Servicios</strong>: usan el catálogo de Servicios de Producción. El costo es editable manualmente por línea.</p>
+              <p><strong>Costo estándar</strong>: referencial, basado en costo promedio actual. No reemplaza el costo real de producción.</p>
             </div>
 
             {/* Desglose costo estándar */}

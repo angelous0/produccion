@@ -1,0 +1,110 @@
+{
+  "summary": "Completed comprehensive testing of BOM architectural refactoring. All 11 requested features verified working correctly. Backend: 9/9 tests passed (100%). Frontend: All UI features verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/bom/{bom_id} returns servicio_produccion_id and servicio_nombre for SERVICIO lines",
+    "Backend: PUT /api/bom/{bom_id}/lineas/{linea_id} updates servicio_produccion_id for SERVICIO lines",
+    "Backend: GET /api/bom/{bom_id}/costo-estandar uses servicio_tarifa (or costo_manual) for SERVICIO lines pricing",
+    "Backend: GET /api/registros/{registro_id}/estados-disponibles returns estados from ruta etapas with usa_ruta=true (Corte, Costura from Pantalon Denim)",
+    "Backend: POST /api/rutas-produccion accepts etapas with nombre and optional servicio_id",
+    "Backend: GET /api/rutas-produccion returns etapas with nombre field populated",
+    "Backend: TELA/AVIO BOM lines use inventario_id correctly",
+    "Backend: costo_manual editable and saved per SERVICIO line",
+    "Frontend BOM: 6 tipo selectors present, 4 servicio selectors (for SERVICIO lines)",
+    "Frontend BOM: 4 costo-manual editable inputs (for SERVICIO lines with values 10, 8.5, 6.5, 1.2)",
+    "Frontend BOM: 2 costo-inv readonly displays (for TELA/AVIO lines showing S/ 15.00, S/ 1.00)",
+    "Frontend BOM: SERVICIO lines show dropdown selector for servicios_produccion (Corte, Costura, Lavanderia, Acabado)",
+    "Frontend BOM: TELA/AVIO lines show InventarioCombobox for item selection",
+    "Frontend BOM: Add buttons present for all tipos (Tela, Avio, Servicio, Empaque, Otro)",
+    "Frontend BOM: Legend explains: Servicios use Servicios de Producción catalog, costo editable manually per line",
+    "Frontend Rutas: Editor shows Nombre input + optional Servicio selector per etapa",
+    "Frontend Rutas: Existing ruta 'Pantalon Denim' shows etapas Corte → Costura as badges",
+    "Frontend Inventario: Category dropdown shows ONLY Telas, Avios, Otros - 'Servicios' is NOT available (as required)",
+    "Frontend Registro: Estado shows 'Para Corte' (from ruta etapas)"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_bom_refactoring.py",
+    "/app/test_reports/pytest/pytest_bom_refactoring.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend bom.py correctly separates SERVICIO lines (using servicio_produccion_id) from material lines (using inventario_id)",
+    "Backend estados-disponibles correctly reads from ruta etapas when usa_ruta=true",
+    "Backend rutas-produccion correctly stores and returns etapas with nombre + optional servicio_id",
+    "Frontend ModelosBOM.jsx correctly distinguishes between SERVICIO (servicio dropdown) and non-SERVICIO (InventarioCombobox)",
+    "Frontend Inventario.jsx CATEGORIAS array correctly excludes 'Servicios' - only Telas, Avios, Otros available",
+    "Frontend RutasProduccion.jsx correctly allows adding etapas with custom nombre and optional servicio link"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bom_refactoring.py"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 tests passed)",
+    "frontend": "100% (all 11 requested features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing data: BOM 2a7a6511-89f4-4a2f-a987-745c8df37842 (BOM-EDUARD-V1), Registro c74d3460-3e8b-4d4c-88e5-06bff012d6f5 (Corte #01), Ruta 'Pantalon Denim' with etapas Corte, Costura",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "BOM refactoring complete: SERVICIO lines use servicio_produccion_id (not inventario_id). Estados come from ruta etapas when usa_ruta=true. Ruta etapas have nombre + optional servicio_id. Inventario 'Servicios' category removed from frontend. costo_manual editable for SERVICIO lines.",
+  "features_verified": {
+    "bom_servicio_lines": {
+      "uses_servicio_produccion_id": true,
+      "returns_servicio_nombre": true,
+      "update_servicio_produccion_id_works": true,
+      "costo_manual_editable": true
+    },
+    "bom_material_lines": {
+      "tela_avio_use_inventario_id": true,
+      "inventario_combobox_in_frontend": true,
+      "readonly_inventory_cost_display": true
+    },
+    "estados_disponibles": {
+      "returns_estados_from_ruta_etapas": true,
+      "usa_ruta_true_when_ruta_exists": true,
+      "ruta_nombre_included": true
+    },
+    "rutas_produccion": {
+      "etapas_have_nombre_field": true,
+      "optional_servicio_id_per_etapa": true,
+      "frontend_editor_has_nombre_input": true
+    },
+    "inventario_categories": {
+      "servicios_not_available_in_dropdown": true,
+      "only_telas_avios_otros": true
+    }
+  },
+  "test_data_reference": {
+    "bom_id": "2a7a6511-89f4-4a2f-a987-745c8df37842",
+    "bom_codigo": "BOM-EDUARD-V1",
+    "modelo_id": "3d3f6dd0-bfab-4d79-afe5-2a4cce7f5a87",
+    "modelo_nombre": "Eduard",
+    "registro_id": "c74d3460-3e8b-4d4c-88e5-06bff012d6f5",
+    "registro_n_corte": "01",
+    "ruta_nombre": "Pantalon Denim",
+    "ruta_etapas": ["Corte", "Costura"],
+    "bom_lines": {
+      "servicio_lines": [
+        {"nombre": "Corte", "tipo": "SERVICIO", "costo_manual": 10},
+        {"nombre": "Costura", "tipo": "SERVICIO", "costo_manual": 8.5},
+        {"nombre": "Lavanderia", "tipo": "SERVICIO", "costo_manual": 6.5},
+        {"nombre": "Acabado", "tipo": "SERVICIO", "costo_manual": 1.2}
+      ],
+      "material_lines": [
+        {"nombre": "TEL-001 - Arkanzas", "tipo": "TELA", "costo_inv": 15.00},
+        {"nombre": "BOT-01 - BOTON NEGRO ELEMENT", "tipo": "AVIO", "costo_inv": 1.00}
+      ]
+    }
+  }
+}

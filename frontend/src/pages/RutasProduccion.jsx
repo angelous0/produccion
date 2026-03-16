@@ -66,7 +66,7 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const servicio = servicios.find(s => s.id === etapa.servicio_id);
+  const servicio = etapa.servicio_id ? servicios.find(s => s.id === etapa.servicio_id) : null;
 
   return (
     <div
@@ -83,7 +83,10 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove }) => {
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </button>
       <Badge variant="outline" className="font-mono">{index + 1}</Badge>
-      <span className="flex-1 font-medium">{servicio?.nombre || 'Desconocido'}</span>
+      <span className="flex-1 font-medium">{etapa.nombre || 'Sin nombre'}</span>
+      {servicio && (
+        <Badge variant="secondary" className="text-xs">{servicio.nombre}</Badge>
+      )}
       <Button
         variant="ghost"
         size="icon"
@@ -109,6 +112,7 @@ export const RutasProduccion = () => {
     etapas: [],
   });
   const [servicioToAdd, setServicioToAdd] = useState('');
+  const [nombreEtapaToAdd, setNombreEtapaToAdd] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -152,21 +156,27 @@ export const RutasProduccion = () => {
       setFormData({ nombre: '', descripcion: '', etapas: [] });
     }
     setServicioToAdd('');
+    setNombreEtapaToAdd('');
     setDialogOpen(true);
   };
 
   const handleAddEtapa = () => {
-    if (!servicioToAdd) return;
+    if (!nombreEtapaToAdd.trim()) {
+      toast.error('Ingresa un nombre para la etapa');
+      return;
+    }
     
     const newEtapa = {
       id: `etapa-${Date.now()}`,
-      servicio_id: servicioToAdd,
+      nombre: nombreEtapaToAdd.trim(),
+      servicio_id: (servicioToAdd && servicioToAdd !== 'none') ? servicioToAdd : null,
       orden: formData.etapas.length,
     };
     setFormData({
       ...formData,
       etapas: [...formData.etapas, newEtapa],
     });
+    setNombreEtapaToAdd('');
     setServicioToAdd('');
   };
 
@@ -206,7 +216,8 @@ export const RutasProduccion = () => {
     try {
       // Preparar etapas sin el id temporal
       const etapasLimpias = formData.etapas.map((e, i) => ({
-        servicio_id: e.servicio_id,
+        nombre: e.nombre,
+        servicio_id: e.servicio_id || null,
         orden: i,
       }));
 
@@ -239,11 +250,6 @@ export const RutasProduccion = () => {
       toast.error(error.response?.data?.detail || 'Error al eliminar');
     }
   };
-
-  // Servicios disponibles para agregar (no repetidos)
-  const serviciosDisponibles = servicios.filter(
-    s => !formData.etapas.some(e => e.servicio_id === s.id)
-  );
 
   if (loading) {
     return <div className="flex justify-center p-8">Cargando...</div>;
@@ -299,7 +305,7 @@ export const RutasProduccion = () => {
                           .map((etapa, i) => (
                             <span key={i} className="flex items-center">
                               <Badge variant="secondary" className="text-xs">
-                                {etapa.servicio_nombre || 'N/A'}
+                                {etapa.nombre || etapa.servicio_nombre || 'N/A'}
                               </Badge>
                               {i < ruta.etapas.length - 1 && (
                                 <ArrowRight className="h-3 w-3 mx-1 text-muted-foreground" />
@@ -371,31 +377,41 @@ export const RutasProduccion = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Etapas de Producción *</Label>
-                <div className="flex gap-2">
-                  <Select value={servicioToAdd} onValueChange={setServicioToAdd}>
-                    <SelectTrigger className="flex-1" data-testid="select-servicio-etapa">
-                      <SelectValue placeholder="Seleccionar servicio..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {serviciosDisponibles.length === 0 ? (
-                        <SelectItem value="none" disabled>
-                          Todos los servicios ya están agregados
-                        </SelectItem>
-                      ) : (
-                        serviciosDisponibles.map((s) => (
+                <Label>Etapas / Estados de Producción *</Label>
+                <p className="text-xs text-muted-foreground">
+                  Cada etapa define un estado del registro. Ej: "Para Corte", "Corte", "Almacén", "Tienda".
+                  Vincula opcionalmente a un servicio de producción.
+                </p>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Input
+                      value={nombreEtapaToAdd}
+                      onChange={(e) => setNombreEtapaToAdd(e.target.value)}
+                      placeholder="Nombre de la etapa (ej: Para Corte)"
+                      data-testid="input-nombre-etapa"
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddEtapa(); }}}
+                    />
+                  </div>
+                  <div className="w-[200px]">
+                    <Select value={servicioToAdd} onValueChange={setServicioToAdd}>
+                      <SelectTrigger data-testid="select-servicio-etapa">
+                        <SelectValue placeholder="Servicio (opc.)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin servicio</SelectItem>
+                        {servicios.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.nombre}
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button
                     type="button"
                     variant="secondary"
                     onClick={handleAddEtapa}
-                    disabled={!servicioToAdd}
+                    disabled={!nombreEtapaToAdd.trim()}
                     data-testid="btn-agregar-etapa"
                   >
                     <Plus className="h-4 w-4" />

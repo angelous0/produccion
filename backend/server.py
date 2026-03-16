@@ -460,7 +460,8 @@ class HiloEspecifico(HiloEspecificoBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class EtapaRuta(BaseModel):
-    servicio_id: str
+    nombre: str
+    servicio_id: Optional[str] = None
     orden: int = 0
 
 class RutaProduccionBase(BaseModel):
@@ -2678,6 +2679,25 @@ async def get_estados_disponibles_registro(registro_id: str):
         registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
         if not registro:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # Obtener ruta del modelo
+        modelo = await conn.fetchrow("SELECT ruta_produccion_id FROM prod_modelos WHERE id = $1", registro['modelo_id']) if registro['modelo_id'] else None
+        ruta_id = modelo['ruta_produccion_id'] if modelo and modelo['ruta_produccion_id'] else None
+        
+        if ruta_id:
+            ruta = await conn.fetchrow("SELECT etapas, nombre FROM prod_rutas_produccion WHERE id = $1", ruta_id)
+            if ruta and ruta['etapas']:
+                etapas = ruta['etapas'] if isinstance(ruta['etapas'], list) else json.loads(ruta['etapas'])
+                etapas_sorted = sorted(etapas, key=lambda e: e.get('orden', 0))
+                estados = [e['nombre'] for e in etapas_sorted if e.get('nombre')]
+                return {
+                    "estados": estados,
+                    "usa_ruta": True,
+                    "ruta_nombre": ruta['nombre'],
+                    "estado_actual": registro['estado']
+                }
+        
+        # Fallback: lista genérica si no hay ruta
         return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro['estado']}
 
 

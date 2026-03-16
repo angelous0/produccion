@@ -39,7 +39,7 @@ import { NumericInput } from '../components/ui/numeric-input';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const UNIDADES = ['unidad', 'metro', 'kg', 'litro', 'rollo', 'caja', 'par', 'servicio'];
-const CATEGORIAS = ['Telas', 'Avios', 'Servicios', 'Otros'];
+const CATEGORIAS = ['Telas', 'Avios', 'Otros'];
 
 export const Inventario = () => {
   const [items, setItems] = useState([]);
