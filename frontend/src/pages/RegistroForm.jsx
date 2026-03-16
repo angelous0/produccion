@@ -95,6 +95,8 @@ export const RegistroForm = () => {
     observaciones: '',
   });
   const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
+  const [busquedaItem, setBusquedaItem] = useState('');
+  const [itemSelectorOpen, setItemSelectorOpen] = useState(false);
 
   // Datos para movimientos de producción
   const [movimientosProduccion, setMovimientosProduccion] = useState([]);
@@ -425,6 +427,8 @@ export const RegistroForm = () => {
     setSelectedItemInventario(null);
     setRollosDisponibles([]);
     setSelectedRollo(null);
+    setBusquedaItem('');
+    setItemSelectorOpen(false);
     setSalidaDialogOpen(true);
   };
 
@@ -1599,26 +1603,79 @@ export const RegistroForm = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Item de Inventario *</Label>
-              <Select
-                value={salidaFormData.item_id}
-                onValueChange={handleItemInventarioChange}
-              >
-                <SelectTrigger data-testid="select-item-inventario">
-                  <SelectValue placeholder="Seleccionar item..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {itemsInventario.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      <span className="font-mono mr-2">{item.codigo}</span>
-                      {item.nombre}
-                      <span className="ml-2 text-muted-foreground">(Stock: {item.stock_actual})</span>
-                      {item.control_por_rollos && (
-                        <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1 rounded">Rollos</span>
-                      )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="relative">
+                <Input
+                  placeholder="Buscar item por código o nombre..."
+                  value={busquedaItem}
+                  onChange={(e) => { setBusquedaItem(e.target.value); setItemSelectorOpen(true); }}
+                  onFocus={() => setItemSelectorOpen(true)}
+                  data-testid="search-item-inventario"
+                  className="w-full"
+                />
+                {salidaFormData.item_id && !busquedaItem && (
+                  <div className="absolute inset-0 flex items-center px-3 pointer-events-none bg-background rounded-md border">
+                    <span className="font-mono mr-2 text-sm">{selectedItemInventario?.codigo}</span>
+                    <span className="text-sm">{selectedItemInventario?.nombre}</span>
+                    <span className="ml-auto text-xs text-muted-foreground">Stock: {selectedItemInventario?.stock_actual}</span>
+                  </div>
+                )}
+                {salidaFormData.item_id && !busquedaItem && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground z-10"
+                    onClick={() => { setSalidaFormData({ ...salidaFormData, item_id: '', rollo_id: '' }); setSelectedItemInventario(null); setBusquedaItem(''); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {itemSelectorOpen && busquedaItem !== undefined && (
+                <div className="border rounded-lg max-h-[200px] overflow-y-auto bg-background shadow-md">
+                  {itemsInventario
+                    .filter(item => {
+                      // Excluir servicios
+                      const cat = (item.categoria || item.tipo_item || '').toLowerCase();
+                      if (cat === 'servicios' || cat === 'servicio') return false;
+                      // Filtrar por búsqueda
+                      if (!busquedaItem) return true;
+                      const q = busquedaItem.toLowerCase();
+                      return (item.codigo || '').toLowerCase().includes(q) || (item.nombre || '').toLowerCase().includes(q);
+                    })
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted/60 cursor-pointer text-sm transition-colors"
+                        onClick={() => {
+                          handleItemInventarioChange(item.id);
+                          setBusquedaItem('');
+                          setItemSelectorOpen(false);
+                        }}
+                        data-testid={`item-option-${item.id}`}
+                      >
+                        <span className="font-mono text-xs shrink-0">{item.codigo}</span>
+                        <span className="truncate">{item.nombre}</span>
+                        <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                          Stock: {item.stock_actual}
+                        </span>
+                        {item.control_por_rollos && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded shrink-0">Rollos</span>
+                        )}
+                      </div>
+                    ))
+                  }
+                  {itemsInventario.filter(item => {
+                    const cat = (item.categoria || item.tipo_item || '').toLowerCase();
+                    if (cat === 'servicios' || cat === 'servicio') return false;
+                    if (!busquedaItem) return true;
+                    const q = busquedaItem.toLowerCase();
+                    return (item.codigo || '').toLowerCase().includes(q) || (item.nombre || '').toLowerCase().includes(q);
+                  }).length === 0 && (
+                    <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                      No se encontraron items
+                    </div>
+                  )}
+                </div>
+              )}
               {selectedItemInventario && !selectedItemInventario.control_por_rollos && (
                 <p className="text-sm text-muted-foreground">
                   Stock disponible: <span className="font-mono font-semibold">{selectedItemInventario.stock_actual}</span> {selectedItemInventario.unidad_medida}
