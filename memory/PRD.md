@@ -1,102 +1,84 @@
-# Producción Textil - PRD
+# PRD - Sistema de Produccion Textil
 
 ## Problema Original
-Refactorización arquitectónica del módulo de Producción Textil. Separar dominios, normalizar tablas, tipificación fuerte de ítems, lógica de costos y flujo de producción.
+Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Materials), ordenes de produccion, reportes y mas.
 
-## Stack Técnico
-- **Backend**: FastAPI, AsyncPG, PostgreSQL (puerto 9090, schema `produccion`)
-- **Frontend**: React, axios, Shadcn/UI, Recharts
-- **Auth**: JWT (passlib + python-jose)
-- **DB**: PostgreSQL con search_path=produccion,public
+## Arquitectura
+- **Backend**: FastAPI + AsyncPG + PostgreSQL
+- **Frontend**: React + Shadcn UI + Axios
+- **DB**: PostgreSQL (schema `produccion`)
 
-## Empresa de prueba
-- empresa_id = 7, Usuario: eduard / eduard123
+## Funcionalidades Implementadas
 
-## Arquitectura de Routers (Backend)
-```
-/app/backend/routes/
-├── inventario.py    # CRUD inventario (MP, AVIO, SERVICIO, PT)
-├── rollos.py        # CRUD rollos de tela
-├── ordenes.py       # CRUD ordenes + etapas
-├── consumo.py       # Consumo MP simple y multi-rollo + WIP
-├── servicios.py     # Servicios externos + WIP
-├── cierre_v2.py     # Preview y cierre OP → Ingreso PT
-├── reportes.py      # MP/WIP/PT valorizado, Kardex, Ordenes, Resumen
-├── bom.py           # BOM cabecera+líneas + costo estándar + explosión → req MP
-├── costos.py        # Legacy
-└── cierre.py        # Legacy
-```
+### Core
+- Autenticacion JWT (login/logout)
+- Dashboard principal
+- Gestion de modelos, marcas, tipos, entalles, tallas, colores
+- Inventario FIFO con categorias (Telas, Avios, Servicios)
+- Ingresos y salidas de inventario con rollos
+- Registros / Ordenes de produccion
+- Rutas de produccion con etapas
 
-## Flujo E2E Validado
-```
-Ingreso MP → Consumo MP (FIFO/multi-rollo) → Servicio → WIP → Preview Cierre → Cierre → Ingreso PT
-                                                                    ↑
-BOM → Explosión → Requerimiento MP (planificación, merma, déficit, costo estimado)
-```
+### BOM (Bill of Materials)
+- CRUD cabecera BOM (crear, editar, eliminar, duplicar)
+- CRUD lineas BOM (TELA, AVIO, SERVICIO, EMPAQUE, OTRO)
+- Selector de items filtrado por tipo de componente
+- Selector de etapas desde ruta de produccion vinculada
+- Reordenamiento manual de lineas
+- Calculo de costo estandar referencial
+- **Costo manual editable para lineas SERVICIO** (Feb 2026)
+- Explosion BOM para generar requerimiento de MP
+- Duplicar BOM a nueva version
 
-## BOM - Estructura y Rol
-**Rol**: Planificación y estándar (NO reemplaza consumo/costo real)
-- Definir materiales estándar por modelo
-- Estimar consumo con merma
-- Generar requerimiento MP
-- Costo estándar referencial
-- Base para comparar vs consumo real
+### UX/UI
+- Componente NumericInput reutilizable (limpia 0 al hacer click)
+- ScrollToTop automatico al navegar
+- Formulario simplificado para items de tipo Servicio
+- Columna "Valorizado" en inventario
 
-**Cabecera** (`prod_bom_cabecera`): id, modelo_id, codigo, version, estado (BORRADOR/APROBADO/INACTIVO), vigente_desde/hasta
-**Detalle** (`prod_modelo_bom_linea`): bom_id, inventario_id, tipo_componente (TELA/AVIO/SERVICIO/EMPAQUE/OTRO), talla_id, etapa_id, cantidad_base, merma_pct, cantidad_total, es_opcional
+### Validacion de Datos
+- Constraint UNIQUE en codigo de item (prod_inventario.codigo)
 
-## Explosión BOM → Requerimiento MP
-**Tabla**: `prod_registro_requerimiento_mp` (reutilizada + columnas: bom_id, tipo_componente, merma_pct, unidad_medida, inventario_nombre)
-**Lógica**:
-- Solo genera para TELA, AVIO, EMPAQUE (NO SERVICIO)
-- talla_id=null → aplica a TODAS las tallas → cant_total_bom × total_prendas
-- talla_id específica → aplica solo a esa talla
-- Calcula déficit: max(0, requerido - stock_actual)
-- Costo estimado: requerido × costo_promedio
-- SERVICIO retornado como referencial sin generar requerimiento
+## Schema DB Relevante
 
-## Endpoints BOM
-- `GET/POST /api/bom` → listar/crear cabecera
-- `GET/PUT /api/bom/{id}` → detalle/estado
-- `POST/PUT/DELETE /api/bom/{id}/lineas/{lid}` → CRUD líneas
-- `GET /api/bom/{id}/costo-estandar` → costo referencial
-- `POST /api/bom/{id}/duplicar` → nueva versión
-- `POST /api/bom/explosion/{orden_id}` → generar requerimiento MP
-- `GET /api/bom/requerimiento/{orden_id}` → ver requerimiento
+### prod_modelo_bom_linea
+- id, modelo_id, bom_id, inventario_id (nullable)
+- tipo_componente (TELA, AVIO, SERVICIO, EMPAQUE, OTRO)
+- talla_id, etapa_id (nullable)
+- cantidad_base, merma_pct, cantidad_total
+- costo_manual (NUMERIC, nullable) - costo manual para SERVICIO
+- es_opcional, activo, orden, observaciones
 
-## Estado (Mar 2026)
+## API Endpoints Clave
+- `GET/POST /api/bom` - Cabeceras BOM
+- `GET/PUT/DELETE /api/bom/{bom_id}` - Detalle BOM
+- `POST /api/bom/{bom_id}/lineas` - Agregar linea
+- `PUT /api/bom/{bom_id}/lineas/{linea_id}` - Actualizar linea (incluye costo_manual)
+- `DELETE /api/bom/{bom_id}/lineas/{linea_id}` - Eliminar linea
+- `GET /api/bom/{bom_id}/costo-estandar` - Calculo costo (usa costo_manual para SERVICIO)
+- `POST /api/bom/{bom_id}/duplicar` - Duplicar BOM (copia costo_manual)
+- `POST /api/bom/explosion/{orden_id}` - Explosion BOM
 
-### Completado
-- [x] Refactorización arquitectónica DB + backend modular
-- [x] Resolución conflicto rutas /api/reportes/wip
-- [x] Validación multi-rollo + flujo E2E
-- [x] Reportes MP/WIP/PT/Resumen
-- [x] BOM cabecera+detalle con versiones y estados
-- [x] Tipos componente, merma, costo estándar
-- [x] **Explosión BOM → Requerimiento MP** con merma, déficit, costo estimado
-- [x] Frontend requerimiento: cards resumen + tabla + déficit en rojo
-- [x] Testing: 66+ tests (20 Producción + 28 BOM + 18 Explosión) + frontend
-- [x] **Fix: Edición de ingresos** - Dialog modo edición con resumen solo lectura, botón "Actualizar Ingreso", campos bloqueados (item/cantidad)
-- [x] **Fix: Formulario rollos compacto** - Inputs h-7/text-xs, grid optimizado, menos padding
-- [x] **Fix: empresa_id en INSERT de rollos** - Añadido empresa_id al crear rollos en prod_inventario_rollos
-- [x] **Edición de rollos en ingresos** - Al editar un ingreso con control_por_rollos, se pueden agregar, editar y eliminar rollos. Backend recalcula stock automáticamente
-- [x] **Columna Valorizado en Inventario** - Muestra valor monetario (stock × costo) en tabla de inventario y corregido reporte MP Valorizado (empresa_id=7)
-- [x] **NumericInput global** - Componente reutilizable que limpia el 0 al escribir. Aplicado en TODAS las páginas: Ingresos, Inventario, BOM, Producción, Salidas, Ajustes, Servicios, Movimientos, Registros
+## Backlog Priorizado
 
-### Backlog P2
-- [ ] Vista drill-down Reporte Item-Estados
-- [ ] Filtros avanzados en reportes
-- [ ] Limpiar líneas BOM huérfanas
-- [ ] Comparación costo estándar BOM vs costo real cierre
+### P2
+- Limpiar lineas BOM huerfanas del schema antiguo
 
-### Backlog P3
-- [ ] Refactorizar server.py legacy → routers
-- [ ] Reporte productividad por persona/servicio
-- [ ] Drag-and-drop tallas
-- [ ] Excel/PDF Kardex
-- [ ] Permisos granulares usePermissions
-- [ ] Accesibilidad Dialog
+### P3
+- Conectar modulo Produccion con Finanzas
+- Reporte de productividad por persona/servicio
+- Reordenar tallas con drag-and-drop
+- Permisos granulares con usePermissions
+- Exportacion Excel/PDF en varias pantallas
+- Accesibilidad en Dialogs (DialogTitle/DialogDescription)
+- Logica de "borrado inteligente" del BOM (requiere input del usuario)
 
-### Backlog P4
-- [ ] Puente Producción ↔ Finanzas
-- [ ] Lógica borrado inteligente BOM
+## Credenciales de Prueba
+- Usuario: `eduard` / Contrasena: `eduard123`
+
+## Archivos Clave
+- `/app/backend/routes/bom.py`
+- `/app/frontend/src/pages/ModelosBOM.jsx`
+- `/app/frontend/src/components/ui/numeric-input.jsx`
+- `/app/backend/server.py`
+- `/app/backend/db.py`
