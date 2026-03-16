@@ -676,6 +676,7 @@ class IngresoInventarioBase(BaseModel):
 
 class IngresoInventarioCreate(IngresoInventarioBase):
     rollos: List[dict] = []
+    empresa_id: int = 7
 
 class IngresoInventario(IngresoInventarioBase):
     model_config = ConfigDict(extra="ignore")
@@ -3802,10 +3803,10 @@ async def create_ingreso(input: IngresoInventarioCreate):
         ingreso.cantidad_disponible = cantidad
         
         await conn.execute(
-            """INSERT INTO prod_inventario_ingresos (id, item_id, cantidad, cantidad_disponible, costo_unitario, proveedor, numero_documento, observaciones, fecha)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            """INSERT INTO prod_inventario_ingresos (id, item_id, cantidad, cantidad_disponible, costo_unitario, proveedor, numero_documento, observaciones, fecha, empresa_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
             ingreso.id, ingreso.item_id, ingreso.cantidad, ingreso.cantidad_disponible, ingreso.costo_unitario,
-            ingreso.proveedor, ingreso.numero_documento, ingreso.observaciones, ingreso.fecha.replace(tzinfo=None)
+            ingreso.proveedor, ingreso.numero_documento, ingreso.observaciones, ingreso.fecha.replace(tzinfo=None), input.empresa_id
         )
         
         # Crear rollos si aplica
