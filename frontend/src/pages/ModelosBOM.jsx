@@ -388,6 +388,15 @@ export const ModelosBOMTab = ({ modeloId }) => {
       const lineas = prev.lineas.map(l => {
         if (l.id !== lineaId) return l;
         const merged = { ...l, ...patch };
+        // Si cambió el inventario_id, actualizar nombre desde inventario local
+        if (patch.inventario_id) {
+          const inv = inventario.find(i => i.id === patch.inventario_id);
+          if (inv) {
+            merged.inventario_nombre = inv.nombre;
+            merged.inventario_codigo = inv.codigo;
+            merged.inventario_unidad = inv.unidad_medida;
+          }
+        }
         // Recalculate cantidad_total locally
         const base = parseFloat(merged.cantidad_base) || 0;
         const merma = parseFloat(merged.merma_pct) || 0;
@@ -401,7 +410,12 @@ export const ModelosBOMTab = ({ modeloId }) => {
     if (timersRef.current[lineaId]) clearTimeout(timersRef.current[lineaId]);
     timersRef.current[lineaId] = setTimeout(async () => {
       try {
-        await axios.put(`${API}/bom/${activeBomId}/lineas/${lineaId}`, patch);
+        const res = await axios.put(`${API}/bom/${activeBomId}/lineas/${lineaId}`, patch);
+        // Actualizar con datos completos del server (incluye inventario_nombre, etc.)
+        setBomDetalle(prev => {
+          if (!prev) return prev;
+          return { ...prev, lineas: prev.lineas.map(l => l.id === lineaId ? { ...l, ...res.data } : l) };
+        });
         // Refresh costo
         const costoRes = await axios.get(`${API}/bom/${activeBomId}/costo-estandar?cantidad_prendas=1`).catch(() => ({ data: null }));
         setCostoEstandar(costoRes.data);
