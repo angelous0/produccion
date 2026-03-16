@@ -28,6 +28,7 @@ import {
   DollarSign, Trash2, Edit2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import {
   Dialog,
   DialogContent,
@@ -140,10 +141,9 @@ const TallasTab = ({ registroId, onTotalChange }) => {
           <div key={t.talla_id} className="relative">
             <label className="text-sm font-medium text-muted-foreground">{t.talla_nombre}</label>
             <div className="relative">
-              <Input
-                type="number"
+              <NumericInput
                 min="0"
-                value={t.cantidad_real || ''}
+                value={t.cantidad_real}
                 onChange={(e) => handleCantidadChange(t.talla_id, e.target.value)}
                 className="mt-1 text-center font-mono"
                 data-testid={`talla-input-${t.talla_id}`}
@@ -482,12 +482,11 @@ const ReservasTab = ({ registroId }) => {
                     <span className="text-green-600">{disp.toFixed(2)}</span>
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
+                    <NumericInput
                       min="0"
                       max={disp}
                       step="0.01"
-                      value={cantidadesReservar[key] || 0}
+                      value={cantidadesReservar[key]}
                       onChange={(e) => setCantidadesReservar(prev => ({
                         ...prev,
                         [key]: Math.min(parseFloat(e.target.value) || 0, disp)
@@ -957,8 +956,7 @@ const SalidasTab = ({ registroId }) => {
 
                   <div>
                     <label className="text-sm font-medium">Cantidad *</label>
-                    <Input
-                      type="number"
+                    <NumericInput
                       min="0"
                       step="0.01"
                       value={cantidadExtra}
@@ -1235,12 +1233,11 @@ const SalidasTab = ({ registroId }) => {
                           </TableCell>
                           <TableCell className="text-right">
                             {isSelected ? (
-                              <Input
-                                type="number"
+                              <NumericInput
                                 min="0.01"
                                 max={rollo.metraje_disponible}
                                 step="0.01"
-                                value={rolloModalSelections[rollo.id] || ''}
+                                value={rolloModalSelections[rollo.id]}
                                 onChange={(e) => cambiarCantidadRollo(rollo.id, e.target.value, rollo.metraje_disponible)}
                                 onClick={(e) => e.stopPropagation()}
                                 className="font-mono w-24 h-8 text-right ml-auto"
@@ -1397,8 +1394,7 @@ const CostosTab = ({ registroId, empresaId = 6 }) => {
               data-testid="costo-proveedor"
             />
             <div className="flex gap-2">
-              <Input
-                type="number"
+              <NumericInput
                 placeholder="Monto"
                 value={form.monto}
                 onChange={(e) => setForm(f => ({ ...f, monto: e.target.value }))}

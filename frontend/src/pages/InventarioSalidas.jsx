@@ -31,6 +31,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Plus, Trash2, ArrowUpCircle, Link2, Layers, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { formatDate } from '../lib/dateUtils';
 
@@ -397,14 +398,13 @@ export const InventarioSalidas = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="cantidad">Cantidad ({selectedItem?.unidad_medida || 'unidad'}) *</Label>
-                <Input
+                <NumericInput
                   id="cantidad"
-                  type="number"
                   min="0.01"
                   step="0.01"
                   max={selectedRollo?.metraje_disponible || selectedItem?.stock_actual || 999999}
                   value={formData.cantidad}
-                  onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 1 })}
+                  onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
                   required
                   className="font-mono"
                   data-testid="input-cantidad"

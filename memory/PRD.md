@@ -79,6 +79,9 @@ BOM → Explosión → Requerimiento MP (planificación, merma, déficit, costo 
 - [x] **Fix: Edición de ingresos** - Dialog modo edición con resumen solo lectura, botón "Actualizar Ingreso", campos bloqueados (item/cantidad)
 - [x] **Fix: Formulario rollos compacto** - Inputs h-7/text-xs, grid optimizado, menos padding
 - [x] **Fix: empresa_id en INSERT de rollos** - Añadido empresa_id al crear rollos en prod_inventario_rollos
+- [x] **Edición de rollos en ingresos** - Al editar un ingreso con control_por_rollos, se pueden agregar, editar y eliminar rollos. Backend recalcula stock automáticamente
+- [x] **Columna Valorizado en Inventario** - Muestra valor monetario (stock × costo) en tabla de inventario y corregido reporte MP Valorizado (empresa_id=7)
+- [x] **NumericInput global** - Componente reutilizable que limpia el 0 al escribir. Aplicado en TODAS las páginas: Ingresos, Inventario, BOM, Producción, Salidas, Ajustes, Servicios, Movimientos, Registros
 
 ### Backlog P2
 - [ ] Vista drill-down Reporte Item-Estados

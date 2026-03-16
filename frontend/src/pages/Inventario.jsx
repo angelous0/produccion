@@ -34,6 +34,7 @@ import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown
 import { toast } from 'sonner';
 import { ExportButton } from '../components/ExportButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
+import { NumericInput } from '../components/ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -481,12 +482,11 @@ export const Inventario = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="stock_minimo">Stock Mínimo</Label>
-                  <Input
+                  <NumericInput
                     id="stock_minimo"
-                    type="number"
                     min="0"
                     value={formData.stock_minimo}
-                    onChange={(e) => setFormData({ ...formData, stock_minimo: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setFormData({ ...formData, stock_minimo: e.target.value })}
                     placeholder="0"
                     className="font-mono"
                     data-testid="input-stock-minimo"

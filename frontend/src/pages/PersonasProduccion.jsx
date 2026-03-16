@@ -22,6 +22,7 @@ import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical, DollarSign, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import {
   DndContext,
   closestCenter,
@@ -565,8 +566,7 @@ export const PersonasProduccion = () => {
                       {isServicioSelected(servicio.id) && (
                         <div className="ml-6 flex items-center gap-2">
                           <DollarSign className="h-4 w-4 text-green-600" />
-                          <Input
-                            type="number"
+                          <NumericInput
                             min="0"
                             step="0.01"
                             value={getServicioTarifa(servicio.id)}

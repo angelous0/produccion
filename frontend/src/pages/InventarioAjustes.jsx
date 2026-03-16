@@ -44,6 +44,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Plus, Trash2, RefreshCw, ArrowUp, ArrowDown, Pencil, Layers, ChevronsUpDown, Check, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import { formatDate } from '../lib/dateUtils';
 import { cn } from '../lib/utils';
 
@@ -494,9 +495,8 @@ export const InventarioAjustes = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="cantidad">Cantidad *</Label>
-                <Input
+                <NumericInput
                   id="cantidad"
-                  type="number"
                   min="0.01"
                   step="0.01"
                   max={
@@ -507,7 +507,7 @@ export const InventarioAjustes = () => {
                       : 999999
                   }
                   value={formData.cantidad}
-                  onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 0.01 })}
+                  onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
                   required
                   disabled={editingAjuste}
                   className="font-mono"

@@ -31,6 +31,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Play, Pencil, Trash2, Calendar, Users, Cog, Filter, X, Plus, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -583,24 +584,22 @@ export const MovimientosProduccion = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-cantidad-enviada">Cantidad Enviada</Label>
-                <Input
+                <NumericInput
                   id="edit-cantidad-enviada"
-                  type="number"
                   min="0"
                   value={formData.cantidad_enviada}
-                  onChange={(e) => setFormData({ ...formData, cantidad_enviada: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setFormData({ ...formData, cantidad_enviada: e.target.value })}
                   className="font-mono"
                   data-testid="edit-input-cantidad-enviada"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-cantidad-recibida">Cantidad Recibida</Label>
-                <Input
+                <NumericInput
                   id="edit-cantidad-recibida"
-                  type="number"
                   min="0"
                   value={formData.cantidad_recibida}
-                  onChange={(e) => setFormData({ ...formData, cantidad_recibida: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setFormData({ ...formData, cantidad_recibida: e.target.value })}
                   className="font-mono"
                   data-testid="edit-input-cantidad-recibida"
                 />
@@ -752,24 +751,22 @@ export const MovimientosProduccion = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="create-cantidad-enviada">Cantidad Enviada</Label>
-                <Input
+                <NumericInput
                   id="create-cantidad-enviada"
-                  type="number"
                   min="0"
                   value={createFormData.cantidad_enviada}
-                  onChange={(e) => setCreateFormData({ ...createFormData, cantidad_enviada: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setCreateFormData({ ...createFormData, cantidad_enviada: e.target.value })}
                   className="font-mono"
                   data-testid="create-input-cantidad-enviada"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="create-cantidad-recibida">Cantidad Recibida</Label>
-                <Input
+                <NumericInput
                   id="create-cantidad-recibida"
-                  type="number"
                   min="0"
                   value={createFormData.cantidad_recibida}
-                  onChange={(e) => setCreateFormData({ ...createFormData, cantidad_recibida: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setCreateFormData({ ...createFormData, cantidad_recibida: e.target.value })}
                   className="font-mono"
                   data-testid="create-input-cantidad-recibida"
                 />

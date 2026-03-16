@@ -33,6 +33,7 @@ import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
 import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { MultiSelectColors } from '../components/MultiSelectColors';
 import { Textarea } from '../components/ui/textarea';
@@ -998,10 +999,9 @@ export const RegistroForm = () => {
                           <TableRow key={t.talla_id}>
                             <TableCell className="font-medium">{t.talla_nombre}</TableCell>
                             <TableCell>
-                              <Input
-                                type="number"
+                              <NumericInput
                                 min="0"
-                                value={t.cantidad || ''}
+                                value={t.cantidad}
                                 onChange={(e) => handleTallaCantidadChange(t.talla_id, e.target.value)}
                                 className="w-full font-mono text-center"
                                 placeholder="0"
@@ -1468,10 +1468,9 @@ export const RegistroForm = () => {
                           </td>
                           {tallasSeleccionadas.map((t) => (
                             <td key={t.talla_id} className="p-1 border-b">
-                              <Input
-                                type="number"
+                              <NumericInput
                                 min="0"
-                                value={getCantidadMatriz(color.id, t.talla_id) || ''}
+                                value={getCantidadMatriz(color.id, t.talla_id)}
                                 onChange={(e) => handleMatrizChange(color.id, t.talla_id, e.target.value)}
                                 className="w-full font-mono text-center h-10"
                                 placeholder="0"
@@ -1618,14 +1617,13 @@ export const RegistroForm = () => {
             
             <div className="space-y-2">
               <Label htmlFor="cantidad-salida">Cantidad ({selectedItemInventario?.unidad_medida || 'unidad'}) *</Label>
-              <Input
+              <NumericInput
                 id="cantidad-salida"
-                type="number"
                 min="0.01"
                 step="0.01"
                 max={selectedRollo?.metraje_disponible || selectedItemInventario?.stock_actual || 999999}
                 value={salidaFormData.cantidad}
-                onChange={(e) => setSalidaFormData({ ...salidaFormData, cantidad: parseFloat(e.target.value) || 1 })}
+                onChange={(e) => setSalidaFormData({ ...salidaFormData, cantidad: e.target.value })}
                 className="font-mono"
                 data-testid="input-cantidad-salida"
               />
@@ -1781,17 +1779,15 @@ export const RegistroForm = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cantidad-enviada">Cantidad Enviada</Label>
-                <Input
+                <NumericInput
                   id="cantidad-enviada"
-                  type="number"
                   min="0"
                   value={movimientoFormData.cantidad_enviada}
                   onChange={(e) => {
-                    const enviada = parseInt(e.target.value) || 0;
+                    const enviada = e.target.value;
                     setMovimientoFormData({ 
                       ...movimientoFormData, 
                       cantidad_enviada: enviada,
-                      // Por defecto, recibida = enviada
                       cantidad_recibida: movimientoFormData.cantidad_recibida === movimientoFormData.cantidad_enviada 
                         ? enviada 
                         : movimientoFormData.cantidad_recibida
@@ -1803,12 +1799,11 @@ export const RegistroForm = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="cantidad-recibida">Cantidad Recibida</Label>
-                <Input
+                <NumericInput
                   id="cantidad-recibida"
-                  type="number"
                   min="0"
                   value={movimientoFormData.cantidad_recibida}
-                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, cantidad_recibida: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, cantidad_recibida: e.target.value })}
                   className="font-mono"
                   data-testid="input-cantidad-recibida"
                 />
@@ -1833,13 +1828,12 @@ export const RegistroForm = () => {
             {/* Tarifa editable */}
             <div className="space-y-2">
               <Label htmlFor="tarifa-movimiento">Tarifa por Prenda (S/)</Label>
-              <Input
+              <NumericInput
                 id="tarifa-movimiento"
-                type="number"
                 min="0"
                 step="0.01"
                 value={movimientoFormData.tarifa_aplicada}
-                onChange={(e) => setMovimientoFormData({ ...movimientoFormData, tarifa_aplicada: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => setMovimientoFormData({ ...movimientoFormData, tarifa_aplicada: e.target.value })}
                 className="font-mono"
                 placeholder="0.00"
                 data-testid="input-tarifa-movimiento"

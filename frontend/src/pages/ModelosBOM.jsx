@@ -18,6 +18,7 @@ import {
 
 import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { InventarioCombobox } from '../components/InventarioCombobox';
+import { NumericInput } from '../components/ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const DEBOUNCE_MS = 800;
@@ -595,17 +596,17 @@ export const ModelosBOMTab = ({ modeloId }) => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Input type="number" min="0" step="0.0001"
+                          <NumericInput min="0" step="0.0001"
                             className="text-right font-mono h-8 text-sm"
                             value={l.cantidad_base}
-                            onChange={(e) => updateLinea(l.id, { cantidad_base: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => updateLinea(l.id, { cantidad_base: e.target.value })}
                             data-testid={`bom-cant-base-${l.id}`} />
                         </TableCell>
                         <TableCell>
-                          <Input type="number" min="0" max="100" step="0.1"
+                          <NumericInput min="0" max="100" step="0.1"
                             className="text-right font-mono h-8 text-sm"
-                            value={l.merma_pct ?? 0}
-                            onChange={(e) => updateLinea(l.id, { merma_pct: parseFloat(e.target.value) || 0 })}
+                            value={l.merma_pct}
+                            onChange={(e) => updateLinea(l.id, { merma_pct: e.target.value })}
                             data-testid={`bom-merma-${l.id}`} />
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm font-medium" data-testid={`bom-cant-total-${l.id}`}>

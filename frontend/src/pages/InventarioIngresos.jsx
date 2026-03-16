@@ -32,6 +32,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Plus, Trash2, ArrowDownCircle, Layers, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/dateUtils';
+import { NumericInput } from '../components/ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -75,8 +76,8 @@ export const InventarioIngresos = () => {
   const resetForm = () => {
     setFormData({
       item_id: '',
-      cantidad: 0,
-      costo_unitario: 0,
+      cantidad: '',
+      costo_unitario: '',
       proveedor: '',
       numero_documento: '',
       observaciones: '',
@@ -88,15 +89,15 @@ export const InventarioIngresos = () => {
   const handleItemChange = (itemId) => {
     const item = items.find(i => i.id === itemId);
     setSelectedItem(item);
-    setFormData({ ...formData, item_id: itemId, cantidad: 0 });
+    setFormData({ ...formData, item_id: itemId, cantidad: '' });
     setRollos([]);
   };
 
   const addRollo = () => {
     setRollos([...rollos, {
       numero_rollo: '',
-      metraje: 0,
-      ancho: 0,
+      metraje: '',
+      ancho: '',
       tono: '',
     }]);
   };
@@ -162,7 +163,7 @@ export const InventarioIngresos = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = { ...formData };
+      const payload = { ...formData, cantidad: parseFloat(formData.cantidad) || 0, costo_unitario: parseFloat(formData.costo_unitario) || 0 };
       if (selectedItem?.control_por_rollos && rollos.length > 0) {
         payload.rollos = rollos.map(r => ({
           ...r,
@@ -176,7 +177,7 @@ export const InventarioIngresos = () => {
           proveedor: formData.proveedor,
           numero_documento: formData.numero_documento,
           observaciones: formData.observaciones,
-          costo_unitario: formData.costo_unitario,
+          costo_unitario: parseFloat(formData.costo_unitario) || 0,
         };
         // Si el item tiene control por rollos, enviar rollos
         if (selectedItem?.control_por_rollos) {
@@ -424,8 +425,7 @@ export const InventarioIngresos = () => {
                               className="font-mono h-7 text-xs"
                               data-testid={`rollo-${index}-numero`}
                             />
-                            <Input
-                              type="number"
+                            <NumericInput
                               step="0.01"
                               min="0"
                               value={rollo.metraje}
@@ -434,8 +434,7 @@ export const InventarioIngresos = () => {
                               className="font-mono h-7 text-xs"
                               data-testid={`rollo-${index}-metraje`}
                             />
-                            <Input
-                              type="number"
+                            <NumericInput
                               step="0.1"
                               min="0"
                               value={rollo.ancho}
@@ -476,13 +475,12 @@ export const InventarioIngresos = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="costo_unitario">Costo por Metro</Label>
-                    <Input
+                    <NumericInput
                       id="costo_unitario"
-                      type="number"
                       min="0"
                       step="0.01"
                       value={formData.costo_unitario}
-                      onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, costo_unitario: e.target.value })}
                       className="font-mono"
                       data-testid="input-costo"
                     />
@@ -492,13 +490,12 @@ export const InventarioIngresos = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="cantidad">Cantidad *</Label>
-                    <Input
+                    <NumericInput
                       id="cantidad"
-                      type="number"
                       min="0.01"
                       step="0.01"
                       value={formData.cantidad}
-                      onChange={(e) => setFormData({ ...formData, cantidad: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
                       required
                       className="font-mono"
                       data-testid="input-cantidad"
@@ -506,13 +503,12 @@ export const InventarioIngresos = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="costo_unitario">Costo Unitario</Label>
-                    <Input
+                    <NumericInput
                       id="costo_unitario"
-                      type="number"
                       min="0"
                       step="0.01"
                       value={formData.costo_unitario}
-                      onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setFormData({ ...formData, costo_unitario: e.target.value })}
                       className="font-mono"
                       data-testid="input-costo"
                     />
@@ -524,13 +520,12 @@ export const InventarioIngresos = () => {
               {editingIngreso && !selectedItem?.control_por_rollos && (
                 <div className="space-y-2">
                   <Label htmlFor="costo_unitario">Costo Unitario</Label>
-                  <Input
+                  <NumericInput
                     id="costo_unitario"
-                    type="number"
                     min="0"
                     step="0.01"
                     value={formData.costo_unitario}
-                    onChange={(e) => setFormData({ ...formData, costo_unitario: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setFormData({ ...formData, costo_unitario: e.target.value })}
                     className="font-mono"
                     data-testid="input-costo"
                   />

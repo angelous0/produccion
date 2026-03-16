@@ -14,6 +14,7 @@ import {
 import { Label } from '../components/ui/label';
 import { Plus, Pencil, Trash2, Cog, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import {
   DndContext,
   closestCenter,
@@ -292,12 +293,11 @@ export const ServiciosProduccion = () => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="secuencia">Orden de Secuencia</Label>
-              <Input
+              <NumericInput
                 id="secuencia"
-                type="number"
                 min="0"
                 value={formData.secuencia}
-                onChange={(e) => setFormData({ ...formData, secuencia: parseInt(e.target.value) || 0 })}
+                onChange={(e) => setFormData({ ...formData, secuencia: e.target.value })}
                 placeholder="0"
                 className="font-mono"
                 data-testid="input-secuencia-servicio"

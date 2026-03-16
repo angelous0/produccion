@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Separator } from '../components/ui/separator';
 import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package } from 'lucide-react';
 import { toast } from 'sonner';
+import { NumericInput } from '../components/ui/numeric-input';
 import { getStatusClass } from '../lib/utils';
 import { MultiSelectColors } from '../components/MultiSelectColors';
 import { formatDate } from '../lib/dateUtils';
@@ -473,10 +474,9 @@ export const Registros = () => {
                           </td>
                           {colorEditItem.tallas.map((t) => (
                             <td key={t.talla_id} className="p-1 border-b">
-                              <Input
-                                type="number"
+                              <NumericInput
                                 min="0"
-                                value={getCantidadMatriz(color.id, t.talla_id) || ''}
+                                value={getCantidadMatriz(color.id, t.talla_id)}
                                 onChange={(e) => handleMatrizChange(color.id, t.talla_id, e.target.value)}
                                 className="w-full font-mono text-center h-10"
                                 placeholder="0"
