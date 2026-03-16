@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Copy, ChevronDown, Package, Scissors, Truck, Box, MoreHorizontal } from 'lucide-react';
+import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, Box, MoreHorizontal, GripVertical } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -30,6 +30,15 @@ const TIPOS_COMPONENTE = [
   { value: 'EMPAQUE', label: 'Empaque', icon: Box },
   { value: 'OTRO', label: 'Otro', icon: MoreHorizontal },
 ];
+
+// Mapeo tipo BOM → categoría inventario para filtrar items
+const TIPO_TO_CATEGORIA = {
+  'TELA': 'Telas',
+  'AVIO': 'Avios',
+  'SERVICIO': 'Servicios',
+  'EMPAQUE': 'Avios',
+  'OTRO': null, // muestra todos
+};
 
 const ESTADOS_BOM = {
   BORRADOR: { label: 'Borrador', variant: 'outline' },
@@ -438,6 +447,31 @@ export const ModelosBOMTab = ({ modeloId }) => {
     }
   };
 
+  // Mover línea arriba/abajo
+  const moveLinea = (lineaId, direction) => {
+    setBomDetalle(prev => {
+      if (!prev) return prev;
+      const arr = [...prev.lineas];
+      const idx = arr.findIndex(l => l.id === lineaId);
+      if (idx < 0) return prev;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= arr.length) return prev;
+      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+      // Guardar orden en backend (fire and forget)
+      arr.forEach((l, i) => {
+        axios.put(`${API}/bom/${activeBomId}/lineas/${l.id}`, { orden: i }).catch(() => {});
+      });
+      return { ...prev, lineas: arr };
+    });
+  };
+
+  // Filtrar inventario por tipo de componente
+  const getFilteredInventario = (tipoComponente) => {
+    const cat = TIPO_TO_CATEGORIA[tipoComponente];
+    if (!cat) return inventario;
+    return inventario.filter(i => i.categoria === cat);
+  };
+
   // Resumen
   const resumen = useMemo(() => {
     if (!bomDetalle?.lineas) return { total: 0, porTipo: {} };
@@ -571,7 +605,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                           Sin líneas. Agrega componentes al BOM.
                         </TableCell>
                       </TableRow>
-                    ) : lineas.map((l) => (
+                    ) : lineas.map((l, idx) => (
                       <TableRow key={l.id} className={l.activo === false ? 'opacity-40' : ''}>
                         <TableCell>
                           <Select value={l.tipo_componente || 'TELA'}
@@ -588,7 +622,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                         </TableCell>
                         <TableCell>
                           <InventarioCombobox
-                            options={inventario}
+                            options={getFilteredInventario(l.tipo_componente)}
                             value={l.inventario_id}
                             onChange={(id) => updateLinea(l.id, { inventario_id: id })}
                           />
@@ -647,10 +681,22 @@ export const ModelosBOMTab = ({ modeloId }) => {
                             data-testid={`bom-opcional-${l.id}`} />
                         </TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive h-7 px-2"
-                            onClick={() => deleteLinea(l.id)} data-testid={`bom-delete-${l.id}`}>
-                            Borrar
-                          </Button>
+                          <div className="flex items-center gap-0.5">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                              disabled={idx === 0}
+                              onClick={() => moveLinea(l.id, -1)} title="Subir">
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                              disabled={idx === lineas.length - 1}
+                              onClick={() => moveLinea(l.id, 1)} title="Bajar">
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-destructive h-7 px-2"
+                              onClick={() => deleteLinea(l.id)} data-testid={`bom-delete-${l.id}`}>
+                              Borrar
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

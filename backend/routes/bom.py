@@ -46,6 +46,7 @@ class BomLineaUpdate(BaseModel):
     es_opcional: Optional[bool] = None
     observaciones: Optional[str] = None
     activo: Optional[bool] = None
+    orden: Optional[int] = None
 
 
 # ==================== HELPERS ====================
@@ -282,6 +283,7 @@ async def update_bom_linea(bom_id: str, linea_id: str, data: BomLineaUpdate):
         es_opc = data.es_opcional if data.es_opcional is not None else bool(bl.get('es_opcional') or False)
         obs = data.observaciones if data.observaciones is not None else bl.get('observaciones')
         activo = data.activo if data.activo is not None else bl['activo']
+        orden = data.orden if data.orden is not None else bl.get('orden', 10)
 
         if tipo not in TIPOS_COMPONENTE:
             raise HTTPException(status_code=400, detail=f"tipo_componente inválido. Permitidos: {TIPOS_COMPONENTE}")
@@ -296,10 +298,10 @@ async def update_bom_linea(bom_id: str, linea_id: str, data: BomLineaUpdate):
             UPDATE prod_modelo_bom_linea
             SET inventario_id = $1, tipo_componente = $2, talla_id = $3, etapa_id = $4,
                 cantidad_base = $5, merma_pct = $6, cantidad_total = $7, es_opcional = $8,
-                observaciones = $9, activo = $10, updated_at = CURRENT_TIMESTAMP
+                observaciones = $9, activo = $10, orden = $12, updated_at = CURRENT_TIMESTAMP
             WHERE id = $11
         """, inv_id, tipo, talla_id, etapa_id, cant_base, merma, cantidad_total,
-            es_opc, obs, activo, linea_id)
+            es_opc, obs, activo, linea_id, orden)
 
         row = await conn.fetchrow("""
             SELECT bl.*, i.nombre as inventario_nombre, i.codigo as inventario_codigo,
