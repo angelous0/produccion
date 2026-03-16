@@ -3837,6 +3837,20 @@ class IngresoUpdateData(BaseModel):
     numero_documento: str = ""
     observaciones: str = ""
     costo_unitario: float = 0
+    rollos: Optional[List[dict]] = None
+
+@api_router.get("/inventario-ingresos/{ingreso_id}/rollos")
+async def get_ingreso_rollos(ingreso_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        ingreso = await conn.fetchrow("SELECT * FROM prod_inventario_ingresos WHERE id = $1", ingreso_id)
+        if not ingreso:
+            raise HTTPException(status_code=404, detail="Ingreso no encontrado")
+        rollos = await conn.fetch(
+            "SELECT id, numero_rollo, metraje, ancho, tono, estado FROM prod_inventario_rollos WHERE ingreso_id = $1 ORDER BY created_at ASC",
+            ingreso_id
+        )
+        return [row_to_dict(r) for r in rollos]
 
 @api_router.put("/inventario-ingresos/{ingreso_id}")
 async def update_ingreso(ingreso_id: str, input: IngresoUpdateData):
@@ -3845,11 +3859,70 @@ async def update_ingreso(ingreso_id: str, input: IngresoUpdateData):
         ingreso = await conn.fetchrow("SELECT * FROM prod_inventario_ingresos WHERE id = $1", ingreso_id)
         if not ingreso:
             raise HTTPException(status_code=404, detail="Ingreso no encontrado")
+
+        item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", ingreso['item_id'])
+
+        # Actualizar campos base
         await conn.execute(
             """UPDATE prod_inventario_ingresos SET proveedor=$1, numero_documento=$2, observaciones=$3, costo_unitario=$4 WHERE id=$5""",
             input.proveedor, input.numero_documento, input.observaciones, input.costo_unitario, ingreso_id
         )
-        return {"message": "Ingreso actualizado", **input.model_dump()}
+
+        # Si el item tiene control por rollos y se envían rollos, sincronizar
+        if item and item['control_por_rollos'] and input.rollos is not None:
+            old_cantidad = float(ingreso['cantidad'])
+
+            # IDs de rollos que vienen del frontend (los que ya existían)
+            incoming_ids = {r.get('id') for r in input.rollos if r.get('id')}
+
+            # Eliminar rollos que ya no están
+            existing_rollos = await conn.fetch(
+                "SELECT id, metraje FROM prod_inventario_rollos WHERE ingreso_id = $1", ingreso_id
+            )
+            for er in existing_rollos:
+                if er['id'] not in incoming_ids:
+                    await conn.execute("DELETE FROM prod_inventario_rollos WHERE id = $1", er['id'])
+
+            # Upsert rollos
+            new_cantidad = 0
+            for rollo_data in input.rollos:
+                metraje = float(rollo_data.get('metraje', 0) or 0)
+                ancho = float(rollo_data.get('ancho', 0) or 0)
+                new_cantidad += metraje
+
+                if rollo_data.get('id') and rollo_data['id'] in {er['id'] for er in existing_rollos}:
+                    # Actualizar existente
+                    await conn.execute(
+                        """UPDATE prod_inventario_rollos 
+                           SET numero_rollo=$1, metraje=$2, metraje_disponible=$2, ancho=$3, tono=$4
+                           WHERE id=$5""",
+                        rollo_data.get('numero_rollo', ''), metraje, ancho,
+                        rollo_data.get('tono', ''), rollo_data['id']
+                    )
+                else:
+                    # Crear nuevo
+                    rollo_id = str(uuid.uuid4())
+                    await conn.execute(
+                        """INSERT INTO prod_inventario_rollos 
+                           (id, item_id, ingreso_id, numero_rollo, metraje, metraje_disponible, ancho, tono, observaciones, activo, created_at, empresa_id)
+                           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
+                        rollo_id, ingreso['item_id'], ingreso_id,
+                        rollo_data.get('numero_rollo', ''), metraje, metraje,
+                        ancho, rollo_data.get('tono', ''), '', True, datetime.now(), ingreso['empresa_id']
+                    )
+
+            # Actualizar cantidad del ingreso y stock
+            diff = new_cantidad - old_cantidad
+            await conn.execute(
+                "UPDATE prod_inventario_ingresos SET cantidad=$1, cantidad_disponible=cantidad_disponible+$2 WHERE id=$3",
+                new_cantidad, diff, ingreso_id
+            )
+            await conn.execute(
+                "UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2",
+                diff, ingreso['item_id']
+            )
+
+        return {"message": "Ingreso actualizado"}
 
 @api_router.delete("/inventario-ingresos/{ingreso_id}")
 async def delete_ingreso(ingreso_id: str):

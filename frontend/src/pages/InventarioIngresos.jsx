@@ -126,7 +126,7 @@ export const InventarioIngresos = () => {
     setDialogOpen(true);
   };
 
-  const handleOpenEdit = (ingreso) => {
+  const handleOpenEdit = async (ingreso) => {
     setEditingIngreso(ingreso);
     const item = items.find(i => i.id === ingreso.item_id);
     setSelectedItem(item);
@@ -138,7 +138,21 @@ export const InventarioIngresos = () => {
       numero_documento: ingreso.numero_documento || '',
       observaciones: ingreso.observaciones || '',
     });
-    setRollos([]);
+    // Cargar rollos existentes si el item tiene control_por_rollos
+    if (item?.control_por_rollos && ingreso.rollos_count > 0) {
+      try {
+        const res = await axios.get(`${API}/inventario-ingresos/${ingreso.id}/rollos`);
+        setRollos(res.data.map(r => ({
+          id: r.id,
+          numero_rollo: r.numero_rollo || '',
+          metraje: r.metraje || 0,
+          ancho: r.ancho || 0,
+          tono: r.tono || '',
+        })));
+      } catch { setRollos([]); }
+    } else {
+      setRollos([]);
+    }
     setDialogOpen(true);
   };
 
@@ -158,12 +172,23 @@ export const InventarioIngresos = () => {
       }
       
       if (editingIngreso) {
-        await axios.put(`${API}/inventario-ingresos/${editingIngreso.id}`, {
+        const updatePayload = {
           proveedor: formData.proveedor,
           numero_documento: formData.numero_documento,
           observaciones: formData.observaciones,
           costo_unitario: formData.costo_unitario,
-        });
+        };
+        // Si el item tiene control por rollos, enviar rollos
+        if (selectedItem?.control_por_rollos) {
+          updatePayload.rollos = rollos.map(r => ({
+            id: r.id || undefined,
+            numero_rollo: r.numero_rollo,
+            metraje: parseFloat(r.metraje) || 0,
+            ancho: parseFloat(r.ancho) || 0,
+            tono: r.tono,
+          }));
+        }
+        await axios.put(`${API}/inventario-ingresos/${editingIngreso.id}`, updatePayload);
         toast.success('Ingreso actualizado correctamente');
       } else {
         await axios.post(`${API}/inventario-ingresos`, payload);
@@ -311,33 +336,28 @@ export const InventarioIngresos = () => {
         setDialogOpen(open);
         if (!open) setEditingIngreso(null);
       }}>
-        <DialogContent className={selectedItem?.control_por_rollos && !editingIngreso ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg"}>
+        <DialogContent className={selectedItem?.control_por_rollos ? "max-w-3xl max-h-[90vh] overflow-y-auto" : "max-w-lg"}>
           <DialogHeader>
             <DialogTitle>{editingIngreso ? 'Editar Ingreso' : 'Nuevo Ingreso'}</DialogTitle>
             <DialogDescription>
-              {editingIngreso ? 'Modificar datos del ingreso (item y cantidad no son editables)' : 'Registrar una entrada de inventario'}
+              {editingIngreso 
+                ? (selectedItem?.control_por_rollos ? 'Modificar datos del ingreso y sus rollos' : 'Modificar datos del ingreso (item y cantidad no son editables)')
+                : 'Registrar una entrada de inventario'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              {/* En modo edición: resumen de solo lectura */}
+              {/* Selector de item (creación) o resumen (edición) */}
               {editingIngreso ? (
                 <div className="rounded-md bg-muted/50 border p-3 space-y-1.5" data-testid="edit-summary">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Item</span>
                     <span className="font-medium text-sm">{selectedItem?.codigo} — {selectedItem?.nombre}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Cantidad ingresada</span>
-                    <span className="font-mono font-semibold">{editingIngreso.cantidad}</span>
-                  </div>
-                  {editingIngreso.rollos_count > 0 && (
+                  {!selectedItem?.control_por_rollos && (
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Rollos</span>
-                      <Badge variant="outline" className="text-xs">
-                        <Layers className="h-3 w-3 mr-1" />
-                        {editingIngreso.rollos_count} rollos
-                      </Badge>
+                      <span className="text-sm text-muted-foreground">Cantidad ingresada</span>
+                      <span className="font-mono font-semibold">{editingIngreso.cantidad}</span>
                     </div>
                   )}
                 </div>
@@ -367,8 +387,8 @@ export const InventarioIngresos = () => {
                 </div>
               )}
               
-              {/* Sección de rollos — solo en modo creación */}
-              {!editingIngreso && selectedItem?.control_por_rollos ? (
+              {/* Sección de rollos — creación y edición */}
+              {selectedItem?.control_por_rollos ? (
                 <>
                   <div className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
@@ -396,7 +416,7 @@ export const InventarioIngresos = () => {
                           <div></div>
                         </div>
                         {rollos.map((rollo, index) => (
-                          <div key={index} className="grid grid-cols-[1fr_80px_70px_1fr_28px] gap-1 items-center" data-testid={`rollo-row-${index}`}>
+                          <div key={rollo.id || index} className="grid grid-cols-[1fr_80px_70px_1fr_28px] gap-1 items-center" data-testid={`rollo-row-${index}`}>
                             <Input
                               value={rollo.numero_rollo}
                               onChange={(e) => updateRollo(index, 'numero_rollo', e.target.value)}
@@ -448,7 +468,9 @@ export const InventarioIngresos = () => {
                     
                     <div className="flex justify-between items-center pt-1.5 border-t">
                       <span className="text-xs text-muted-foreground">Total Metraje:</span>
-                      <span className="font-mono font-bold text-sm">{formData.cantidad.toFixed(2)} m</span>
+                      <span className="font-mono font-bold text-sm">
+                        {rollos.reduce((sum, r) => sum + (parseFloat(r.metraje) || 0), 0).toFixed(2)} m
+                      </span>
                     </div>
                   </div>
                   
@@ -466,7 +488,7 @@ export const InventarioIngresos = () => {
                     />
                   </div>
                 </>
-              ) : !editingIngreso && !selectedItem?.control_por_rollos && formData.item_id ? (
+              ) : !editingIngreso && formData.item_id ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="cantidad">Cantidad *</Label>
@@ -498,8 +520,8 @@ export const InventarioIngresos = () => {
                 </div>
               ) : null}
 
-              {/* Costo unitario en modo edición */}
-              {editingIngreso && (
+              {/* Costo unitario en modo edición para items SIN rollos */}
+              {editingIngreso && !selectedItem?.control_por_rollos && (
                 <div className="space-y-2">
                   <Label htmlFor="costo_unitario">Costo Unitario</Label>
                   <Input
