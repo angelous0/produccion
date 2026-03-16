@@ -2630,6 +2630,9 @@ async def get_registro(registro_id: str):
 @api_router.post("/registros")
 async def create_registro(input: RegistroCreate):
     registro = Registro(**input.model_dump())
+    # Sanitizar FKs opcionales: string vacío → None
+    registro.pt_item_id = registro.pt_item_id or None
+    registro.hilo_especifico_id = registro.hilo_especifico_id or None
     pool = await get_pool()
     async with pool.acquire() as conn:
         tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
@@ -2645,6 +2648,9 @@ async def create_registro(input: RegistroCreate):
 
 @api_router.put("/registros/{registro_id}")
 async def update_registro(registro_id: str, input: RegistroCreate):
+    # Sanitizar FKs opcionales: string vacío → None
+    input.pt_item_id = input.pt_item_id or None
+    input.hilo_especifico_id = input.hilo_especifico_id or None
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
