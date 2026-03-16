@@ -366,12 +366,8 @@ export const ModelosBOMTab = ({ modeloId }) => {
   // Add line
   const addLinea = async (tipo = 'TELA') => {
     if (!activeBomId) return;
-    // Need at least one inventario item
-    const firstInv = inventario.find(i => i.id);
-    if (!firstInv) { toast.error('No hay ítems de inventario disponibles'); return; }
     try {
       const res = await axios.post(`${API}/bom/${activeBomId}/lineas`, {
-        inventario_id: firstInv.id,
         tipo_componente: tipo,
         cantidad_base: 1.0,
         merma_pct: 0,

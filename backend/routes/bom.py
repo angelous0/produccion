@@ -27,11 +27,11 @@ class BomCabeceraUpdate(BaseModel):
     vigente_hasta: Optional[str] = None
 
 class BomLineaCreate(BaseModel):
-    inventario_id: str
+    inventario_id: Optional[str] = None
     tipo_componente: str = "TELA"  # TELA, AVIO, SERVICIO, EMPAQUE, OTRO
     talla_id: Optional[str] = None
     etapa_id: Optional[str] = None
-    cantidad_base: float
+    cantidad_base: float = 1.0
     merma_pct: float = 0.0
     es_opcional: bool = False
     observaciones: Optional[str] = None
@@ -224,10 +224,11 @@ async def add_bom_linea(bom_id: str, data: BomLineaCreate):
         if not cab:
             raise HTTPException(status_code=404, detail="BOM no encontrado")
 
-        # Verificar inventario existe
-        inv = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", data.inventario_id)
-        if not inv:
-            raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
+        # Verificar inventario si se proporcionó
+        if data.inventario_id:
+            inv = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", data.inventario_id)
+            if not inv:
+                raise HTTPException(status_code=404, detail="Item de inventario no encontrado")
 
         # Calcular cantidad_total
         cantidad_total = round(data.cantidad_base * (1 + data.merma_pct / 100), 4)

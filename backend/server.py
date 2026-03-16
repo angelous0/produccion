@@ -3830,6 +3830,15 @@ async def create_ingreso(input: IngresoInventarioCreate):
         
         # Actualizar stock
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual + $1 WHERE id = $2", cantidad, input.item_id)
+        
+        # Actualizar costo promedio ponderado desde ingresos disponibles
+        await conn.execute("""
+            UPDATE prod_inventario SET costo_promedio = COALESCE((
+                SELECT SUM(cantidad_disponible * costo_unitario) / NULLIF(SUM(cantidad_disponible), 0)
+                FROM prod_inventario_ingresos WHERE item_id = $1 AND cantidad_disponible > 0
+            ), 0) WHERE id = $1
+        """, input.item_id)
+        
         return ingreso
 
 class IngresoUpdateData(BaseModel):
