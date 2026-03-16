@@ -64,7 +64,7 @@ BOM → Explosión → Requerimiento MP (planificación, merma, déficit, costo 
 - `POST /api/bom/explosion/{orden_id}` → generar requerimiento MP
 - `GET /api/bom/requerimiento/{orden_id}` → ver requerimiento
 
-## Estado (Dic 2025)
+## Estado (Mar 2026)
 
 ### Completado
 - [x] Refactorización arquitectónica DB + backend modular
@@ -76,6 +76,9 @@ BOM → Explosión → Requerimiento MP (planificación, merma, déficit, costo 
 - [x] **Explosión BOM → Requerimiento MP** con merma, déficit, costo estimado
 - [x] Frontend requerimiento: cards resumen + tabla + déficit en rojo
 - [x] Testing: 66+ tests (20 Producción + 28 BOM + 18 Explosión) + frontend
+- [x] **Fix: Edición de ingresos** - Dialog modo edición con resumen solo lectura, botón "Actualizar Ingreso", campos bloqueados (item/cantidad)
+- [x] **Fix: Formulario rollos compacto** - Inputs h-7/text-xs, grid optimizado, menos padding
+- [x] **Fix: empresa_id en INSERT de rollos** - Añadido empresa_id al crear rollos en prod_inventario_rollos
 
 ### Backlog P2
 - [ ] Vista drill-down Reporte Item-Estados

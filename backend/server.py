@@ -3814,11 +3814,11 @@ async def create_ingreso(input: IngresoInventarioCreate):
             for rollo_data in rollos_data:
                 rollo_id = str(uuid.uuid4())
                 await conn.execute(
-                    """INSERT INTO prod_inventario_rollos (id, item_id, ingreso_id, numero_rollo, metraje, metraje_disponible, ancho, tono, observaciones, activo, created_at)
-                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+                    """INSERT INTO prod_inventario_rollos (id, item_id, ingreso_id, numero_rollo, metraje, metraje_disponible, ancho, tono, observaciones, activo, created_at, empresa_id)
+                       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
                     rollo_id, input.item_id, ingreso.id, rollo_data.get('numero_rollo', ''), rollo_data.get('metraje', 0),
                     rollo_data.get('metraje', 0), rollo_data.get('ancho', 0), rollo_data.get('tono', ''),
-                    rollo_data.get('observaciones', ''), True, datetime.now()
+                    rollo_data.get('observaciones', ''), True, datetime.now(), input.empresa_id
                 )
         
         # Actualizar stock
