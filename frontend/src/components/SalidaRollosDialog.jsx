@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
-import { Layers, Search, Package, ArrowUpCircle, CheckCircle2 } from 'lucide-react';
+import { Layers, Search, Package, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -46,6 +46,9 @@ export const SalidaRollosDialog = ({
   // Selección de rollos
   const [rollosSeleccionados, setRollosSeleccionados] = useState({});
   // { rolloId: { selected: true, usoParcial: false, metraje: 0 } }
+  
+  // Vista colapsada/expandida
+  const [detalleExpandido, setDetalleExpandido] = useState(false);
 
   // Obtener valores únicos para filtros
   const anchosUnicos = [...new Set(rollos.map(r => r.ancho))].filter(a => a > 0).sort((a, b) => a - b);
@@ -86,6 +89,7 @@ export const SalidaRollosDialog = ({
       setRollosSeleccionados({});
       setFiltroAncho('all');
       setFiltroTono('all');
+      setDetalleExpandido(false);
     }
   }, [open]);
 
@@ -96,6 +100,7 @@ export const SalidaRollosDialog = ({
     setRollosSeleccionados({});
     setFiltroAncho('all');
     setFiltroTono('all');
+    setDetalleExpandido(false);
     fetchRollos(itemId);
   };
 
@@ -299,32 +304,8 @@ export const SalidaRollosDialog = ({
                 </CardContent>
               </Card>
 
-              {/* Lista de Rollos */}
+              {/* Resumen + Lista de Rollos colapsable */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Rollos Disponibles ({rollosFiltrados.length})</Label>
-                  <div className="flex gap-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={seleccionarTodos}
-                      disabled={rollosFiltrados.length === 0}
-                    >
-                      Seleccionar Todos
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={deseleccionarTodos}
-                      disabled={cantidadSeleccionados === 0}
-                    >
-                      Limpiar
-                    </Button>
-                  </div>
-                </div>
-
                 {loading ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Cargando rollos...
@@ -335,89 +316,150 @@ export const SalidaRollosDialog = ({
                     <p>No hay rollos disponibles</p>
                   </div>
                 ) : (
-                  <div className="border rounded-lg divide-y max-h-[300px] overflow-y-auto">
-                    {rollosFiltrados.map((rollo) => {
-                      const seleccion = rollosSeleccionados[rollo.id];
-                      const isSelected = seleccion?.selected;
-                      
-                      return (
-                        <div 
-                          key={rollo.id} 
-                          className={`p-3 transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleRolloSeleccion(rollo.id, rollo)}
-                              data-testid={`checkbox-rollo-${rollo.id}`}
-                            />
-                            <div className="flex-1 grid grid-cols-4 gap-2 items-center">
-                              <div>
-                                <span className="font-mono font-semibold">{rollo.numero_rollo}</span>
-                              </div>
-                              <div>
-                                {rollo.tono ? (
-                                  <Badge variant="outline">{rollo.tono}</Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">Sin tono</span>
-                                )}
-                              </div>
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">Ancho:</span>
-                                <span className="font-mono ml-1">{rollo.ancho}cm</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-mono font-semibold text-green-600">
-                                  {rollo.metraje_disponible?.toFixed(2)}m
-                                </span>
-                              </div>
-                            </div>
+                  <>
+                    {/* Resumen (siempre visible) */}
+                    <div
+                      className="border rounded-lg p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                      onClick={() => setDetalleExpandido(prev => !prev)}
+                      data-testid="resumen-rollos-toggle"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-6">
+                          <div>
+                            <span className="text-sm text-muted-foreground">Rollos disponibles</span>
+                            <p className="text-xl font-bold">{rollosFiltrados.length}</p>
                           </div>
-                          
-                          {/* Opciones cuando está seleccionado */}
-                          {isSelected && (
-                            <div className="mt-3 ml-7 p-2 bg-muted/30 rounded-lg">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    id={`parcial-${rollo.id}`}
-                                    checked={seleccion.usoParcial}
-                                    onCheckedChange={() => toggleUsoParcial(rollo.id)}
-                                  />
-                                  <Label htmlFor={`parcial-${rollo.id}`} className="text-sm cursor-pointer">
-                                    Uso parcial
-                                  </Label>
-                                </div>
-                                
-                                {seleccion.usoParcial ? (
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="number"
-                                      step="0.01"
-                                      min="0.01"
-                                      max={rollo.metraje_disponible}
-                                      value={seleccion.metraje || ''}
-                                      onChange={(e) => updateMetrajeParcial(rollo.id, e.target.value)}
-                                      className="w-24 font-mono"
-                                      placeholder="0.00"
-                                    />
-                                    <span className="text-sm text-muted-foreground">
-                                      de {rollo.metraje_disponible?.toFixed(2)}m
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1 text-sm">
-                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                    <span>Rollo completo: {rollo.metraje_disponible?.toFixed(2)}m</span>
-                                  </div>
-                                )}
+                          <div>
+                            <span className="text-sm text-muted-foreground">Total metraje</span>
+                            <p className="text-xl font-bold font-mono text-green-600">
+                              {rollosFiltrados.reduce((sum, r) => sum + (r.metraje_disponible || 0), 0).toFixed(2)}m
+                            </p>
+                          </div>
+                          {tonosUnicos.length > 1 && (
+                            <div>
+                              <span className="text-sm text-muted-foreground">Tonos</span>
+                              <div className="flex gap-1 mt-0.5">
+                                {tonosUnicos.map(t => (
+                                  <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
+                                ))}
                               </div>
                             </div>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">
+                            {detalleExpandido ? 'Ocultar detalle' : 'Ver detalle'}
+                          </span>
+                          {detalleExpandido
+                            ? <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                            : <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Detalle expandible */}
+                    {detalleExpandido && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm">Seleccionar rollos</Label>
+                          <div className="flex gap-2">
+                            <Button type="button" variant="outline" size="sm"
+                              onClick={seleccionarTodos} disabled={rollosFiltrados.length === 0}>
+                              Seleccionar Todos
+                            </Button>
+                            <Button type="button" variant="ghost" size="sm"
+                              onClick={deseleccionarTodos} disabled={cantidadSeleccionados === 0}>
+                              Limpiar
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="border rounded-lg divide-y max-h-[250px] overflow-y-auto">
+                          {rollosFiltrados.map((rollo) => {
+                            const seleccion = rollosSeleccionados[rollo.id];
+                            const isSelected = seleccion?.selected;
+                            
+                            return (
+                              <div 
+                                key={rollo.id} 
+                                className={`p-3 transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleRolloSeleccion(rollo.id, rollo)}
+                                    data-testid={`checkbox-rollo-${rollo.id}`}
+                                  />
+                                  <div className="flex-1 grid grid-cols-4 gap-2 items-center">
+                                    <div>
+                                      <span className="font-mono font-semibold">{rollo.numero_rollo}</span>
+                                    </div>
+                                    <div>
+                                      {rollo.tono ? (
+                                        <Badge variant="outline">{rollo.tono}</Badge>
+                                      ) : (
+                                        <span className="text-muted-foreground text-sm">Sin tono</span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm">
+                                      <span className="text-muted-foreground">Ancho:</span>
+                                      <span className="font-mono ml-1">{rollo.ancho}cm</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="font-mono font-semibold text-green-600">
+                                        {rollo.metraje_disponible?.toFixed(2)}m
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {isSelected && (
+                                  <div className="mt-3 ml-7 p-2 bg-muted/30 rounded-lg">
+                                    <div className="flex items-center gap-4">
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id={`parcial-${rollo.id}`}
+                                          checked={seleccion.usoParcial}
+                                          onCheckedChange={() => toggleUsoParcial(rollo.id)}
+                                        />
+                                        <Label htmlFor={`parcial-${rollo.id}`} className="text-sm cursor-pointer">
+                                          Uso parcial
+                                        </Label>
+                                      </div>
+                                      
+                                      {seleccion.usoParcial ? (
+                                        <div className="flex items-center gap-2">
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0.01"
+                                            max={rollo.metraje_disponible}
+                                            value={seleccion.metraje || ''}
+                                            onChange={(e) => updateMetrajeParcial(rollo.id, e.target.value)}
+                                            className="w-24 font-mono"
+                                            placeholder="0.00"
+                                          />
+                                          <span className="text-sm text-muted-foreground">
+                                            de {rollo.metraje_disponible?.toFixed(2)}m
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1 text-sm">
+                                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                          <span>Rollo completo: {rollo.metraje_disponible?.toFixed(2)}m</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>

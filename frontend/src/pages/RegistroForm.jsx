@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
@@ -31,7 +32,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
@@ -115,6 +116,9 @@ export const RegistroForm = () => {
 
   // Hilos específicos disponibles
   const [hilosEspecificos, setHilosEspecificos] = useState([]);
+
+  // Salidas agrupadas: items expandidos
+  const [salidasExpandidas, setSalidasExpandidas] = useState({});
 
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
@@ -504,6 +508,29 @@ export const RegistroForm = () => {
 
   const getTotalCostoSalidas = () => {
     return salidasRegistro.reduce((sum, s) => sum + (s.costo_total || 0), 0);
+  };
+
+  // Agrupar salidas por item para vista resumen
+  const salidasAgrupadas = salidasRegistro.reduce((acc, salida) => {
+    const key = salida.item_id || salida.item_nombre;
+    if (!acc[key]) {
+      acc[key] = {
+        item_id: salida.item_id,
+        item_nombre: salida.item_nombre,
+        item_codigo: salida.item_codigo,
+        cantidad_total: 0,
+        costo_total: 0,
+        salidas: [],
+      };
+    }
+    acc[key].cantidad_total += salida.cantidad || 0;
+    acc[key].costo_total += salida.costo_total || 0;
+    acc[key].salidas.push(salida);
+    return acc;
+  }, {});
+
+  const toggleSalidaExpandida = (itemKey) => {
+    setSalidasExpandidas(prev => ({ ...prev, [itemKey]: !prev[itemKey] }));
   };
 
   // ========== LÓGICA DE MOVIMIENTOS DE PRODUCCIÓN ==========
@@ -1105,36 +1132,70 @@ export const RegistroForm = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {salidasRegistro.map((salida) => (
-                              <TableRow key={salida.id} data-testid={`salida-row-${salida.id}`}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <ArrowUpCircle className="h-4 w-4 text-red-500" />
-                                    <div>
-                                      <p className="font-medium">{salida.item_nombre}</p>
-                                      <p className="text-xs text-muted-foreground font-mono">{salida.item_codigo}</p>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-mono font-semibold">
-                                  {salida.cantidad}
-                                </TableCell>
-                                <TableCell className="text-right font-mono">
-                                  {formatCurrency(salida.costo_total)}
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleDeleteSalida(salida.id)}
-                                    data-testid={`delete-salida-${salida.id}`}
+                            {Object.entries(salidasAgrupadas).map(([key, grupo]) => {
+                              const isExpanded = salidasExpandidas[key];
+                              return (
+                                <React.Fragment key={key}>
+                                  {/* Fila resumen del grupo */}
+                                  <TableRow
+                                    className="cursor-pointer hover:bg-muted/40 transition-colors"
+                                    onClick={() => toggleSalidaExpandida(key)}
+                                    data-testid={`salida-grupo-${key}`}
                                   >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        {isExpanded
+                                          ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                                          : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                                        }
+                                        <div>
+                                          <p className="font-medium">{grupo.item_nombre}</p>
+                                          <p className="text-xs text-muted-foreground font-mono">{grupo.item_codigo} &middot; {grupo.salidas.length} salida{grupo.salidas.length > 1 ? 's' : ''}</p>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono font-semibold">
+                                      {grupo.cantidad_total}
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">
+                                      {formatCurrency(grupo.costo_total)}
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                  </TableRow>
+                                  {/* Filas individuales expandidas */}
+                                  {isExpanded && grupo.salidas.map((salida) => (
+                                    <TableRow key={salida.id} className="bg-muted/10" data-testid={`salida-row-${salida.id}`}>
+                                      <TableCell className="pl-10">
+                                        <div className="flex items-center gap-2">
+                                          <ArrowUpCircle className="h-3.5 w-3.5 text-red-400" />
+                                          <span className="text-sm text-muted-foreground">
+                                            {salida.observaciones || `Salida #${salida.id?.slice(0,8)}`}
+                                          </span>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-right font-mono text-sm">
+                                        {salida.cantidad}
+                                      </TableCell>
+                                      <TableCell className="text-right font-mono text-sm">
+                                        {formatCurrency(salida.costo_total)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7"
+                                          onClick={(e) => { e.stopPropagation(); handleDeleteSalida(salida.id); }}
+                                          data-testid={`delete-salida-${salida.id}`}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </React.Fragment>
+                              );
+                            })}
                             <TableRow className="bg-muted/30">
                               <TableCell colSpan={2} className="font-semibold">Total Costo</TableCell>
                               <TableCell className="text-right font-mono font-bold text-primary">
