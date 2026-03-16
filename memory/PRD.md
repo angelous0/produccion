@@ -8,56 +8,78 @@ Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Ma
 - **Frontend**: React + Shadcn UI + Axios
 - **DB**: PostgreSQL (schema `produccion`)
 
+## Modelo de Datos - Relaciones Clave
+
+### Materiales = Items (prod_inventario)
+- Categorias: Telas, Avios, Otros
+- NO se usa para servicios productivos (deprecated)
+
+### Servicios = Servicios de Produccion (prod_servicios_produccion)
+- Catalogo maestro: Corte, Costura, Lavanderia, Bordado, Acabado
+- Se usa en: BOM (lineas SERVICIO), Ruta de Produccion, movimientos de produccion
+
+### Ruta de Produccion (prod_rutas_produccion)
+- Vinculada al Modelo via `ruta_produccion_id`
+- Etapas (JSONB): cada etapa tiene `nombre` (estado) + `servicio_id` (opcional)
+- Las etapas definen los estados validos del registro
+- Unica fuente de verdad para el flujo del registro
+
+### BOM (prod_modelo_bom_linea)
+- Lineas de materiales: usan `inventario_id`
+- Lineas de servicios: usan `servicio_produccion_id` (NO inventario_id)
+- `costo_manual` editable por linea SERVICIO
+
+### Modelo (prod_modelos)
+- `ruta_produccion_id` -> ruta de produccion
+- `servicios_ids` (JSONB) -> legacy, mantener por compatibilidad
+
+### Registro (prod_registros)
+- `modelo_id` -> modelo
+- `estado` -> viene de las etapas de la ruta del modelo
+- Estados disponibles = etapas de la ruta, en orden
+
+## API Endpoints Clave
+
+### BOM
+- `GET/POST /api/bom` - Cabeceras BOM
+- `GET/PUT/DELETE /api/bom/{bom_id}` - Detalle BOM (lineas incluyen servicio_nombre/servicio_tarifa para SERVICIO)
+- `POST /api/bom/{bom_id}/lineas` - Agregar linea (servicio_produccion_id para SERVICIO)
+- `PUT /api/bom/{bom_id}/lineas/{linea_id}` - Actualizar linea
+- `GET /api/bom/{bom_id}/costo-estandar` - Calculo costo (usa costo_manual > servicio_tarifa para SERVICIO)
+- `POST /api/bom/{bom_id}/duplicar` - Duplicar BOM (copia servicio_produccion_id)
+- `POST /api/bom/explosion/{orden_id}` - Explosion BOM
+
+### Registros
+- `GET /api/registros/{id}/estados-disponibles` - Estados de la ruta del modelo (usa_ruta=true)
+
+### Rutas
+- `GET/POST /api/rutas-produccion` - CRUD rutas
+- Etapas: [{nombre, servicio_id (opc), orden}]
+
 ## Funcionalidades Implementadas
 
 ### Core
-- Autenticacion JWT (login/logout)
-- Dashboard principal
-- Gestion de modelos, marcas, tipos, entalles, tallas, colores
-- Inventario FIFO con categorias (Telas, Avios, Servicios)
-- Ingresos y salidas de inventario con rollos
-- Registros / Ordenes de produccion
-- Rutas de produccion con etapas
+- Autenticacion JWT
+- Dashboard, Modelos, Inventario FIFO, Ingresos/Salidas con rollos
+- Registros/Ordenes de produccion
+- Rutas de produccion con etapas nombradas
 
-### BOM (Bill of Materials)
-- CRUD cabecera BOM (crear, editar, eliminar, duplicar)
-- CRUD lineas BOM (TELA, AVIO, SERVICIO, EMPAQUE, OTRO)
-- Selector de items filtrado por tipo de componente
-- Selector de etapas desde ruta de produccion vinculada
-- Reordenamiento manual de lineas
-- Calculo de costo estandar referencial
-- **Costo manual editable para lineas SERVICIO** (Feb 2026)
-- Explosion BOM para generar requerimiento de MP
-- Duplicar BOM a nueva version
+### BOM
+- CRUD lineas (TELA, AVIO, SERVICIO, EMPAQUE, OTRO)
+- Materiales -> selector de items de inventario
+- Servicios -> selector de servicios de produccion (NO items)
+- Costo manual editable por linea SERVICIO
+- Costo estandar referencial, reordenamiento, duplicar, explosion
 
 ### UX/UI
-- Componente NumericInput reutilizable (limpia 0 al hacer click)
-- ScrollToTop automatico al navegar
-- Formulario simplificado para items de tipo Servicio
-- Columna "Valorizado" en inventario
+- NumericInput, ScrollToTop, formulario simplificado para servicios
+- Columna Valorizado en inventario
+- Vista agrupada de salidas en registro (expandible)
+- Buscador de items en salidas (excluye servicios)
 
-### Validacion de Datos
-- Constraint UNIQUE en codigo de item (prod_inventario.codigo)
-
-## Schema DB Relevante
-
-### prod_modelo_bom_linea
-- id, modelo_id, bom_id, inventario_id (nullable)
-- tipo_componente (TELA, AVIO, SERVICIO, EMPAQUE, OTRO)
-- talla_id, etapa_id (nullable)
-- cantidad_base, merma_pct, cantidad_total
-- costo_manual (NUMERIC, nullable) - costo manual para SERVICIO
-- es_opcional, activo, orden, observaciones
-
-## API Endpoints Clave
-- `GET/POST /api/bom` - Cabeceras BOM
-- `GET/PUT/DELETE /api/bom/{bom_id}` - Detalle BOM
-- `POST /api/bom/{bom_id}/lineas` - Agregar linea
-- `PUT /api/bom/{bom_id}/lineas/{linea_id}` - Actualizar linea (incluye costo_manual)
-- `DELETE /api/bom/{bom_id}/lineas/{linea_id}` - Eliminar linea
-- `GET /api/bom/{bom_id}/costo-estandar` - Calculo costo (usa costo_manual para SERVICIO)
-- `POST /api/bom/{bom_id}/duplicar` - Duplicar BOM (copia costo_manual)
-- `POST /api/bom/explosion/{orden_id}` - Explosion BOM
+### Validacion
+- Constraint UNIQUE en codigo de item
+- Sanitizacion de FKs opcionales (empty string -> null)
 
 ## Backlog Priorizado
 
@@ -71,14 +93,6 @@ Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Ma
 - Permisos granulares con usePermissions
 - Exportacion Excel/PDF en varias pantallas
 - Accesibilidad en Dialogs (DialogTitle/DialogDescription)
-- Logica de "borrado inteligente" del BOM (requiere input del usuario)
 
 ## Credenciales de Prueba
 - Usuario: `eduard` / Contrasena: `eduard123`
-
-## Archivos Clave
-- `/app/backend/routes/bom.py`
-- `/app/frontend/src/pages/ModelosBOM.jsx`
-- `/app/frontend/src/components/ui/numeric-input.jsx`
-- `/app/backend/server.py`
-- `/app/backend/db.py`
