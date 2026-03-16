@@ -253,11 +253,27 @@ export const ModelosBOMTab = ({ modeloId }) => {
   useEffect(() => {
     if (!modeloId) return;
     setLoading(true);
+    
+    const loadEtapas = async () => {
+      try {
+        const modRes = await axios.get(`${API}/modelos`);
+        const modelo = (modRes.data || []).find(m => m.id === modeloId);
+        if (modelo?.ruta_produccion_id) {
+          const rutaRes = await axios.get(`${API}/rutas-produccion/${modelo.ruta_produccion_id}`);
+          return (rutaRes.data?.etapas || []).map(e => ({
+            id: e.servicio_id,
+            nombre: e.servicio_nombre || `Etapa ${e.orden + 1}`
+          }));
+        }
+      } catch { /* ignore */ }
+      return [];
+    };
+
     Promise.all([
       fetchCabeceras(),
       axios.get(`${API}/inventario`).then(r => r.data).catch(() => []),
       axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`).then(r => r.data).catch(() => []),
-      axios.get(`${API}/etapas?empresa_id=7`).then(r => r.data).catch(() => []),
+      loadEtapas(),
     ]).then(([cabs, inv, tal, eta]) => {
       setInventario(inv || []);
       setTallas(tal || []);
