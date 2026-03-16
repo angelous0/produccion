@@ -4031,7 +4031,7 @@ async def create_salida(input: SalidaInventarioCreate):
                     detail=f"OP {reg['estado'].lower()}: no se puede crear salidas en una orden {reg['estado'].lower()}"
                 )
             
-            # Buscar requerimiento para validar reserva
+            # Buscar requerimiento para validar reserva (si existe)
             if input.talla_id:
                 req = await conn.fetchrow("""
                     SELECT * FROM prod_registro_requerimiento_mp
@@ -4043,16 +4043,14 @@ async def create_salida(input: SalidaInventarioCreate):
                     WHERE registro_id = $1 AND item_id = $2 AND talla_id IS NULL
                 """, input.registro_id, input.item_id)
             
-            if not req:
-                raise HTTPException(status_code=400, detail="No existe requerimiento para este item/talla. Genera el requerimiento y reserva primero.")
-            
-            # Validar que hay reserva suficiente
-            reserva_pendiente = float(req['cantidad_reservada']) - float(req['cantidad_consumida'])
-            if input.cantidad > reserva_pendiente:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Reserva insuficiente. Reservado pendiente: {reserva_pendiente}, Solicitado: {input.cantidad}. Reserva más antes de consumir."
-                )
+            # Si existe requerimiento, validar reserva suficiente
+            if req:
+                reserva_pendiente = float(req['cantidad_reservada']) - float(req['cantidad_consumida'])
+                if input.cantidad > reserva_pendiente:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Reserva insuficiente. Reservado pendiente: {reserva_pendiente}, Solicitado: {input.cantidad}. Reserva más antes de consumir."
+                    )
         
         # === FIN Validaciones Fase 2 ===
         
@@ -4088,12 +4086,16 @@ async def create_salida(input: SalidaInventarioCreate):
         salida.costo_total = costo_total
         salida.detalle_fifo = detalle_fifo
         
-        # Insertar salida con talla_id
+        # empresa_id para FK de salidas (cont_empresa)
+        empresa_id = item.get('empresa_id') or 7
+        
+        # Insertar salida con talla_id y empresa_id
         await conn.execute(
-            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha, empresa_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
             salida.id, salida.item_id, salida.cantidad, salida.registro_id, salida.talla_id, salida.observaciones,
-            salida.rollo_id, salida.costo_total, json.dumps(salida.detalle_fifo), salida.fecha.replace(tzinfo=None)
+            salida.rollo_id, salida.costo_total, json.dumps(salida.detalle_fifo), salida.fecha.replace(tzinfo=None),
+            empresa_id
         )
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
         
@@ -4213,11 +4215,15 @@ async def create_salida_extra(input: SalidaExtraCreate):
         fecha = datetime.now(timezone.utc)
         observaciones = f"[EXTRA] {input.motivo}. {input.observaciones}".strip()
         
+        # empresa_id para FK de salidas (cont_empresa)
+        empresa_id = item.get('empresa_id') or 7
+        
         await conn.execute(
-            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha, empresa_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
             salida_id, input.item_id, input.cantidad, input.registro_id, input.talla_id, observaciones,
-            input.rollo_id, costo_total, json.dumps(detalle_fifo), fecha.replace(tzinfo=None)
+            input.rollo_id, costo_total, json.dumps(detalle_fifo), fecha.replace(tzinfo=None),
+            empresa_id
         )
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
         

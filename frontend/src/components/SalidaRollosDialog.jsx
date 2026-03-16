@@ -199,6 +199,8 @@ export const SalidaRollosDialog = ({
         exitosos++;
       } catch (error) {
         console.error(`Error procesando rollo ${rollo.rolloData.numero_rollo}:`, error);
+        const msg = error?.response?.data?.detail || 'Error desconocido';
+        toast.error(`Rollo ${rollo.rolloData.numero_rollo}: ${msg}`);
         errores++;
       }
     }
