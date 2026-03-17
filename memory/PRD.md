@@ -49,6 +49,15 @@ Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Ma
 - `POST /api/bom/{bom_id}/duplicar` - Duplicar BOM (copia servicio_produccion_id)
 - `POST /api/bom/explosion/{orden_id}` - Explosion BOM
 
+### Cierre de Produccion (WIP -> PT)
+- `GET /api/registros/{id}/preview-cierre` - Preview de costos antes de cerrar
+- `POST /api/registros/{id}/cierre-produccion` - Ejecutar cierre (crea ingreso PT, actualiza stock, marca CERRADA)
+- `GET /api/registros/{id}/cierre-produccion` - Obtener datos del cierre existente
+- Costos MP: desde `prod_inventario_salidas` (FIFO)
+- Costos Servicios: desde `prod_movimientos_produccion` (fuente unica, consistente con WIP)
+- Otros Costos: desde `prod_registro_costos_servicio` (costos adicionales manuales)
+- Al cerrar: estado_op='CERRADA', libera reservas, crea ingreso en prod_inventario_ingresos
+
 ### Registros
 - `GET /api/registros/{id}/estados-disponibles` - Estados de la ruta del modelo (usa_ruta=true)
 
@@ -76,6 +85,9 @@ Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Ma
 - Columna Valorizado en inventario
 - Vista agrupada de salidas en registro (expandible)
 - Buscador de items en salidas (excluye servicios)
+- Pestana "Materia Prima" renombrada a "Gestion OP" en Registros.jsx
+- Pestana "Costos" renombrada a "Otros Costos" en RegistroDetalleFase2.jsx
+- Preview de cierre muestra detalle de movimientos de produccion (servicios) y 5 columnas de resumen
 
 ### Validacion
 - Constraint UNIQUE en codigo de item
