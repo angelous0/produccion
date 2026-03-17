@@ -23,7 +23,7 @@ import {
 } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { getStatusClass } from '../lib/utils';
@@ -552,9 +552,9 @@ export const Registros = () => {
                   <Eye className="h-4 w-4 mr-2" />
                   Información General
                 </TabsTrigger>
-                <TabsTrigger value="mp" data-testid="tab-materia-prima">
-                  <Package className="h-4 w-4 mr-2" />
-                  Materia Prima
+                <TabsTrigger value="mp" data-testid="tab-gestion-op">
+                  <Cog className="h-4 w-4 mr-2" />
+                  Gestión OP
                 </TabsTrigger>
               </TabsList>
 

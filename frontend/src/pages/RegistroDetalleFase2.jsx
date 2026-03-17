@@ -1370,7 +1370,10 @@ const CostosTab = ({ registroId, empresaId = 6 }) => {
   return (
     <div className="space-y-4" data-testid="costos-tab">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Costos de Servicio</h3>
+        <div>
+          <h3 className="font-semibold">Otros Costos</h3>
+          <p className="text-xs text-muted-foreground">Costos adicionales no cubiertos por los movimientos de producción (ej: flete, empaque)</p>
+        </div>
         <Badge variant="outline" className="font-mono text-base">
           Total: S/ {total.toFixed(2)}
         </Badge>
@@ -1628,10 +1631,39 @@ const CierreTab = ({ registroId, registro, empresaId = 6, onCierreComplete }) =>
         </Card>
       )}
 
+      {/* Detalle Servicios (Movimientos de Producción) */}
+      {preview.movimientos_detalle?.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Servicios de Producción (Movimientos)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Servicio</TableHead>
+                  <TableHead className="text-right">Cantidad</TableHead>
+                  <TableHead className="text-right">Costo Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {preview.movimientos_detalle.map((m, i) => (
+                  <TableRow key={i}>
+                    <TableCell>{m.servicio_nombre || 'Sin nombre'}</TableCell>
+                    <TableCell className="text-right font-mono">{parseFloat(m.cantidad_total || 0).toFixed(0)}</TableCell>
+                    <TableCell className="text-right font-mono">S/ {parseFloat(m.costo_total || 0).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Resumen */}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             <div>
               <p className="text-xs text-muted-foreground uppercase">Costo MP</p>
               <p className="text-lg font-bold font-mono">S/ {preview.costo_mp.toFixed(2)}</p>
@@ -1639,6 +1671,10 @@ const CierreTab = ({ registroId, registro, empresaId = 6, onCierreComplete }) =>
             <div>
               <p className="text-xs text-muted-foreground uppercase">Costo Servicios</p>
               <p className="text-lg font-bold font-mono">S/ {preview.costo_servicios.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Otros Costos</p>
+              <p className="text-lg font-bold font-mono">S/ {(preview.otros_costos || 0).toFixed(2)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground uppercase">Costo Total</p>
@@ -1814,7 +1850,7 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
           </TabsTrigger>
           <TabsTrigger value="costos" data-testid="tab-costos">
             <DollarSign className="h-4 w-4 mr-2" />
-            Costos
+            Otros Costos
           </TabsTrigger>
           <TabsTrigger value="cierre" data-testid="tab-cierre">
             <Lock className="h-4 w-4 mr-2" />

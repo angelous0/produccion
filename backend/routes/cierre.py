@@ -76,15 +76,22 @@ async def preview_cierre(registro_id: str, current_user: dict = Depends(get_curr
             WHERE registro_id = $1
         """, registro_id)
         
-        # Costo servicios
+        # Costo servicios (desde movimientos de producción - fuente única)
         costo_servicios = await conn.fetchval("""
+            SELECT COALESCE(SUM(costo_calculado), 0) FROM prod_movimientos_produccion
+            WHERE registro_id = $1
+        """, registro_id)
+        
+        # Otros costos adicionales (no servicios de producción)
+        otros_costos = await conn.fetchval("""
             SELECT COALESCE(SUM(monto), 0) FROM prod_registro_costos_servicio
             WHERE registro_id = $1
         """, registro_id)
         
         costo_mp = float(costo_mp or 0)
         costo_servicios = float(costo_servicios or 0)
-        costo_total = costo_mp + costo_servicios
+        otros_costos = float(otros_costos or 0)
+        costo_total = costo_mp + costo_servicios + otros_costos
         qty = float(total_prendas) if total_prendas else 0
         costo_unit = costo_total / qty if qty > 0 else 0
         
@@ -109,6 +116,18 @@ async def preview_cierre(registro_id: str, current_user: dict = Depends(get_curr
             ORDER BY i.nombre
         """, registro_id)
         
+        # Detalle de movimientos de producción (servicios)
+        movimientos_detalle = await conn.fetch("""
+            SELECT mp.servicio_id, sp.nombre as servicio_nombre,
+                   SUM(mp.cantidad_recibida) as cantidad_total,
+                   SUM(mp.costo_calculado) as costo_total
+            FROM prod_movimientos_produccion mp
+            LEFT JOIN prod_servicios_produccion sp ON mp.servicio_id = sp.id
+            WHERE mp.registro_id = $1
+            GROUP BY mp.servicio_id, sp.nombre
+            ORDER BY sp.nombre
+        """, registro_id)
+        
         return {
             "registro_id": registro_id,
             "n_corte": reg['n_corte'],
@@ -117,9 +136,11 @@ async def preview_cierre(registro_id: str, current_user: dict = Depends(get_curr
             "qty_terminada": qty,
             "costo_mp": round(costo_mp, 2),
             "costo_servicios": round(costo_servicios, 2),
+            "otros_costos": round(otros_costos, 2),
             "costo_total": round(costo_total, 2),
             "costo_unit_pt": round(costo_unit, 6),
             "salidas_mp_detalle": [row_to_dict(r) for r in salidas_detalle],
+            "movimientos_detalle": [row_to_dict(r) for r in movimientos_detalle],
             "puede_cerrar": qty > 0 and reg.get('pt_item_id') is not None
         }
 
@@ -163,13 +184,19 @@ async def ejecutar_cierre(registro_id: str, data: CierreRegistroInput, current_u
                 WHERE registro_id = $1
             """, registro_id) or 0)
             
-            # Costo servicios
+            # Costo servicios (desde movimientos de producción - fuente única)
             costo_servicios = float(await conn.fetchval("""
+                SELECT COALESCE(SUM(costo_calculado), 0) FROM prod_movimientos_produccion
+                WHERE registro_id = $1
+            """, registro_id) or 0)
+            
+            # Otros costos adicionales
+            otros_costos = float(await conn.fetchval("""
                 SELECT COALESCE(SUM(monto), 0) FROM prod_registro_costos_servicio
                 WHERE registro_id = $1
             """, registro_id) or 0)
             
-            costo_total = costo_mp + costo_servicios
+            costo_total = costo_mp + costo_servicios + otros_costos
             costo_unit_pt = costo_total / qty_terminada
             
             fecha_cierre = data.fecha or date.today()
@@ -242,9 +269,9 @@ async def ejecutar_cierre(registro_id: str, data: CierreRegistroInput, current_u
                 WHERE registro_id = $1 AND estado = 'ACTIVA'
             """, registro_id)
             
-            # Update registro estado
+            # Update registro estado (both estado and estado_op)
             await conn.execute("""
-                UPDATE prod_registros SET estado = 'CERRADA' WHERE id = $1
+                UPDATE prod_registros SET estado = 'CERRADA', estado_op = 'CERRADA' WHERE id = $1
             """, registro_id)
             
             return {

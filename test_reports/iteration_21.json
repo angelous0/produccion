@@ -1,0 +1,94 @@
+{
+  "summary": "Completed testing of cierre flow improvements and UI tab renaming. All 6 requested features verified working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Registros Dialog",
+        "issues": ["Minor: React hydration warning about p > div nesting in Badge component (cosmetic, doesn't affect functionality)"]
+      }
+    ]
+  },
+  "passed_tests": [
+    "Backend: GET /api/registros/{id}/preview-cierre returns costo_servicios=4434.5 from prod_movimientos_produccion (not prod_registro_costos_servicio)",
+    "Backend: GET /api/registros/{id}/preview-cierre returns movimientos_detalle array with service breakdown (Corte: 269.5, Costura: 4165.0)",
+    "Backend: GET /api/registros/{id}/preview-cierre returns otros_costos=0.0 from prod_registro_costos_servicio",
+    "Backend: GET /api/reportes/wip shows consistent costo_servicio=4434.5 matching preview-cierre",
+    "Backend: GET /api/reportes/wip shows consistent costo_mp=7840.0 matching preview-cierre",
+    "Frontend: 'Gestión OP' tab appears in registro detail dialog (renamed from 'Materia Prima')",
+    "Frontend: 'Otros Costos' tab appears inside RegistroDetalleFase2 (renamed from 'Costos')",
+    "Frontend: Cierre tab shows 'Servicios de Producción (Movimientos)' table with Corte (490, S/ 269.50) and Costura (490, S/ 4165.00)",
+    "Frontend: Cierre tab shows 5-column summary: Costo MP (S/ 7840.00), Costo Servicios (S/ 4434.50), Otros Costos (S/ 0.00), Costo Total (S/ 12274.50), Costo Unit PT (S/ 25.0500)"
+  ],
+  "test_report_links": [
+    "Backend API tested via curl/requests",
+    "Frontend tested via Playwright automation"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend cierre.py correctly uses prod_movimientos_produccion for costo_servicios (lines 80-83, 187-190)",
+    "Backend cierre.py correctly uses prod_registro_costos_servicio for otros_costos (lines 85-89, 194-197)",
+    "Backend cierre.py returns movimientos_detalle array with grouped service costs (lines 119-129)",
+    "Frontend Registros.jsx line 555-558: Tab renamed to 'Gestión OP' with Cog icon",
+    "Frontend RegistroDetalleFase2.jsx line 1851-1854: Tab renamed to 'Otros Costos'",
+    "Frontend RegistroDetalleFase2.jsx line 1635-1661: 'Servicios de Producción (Movimientos)' table renders correctly",
+    "Frontend RegistroDetalleFase2.jsx line 1666-1688: 5-column summary shows MP, Servicios, Otros Costos, Total, Unit PT"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (5/5 tests passed)",
+    "frontend": "100% (4/4 UI features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing registro c74d3460-3e8b-4d4c-88e5-06bff012d6f5 (Corte #01) with existing movimientos data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Cierre flow now uses prod_movimientos_produccion for service costs (costo_servicios). prod_registro_costos_servicio is used for otros_costos (additional non-production costs). Tab renames: 'Materia Prima' → 'Gestión OP' in Registros.jsx, 'Costos' → 'Otros Costos' in RegistroDetalleFase2.jsx. The cierre preview shows movimientos_detalle with service breakdown.",
+  "features_verified": {
+    "backend_preview_cierre": {
+      "costo_servicios_from_movimientos": true,
+      "costo_servicios_value": 4434.5,
+      "otros_costos_from_registro_costos": true,
+      "otros_costos_value": 0.0,
+      "movimientos_detalle_present": true,
+      "movimientos_detalle_count": 2,
+      "costo_mp_value": 7840.0,
+      "costo_total_value": 12274.5
+    },
+    "backend_wip_report": {
+      "costo_servicio_matches_preview": true,
+      "costo_mp_matches_preview": true
+    },
+    "frontend_tab_renames": {
+      "gestion_op_tab_visible": true,
+      "otros_costos_tab_visible": true
+    },
+    "frontend_cierre_tab": {
+      "servicios_produccion_movimientos_table": true,
+      "five_column_summary": true
+    }
+  },
+  "test_data_reference": {
+    "registro_id": "c74d3460-3e8b-4d4c-88e5-06bff012d6f5",
+    "registro_n_corte": "01",
+    "movimientos_detalle": [
+      {"servicio_nombre": "Corte", "cantidad_total": 490, "costo_total": 269.5},
+      {"servicio_nombre": "Costura", "cantidad_total": 490, "costo_total": 4165.0}
+    ],
+    "costs_summary": {
+      "costo_mp": 7840.0,
+      "costo_servicios": 4434.5,
+      "otros_costos": 0.0,
+      "costo_total": 12274.5,
+      "costo_unit_pt": 25.05
+    }
+  }
+}
