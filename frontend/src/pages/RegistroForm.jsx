@@ -288,15 +288,36 @@ export const RegistroForm = () => {
 
 
   // Cuando cambia el modelo seleccionado
-  const handleModeloChange = (modeloId) => {
+  const handleModeloChange = async (modeloId) => {
     const modelo = modelos.find(m => m.id === modeloId);
     setModeloSeleccionado(modelo || null);
-    // Auto-fill PT item from modelo
-    setFormData({ 
-      ...formData, 
-      modelo_id: modeloId,
-      pt_item_id: modelo?.pt_item_id || formData.pt_item_id || ''
-    });
+    
+    if (modelo?.pt_item_id) {
+      // Modelo ya tiene PT, auto-completar
+      setFormData({ ...formData, modelo_id: modeloId, pt_item_id: modelo.pt_item_id });
+    } else if (modelo) {
+      // Modelo sin PT, crear automáticamente
+      setFormData({ ...formData, modelo_id: modeloId });
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.post(`${API}/modelos/${modelo.id}/crear-pt`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setFormData(prev => ({ ...prev, pt_item_id: res.data.pt_item_id }));
+        // Refresh modelos to get updated pt_item_id
+        const modelosRes = await axios.get(`${API}/modelos`);
+        setModelos(modelosRes.data);
+        setModeloSeleccionado(modelosRes.data.find(m => m.id === modeloId) || null);
+        // Refresh items inventario for PT selector
+        const itemsRes = await axios.get(`${API}/inventario`);
+        setItemsInventario(itemsRes.data);
+        toast.success(`PT creado automáticamente: ${res.data.pt_item_nombre}`);
+      } catch (err) {
+        console.error('Error creating PT:', err);
+      }
+    } else {
+      setFormData({ ...formData, modelo_id: modeloId });
+    }
   };
 
   const handleEjecutarCierre = async () => {
