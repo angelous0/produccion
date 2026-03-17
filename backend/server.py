@@ -496,7 +496,11 @@ class Modelo(ModeloBase):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class TallaCantidadItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
     talla_id: str
+    nombre: Optional[str] = ""
+    talla_nombre: Optional[str] = ""
+    cantidad: int = 0
 
 
 # ==================== BOM / RECETA ====================
