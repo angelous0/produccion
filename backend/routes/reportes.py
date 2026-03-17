@@ -170,7 +170,7 @@ async def get_wip_valorizado(
 
 @router.get("/reportes/pt-valorizado")
 async def get_pt_valorizado(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -198,7 +198,9 @@ async def get_pt_valorizado(
                         WHERE ing.item_id = i.id AND ing.cantidad_disponible > 0
                     ), 0) as valor_total,
                     (
-                        SELECT COUNT(*) FROM prod_ingreso_pt ipt WHERE ipt.item_pt_id = i.id
+                        SELECT COUNT(*) FROM prod_registro_cierre c
+                        JOIN prod_registros r ON c.registro_id = r.id
+                        WHERE r.pt_item_id = i.id
                     ) as total_cierres
                 FROM prod_inventario i
                 WHERE i.empresa_id = $1 
