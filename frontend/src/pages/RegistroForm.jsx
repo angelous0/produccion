@@ -738,7 +738,7 @@ export const RegistroForm = () => {
             <div class="header">
               <h1>GUÍA DE REMISIÓN</h1>
               <div class="numero">${guia.numero}</div>
-              <div class="fecha">Fecha: ${guia.fecha_emision}</div>
+              <div class="fecha">Fecha: ${guia.fecha_emision ? guia.fecha_emision.split('-').reverse().join('/') : ''}</div>
             </div>
             
             <div class="info-grid">
@@ -1283,12 +1283,12 @@ export const RegistroForm = () => {
                                       {mov.fecha_inicio && (
                                         <div className="flex items-center justify-center gap-1">
                                           <Calendar className="h-3 w-3" />
-                                          {mov.fecha_inicio}
+                                          {mov.fecha_inicio.split('-').reverse().join('/')}
                                         </div>
                                       )}
                                       {mov.fecha_fin && (
                                         <div className="text-muted-foreground">
-                                          → {mov.fecha_fin}
+                                          → {mov.fecha_fin.split('-').reverse().join('/')}
                                         </div>
                                       )}
                                     </div>
