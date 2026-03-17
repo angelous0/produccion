@@ -1,0 +1,81 @@
+{
+  "summary": "Completed testing of PT (Producto Terminado) integration features. All 7 requested features verified working correctly via backend API tests and frontend Playwright automation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/modelos returns pt_item_id, pt_item_nombre, pt_item_codigo for each modelo",
+    "Backend: POST /api/modelos/{id}/crear-pt creates PT item and links to modelo (returns existing if already linked)",
+    "Backend: GET /api/items-pt returns only PT type items (2 options: Sin PT asignado, PT-001 - Eduard)",
+    "Backend: PUT /api/modelos/{id} persists pt_item_id correctly",
+    "Backend: GET /api/inventario shows items with tipo_item='PT'",
+    "Frontend: Modelos dialog Producción tab shows PT selector with 'PT-001 - Eduard' selected",
+    "Frontend: Modelos dialog shows 'Crear PT' button (data-testid='btn-crear-pt')",
+    "Frontend: Modelos dialog shows 'PT vinculado correctamente' message in green",
+    "Frontend: RegistroForm shows 'Artículo PT (Producto Terminado)' label",
+    "Frontend: RegistroForm shows 'Auto-completado desde el modelo' text in green",
+    "Frontend: RegistroForm PT selector shows 'PT-001 - Eduard' auto-filled from modelo",
+    "Frontend: RegistroForm PT selector only shows PT items (Sin artículo PT, PT-001 - Eduard)"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_pt_integration.py",
+    "/app/test_reports/pytest/pytest_pt_integration.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend server.py line 2547-2582: crear_pt_para_modelo endpoint correctly creates PT item with codigo PT-XXX format",
+    "Backend server.py line 2584-2590: get_items_pt endpoint correctly filters by tipo_item='PT'",
+    "Backend server.py line 2094-2096: GET /api/modelos enriches response with pt_item_nombre and pt_item_codigo",
+    "Frontend Modelos.jsx line 188-203: handleCrearPT function correctly calls API and updates form state",
+    "Frontend Modelos.jsx line 496-529: PT selector and Crear PT button in Producción tab implemented correctly",
+    "Frontend RegistroForm.jsx line 254-263: handleModeloChange auto-fills pt_item_id from modelo",
+    "Frontend RegistroForm.jsx line 226-228: fetchRegistro auto-fills PT from modelo if registro doesn't have one",
+    "Frontend RegistroForm.jsx line 991-1011: PT selector implementation with auto-complete message and filtering"
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (6/6 tests passed)",
+    "frontend": "100% (6/6 UI features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing modelo Eduard (3d3f6dd0-bfab-4d79-afe5-2a4cce7f5a87) with PT-001 linked",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "PT integration fully working. Modelo Eduard has PT-001 linked. The registro form auto-fills PT from modelo when editing. PT selector in RegistroForm filters to only show items with tipo_item='PT'. Key test IDs: select-pt-item, btn-crear-pt, btn-guardar-modelo.",
+  "features_verified": {
+    "backend_api": {
+      "get_modelos_pt_fields": true,
+      "post_crear_pt": true,
+      "get_items_pt_filter": true,
+      "put_modelos_pt_persist": true
+    },
+    "frontend_modelos": {
+      "produccion_tab_pt_selector": true,
+      "crear_pt_button": true,
+      "pt_vinculado_message": true
+    },
+    "frontend_registro_form": {
+      "articulo_pt_label": true,
+      "auto_completado_message": true,
+      "pt_auto_fill_from_modelo": true,
+      "pt_selector_filters_only_pt": true
+    }
+  },
+  "test_data_reference": {
+    "modelo_id": "3d3f6dd0-bfab-4d79-afe5-2a4cce7f5a87",
+    "modelo_nombre": "Eduard",
+    "pt_item_id": "0626f7fb-f16a-4099-8578-17c74b22a7ab",
+    "pt_item_codigo": "PT-001",
+    "pt_item_nombre": "Eduard",
+    "registro_id": "c74d3460-3e8b-4d4c-88e5-06bff012d6f5"
+  }
+}

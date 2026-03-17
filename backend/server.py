@@ -486,6 +486,7 @@ class ModeloBase(BaseModel):
     hilo_id: str
     ruta_produccion_id: Optional[str] = None
     servicios_ids: List[str] = []
+    pt_item_id: Optional[str] = None
 
 class ModeloCreate(ModeloBase):
     pass
@@ -2090,6 +2091,9 @@ async def get_modelos():
             d['tela_nombre'] = tela['nombre'] if tela else None
             d['hilo_nombre'] = hilo['nombre'] if hilo else None
             d['ruta_nombre'] = ruta['nombre'] if ruta else None
+            pt_item = await conn.fetchrow("SELECT id, codigo, nombre FROM prod_inventario WHERE id = $1", d.get('pt_item_id')) if d.get('pt_item_id') else None
+            d['pt_item_nombre'] = pt_item['nombre'] if pt_item else None
+            d['pt_item_codigo'] = pt_item['codigo'] if pt_item else None
             result.append(d)
         return result
 
@@ -2507,11 +2511,12 @@ async def create_modelo(input: ModeloCreate):
     pool = await get_pool()
     async with pool.acquire() as conn:
         servicios_json = json.dumps(modelo.servicios_ids)
+        pt_item_id = modelo.pt_item_id or None
         await conn.execute(
             """INSERT INTO prod_modelos (id, nombre, marca_id, tipo_id, entalle_id, tela_id, hilo_id, 
-               ruta_produccion_id, servicios_ids, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+               ruta_produccion_id, servicios_ids, pt_item_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
             modelo.id, modelo.nombre, modelo.marca_id, modelo.tipo_id, modelo.entalle_id, modelo.tela_id,
-            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, modelo.created_at.replace(tzinfo=None)
+            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.created_at.replace(tzinfo=None)
         )
     return modelo
 
@@ -2523,11 +2528,12 @@ async def update_modelo(modelo_id: str, input: ModeloCreate):
         if not result:
             raise HTTPException(status_code=404, detail="Modelo no encontrado")
         servicios_json = json.dumps(input.servicios_ids)
+        pt_item_id = input.pt_item_id or None
         await conn.execute(
             """UPDATE prod_modelos SET nombre=$1, marca_id=$2, tipo_id=$3, entalle_id=$4, tela_id=$5, hilo_id=$6,
-               ruta_produccion_id=$7, servicios_ids=$8 WHERE id=$9""",
+               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9 WHERE id=$10""",
             input.nombre, input.marca_id, input.tipo_id, input.entalle_id, input.tela_id, input.hilo_id,
-            input.ruta_produccion_id, servicios_json, modelo_id
+            input.ruta_produccion_id, servicios_json, pt_item_id, modelo_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
@@ -2537,6 +2543,52 @@ async def delete_modelo(modelo_id: str):
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM prod_modelos WHERE id = $1", modelo_id)
         return {"message": "Modelo eliminado"}
+
+@api_router.post("/modelos/{modelo_id}/crear-pt")
+async def crear_pt_para_modelo(modelo_id: str):
+    """Auto-crea un Artículo PT para el modelo y lo vincula"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
+        if not modelo:
+            raise HTTPException(status_code=404, detail="Modelo no encontrado")
+        
+        if modelo['pt_item_id']:
+            existing = await conn.fetchrow("SELECT id, nombre FROM prod_inventario WHERE id = $1", modelo['pt_item_id'])
+            if existing:
+                return {"message": "El modelo ya tiene un PT vinculado", "pt_item_id": modelo['pt_item_id'], "pt_item_nombre": existing['nombre']}
+        
+        # Generate unique code PT-XXX
+        max_code = await conn.fetchval("SELECT codigo FROM prod_inventario WHERE tipo_item = 'PT' ORDER BY codigo DESC LIMIT 1")
+        if max_code and max_code.startswith('PT-'):
+            try:
+                num = int(max_code.replace('PT-', '')) + 1
+            except ValueError:
+                num = 1
+        else:
+            num = 1
+        nuevo_codigo = f"PT-{num:03d}"
+        
+        pt_id = str(uuid.uuid4())
+        nombre_pt = modelo['nombre']
+        
+        await conn.execute("""
+            INSERT INTO prod_inventario (id, codigo, nombre, tipo_item, unidad_medida, empresa_id, stock_actual, activo)
+            VALUES ($1, $2, $3, 'PT', 'UND', 7, 0, true)
+        """, pt_id, nuevo_codigo, nombre_pt)
+        
+        await conn.execute("UPDATE prod_modelos SET pt_item_id = $1 WHERE id = $2", pt_id, modelo_id)
+        
+        return {"pt_item_id": pt_id, "pt_item_codigo": nuevo_codigo, "pt_item_nombre": nombre_pt}
+
+@api_router.get("/items-pt")
+async def get_items_pt():
+    """Lista solo items de tipo PT para selectores"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id, codigo, nombre FROM prod_inventario WHERE tipo_item = 'PT' AND activo = true ORDER BY nombre")
+        return [row_to_dict(r) for r in rows]
+
 
 # ==================== ENDPOINTS REGISTROS ====================
 

@@ -50,6 +50,7 @@ export const Modelos = () => {
     hilo_id: '',
     ruta_produccion_id: '',
     servicios_ids: [],
+    pt_item_id: '',
   });
 
   // Datos para los selects
@@ -60,6 +61,7 @@ export const Modelos = () => {
   const [hilos, setHilos] = useState([]);
   const [rutas, setRutas] = useState([]);
   const [servicios, setServicios] = useState([]);
+  const [itemsPT, setItemsPT] = useState([]);
 
   const fetchItems = async () => {
     try {
@@ -74,7 +76,7 @@ export const Modelos = () => {
 
   const fetchRelatedData = async () => {
     try {
-      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, srvRes] = await Promise.all([
+      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, srvRes, ptRes] = await Promise.all([
         axios.get(`${API}/marcas`),
         axios.get(`${API}/tipos`),
         axios.get(`${API}/entalles`),
@@ -82,6 +84,7 @@ export const Modelos = () => {
         axios.get(`${API}/hilos`),
         axios.get(`${API}/rutas-produccion`),
         axios.get(`${API}/servicios-produccion`),
+        axios.get(`${API}/items-pt`),
       ]);
       setMarcas(marcasRes.data);
       setTipos(tiposRes.data);
@@ -90,6 +93,7 @@ export const Modelos = () => {
       setHilos(hilosRes.data);
       setRutas(rutasRes.data);
       setServicios(srvRes.data.sort((a, b) => (a.secuencia || 0) - (b.secuencia || 0)));
+      setItemsPT(ptRes.data);
     } catch (error) {
       toast.error('Error al cargar datos relacionados');
     }
@@ -134,6 +138,7 @@ export const Modelos = () => {
       hilo_id: '',
       ruta_produccion_id: '',
       servicios_ids: [],
+      pt_item_id: '',
     });
   };
 
@@ -148,6 +153,7 @@ export const Modelos = () => {
       hilo_id: item.hilo_id,
       ruta_produccion_id: item.ruta_produccion_id || '',
       servicios_ids: item.servicios_ids || [],
+      pt_item_id: item.pt_item_id || '',
     });
     setDialogOpen(true);
   };
@@ -177,6 +183,23 @@ export const Modelos = () => {
         ? formData.servicios_ids.filter(id => id !== servicioId)
         : [...formData.servicios_ids, servicioId],
     });
+  };
+
+  const handleCrearPT = async () => {
+    if (!editingItem) {
+      toast.error('Guarda el modelo primero antes de crear su PT');
+      return;
+    }
+    try {
+      const res = await axios.post(`${API}/modelos/${editingItem.id}/crear-pt`);
+      setFormData({ ...formData, pt_item_id: res.data.pt_item_id });
+      // Refresh PT items list
+      const ptRes = await axios.get(`${API}/items-pt`);
+      setItemsPT(ptRes.data);
+      toast.success(`PT creado: ${res.data.pt_item_nombre} (${res.data.pt_item_codigo})`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear PT');
+    }
   };
 
   return (
@@ -461,6 +484,48 @@ export const Modelos = () => {
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Artículo PT vinculado */}
+                <div className="space-y-2 border-t pt-4">
+                  <Label>Artículo PT (Producto Terminado)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Item de inventario valorizado que se creará al cerrar la producción
+                  </p>
+                  <div className="flex gap-2">
+                    <Select
+                      value={formData.pt_item_id || 'none'}
+                      onValueChange={(value) => setFormData({ ...formData, pt_item_id: value === 'none' ? '' : value })}
+                    >
+                      <SelectTrigger data-testid="select-pt-item" className="flex-1">
+                        <SelectValue placeholder="Seleccionar PT..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin PT asignado</SelectItem>
+                        {itemsPT.map((pt) => (
+                          <SelectItem key={pt.id} value={pt.id}>
+                            {pt.codigo} - {pt.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCrearPT}
+                      data-testid="btn-crear-pt"
+                      title="Crear PT automático con el nombre del modelo"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Crear PT
+                    </Button>
+                  </div>
+                  {formData.pt_item_id && (
+                    <p className="text-xs text-green-600">
+                      PT vinculado correctamente
+                    </p>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

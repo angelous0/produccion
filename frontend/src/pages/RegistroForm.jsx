@@ -222,6 +222,11 @@ export const RegistroForm = () => {
       const modelo = modelosRes.data.find(m => m.id === registro.modelo_id);
       setModeloSeleccionado(modelo || null);
       
+      // Auto-fill PT from modelo if registro doesn't have one
+      if (!registro.pt_item_id && modelo?.pt_item_id) {
+        setFormData(prev => ({ ...prev, pt_item_id: modelo.pt_item_id }));
+      }
+      
       // Cargar estados disponibles para este registro
       await fetchEstadosDisponibles(id);
       
@@ -247,9 +252,14 @@ export const RegistroForm = () => {
 
   // Cuando cambia el modelo seleccionado
   const handleModeloChange = (modeloId) => {
-    setFormData({ ...formData, modelo_id: modeloId });
     const modelo = modelos.find(m => m.id === modeloId);
     setModeloSeleccionado(modelo || null);
+    // Auto-fill PT item from modelo
+    setFormData({ 
+      ...formData, 
+      modelo_id: modeloId,
+      pt_item_id: modelo?.pt_item_id || formData.pt_item_id || ''
+    });
   };
 
   // Agregar talla
@@ -979,6 +989,9 @@ export const RegistroForm = () => {
 
                   <div className="space-y-2">
                     <Label>Artículo PT (Producto Terminado)</Label>
+                    {modeloSeleccionado?.pt_item_id && formData.pt_item_id === modeloSeleccionado.pt_item_id && (
+                      <p className="text-xs text-green-600">Auto-completado desde el modelo</p>
+                    )}
                     <Select
                       value={formData.pt_item_id || ""}
                       onValueChange={(value) => setFormData({ ...formData, pt_item_id: value === "none" ? "" : value })}
@@ -988,7 +1001,7 @@ export const RegistroForm = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">Sin artículo PT</SelectItem>
-                        {itemsInventario.map((item) => (
+                        {itemsInventario.filter(i => i.tipo_item === 'PT').map((item) => (
                           <SelectItem key={item.id} value={item.id}>
                             {item.codigo} - {item.nombre}
                           </SelectItem>
