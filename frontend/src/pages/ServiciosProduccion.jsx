@@ -177,10 +177,10 @@ export const ServiciosProduccion = () => {
 
       const newServicios = arrayMove(servicios, oldIndex, newIndex);
       
-      // Actualizar secuencias localmente primero para UI responsiva
+      // Actualizar orden localmente primero para UI responsiva
       const updatedServicios = newServicios.map((s, index) => ({
         ...s,
-        secuencia: index + 1,
+        orden: index,
       }));
       setServicios(updatedServicios);
 
@@ -190,7 +190,9 @@ export const ServiciosProduccion = () => {
           updatedServicios.map((s) =>
             axios.put(`${API}/servicios-produccion/${s.id}`, {
               nombre: s.nombre,
-              secuencia: s.secuencia,
+              descripcion: s.descripcion || '',
+              tarifa: s.tarifa || 0,
+              orden: s.orden,
             })
           )
         );

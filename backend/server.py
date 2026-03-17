@@ -603,6 +603,7 @@ class ServicioBase(BaseModel):
     nombre: str
     descripcion: str = ""
     tarifa: float = 0
+    orden: Optional[int] = None
 
 class ServicioCreate(ServicioBase):
     pass
@@ -1975,9 +1976,15 @@ async def update_servicio_produccion(servicio_id: str, input: ServicioCreate):
         result = await conn.fetchrow("SELECT * FROM prod_servicios_produccion WHERE id = $1", servicio_id)
         if not result:
             raise HTTPException(status_code=404, detail="Servicio no encontrado")
-        await conn.execute("UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3 WHERE id = $4",
-                          input.nombre, input.descripcion, input.tarifa, servicio_id)
-        return {**row_to_dict(result), **input.model_dump()}
+        if input.orden is not None:
+            await conn.execute(
+                "UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3, orden = $4 WHERE id = $5",
+                input.nombre, input.descripcion, input.tarifa, input.orden, servicio_id)
+        else:
+            await conn.execute(
+                "UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3 WHERE id = $4",
+                input.nombre, input.descripcion, input.tarifa, servicio_id)
+        return {**row_to_dict(result), **input.model_dump(exclude_none=True)}
 
 @api_router.delete("/servicios-produccion/{servicio_id}")
 async def delete_servicio_produccion(servicio_id: str):
