@@ -343,7 +343,7 @@ export const RutasProduccion = () => {
       </Card>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {editingRuta ? 'Editar Ruta' : 'Nueva Ruta de Producción'}
@@ -352,8 +352,8 @@ export const RutasProduccion = () => {
               Define la secuencia de etapas que seguirán los registros
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+            <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0 pr-1">
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre *</Label>
                 <Input
