@@ -104,6 +104,7 @@ async def get_wip_valorizado(
 ):
     """
     Trabajo en Proceso (WIP) valorizado.
+    Calcula WIP directamente desde salidas de inventario y movimientos de producción.
     Solo muestra órdenes con estado_op IN ('ABIERTA', 'EN_PROCESO').
     """
     pool = await get_pool()
@@ -112,8 +113,8 @@ async def get_wip_valorizado(
             SELECT 
                 r.id,
                 r.n_corte,
+                r.estado,
                 r.estado_op,
-                e.nombre as etapa_nombre,
                 m.nombre as modelo_nombre,
                 pt.codigo as pt_codigo,
                 pt.nombre as pt_nombre,
@@ -121,14 +122,15 @@ async def get_wip_valorizado(
                 COALESCE((
                     SELECT SUM(cantidad_real) FROM prod_registro_tallas WHERE registro_id = r.id
                 ), 0) as total_prendas,
-                COALESCE(w.costo_mp, 0) as costo_mp,
-                COALESCE(w.costo_servicio, 0) as costo_servicio,
-                COALESCE(w.costo_total, 0) as costo_wip
+                COALESCE((
+                    SELECT SUM(s.costo_total) FROM prod_inventario_salidas s WHERE s.registro_id = r.id
+                ), 0) as costo_mp,
+                COALESCE((
+                    SELECT SUM(mp.costo_calculado) FROM prod_movimientos_produccion mp WHERE mp.registro_id = r.id
+                ), 0) as costo_servicio
             FROM prod_registros r
             LEFT JOIN prod_modelos m ON r.modelo_id = m.id
             LEFT JOIN prod_inventario pt ON r.pt_item_id = pt.id
-            LEFT JOIN prod_orden_etapa e ON r.etapa_actual_id = e.id
-            LEFT JOIN v_wip_resumen w ON r.id = w.orden_id
             WHERE r.empresa_id = $1 
               AND r.estado_op IN ('ABIERTA', 'EN_PROCESO')
             ORDER BY r.fecha_creacion DESC
@@ -144,7 +146,7 @@ async def get_wip_valorizado(
             d['total_prendas'] = int(d.get('total_prendas') or 0)
             d['costo_mp'] = float(d.get('costo_mp') or 0)
             d['costo_servicio'] = float(d.get('costo_servicio') or 0)
-            d['costo_wip'] = float(d.get('costo_wip') or 0)
+            d['costo_wip'] = round(d['costo_mp'] + d['costo_servicio'], 2)
             
             ordenes.append(d)
             total_mp += d['costo_mp']

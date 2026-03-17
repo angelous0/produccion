@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Package, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const EMPRESA_ID = 7;
+const EMPRESA_ID = 6;
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);
@@ -164,7 +164,7 @@ export function ReporteWIP() {
                 <TableRow key={reg.id}>
                   <TableCell className="font-mono font-semibold">{reg.n_corte}</TableCell>
                   <TableCell>{reg.modelo_nombre}</TableCell>
-                  <TableCell><Badge variant="outline">{reg.estado_op}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{reg.estado || reg.estado_op}</Badge></TableCell>
                   <TableCell>
                     {reg.pt_codigo ? (
                       <span className="font-mono text-sm">{reg.pt_codigo}</span>
