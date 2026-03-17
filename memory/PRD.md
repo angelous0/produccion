@@ -31,10 +31,15 @@ Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Ma
 
 ### Modelo (prod_modelos)
 - `ruta_produccion_id` -> ruta de produccion
+- `pt_item_id` -> item PT vinculado (Producto Terminado)
 - `servicios_ids` (JSONB) -> legacy, mantener por compatibilidad
+- Al crear/editar: puede vincular PT existente o crear automaticamente con nombre del modelo
+- Endpoint: `POST /api/modelos/{id}/crear-pt` (auto-genera PT-XXX con nombre del modelo)
+- Endpoint: `GET /api/items-pt` (solo items tipo PT para selectores)
 
 ### Registro (prod_registros)
 - `modelo_id` -> modelo
+- `pt_item_id` -> se auto-completa desde el modelo al crear/editar
 - `estado` -> viene de las etapas de la ruta del modelo
 - Estados disponibles = etapas de la ruta, en orden
 
