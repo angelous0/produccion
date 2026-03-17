@@ -32,7 +32,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
@@ -390,6 +390,25 @@ export const RegistroForm = () => {
       total += getTotalColor(c.id);
     });
     return total;
+  };
+
+  const handleProrratear = () => {
+    if (coloresSeleccionados.length === 0 || tallasSeleccionadas.length === 0) return;
+    
+    const nuevaMatriz = {};
+    tallasSeleccionadas.forEach(t => {
+      const totalTalla = t.cantidad || 0;
+      const numColores = coloresSeleccionados.length;
+      const base = Math.floor(totalTalla / numColores);
+      const resto = totalTalla % numColores;
+      
+      coloresSeleccionados.forEach((color, index) => {
+        nuevaMatriz[`${color.id}_${t.talla_id}`] = base + (index < resto ? 1 : 0);
+      });
+    });
+    
+    setMatrizCantidades(nuevaMatriz);
+    toast.success('Cantidades prorrateadas equitativamente');
   };
 
   const handleSaveColores = () => {
@@ -1495,9 +1514,21 @@ export const RegistroForm = () => {
             {/* Matriz de cantidades */}
             {tallasSeleccionadas.length > 0 && coloresSeleccionados.length > 0 ? (
               <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                  Distribución por Talla y Color
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Distribución por Talla y Color
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleProrratear}
+                    data-testid="btn-prorratear-colores"
+                  >
+                    <Divide className="h-4 w-4 mr-1" />
+                    Prorratear
+                  </Button>
+                </div>
                 
                 <div className="border rounded-lg overflow-x-auto">
                   <table className="w-full">
