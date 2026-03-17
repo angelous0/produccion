@@ -2668,6 +2668,20 @@ async def update_registro(registro_id: str, input: RegistroCreate):
             """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9 WHERE id=$10""",
             input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, registro_id
         )
+        
+        # Sincronizar prod_registro_tallas con las cantidades del JSON
+        await conn.execute("DELETE FROM prod_registro_tallas WHERE registro_id = $1", registro_id)
+        empresa_id = 7  # FK válido para cont_empresa
+        for t in input.tallas:
+            td = t.model_dump()
+            cant = td.get('cantidad', 0)
+            if cant > 0:
+                await conn.execute(
+                    """INSERT INTO prod_registro_tallas (id, registro_id, talla_id, cantidad_real, empresa_id, created_at, updated_at)
+                       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
+                    str(uuid.uuid4()), registro_id, td['talla_id'], cant, empresa_id
+                )
+        
         return {**row_to_dict(result), **input.model_dump()}
 
 @api_router.delete("/registros/{registro_id}")
