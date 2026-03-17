@@ -176,7 +176,7 @@ export const Inventario = () => {
   };
 
   const hasActiveReservas = (item) => {
-    return item.total_reservado && item.total_reservado > 0;
+    return !!(item.total_reservado && item.total_reservado > 0);
   };
 
   return (
