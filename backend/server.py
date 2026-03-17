@@ -1949,7 +1949,7 @@ async def delete_ruta_produccion(ruta_id: str):
 async def get_servicios_produccion():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_servicios_produccion ORDER BY nombre ASC")
+        rows = await conn.fetch("SELECT * FROM prod_servicios_produccion ORDER BY orden ASC, created_at ASC")
         return [row_to_dict(r) for r in rows]
 
 @api_router.post("/servicios-produccion")
@@ -1957,9 +1957,10 @@ async def create_servicio_produccion(input: ServicioCreate):
     servicio = Servicio(**input.model_dump())
     pool = await get_pool()
     async with pool.acquire() as conn:
+        max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), -1) FROM prod_servicios_produccion")
         await conn.execute(
-            "INSERT INTO prod_servicios_produccion (id, nombre, descripcion, tarifa, created_at) VALUES ($1, $2, $3, $4, $5)",
-            servicio.id, servicio.nombre, servicio.descripcion, servicio.tarifa, servicio.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_servicios_produccion (id, nombre, descripcion, tarifa, orden, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+            servicio.id, servicio.nombre, servicio.descripcion, servicio.tarifa, max_orden + 1, servicio.created_at.replace(tzinfo=None)
         )
     return servicio
 
