@@ -39,7 +39,7 @@ import { NumericInput } from '../components/ui/numeric-input';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const UNIDADES = ['unidad', 'metro', 'kg', 'litro', 'rollo', 'caja', 'par', 'servicio'];
-const CATEGORIAS = ['Telas', 'Avios', 'Otros'];
+const CATEGORIAS = ['Telas', 'Avios', 'PT', 'Otros'];
 
 export const Inventario = () => {
   const [items, setItems] = useState([]);
@@ -49,6 +49,7 @@ export const Inventario = () => {
   const [expandedItemId, setExpandedItemId] = useState(null);
   const [reservasDetalle, setReservasDetalle] = useState(null);
   const [loadingReservas, setLoadingReservas] = useState(false);
+  const [filtroCategoria, setFiltroCategoria] = useState('TODOS');
   const [formData, setFormData] = useState({
     codigo: '',
     nombre: '',
@@ -179,6 +180,12 @@ export const Inventario = () => {
     return !!(item.total_reservado && item.total_reservado > 0);
   };
 
+  const filteredItems = items.filter(item => {
+    if (filtroCategoria === 'TODOS') return true;
+    if (filtroCategoria === 'MP') return item.categoria !== 'PT';
+    return item.categoria === filtroCategoria;
+  });
+
   return (
     <div className="space-y-6" data-testid="inventario-page">
       <div className="flex items-center justify-between">
@@ -193,6 +200,20 @@ export const Inventario = () => {
             Nuevo Item
           </Button>
         </div>
+      </div>
+
+      <div className="flex gap-2" data-testid="filtro-categoria">
+        {['TODOS', 'MP', 'PT'].map((f) => (
+          <Button
+            key={f}
+            variant={filtroCategoria === f ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFiltroCategoria(f)}
+            data-testid={`filtro-${f.toLowerCase()}`}
+          >
+            {f === 'TODOS' ? 'Todos' : f === 'MP' ? 'Materiales (MP/Avíos)' : 'Producto Terminado'}
+          </Button>
+        ))}
       </div>
 
       <Card>
@@ -222,14 +243,14 @@ export const Inventario = () => {
                       Cargando...
                     </TableCell>
                   </TableRow>
-                ) : items.length === 0 ? (
+                ) : filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
-                      No hay items en el inventario
+                      No hay items en esta categoría
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
+                  filteredItems.map((item) => (
                     <>
                       <TableRow key={item.id} className="data-table-row" data-testid={`item-row-${item.id}`}>
                         <TableCell className="p-1">

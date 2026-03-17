@@ -2574,7 +2574,7 @@ async def crear_pt_para_modelo(modelo_id: str):
         
         await conn.execute("""
             INSERT INTO prod_inventario (id, codigo, nombre, tipo_item, categoria, unidad_medida, empresa_id, stock_actual, activo)
-            VALUES ($1, $2, $3, 'PT', 'Producto Terminado', 'UND', 7, 0, true)
+            VALUES ($1, $2, $3, 'PT', 'PT', 'UND', 7, 0, true)
         """, pt_id, nuevo_codigo, nombre_pt)
         
         await conn.execute("UPDATE prod_modelos SET pt_item_id = $1 WHERE id = $2", pt_id, modelo_id)
