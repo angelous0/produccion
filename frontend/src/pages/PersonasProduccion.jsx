@@ -280,11 +280,15 @@ export const PersonasProduccion = () => {
   };
 
   const handleTarifaChange = (servicioId, tarifa) => {
+    // Guardar como número, pero permitir strings parciales como "0." durante edición
+    const numValue = tarifa === '' || tarifa === '0.' || tarifa === '0.0' || tarifa === '0.00' 
+      ? tarifa 
+      : (parseFloat(tarifa) || 0);
     setFormData({
       ...formData,
       servicios: formData.servicios.map(s => 
         s.servicio_id === servicioId 
-          ? { ...s, tarifa: parseFloat(tarifa) || 0 }
+          ? { ...s, tarifa: numValue }
           : s
       ),
     });
@@ -568,7 +572,7 @@ export const PersonasProduccion = () => {
                           <DollarSign className="h-4 w-4 text-green-600" />
                           <NumericInput
                             min="0"
-                            step="0.01"
+                            step="any"
                             value={getServicioTarifa(servicio.id)}
                             onChange={(e) => handleTarifaChange(servicio.id, e.target.value)}
                             placeholder="Tarifa por prenda"
