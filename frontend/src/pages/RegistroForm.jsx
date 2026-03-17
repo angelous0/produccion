@@ -105,6 +105,14 @@ export const RegistroForm = () => {
   const [movimientoDialogOpen, setMovimientoDialogOpen] = useState(false);
   const [editingMovimiento, setEditingMovimiento] = useState(null);
   const [personasFiltradas, setPersonasFiltradas] = useState([]);
+
+  // Cierre de producción
+  const [cierrePreview, setCierrePreview] = useState(null);
+  const [cierreLoading, setCierreLoading] = useState(false);
+  const [cierreExistente, setCierreExistente] = useState(null);
+  const [ejecutandoCierre, setEjecutandoCierre] = useState(false);
+
+  const esUltimaEtapa = estados.length > 0 && formData.estado === estados[estados.length - 1];
   const [movimientoFormData, setMovimientoFormData] = useState({
     servicio_id: '',
     persona_id: '',
@@ -250,6 +258,35 @@ export const RegistroForm = () => {
     }
   }, [id]);
 
+  // Cargar preview de cierre cuando estado es última etapa
+  useEffect(() => {
+    if (!id || !esUltimaEtapa) {
+      setCierrePreview(null);
+      return;
+    }
+    const fetchCierre = async () => {
+      setCierreLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+        // Check if already closed
+        const cierreRes = await axios.get(`${API}/registros/${id}/cierre-produccion`, { headers }).catch(() => ({ data: null }));
+        if (cierreRes.data) {
+          setCierreExistente(cierreRes.data);
+        } else {
+          const previewRes = await axios.get(`${API}/registros/${id}/preview-cierre`, { headers });
+          setCierrePreview(previewRes.data);
+        }
+      } catch (err) {
+        console.error('Error loading cierre:', err);
+      } finally {
+        setCierreLoading(false);
+      }
+    };
+    fetchCierre();
+  }, [id, esUltimaEtapa]);
+
+
   // Cuando cambia el modelo seleccionado
   const handleModeloChange = (modeloId) => {
     const modelo = modelos.find(m => m.id === modeloId);
@@ -261,6 +298,26 @@ export const RegistroForm = () => {
       pt_item_id: modelo?.pt_item_id || formData.pt_item_id || ''
     });
   };
+
+  const handleEjecutarCierre = async () => {
+    if (!window.confirm('¿Estás seguro de ejecutar el cierre de producción? Esta acción creará el ingreso de PT y cerrará la orden.')) return;
+    setEjecutandoCierre(true);
+    try {
+      const token = localStorage.getItem('token');
+      // First save the current state to make sure pt_item_id is persisted
+      await handleSubmit(null, true);
+      await axios.post(`${API}/registros/${id}/cierre-produccion`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Cierre de producción ejecutado exitosamente');
+      navigate('/registros');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al ejecutar cierre');
+    } finally {
+      setEjecutandoCierre(false);
+    }
+  };
+
 
   // Agregar talla
   const handleAddTalla = (tallaId) => {
@@ -824,8 +881,8 @@ export const RegistroForm = () => {
   };
 
   // Guardar registro
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, silentMode = false) => {
+    if (e) e.preventDefault();
     setLoading(true);
     
     try {
@@ -837,15 +894,16 @@ export const RegistroForm = () => {
       
       if (isEditing) {
         await axios.put(`${API}/registros/${id}`, payload);
-        toast.success('Registro actualizado');
+        if (!silentMode) toast.success('Registro actualizado');
       } else {
         await axios.post(`${API}/registros`, payload);
-        toast.success('Registro creado');
+        if (!silentMode) toast.success('Registro creado');
       }
       
-      navigate('/registros');
+      if (!silentMode) navigate('/registros');
     } catch (error) {
       toast.error('Error al guardar registro');
+      throw error; // Re-throw for cierre flow
     } finally {
       setLoading(false);
     }
@@ -954,6 +1012,73 @@ export const RegistroForm = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Panel de Cierre de Producción */}
+                {esUltimaEtapa && (
+                  <div className="rounded-lg border-2 border-green-500/40 bg-green-50 dark:bg-green-950/20 p-5 space-y-4" data-testid="cierre-panel">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
+                        <Package className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-green-800 dark:text-green-400">Cierre de Producción</h3>
+                        <p className="text-xs text-green-600 dark:text-green-500">El registro está en la etapa final. Puedes ejecutar el cierre para generar el ingreso de PT.</p>
+                      </div>
+                    </div>
+
+                    {cierreExistente ? (
+                      <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-4 text-center">
+                        <p className="font-semibold text-green-800 dark:text-green-300">Producción ya cerrada</p>
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                          Costo total: S/ {parseFloat(cierreExistente.costo_total || 0).toFixed(2)}
+                        </p>
+                      </div>
+                    ) : cierreLoading ? (
+                      <div className="text-center py-4 text-green-600">Calculando costos...</div>
+                    ) : cierrePreview ? (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                          <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border">
+                            <p className="text-[10px] uppercase text-muted-foreground">Costo MP</p>
+                            <p className="text-base font-bold font-mono">S/ {cierrePreview.costo_mp.toFixed(2)}</p>
+                          </div>
+                          <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border">
+                            <p className="text-[10px] uppercase text-muted-foreground">Servicios</p>
+                            <p className="text-base font-bold font-mono">S/ {cierrePreview.costo_servicios.toFixed(2)}</p>
+                          </div>
+                          <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border">
+                            <p className="text-[10px] uppercase text-muted-foreground">Otros Costos</p>
+                            <p className="text-base font-bold font-mono">S/ {(cierrePreview.otros_costos || 0).toFixed(2)}</p>
+                          </div>
+                          <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border border-green-300">
+                            <p className="text-[10px] uppercase text-muted-foreground">Total</p>
+                            <p className="text-lg font-bold font-mono text-green-700">S/ {cierrePreview.costo_total.toFixed(2)}</p>
+                          </div>
+                          <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border border-green-300">
+                            <p className="text-[10px] uppercase text-muted-foreground">Unit. PT</p>
+                            <p className="text-lg font-bold font-mono text-green-700">S/ {cierrePreview.costo_unit_pt.toFixed(4)}</p>
+                          </div>
+                        </div>
+
+                        {!cierrePreview.puede_cerrar && (
+                          <p className="text-sm text-amber-600 text-center">
+                            {!formData.pt_item_id ? 'Falta asignar un Artículo PT para poder cerrar.' : 'No hay prendas registradas.'}
+                          </p>
+                        )}
+
+                        <Button
+                          type="button"
+                          className="w-full h-12 text-base bg-green-600 hover:bg-green-700"
+                          disabled={!cierrePreview.puede_cerrar || ejecutandoCierre}
+                          onClick={handleEjecutarCierre}
+                          data-testid="btn-ejecutar-cierre"
+                        >
+                          {ejecutandoCierre ? 'Ejecutando cierre...' : 'Ejecutar Cierre de Producción'}
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
