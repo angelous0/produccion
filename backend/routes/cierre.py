@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api", tags=["cierre"])
 
 
 class CierreRegistroInput(BaseModel):
-    empresa_id: int
+    empresa_id: Optional[int] = None
     fecha: Optional[date] = None
     qty_terminada: Optional[float] = None  # If None, uses total prendas from tallas
 
@@ -200,6 +200,12 @@ async def ejecutar_cierre(registro_id: str, data: CierreRegistroInput, current_u
             costo_unit_pt = costo_total / qty_terminada
             
             fecha_cierre = data.fecha or date.today()
+            # Use empresa_id from data, or from registro, or default valid FK
+            empresa_id = data.empresa_id or reg.get('empresa_id') or 7
+            # Ensure empresa_id is valid for finanzas2.cont_empresa FK
+            valid_empresa = await conn.fetchval("SELECT id FROM finanzas2.cont_empresa WHERE id = $1", empresa_id)
+            if not valid_empresa:
+                empresa_id = await conn.fetchval("SELECT id FROM finanzas2.cont_empresa ORDER BY id LIMIT 1") or 7
             
             # Create PT ingreso
             ingreso_id = str(uuid.uuid4())
@@ -213,7 +219,7 @@ async def ejecutar_cierre(registro_id: str, data: CierreRegistroInput, current_u
                 ingreso_id, reg['pt_item_id'], qty_terminada, costo_unit_pt,
                 'PRODUCCIÓN', f'CIERRE-{reg["n_corte"]}',
                 f'Cierre producción OP {reg["n_corte"]}', fecha_cierre,
-                data.empresa_id, 'PROD_CIERRE', registro_id, f'OP-{reg["n_corte"]}'
+                empresa_id, 'PROD_CIERRE', registro_id, f'OP-{reg["n_corte"]}'
             )
             
             # Update PT item stock
@@ -231,7 +237,7 @@ async def ejecutar_cierre(registro_id: str, data: CierreRegistroInput, current_u
                  costo_servicios, costo_total, costo_unit_pt, pt_ingreso_id)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             """,
-                cierre_id, data.empresa_id, registro_id, fecha_cierre,
+                cierre_id, empresa_id, registro_id, fecha_cierre,
                 qty_terminada, costo_mp, costo_servicios, costo_total,
                 costo_unit_pt, ingreso_id
             )

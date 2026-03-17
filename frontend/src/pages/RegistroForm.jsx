@@ -312,7 +312,7 @@ export const RegistroForm = () => {
       toast.success('Cierre de producción ejecutado exitosamente');
       navigate('/registros');
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al ejecutar cierre');
+      toast.error(typeof err.response?.data?.detail === 'string' ? err.response.data.detail : 'Error al ejecutar cierre');
     } finally {
       setEjecutandoCierre(false);
     }
