@@ -63,12 +63,17 @@ async def create_costo_servicio(registro_id: str, data: CostoServicioCreate, cur
         if reg['estado'] in ('CERRADA', 'ANULADA'):
             raise HTTPException(status_code=400, detail=f"OP {reg['estado']}: no se pueden agregar costos")
         
+        # Usar empresa_id válida de cont_empresa (FK a finanzas2.cont_empresa)
+        empresa_id_valida = await conn.fetchval(
+            "SELECT id FROM finanzas2.cont_empresa ORDER BY id LIMIT 1"
+        ) or 7
+        
         row = await conn.fetchrow("""
             INSERT INTO prod_registro_costos_servicio 
             (empresa_id, registro_id, fecha, descripcion, proveedor_texto, monto, fin_origen_tipo, fin_origen_id)
             VALUES ($1, $2, COALESCE($3, CURRENT_DATE), $4, $5, $6, $7, $8)
             RETURNING *
-        """, data.empresa_id, registro_id, data.fecha, data.descripcion,
+        """, empresa_id_valida, registro_id, data.fecha, data.descripcion,
             data.proveedor_texto, data.monto, data.fin_origen_tipo, data.fin_origen_id)
         
         return row_to_dict(row)
