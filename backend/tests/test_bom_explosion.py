@@ -15,7 +15,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://bom-pricing-update.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://registro-complete.preview.emergentagent.com').rstrip('/')
 
 # Test data from problem statement
 ORDER_WITH_BOM_ID = "b4d2080f-9e01-4380-ba54-809b1da8f2fa"  # n_corte=10, 500 prendas, has 3 requerimiento lines

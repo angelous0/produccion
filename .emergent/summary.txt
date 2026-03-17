@@ -1,81 +1,89 @@
 <analysis>**original_problem_statement:**
-El usuario solicitó una refactorización arquitectónica masiva del módulo de Producción Textil para separar los dominios, normalizar las tablas, introducir una tipificación fuerte de ítems y aclarar la lógica de costos y flujo de producción. El objetivo era establecer una base sólida y extensible antes de continuar con nuevas funcionalidades.
+A lo largo de la sesión, el usuario ha solicitado una serie de correcciones, mejoras y una refactorización arquitectónica clave, culminando en una pregunta sobre el flujo de finalización de producción.
 
-**PRODUCT REQUIREMENTS:**
-- **A) Estructura por Dominios:** Separar la lógica monolítica de  en routers modulares para inventario, órdenes de producción, consumo, servicios, etc.
-- **B) Tipificación de Ítems:** Refactorizar el maestro de inventario para usar un  estricto (, , , ) en lugar de campos de texto libre.
-- **C) Gestión de Rollos de Tela:** Implementar un sistema de trazabilidad por rollos para ítems de tela, donde cada rollo tenga su propio saldo y costo. El consumo debe descontar de rollos específicos.
-- **D) Entidades Claras:** Refactorizar las tablas para que cada una tenga una única responsabilidad.
-    - : Para la orden de producción.
-    - : Para registrar salidas de materia prima.
-    - : Para costos de servicios externos, sin tratarlos como inventario.
-    - : Para trazar el costo acumulado de una orden (MP + Servicios).
-    - : Para registrar el cierre de una orden y su costo final.
-    - : Para registrar el ingreso a inventario del producto terminado resultante del cierre.
-- **E) Flujo de Costos:** El costo de una orden debe ser la suma de los consumos de MP (FIFO o por rollo) y los servicios externos. El cierre de la orden calcula el costo unitario final del producto terminado.
-- **F) Migración de Datos:** Migrar los datos existentes a la nueva estructura de tablas, creando backups de las tablas antiguas.
+1.  **Refactorización Arquitectónica (Solicitud Principal):** Separar Servicios de Producción de Items de Inventario.
+    *   Los Items deben ser solo para materiales (MP, Avío, PT). El tipo  debe ser deprecado.
+    *   El BOM para líneas de servicio debe usar un  de un nuevo catálogo maestro, no un .
+    *   La Ruta de Producción se vincula a un Modelo y define la secuencia exacta de estados/etapas (ej: 'Para Corte', 'Corte', 'Almacén').
+    *   El Estado del Registro debe ser un selector que solo muestre las etapas de la Ruta de Producción del modelo asociado, en el orden correcto.
+
+2.  **Corrección de Bugs:**
+    *   Error al guardar un nuevo registro ( por enviar  en vez de ).
+    *   Error al procesar salidas de materia prima desde un registro (se exigía un requerimiento previo y faltaba ).
+    *   El reporte de WIP en proceso aparecía vacío (la consulta era incorrecta y había una inconsistencia de ).
+    *   Al guardar un registro, la cantidad por talla se reseteaba a cero (bug en el modelo Pydantic y falta de sincronización con la tabla ).
+    *   El orden de los Servicios de Producción se alteraba alfabéticamente al crear uno nuevo.
+    *   El diálogo para editar Rutas de Producción no tenía scroll, ocultando el botón de guardar al añadir muchas etapas.
+
+3.  **Mejoras de UX:**
+    *   En el formulario de registro, agrupar las salidas de inventario por ítem, mostrando una sumatoria colapsable.
+    *   En el diálogo de Nueva Salida de Inventario, añadir un buscador para los ítems y filtrar para excluir los de tipo Servicio.
+
+4.  **Pregunta Funcional (Última Solicitud):**
+    *   ¿Cómo culmina un registro su proceso para convertirse en Producto Terminado, entrar al inventario valorizado de PT y salir del reporte de WIP en proceso?
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-Se completó una refactorización masiva del backend y la base de datos.
-- **Base de Datos:** Se creó un nuevo schema  en la base de datos correcta (puerto ). Las tablas antiguas del schema  se migraron al nuevo schema y se crearon nuevas tablas normalizadas (, , , , , ) para soportar la nueva arquitectura. Se corrigieron problemas de conexión que apuntaban a una BD incorrecta (puerto ).
-- **Backend:** La lógica monolítica de  se ha comenzado a modularizar creando nuevos routers para , , , , ,  y . La configuración de la conexión a la BD se centralizó en , eliminando fallbacks y asegurando que toda la aplicación apunte al schema .
-- **Flujo y Datos:** Se creó un dataset de prueba limpio para la  y se validó el flujo completo de producción de extremo a extremo: Ingreso de MP, Consumo de MP, registro de Servicio, cálculo de WIP, Cierre de la orden y el correspondiente Ingreso de Producto Terminado, con los reportes de valorización reflejando los datos correctamente.
-- **Frontend:** Se realizaron ajustes menores para que las páginas de reportes y detalles usen la  por defecto y apunten a los nuevos endpoints de la API.
+La aplicación ha pasado por una refactorización significativa. La lógica de negocio ahora distingue claramente entre Items (materiales) y Servicios de Producción (procesos). El BOM, las Rutas de Producción y el estado de los Registros de producción se han alineado con esta nueva arquitectura. Se corrigieron múltiples bugs críticos relacionados con el guardado de datos, el procesamiento de salidas de inventario y la visualización de reportes (WIP). La UX ha sido mejorada con selectores con búsqueda y vistas agrupadas/colapsables. Todos los cambios anteriores fueron implementados y probados. El sistema está ahora estable y listo para implementar el flujo de finalización de producción.
 
 **Last working item**:
-- Last item agent was working: El agente estaba depurando un conflicto de rutas en la API. Identificó que dos routers,  (el antiguo) y  (el nuevo), definían un endpoint en la misma ruta . Esto causaba que la versión antigua de la API respondiera, devolviendo un formato de datos incorrecto al frontend. El agente estaba a punto de solucionar este conflicto.
-- Status: IN PROGRESS
+- Last item agent was working: Investigar y definir el proceso para que un registro de producción finalice su ciclo, se convierta en Producto Terminado (PT) y actualice el inventario, saliendo del Work-In-Progress (WIP).
+- Status: NOT STARTED
 - Agent Testing Done: N
-- Which testing method agent to use? backend testing agent
+- Which testing method agent to use? both. Se necesitarán pruebas de backend (curl) para verificar la lógica de cierre, la creación del ingreso de PT y la actualización del estado. Se requerirá un screenshot para validar cualquier cambio en la UI (ej. un botón de Finalizar Producción).
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: **Conflicto de rutas para el endpoint de WIP** (P0)
+  - Issue 1: **Implementar el flujo de finalización de un registro de producción (WIP a PT)** (P0)
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: El agente identificó que  (línea 73) y  definen la ruta . El router antiguo () se incluye primero en , por lo que su implementación es la que responde, causando el error.
+     - Attempted fixes: Ninguno. El agente estaba en la fase de investigación, revisando los archivos relevantes (, , ) para entender el estado actual antes de proponer una solución.
      - Next debug checklist: 
-        1. Renombrar o comentar la ruta conflictiva en el router antiguo ().
-        2. Reiniciar el backend.
-        3. Probar el endpoint  con  para confirmar que el nuevo router () responde con el formato correcto.
-     - Why fix this issue and what will be achieved with the fix?: Unificar la API para que solo exista una fuente de verdad para los reportes, asegurando que el frontend reciba datos consistentes y la aplicación funcione correctamente.
-     - Status:  IN PROGRESS
+        1.  **(Backend)** En  o , determinar cuál es la etapa final de una ruta de producción (ej. la última etapa o una con un flag ).
+        2.  **(Backend)** En , modificar el endpoint . Cuando el  de un registro se actualice a la etapa final:
+            *   Cambiar el  del registro a 'CERRADA' o 'TERMINADO'.
+            *   Calcular el costo final total del WIP para ese registro (suma de costos de MP y servicios).
+            *   Generar un ingreso de inventario para el Producto Terminado ( del registro) en la tabla , usando el costo calculado. La cantidad será la suma de las tallas del registro.
+            *   Esto hará que el registro ya no aparezca en el reporte WIP.
+        3.  **(Frontend)** En , considerar añadir un botón Finalizar Producción que solo se active cuando el registro esté en la penúltima etapa de su ruta. Este botón se encargaría de actualizar el estado a la etapa final.
+        4.  **(Frontend)** Actualizar el selector de estado para que no permita seleccionar manualmente la etapa final, forzando el uso del nuevo botón.
+     - Why fix this issue and what will be achieved with the fix?: Este es el paso final y crucial del ciclo de producción. Permitirá que los productos fabricados se reflejen correctamente en el inventario de productos terminados con su costo real de producción, y limpiará el reporte de trabajos en proceso (WIP).
+     - Status:  NOT STARTED
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? backend
+     - Should Test frontend/backend/both after fix? both
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - Task 1: **Consolidar y ajustar el módulo de Producción** (P1)
-  
- Task Detail:
-  - Task 1: 
-     - Where to resume: Después de resolver el conflicto de rutas del WIP (Issue 1), continuar con la validación de los reportes y la prueba de múltiples rollos.
-     - What will be achieved with this?: Dejar el módulo de producción en un estado funcionalmente sólido, coherente y listo para pruebas más exhaustivas por parte del usuario, antes de pasar a la integración con Finanzas.
-     - Status:  IN PROGRESS
-     - Should Test frontend/backend/both after fix? both
-     - Blocked on something: Issue 1
+  - None
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
-    - **(P1)** Validar el consumo de tela con un caso de prueba más realista, usando múltiples rollos del mismo ítem y verificando la actualización de saldos y costos.
-    - **(P2)** Finalizar los ajustes en el frontend para asegurar que todos los componentes y vistas operen correctamente con .
-    - **(P2)** Implementar vista de detalle (drill-down) en el Reporte Item-Estados.
-    - **(P2)** Añadir filtros y ordenamiento avanzados a la tabla del Reporte Item-Estados.
-    - **(P3)** Continuar la refactorización de  para mover la lógica legacy restante a sus respectivos routers.
+    - **(P2)** Limpiar líneas BOM huérfanas del schema antiguo (si se restaura data antigua).
 - **Future Tasks**:
+    - **(P3)** Implementar la conexión del módulo de Producción con el de Finanzas.
     - **(P3)** Crear el reporte de Productividad por persona/servicio.
-    - **(P3)** Implementar la capacidad de reordenar tallas con drag-and-drop en los formularios.
-    - **(P4)** Implementar la conexión del módulo de Producción con el de Finanzas.
+    - **(P3)** Implementar la capacidad de reordenar tallas con drag-and-drop.
+    - **(P3)** Aplicar permisos granulares en toda la UI con el hook .
+    - **(P3)** Finalizar la funcionalidad de exportación a Excel/PDF en varias pantallas.
 
 **Completed work in this session**
-- **Refactorización Arquitectónica del Módulo de Producción**: Se reestructuró la base de datos a un nuevo schema () y se normalizaron las tablas (, , , etc.).
-- **Modularización del Backend**: Se dividió gran parte de la lógica de  en routers por dominio (, , , etc.).
-- **Corrección de Conexión a BD**: Se solucionaron problemas críticos de conexión, unificando la configuración para usar el puerto  y el schema  de forma consistente.
-- **Validación del Flujo E2E**: Se creó un dataset de prueba y se validó con éxito el flujo completo: Ingreso MP → Consumo MP → Servicio → WIP → Cierre → Ingreso PT.
-- **Ajustes de Reportes y Frontend**: Se corrigió el query del reporte WIP para excluir órdenes cerradas y se iniciaron los ajustes en el frontend para usar la .
+- **Refactorización Arquitectónica Clave**: Separado el concepto de Servicios de Producción de Items.
+  - El BOM ahora usa  para servicios (, ).
+  - El estado del registro ahora se basa en las etapas de la Ruta de Producción asociada al modelo ().
+  - El formulario de creación de Items ya no permite crear items de tipo Servicio ().
+  - Se realizó una migración de datos para actualizar las líneas de BOM existentes ().
+- **Corrección de Bugs Críticos**:
+  - Solucionado error al guardar registros con FKs vacías ().
+  - Solucionado error en salidas de materia prima (lógica de requerimiento y ) ().
+  - Corregido reporte de WIP que aparecía vacío ().
+  - Corregido bug que reseteaba a 0 las cantidades por talla al guardar un registro ().
+  - Arreglado el ordenamiento en el maestro de Servicios de Producción ().
+  - Añadido scroll al diálogo de edición de Rutas de Producción ().
+- **Mejoras de UX**:
+  - Vista agrupada y colapsable para salidas de inventario en el formulario de registro ().
+  - Selector de ítems con buscador y filtro en el diálogo de nueva salida de inventario ().
 
 **Earlier issues found/mentioned but not fixed**
    - Issue 1: **Clarificar e implementar la lógica de borrado inteligente del BOM**. (BLOCKED - requiere input del usuario).
@@ -84,79 +92,71 @@ Se completó una refactorización masiva del backend y la base de datos.
 
 **Known issue recurrence from previous fork**
   - Issue recurrence in previous fork: El problema de accesibilidad en los componentes  (falta de  y ) sigue sin abordarse.
-  - Recurrence count: 6
+  - Recurrence count: 8
   - Status: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend**: FastAPI, AsyncPG, PostgreSQL. Se aplicó un refactor con enfoque en Domain-Driven Design, separando la lógica en routers modulares. Se trabajó intensivamente con esquemas (, ) y migraciones de datos en PostgreSQL.
-- **Frontend**: React, .
+- **Refactor Arquitectónico**: Desacoplamiento de conceptos de negocio (Items vs. Servicios), migrando la lógica en DB, backend y frontend.
+- **Sincronización de Datos**: Implementación de lógica en el backend para mantener sincronizada una tabla relacional () con datos de un campo JSONB ().
+- **Cálculo de Reportes en Tiempo Real**: El reporte WIP ahora calcula los costos al momento de la consulta () uniendo múltiples tablas, en lugar de depender de una tabla intermedia que no se actualizaba.
+- **Flujo de Estado Dirigido por Datos**: El estado de un registro de producción ahora es dinámico y se basa en la configuración de la Ruta de Producción asociada a su modelo.
 
 **key DB schema**
-- ****: Tabla central para órdenes de producción (evolución de ).
-- ****: (NUEVA) Catálogo de etapas del proceso productivo (Corte, Costura, etc.).
-- ****: Se añadió  (, , etc.) y .
-- ****: Se normalizó para incluir , , .
-- ****: (NUEVA) Registra el consumo de materia prima por orden, con referencia a .
-- ****: (NUEVA) Registra los costos de servicios externos por orden.
-- ****: (NUEVA) Tabla de movimientos que acumula el costo de una orden (Work-In-Process).
-- ****: (NUEVA) Tabla que almacena el resultado del cierre de una orden.
-- ****: (NUEVA) Registra el ingreso del producto terminado al inventario.
+- ****: Añadida columna  (FK a ), deprecando  para servicios.
+- ****: La columna  ahora es la fuente de verdad para el nombre de la etapa.
+- ****: Añadida columna  para ordenamiento manual.
+- ****: Tabla que se sincroniza desde el campo JSONB  para facilitar las consultas.
 
 **changes in tech stack**
 - Ninguno.
 
 **All files of reference**
--  (Lógica de conexión a BD corregida)
--  (Punto de entrada principal de la API)
--  (Script de la migración principal)
--  (Nueva estructura modular del backend)
--  (Frontend ajustado)
--  (Frontend ajustado)
+-  (Clave para la lógica de finalización)
+-  (Contiene la consulta del reporte WIP)
+-  (UI para el registro de producción)
+- 
+- 
+- 
+- 
 
 **Areas that need refactoring**:
-- **Conflicto de Routers**: Los routers  y  tienen rutas en conflicto. Se debe unificar la lógica en  y eliminar/deprecar .
-- ****: Aún contiene una gran cantidad de rutas legacy que deben ser migradas a los nuevos routers modulares para completar la refactorización.
+- La lógica que sincroniza  (JSONB) con  en  debería estar dentro de una transacción de base de datos para garantizar la atomicidad.
+- La compleja consulta del reporte WIP en  podría optimizarse creando una vista materializada () en PostgreSQL que se refresque periódicamente.
 
 **key api endpoints**
-- **Nuevos y Refactorizados**:
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-  - 
-- **En Conflicto**:
-  -  (Implementado en  y )
+-  (Endpoint a modificar para implementar el cierre de producción)
+-  (Endpoint del reporte de trabajo en proceso)
+-  (Endpoint para obtener las rutas de producción y sus etapas)
+-  (Modificado para usar )
+-  (Modificado para no requerir una reserva previa)
 
 **Critical Info for New Agent**
-- **Conexión a BD**: La configuración de la base de datos es crítica. Debe usar **exclusivamente** la  del , que apunta al puerto  y al schema  (configurado vía ). Cualquier desviación a otros puertos (como el  que causó problemas) o schemas romperá la aplicación.
-- **Conflicto de API**: La tarea más inmediata es resolver el conflicto de rutas para  entre  (nuevo) y  (antiguo).
-- **Estado de los Datos**: La base de datos fue purgada y re-poblada con un pequeño conjunto de datos de prueba para la . Todas las pruebas deben realizarse con esta empresa. No hay datos para otras empresas.
-- **Arquitectura**: La aplicación está en medio de una transición de una arquitectura monolítica a una modular. El trabajo debe continuar siguiendo el patrón de nuevos routers y mantener la lógica separada por dominios.
+- La próxima y más importante tarea es implementar el flujo de cierre de producción. El usuario quiere que al mover un registro a su estado final, este se convierta en un Producto Terminado (PT), cree un ingreso de inventario con su costo real de producción, y desaparezca del reporte WIP.
+- La arquitectura acaba de ser refactorizada. Servicios (procesos como 'Corte') ya no son Items. Toda nueva lógica debe respetar esta separación.
+- El estado de un registro () está ahora gobernado por las etapas de la  del modelo. El campo  se usa para el estado general ('ABIERTA', 'EN_PROCESO', 'CERRADA').
 
 **documents and test reports created in this job**
-- 
-- 
+-  (Reporte de la implementación del costo editable en BOM)
+-  (Reporte de la refactorización mayor de Servicios vs Items)
+-  (Actualizado)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-- 10. **Usuario pide consolidar Producción:** Ajustar WIP, frontend para empresa_id=7, validar rollos, revisar reportes y consistencia del cierre.
-- 9. **Agente presenta resumen del flujo validado:** Confirma que el flujo E2E (Ingreso MP a Ingreso PT) funciona con los datos de prueba.
-- 8. **Usuario pide validar el flujo funcional completo:** Crear datos de prueba, ejecutar una prueba integral, y validar los reportes.
-- 7. **Agente confirma que endpoints funcionan pero no hay datos:** Se da cuenta que las tablas están vacías.
-- 6. **Usuario aprueba la corrección de la BD:** Pide continuar con la validación funcional.
-- 5. **Agente resume corrección de BD:** Confirma que la app usa puerto 9090 y schema .
-- 4. **Usuario insiste en corregir la conexión a BD:** Pide eliminar fallbacks y usar puerto 9090 y schema  exclusivamente.
-- 3. **Agente identifica discrepancia en la conexión a BD:** Detecta uso de puertos 9090 y 9091.
-- 2. **Usuario aclara que el schema debe ser :** Pide corregir todo el backend para usar  en lugar de .
-- 1. **Agente aprueba la estructura y pide ajustes:** Pide refinar la estructura de la OP, rollos, consumo, servicios y estados antes de ejecutar.
+- **10. (USER):** Reporta que al actualizar la cantidad de prendas en un registro, el WIP sigue mostrando 0 prendas.
+- **9. (AGENT):** Investiga y descubre que el WIP leía de la tabla  que no se estaba sincronizando con las cantidades del registro.
+- **8. (AGENT):** Implementa la sincronización de la tabla  al guardar el registro.
+- **7. (USER):** Reporta que el diálogo de edición de rutas de producción no tiene scroll.
+- **6. (AGENT):** Corrige el problema de UI añadiendo scroll y un footer fijo al diálogo.
+- **5. (USER):** Pregunta cómo un registro finaliza su proceso para convertirse en Producto Terminado y salir del WIP.
+- **4. (AGENT):** Comienza a investigar la nueva solicitud funcional.
+- **3. (AGENT):** Revisa el formulario de registro ().
+- **2. (AGENT):** Revisa el backend de registros ().
+- **1. (AGENT):** Revisa el backend de reportes () para entender el flujo actual.
 
 **Project Health Check:**
-- **Broken**: No, pero existe un conflicto de rutas en la API que afecta la funcionalidad de los reportes de WIP.
+- **Broken**: Ninguna funcionalidad crítica. El flujo de finalización de producción está pendiente, no roto.
 - **Mocked**: No.
 
 **3rd Party Integrations**
@@ -167,15 +167,14 @@ Se completó una refactorización masiva del backend y la base de datos.
 - 
 
 **Testing status**
-  - Testing agent used after significant changes: NO
+  - Testing agent used after significant changes: YES (usado exitosamente tras la refactorización mayor)
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: No.
-  - Known regressions: El reporte de WIP en el frontend está roto debido al conflicto de rutas en la API.
+  - Test files created: No
+  - Known regressions: Ninguno.
 
 **Credentials to test flow:**
 - **Usuario**: 
 - **Contraseña**: 
-- **Empresa de prueba**: 
 
 **What agent forgot to execute**
-- El agente no olvidó ninguna tarea principal, ya que la refactorización masiva fue la prioridad. Sin embargo, el conflicto de rutas introducido durante la modularización quedó sin resolver al final de la sesión, lo que constituye el siguiente paso inmediato. Las tareas de baja prioridad de la sesión anterior (BOM, Kardex, permisos) fueron correctamente pospuestas.</analysis>
+- El agente ha sido muy metódico, abordando cada bug y solicitud de manera secuencial. No hay tareas pendientes que hayan sido olvidadas de las conversaciones de esta sesión.</analysis>
