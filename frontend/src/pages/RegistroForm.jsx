@@ -896,6 +896,65 @@ export const RegistroForm = () => {
                 <CardTitle className="text-lg">Información General</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* ESTADO - Campo dominante */}
+                <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4" data-testid="estado-banner">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                        <Play className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Estado actual</Label>
+                        {usaRuta && rutaNombre && (
+                          <p className="text-xs text-muted-foreground truncate">Ruta: {rutaNombre}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Select
+                      value={formData.estado}
+                      onValueChange={(value) => setFormData({ ...formData, estado: value })}
+                    >
+                      <SelectTrigger data-testid="select-estado" className="w-[260px] h-11 text-base font-semibold border-primary/40 bg-white dark:bg-zinc-900">
+                        <SelectValue placeholder="Seleccionar estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {estados.map((e, idx) => (
+                          <SelectItem key={e} value={e}>
+                            <span className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground font-mono w-5">{idx + 1}.</span>
+                              {e}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {estados.length > 1 && (
+                    <div className="flex items-center gap-1 mt-3 overflow-x-auto pb-1">
+                      {estados.map((e, idx) => {
+                        const currentIdx = estados.indexOf(formData.estado);
+                        const isPast = idx < currentIdx;
+                        const isCurrent = idx === currentIdx;
+                        return (
+                          <div key={e} className="flex items-center gap-1 shrink-0">
+                            {idx > 0 && <div className={`w-4 h-0.5 ${isPast ? 'bg-primary' : 'bg-muted'}`} />}
+                            <div
+                              className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap cursor-pointer transition-colors ${
+                                isCurrent ? 'bg-primary text-primary-foreground font-semibold' :
+                                isPast ? 'bg-primary/20 text-primary' :
+                                'bg-muted text-muted-foreground'
+                              }`}
+                              onClick={() => setFormData({ ...formData, estado: e })}
+                            >
+                              {e}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="n_corte">N° Corte *</Label>
@@ -955,32 +1014,6 @@ export const RegistroForm = () => {
                         {hilosEspecificos.map((h) => (
                           <SelectItem key={h.id} value={h.id}>
                             {h.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      Estado
-                      {usaRuta && rutaNombre && (
-                        <Badge variant="outline" className="text-xs font-normal">
-                          Ruta: {rutaNombre}
-                        </Badge>
-                      )}
-                    </Label>
-                    <Select
-                      value={formData.estado}
-                      onValueChange={(value) => setFormData({ ...formData, estado: value })}
-                    >
-                      <SelectTrigger data-testid="select-estado">
-                        <SelectValue placeholder="Seleccionar estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {estados.map((e) => (
-                          <SelectItem key={e} value={e}>
-                            {e}
                           </SelectItem>
                         ))}
                       </SelectContent>
