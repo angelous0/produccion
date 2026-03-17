@@ -3890,6 +3890,20 @@ async def get_ingresos():
             d['item_codigo'] = item['codigo'] if item else ""
             rollos_count = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_rollos WHERE ingreso_id = $1", d['id'])
             d['rollos_count'] = rollos_count
+            # Estado de facturación (lee desde finanzas2)
+            qty_facturada = float(await conn.fetchval("""
+                SELECT COALESCE(SUM(cantidad_aplicada), 0) 
+                FROM finanzas2.cont_factura_ingreso_mp 
+                WHERE ingreso_id = $1
+            """, d['id']) or 0)
+            qty_recibida = float(d.get('cantidad') or 0)
+            d['qty_facturada'] = round(qty_facturada, 4)
+            d['qty_pendiente_factura'] = round(max(0, qty_recibida - qty_facturada), 4)
+            d['estado_facturacion'] = (
+                'COMPLETO' if qty_recibida > 0 and (qty_recibida - qty_facturada) <= 0 else
+                'PARCIAL' if qty_facturada > 0 else
+                'PENDIENTE'
+            )
             result.append(d)
         return result
 
@@ -5929,6 +5943,7 @@ from routes.consumo import router as consumo_router
 from routes.servicios import router as servicios_router
 from routes.cierre_v2 import router as cierre_v2_router
 from routes.reportes import router as reportes_router
+from routes.integracion_finanzas import router as integracion_finanzas_router
 
 # ==================== STARTUP/SHUTDOWN ====================
 
@@ -5968,6 +5983,7 @@ app.include_router(consumo_router)
 app.include_router(servicios_router)
 app.include_router(cierre_v2_router)
 app.include_router(reportes_router)
+app.include_router(integracion_finanzas_router)
 
 # BOM router
 from routes.bom import router as bom_router

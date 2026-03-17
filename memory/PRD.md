@@ -43,6 +43,12 @@ Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Ma
 - `estado` -> viene de las etapas de la ruta del modelo
 - Estados disponibles = etapas de la ruta, en orden
 
+### Integración Producción-Finanzas
+- Bridge table: `finanzas2.cont_factura_ingreso_mp`
+- `GET /api/ingresos-mp/para-finanzas` (Finanzas lee ingresos con estado facturación)
+- `GET /api/ingresos-mp/{id}/trazabilidad` (detalle vinculaciones por ingreso)
+- UI: badge Pendiente/Parcial/Facturado en Ingresos
+
 ## API Endpoints Clave
 
 ### BOM

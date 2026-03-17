@@ -107,13 +107,32 @@ async def get_item(
         d = row_to_dict(item)
         d['stock_actual'] = float(d.get('stock_actual') or 0)
         
-        # Lotes disponibles (FIFO)
+        # Lotes disponibles (FIFO) con estado facturación
         ingresos = await conn.fetch("""
-            SELECT * FROM prod_inventario_ingresos 
-            WHERE item_id = $1 AND cantidad_disponible > 0 
-            ORDER BY fecha ASC
+            SELECT i.*,
+                COALESCE((
+                    SELECT SUM(fim.cantidad_aplicada) 
+                    FROM finanzas2.cont_factura_ingreso_mp fim 
+                    WHERE fim.ingreso_id = i.id
+                ), 0) as qty_facturada
+            FROM prod_inventario_ingresos i
+            WHERE i.item_id = $1 AND i.cantidad_disponible > 0 
+            ORDER BY i.fecha ASC
         """, item_id)
-        d['lotes'] = [row_to_dict(i) for i in ingresos]
+        lotes = []
+        for ing in ingresos:
+            ld = row_to_dict(ing)
+            qty_rec = float(ld.get('cantidad') or 0)
+            qty_fac = float(ld.get('qty_facturada') or 0)
+            ld['qty_facturada'] = round(qty_fac, 4)
+            ld['qty_pendiente_factura'] = round(max(0, qty_rec - qty_fac), 4)
+            ld['estado_facturacion'] = (
+                'COMPLETO' if qty_rec > 0 and (qty_rec - qty_fac) <= 0 else
+                'PARCIAL' if qty_fac > 0 else
+                'PENDIENTE'
+            )
+            lotes.append(ld)
+        d['lotes'] = lotes
         
         # Rollos si control_por_rollos
         if d.get('control_por_rollos'):

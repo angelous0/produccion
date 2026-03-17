@@ -251,19 +251,20 @@ export const InventarioIngresos = () => {
                   <TableHead className="text-right">Costo Unit.</TableHead>
                   <TableHead>Proveedor</TableHead>
                   <TableHead>N° Doc.</TableHead>
+                  <TableHead className="text-center">Facturación</TableHead>
                   <TableHead className="w-[80px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : ingresos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No hay ingresos registrados
                     </TableCell>
                   </TableRow>
@@ -301,6 +302,23 @@ export const InventarioIngresos = () => {
                       </TableCell>
                       <TableCell>{ingreso.proveedor || '-'}</TableCell>
                       <TableCell className="font-mono">{ingreso.numero_documento || '-'}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={
+                            ingreso.estado_facturacion === 'COMPLETO' ? 'default' :
+                            ingreso.estado_facturacion === 'PARCIAL' ? 'secondary' : 'outline'
+                          }
+                          className={
+                            ingreso.estado_facturacion === 'COMPLETO' ? 'bg-green-600' :
+                            ingreso.estado_facturacion === 'PARCIAL' ? 'bg-amber-500 text-white' : ''
+                          }
+                          data-testid={`facturacion-${ingreso.id}`}
+                        >
+                          {ingreso.estado_facturacion === 'COMPLETO' ? 'Facturado' :
+                           ingreso.estado_facturacion === 'PARCIAL' ? `Parcial (${ingreso.qty_facturada}/${ingreso.cantidad})` :
+                           'Pendiente'}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
