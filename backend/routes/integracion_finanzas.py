@@ -17,6 +17,23 @@ from typing import Optional
 router = APIRouter(prefix="/api", tags=["integracion-finanzas"])
 
 
+@router.get("/proveedores")
+async def get_proveedores(
+    empresa_id: int = Query(7),
+    current_user: dict = Depends(get_current_user)
+):
+    """Lista proveedores desde finanzas2.cont_tercero"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, nombre, nombre_comercial, tipo_documento, numero_documento
+            FROM finanzas2.cont_tercero 
+            WHERE es_proveedor = true AND empresa_id = $1
+            ORDER BY nombre
+        """, empresa_id)
+        return [row_to_dict(r) for r in rows]
+
+
 @router.get("/ingresos-mp/para-finanzas")
 async def get_ingresos_para_finanzas(
     empresa_id: int = Query(7),

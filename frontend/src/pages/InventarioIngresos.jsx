@@ -48,20 +48,24 @@ export const InventarioIngresos = () => {
     cantidad: 0,
     costo_unitario: 0,
     proveedor: '',
+    proveedor_id: null,
     numero_documento: '',
     observaciones: '',
   });
   // Rollos para items con control_por_rollos
   const [rollos, setRollos] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
 
   const fetchData = async () => {
     try {
-      const [ingresosRes, itemsRes] = await Promise.all([
+      const [ingresosRes, itemsRes, provRes] = await Promise.all([
         axios.get(`${API}/inventario-ingresos`),
         axios.get(`${API}/inventario`),
+        axios.get(`${API}/proveedores`),
       ]);
       setIngresos(ingresosRes.data);
       setItems(itemsRes.data);
+      setProveedores(provRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
@@ -79,6 +83,7 @@ export const InventarioIngresos = () => {
       cantidad: '',
       costo_unitario: '',
       proveedor: '',
+      proveedor_id: null,
       numero_documento: '',
       observaciones: '',
     });
@@ -136,6 +141,7 @@ export const InventarioIngresos = () => {
       cantidad: ingreso.cantidad,
       costo_unitario: ingreso.costo_unitario,
       proveedor: ingreso.proveedor || '',
+      proveedor_id: ingreso.proveedor_id || null,
       numero_documento: ingreso.numero_documento || '',
       observaciones: ingreso.observaciones || '',
     });
@@ -175,6 +181,7 @@ export const InventarioIngresos = () => {
       if (editingIngreso) {
         const updatePayload = {
           proveedor: formData.proveedor,
+          proveedor_id: formData.proveedor_id,
           numero_documento: formData.numero_documento,
           observaciones: formData.observaciones,
           costo_unitario: parseFloat(formData.costo_unitario) || 0,
@@ -553,13 +560,29 @@ export const InventarioIngresos = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="proveedor">Proveedor</Label>
-                  <Input
-                    id="proveedor"
-                    value={formData.proveedor}
-                    onChange={(e) => setFormData({ ...formData, proveedor: e.target.value })}
-                    placeholder="Nombre del proveedor"
-                    data-testid="input-proveedor"
-                  />
+                  <Select
+                    value={formData.proveedor_id ? String(formData.proveedor_id) : 'none'}
+                    onValueChange={(value) => {
+                      if (value === 'none') {
+                        setFormData({ ...formData, proveedor_id: null, proveedor: '' });
+                      } else {
+                        const prov = proveedores.find(p => String(p.id) === value);
+                        setFormData({ ...formData, proveedor_id: parseInt(value), proveedor: prov?.nombre || '' });
+                      }
+                    }}
+                  >
+                    <SelectTrigger data-testid="select-proveedor">
+                      <SelectValue placeholder="Seleccionar proveedor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin proveedor</SelectItem>
+                      {proveedores.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.nombre} {p.numero_documento ? `(${p.numero_documento})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="numero_documento">N° Documento</Label>
