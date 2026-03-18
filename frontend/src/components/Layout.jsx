@@ -118,7 +118,10 @@ const valorizacionItems = [
 
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  useEffect(() => {
+    const el = document.getElementById('main-content');
+    if (el) el.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 }
 
@@ -180,9 +183,9 @@ export const Layout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b flex-shrink-0">
         <div className="flex h-16 items-center px-4 md:px-6">
           <Button
             variant="ghost"
@@ -333,11 +336,11 @@ export const Layout = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex">
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className={`
           fixed inset-y-0 left-0 z-40 transform bg-card border-r pt-16 transition-all duration-300 ease-in-out
-          md:translate-x-0 md:static md:pt-0
+          md:translate-x-0 md:relative md:pt-0 md:flex-shrink-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} w-64
         `}>
@@ -503,7 +506,7 @@ export const Layout = () => {
         )}
 
         {/* Main content */}
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8" id="main-content">
           <ScrollToTop />
           <Outlet />
         </main>
