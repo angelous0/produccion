@@ -23,8 +23,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - Correccion de bugs: empresa_id, ordenamiento servicios, decimales, fechas
 - Boton prorratear cantidades por color
 - Filtros por categoria en Inventario
-- **2026-03-18**: Filtrado de items PT en selectores de Ingresos y Salidas de inventario
-- **2026-03-18**: Proteccion global anti doble-click con hook `useSaving()` en 21 paginas
+- **2026-03-18**: Filtrado de items PT en selectores de Ingresos y Salidas
+- **2026-03-18**: Proteccion anti doble-click con hook `useSaving()` en 21 paginas
+- **2026-03-18**: Fix tarifa_aplicada: nueva columna en BD, backend guarda/devuelve la tarifa del movimiento
+
+## DB Changes
+- `prod_movimientos_produccion`: Agregada columna `tarifa_aplicada NUMERIC(14,4)`
 
 ## Prioritized Backlog
 
@@ -32,6 +36,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Selector proveedores Finanzas en Ingresos
 - [x] Filtrar PT de selectores Ingresos/Salidas
 - [x] Proteccion anti doble-click global (useSaving hook)
+- [x] Fix tarifa_aplicada persistencia en movimientos
 
 ### P1
 - [ ] Logica en modulo Finanzas para vincular ingresos MP a facturas
@@ -53,12 +58,6 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - DB Schemas: produccion (principal), finanzas2 (proveedores, facturas)
 - Auth: JWT con bcrypt
 - Hook reutilizable: useSaving() para proteccion anti doble-click
-
-## Key Files
-- /app/frontend/src/hooks/useSaving.js - Hook anti doble-click
-- /app/frontend/src/pages/RegistroForm.jsx - Formulario principal de registros
-- /app/backend/routes/integracion_finanzas.py - Endpoints integracion Finanzas
-- /app/backend/server.py - Backend principal
 
 ## Key Credentials
 - Usuario: eduard / eduard123

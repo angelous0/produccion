@@ -641,6 +641,7 @@ class MovimientoBase(BaseModel):
     persona_id: str
     cantidad_enviada: int = 0
     cantidad_recibida: int = 0
+    tarifa_aplicada: float = 0
     fecha_inicio: Optional[str] = None
     fecha_fin: Optional[str] = None
     observaciones: str = ""
@@ -4632,13 +4633,14 @@ async def create_movimiento(input: MovimientoCreate):
         if not per:
             raise HTTPException(status_code=404, detail="Persona no encontrada")
         
-        # Calcular tarifa
-        servicios = parse_jsonb(per['servicios'])
-        tarifa = 0
-        for s in servicios:
-            if s.get('servicio_id') == input.servicio_id:
-                tarifa = s.get('tarifa', 0)
-                break
+        # Usar tarifa_aplicada del frontend si viene, sino calcular desde persona-servicio
+        tarifa = input.tarifa_aplicada or 0
+        if not tarifa:
+            servicios = parse_jsonb(per['servicios'])
+            for s in servicios:
+                if s.get('servicio_id') == input.servicio_id:
+                    tarifa = s.get('tarifa', 0)
+                    break
         
         diferencia = input.cantidad_enviada - input.cantidad_recibida
         costo_calculado = input.cantidad_recibida * tarifa
@@ -4661,11 +4663,11 @@ async def create_movimiento(input: MovimientoCreate):
                 pass
         
         await conn.execute(
-            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, fecha_inicio, fecha_fin, observaciones, created_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
+            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, observaciones, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)""",
             movimiento.id, movimiento.registro_id, movimiento.servicio_id, movimiento.persona_id,
             movimiento.cantidad_enviada, movimiento.cantidad_recibida, diferencia, costo_calculado,
-            fecha_inicio, fecha_fin, movimiento.observaciones, movimiento.created_at.replace(tzinfo=None)
+            tarifa, fecha_inicio, fecha_fin, movimiento.observaciones, movimiento.created_at.replace(tzinfo=None)
         )
         
         # Crear merma si hay diferencia
@@ -4688,13 +4690,15 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
         if not result:
             raise HTTPException(status_code=404, detail="Movimiento no encontrado")
         
-        per = await conn.fetchrow("SELECT servicios FROM prod_personas_produccion WHERE id = $1", input.persona_id)
-        servicios = parse_jsonb(per['servicios']) if per else []
-        tarifa = 0
-        for s in servicios:
-            if s.get('servicio_id') == input.servicio_id:
-                tarifa = s.get('tarifa', 0)
-                break
+        # Usar tarifa_aplicada del frontend si viene, sino calcular desde persona-servicio
+        tarifa = input.tarifa_aplicada or 0
+        if not tarifa:
+            per = await conn.fetchrow("SELECT servicios FROM prod_personas_produccion WHERE id = $1", input.persona_id)
+            servicios = parse_jsonb(per['servicios']) if per else []
+            for s in servicios:
+                if s.get('servicio_id') == input.servicio_id:
+                    tarifa = s.get('tarifa', 0)
+                    break
         
         diferencia = input.cantidad_enviada - input.cantidad_recibida
         costo_calculado = input.cantidad_recibida * tarifa
@@ -4716,9 +4720,9 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
                 pass
         
         await conn.execute(
-            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, fecha_inicio=$8, fecha_fin=$9, observaciones=$10 WHERE id=$11""",
+            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, observaciones=$11 WHERE id=$12""",
             input.registro_id, input.servicio_id, input.persona_id, input.cantidad_enviada, input.cantidad_recibida,
-            diferencia, costo_calculado, fecha_inicio, fecha_fin, input.observaciones, movimiento_id
+            diferencia, costo_calculado, tarifa, fecha_inicio, fecha_fin, input.observaciones, movimiento_id
         )
         
         # Crear nueva merma si hay diferencia
@@ -4731,7 +4735,7 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
                 diferencia, "Diferencia automática", datetime.now()
             )
         
-        return {**row_to_dict(result), **input.model_dump(), "diferencia": diferencia, "costo_calculado": costo_calculado}
+        return {**row_to_dict(result), **input.model_dump(), "diferencia": diferencia, "costo_calculado": costo_calculado, "tarifa_aplicada": tarifa}
 
 @api_router.delete("/movimientos-produccion/{movimiento_id}")
 async def delete_movimiento(movimiento_id: str):
