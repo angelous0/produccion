@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Package, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const EMPRESA_ID = 7;
+const EMPRESA_ID = 6;
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);

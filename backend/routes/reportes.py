@@ -170,7 +170,7 @@ async def get_wip_valorizado(
 
 @router.get("/reportes/pt-valorizado")
 async def get_pt_valorizado(
-    empresa_id: int = Query(7),
+    empresa_id: int = Query(6),
     current_user: dict = Depends(get_current_user)
 ):
     """
