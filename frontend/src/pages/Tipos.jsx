@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
@@ -45,6 +46,7 @@ export const Tipos = () => {
   const [items, setItems] = useState([]);
   const [marcas, setMarcas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', marca_ids: [], orden: 0 });
@@ -77,7 +79,7 @@ export const Tipos = () => {
     fetchMarcas();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       if (editingItem) {
@@ -94,7 +96,7 @@ export const Tipos = () => {
     } catch (error) {
       toast.error('Error al guardar tipo');
     }
-  };
+  });
 
   const handleEdit = (item) => {
     setEditingItem(item);
@@ -278,7 +280,7 @@ export const Tipos = () => {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit" data-testid="btn-guardar-tipo">{editingItem ? 'Actualizar' : 'Crear'}</Button>
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-tipo">{editingItem ? 'Actualizar' : 'Crear'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

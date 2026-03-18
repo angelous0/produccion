@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -191,6 +192,7 @@ export const PersonasProduccion = () => {
   const [personas, setPersonas] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPersona, setEditingPersona] = useState(null);
   const [formData, setFormData] = useState({
@@ -303,7 +305,7 @@ export const PersonasProduccion = () => {
     return servicio?.tarifa || 0;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = guard(async () => {
     if (!formData.nombre.trim()) {
       toast.error('El nombre es requerido');
       return;
@@ -326,7 +328,7 @@ export const PersonasProduccion = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     try {
@@ -602,7 +604,7 @@ export const PersonasProduccion = () => {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} data-testid="btn-guardar-persona">
+            <Button onClick={handleSubmit} disabled={saving} data-testid="btn-guardar-persona">
               {editingPersona ? 'Actualizar' : 'Crear'}
             </Button>
           </DialogFooter>

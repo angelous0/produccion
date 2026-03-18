@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -42,6 +43,7 @@ export const MovimientosProduccion = () => {
   const [personas, setPersonas] = useState([]);
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   
   // Filtros
   const [filtroServicio, setFiltroServicio] = useState('');
@@ -172,7 +174,7 @@ export const MovimientosProduccion = () => {
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = guard(async () => {
     if (!formData.servicio_id || !formData.persona_id) {
       toast.error('Selecciona servicio y persona');
       return;
@@ -186,7 +188,7 @@ export const MovimientosProduccion = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al actualizar');
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     try {
@@ -236,7 +238,7 @@ export const MovimientosProduccion = () => {
     return servicio?.tarifa || 0;
   };
 
-  const handleCreateSubmit = async () => {
+  const handleCreateSubmit = guard(async () => {
     if (!createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id) {
       toast.error('Selecciona registro, servicio y persona');
       return;
@@ -250,7 +252,7 @@ export const MovimientosProduccion = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al crear');
     }
-  };
+  });
 
   const limpiarFiltros = () => {
     setFiltroServicio('');
@@ -636,10 +638,10 @@ export const MovimientosProduccion = () => {
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={!formData.servicio_id || !formData.persona_id}
+              disabled={saving || !formData.servicio_id || !formData.persona_id}
               data-testid="btn-actualizar-movimiento"
             >
-              Actualizar
+              {saving ? 'Guardando...' : 'Actualizar'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -806,10 +808,10 @@ export const MovimientosProduccion = () => {
             </Button>
             <Button 
               onClick={handleCreateSubmit}
-              disabled={!createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id}
+              disabled={saving || !createFormData.registro_id || !createFormData.servicio_id || !createFormData.persona_id}
               data-testid="btn-crear-movimiento"
             >
-              Crear Movimiento
+              {saving ? 'Guardando...' : 'Crear Movimiento'}
             </Button>
           </DialogFooter>
         </DialogContent>

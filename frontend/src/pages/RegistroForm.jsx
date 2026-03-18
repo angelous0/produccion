@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSaving } from '../hooks/useSaving';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -48,6 +49,7 @@ export const RegistroForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const { saving, guard } = useSaving();
   
   const [formData, setFormData] = useState({
     n_corte: '',
@@ -565,13 +567,12 @@ export const RegistroForm = () => {
     setSalidaFormData({ ...salidaFormData, rollo_id: rolloId, cantidad: 1 });
   };
 
-  const handleCreateSalida = async () => {
+  const handleCreateSalida = guard(async () => {
     if (!salidaFormData.item_id || salidaFormData.cantidad < 0.01) {
       toast.error('Selecciona un item y cantidad válida');
       return;
     }
     
-    // Si es item con rollos, debe seleccionar un rollo
     if (selectedItemInventario?.control_por_rollos && !salidaFormData.rollo_id) {
       toast.error('Debes seleccionar un rollo');
       return;
@@ -589,13 +590,12 @@ export const RegistroForm = () => {
       toast.success('Salida registrada');
       setSalidaDialogOpen(false);
       fetchSalidasRegistro();
-      // Refrescar inventario para actualizar stock
       const inventarioRes = await axios.get(`${API}/inventario`);
       setItemsInventario(inventarioRes.data);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al crear salida');
     }
-  };
+  });
 
   const handleDeleteSalida = async (salidaId) => {
     try {
@@ -765,7 +765,7 @@ export const RegistroForm = () => {
     });
   };
 
-  const handleSaveMovimiento = async () => {
+  const handleSaveMovimiento = guard(async () => {
     if (!movimientoFormData.servicio_id || !movimientoFormData.persona_id) {
       toast.error('Selecciona servicio y persona');
       return;
@@ -773,7 +773,6 @@ export const RegistroForm = () => {
 
     try {
       if (editingMovimiento) {
-        // Actualizar
         const payload = {
           ...movimientoFormData,
           registro_id: id,
@@ -781,7 +780,6 @@ export const RegistroForm = () => {
         await axios.put(`${API}/movimientos-produccion/${editingMovimiento.id}`, payload);
         toast.success('Movimiento actualizado');
       } else {
-        // Crear
         const payload = {
           ...movimientoFormData,
           registro_id: id,
@@ -795,7 +793,7 @@ export const RegistroForm = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar movimiento');
     }
-  };
+  });
 
   const handleDeleteMovimiento = async (movimientoId) => {
     try {
@@ -1993,10 +1991,10 @@ export const RegistroForm = () => {
             </Button>
             <Button 
               onClick={handleCreateSalida}
-              disabled={!salidaFormData.item_id || salidaFormData.cantidad < 0.01 || (selectedItemInventario?.control_por_rollos && !salidaFormData.rollo_id)}
+              disabled={saving || !salidaFormData.item_id || salidaFormData.cantidad < 0.01 || (selectedItemInventario?.control_por_rollos && !salidaFormData.rollo_id)}
               data-testid="btn-guardar-salida"
             >
-              Registrar Salida
+              {saving ? 'Guardando...' : 'Registrar Salida'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2219,10 +2217,10 @@ export const RegistroForm = () => {
             </Button>
             <Button 
               onClick={handleSaveMovimiento}
-              disabled={!movimientoFormData.servicio_id || !movimientoFormData.persona_id}
+              disabled={saving || !movimientoFormData.servicio_id || !movimientoFormData.persona_id}
               data-testid="btn-guardar-movimiento"
             >
-              {editingMovimiento ? 'Actualizar' : 'Registrar Movimiento'}
+              {saving ? 'Guardando...' : (editingMovimiento ? 'Actualizar' : 'Registrar Movimiento')}
             </Button>
           </DialogFooter>
         </DialogContent>

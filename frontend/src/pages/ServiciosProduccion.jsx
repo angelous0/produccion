@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -99,6 +100,7 @@ const SortableRow = ({ servicio, onEdit, onDelete }) => {
 export const ServiciosProduccion = () => {
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingServicio, setEditingServicio] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', secuencia: 0 });
@@ -137,7 +139,7 @@ export const ServiciosProduccion = () => {
     setDialogOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = guard(async () => {
     if (!formData.nombre.trim()) {
       toast.error('El nombre es requerido');
       return;
@@ -156,7 +158,7 @@ export const ServiciosProduccion = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     try {
@@ -313,7 +315,7 @@ export const ServiciosProduccion = () => {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} data-testid="btn-guardar-servicio">
+            <Button onClick={handleSubmit} disabled={saving} data-testid="btn-guardar-servicio">
               {editingServicio ? 'Actualizar' : 'Crear'}
             </Button>
           </DialogFooter>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -104,6 +105,7 @@ export const RutasProduccion = () => {
   const [rutas, setRutas] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRuta, setEditingRuta] = useState(null);
   const [formData, setFormData] = useState({
@@ -202,7 +204,7 @@ export const RutasProduccion = () => {
     setFormData({ ...formData, etapas: newEtapas });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     if (!formData.nombre.trim()) {
       toast.error('El nombre es requerido');
@@ -239,7 +241,7 @@ export const RutasProduccion = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     try {
@@ -459,7 +461,7 @@ export const RutasProduccion = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-ruta">
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-ruta">
                 {editingRuta ? 'Guardar Cambios' : 'Crear Ruta'}
               </Button>
             </DialogFooter>

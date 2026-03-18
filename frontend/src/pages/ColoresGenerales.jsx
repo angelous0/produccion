@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -30,6 +31,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export const ColoresGenerales = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', orden: 0 });
@@ -51,7 +53,7 @@ export const ColoresGenerales = () => {
     fetchItems();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       if (editingItem) {
@@ -68,7 +70,7 @@ export const ColoresGenerales = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleEdit = (item) => {
     setEditingItem(item);
@@ -210,7 +212,7 @@ export const ColoresGenerales = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-color-general">
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-color-general">
                 {editingItem ? 'Actualizar' : 'Crear'}
               </Button>
             </DialogFooter>

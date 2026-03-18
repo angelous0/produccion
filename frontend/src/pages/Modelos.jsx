@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -39,6 +40,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 export const Modelos = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({
@@ -104,7 +106,7 @@ export const Modelos = () => {
     fetchRelatedData();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       const payload = {
@@ -126,7 +128,7 @@ export const Modelos = () => {
     } catch (error) {
       toast.error('Error al guardar modelo');
     }
-  };
+  });
 
   const resetForm = () => {
     setFormData({
@@ -534,7 +536,7 @@ export const Modelos = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-modelo">
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-modelo">
                 {editingItem ? 'Guardar Cambios' : 'Crear Modelo'}
               </Button>
             </DialogFooter>

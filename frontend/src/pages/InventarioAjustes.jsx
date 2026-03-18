@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
@@ -64,6 +65,7 @@ export const InventarioAjustes = () => {
   const [items, setItems] = useState([]);
   const [rollos, setRollos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAjuste, setEditingAjuste] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -162,7 +164,7 @@ export const InventarioAjustes = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       if (editingAjuste) {
@@ -183,7 +185,7 @@ export const InventarioAjustes = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     if (!window.confirm('¿Eliminar este ajuste? Se revertirá el cambio en el stock.')) return;
@@ -557,7 +559,7 @@ export const InventarioAjustes = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-ajuste">
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-ajuste">
                 Registrar Ajuste
               </Button>
             </DialogFooter>

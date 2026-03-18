@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -40,6 +41,7 @@ export const InventarioIngresos = () => {
   const [ingresos, setIngresos] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIngreso, setEditingIngreso] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -163,11 +165,8 @@ export const InventarioIngresos = () => {
     setDialogOpen(true);
   };
 
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
-    setSaving(true);
     try {
       const payload = { ...formData, cantidad: parseFloat(formData.cantidad) || 0, costo_unitario: parseFloat(formData.costo_unitario) || 0 };
       if (selectedItem?.control_por_rollos && rollos.length > 0) {
@@ -208,10 +207,8 @@ export const InventarioIngresos = () => {
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     if (!window.confirm('¿Eliminar este ingreso?')) return;

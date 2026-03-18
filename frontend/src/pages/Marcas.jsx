@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
@@ -31,6 +32,7 @@ export const Marcas = () => {
   const { canCreate, canEdit, canDelete, isReadOnly } = usePermissions('marcas');
   const [marcas, setMarcas] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({ nombre: '', orden: 0 });
@@ -52,7 +54,7 @@ export const Marcas = () => {
     fetchMarcas();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       if (editingItem) {
@@ -69,7 +71,7 @@ export const Marcas = () => {
     } catch (error) {
       toast.error('Error al guardar marca');
     }
-  };
+  });
 
   const handleEdit = (item) => {
     setEditingItem(item);
@@ -208,7 +210,7 @@ export const Marcas = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-marca">
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-marca">
                 {editingItem ? 'Actualizar' : 'Crear'}
               </Button>
             </DialogFooter>

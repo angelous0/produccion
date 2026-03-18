@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -63,6 +64,7 @@ export const Usuarios = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [estructura, setEstructura] = useState({ categorias: [] });
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [permisosDialogOpen, setPermisosDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -103,7 +105,7 @@ export const Usuarios = () => {
     fetchEstructura();
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       if (editingUser) {
@@ -127,7 +129,7 @@ export const Usuarios = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleToggleActivo = async (user) => {
     try {
@@ -451,7 +453,7 @@ export const Usuarios = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={saving}>
                 {editingUser ? 'Actualizar' : 'Crear'}
               </Button>
             </DialogFooter>

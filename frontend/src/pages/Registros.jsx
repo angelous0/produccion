@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -38,6 +39,7 @@ export const Registros = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [coloresDialogOpen, setColoresDialogOpen] = useState(false);
   const [viewingItem, setViewingItem] = useState(null);
@@ -224,7 +226,7 @@ export const Registros = () => {
     return total;
   };
 
-  const handleSaveColores = async () => {
+  const handleSaveColores = guard(async () => {
     try {
       const distribucion = (colorEditItem?.tallas || []).map(t => ({
         talla_id: t.talla_id,
@@ -257,7 +259,7 @@ export const Registros = () => {
     } catch (error) {
       toast.error('Error al guardar distribución de colores');
     }
-  };
+  });
 
   const handleView = (item) => {
     setViewingItem(item);
@@ -527,7 +529,7 @@ export const Registros = () => {
             </Button>
             <Button 
               onClick={handleSaveColores} 
-              disabled={coloresSeleccionados.length === 0}
+              disabled={saving || coloresSeleccionados.length === 0}
               data-testid="btn-guardar-colores"
             >
               Guardar Distribución

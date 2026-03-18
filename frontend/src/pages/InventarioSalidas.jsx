@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -42,6 +43,7 @@ export const InventarioSalidas = () => {
   const [items, setItems] = useState([]);
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSalida, setEditingSalida] = useState(null);
   const [rollosDialogOpen, setRollosDialogOpen] = useState(false);
@@ -134,7 +136,7 @@ export const InventarioSalidas = () => {
     setFormData({ ...formData, rollo_id: rolloId, cantidad: 1 });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
       if (editingSalida) {
@@ -161,7 +163,7 @@ export const InventarioSalidas = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar');
     }
-  };
+  });
 
   const handleDelete = async (id) => {
     if (!window.confirm('¿Eliminar esta salida? Se restaurará el stock.')) return;
@@ -456,7 +458,7 @@ export const InventarioSalidas = () => {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" data-testid="btn-guardar-salida">
+              <Button type="submit" disabled={saving} data-testid="btn-guardar-salida">
                 Registrar Salida
               </Button>
             </DialogFooter>
