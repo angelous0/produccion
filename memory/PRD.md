@@ -1,121 +1,55 @@
-# PRD - Sistema de Produccion Textil
+# PRD - Produccion Textil
 
-## Problema Original
-Sistema ERP de produccion textil con gestion de inventario FIFO, BOM (Bill of Materials), ordenes de produccion, reportes y mas.
+## Original Problem Statement
+Sistema de gestion de produccion textil con flujo de trabajo completo: desde corte hasta almacen PT. Incluye gestion de inventario FIFO, BOM, movimientos de produccion, cierre de produccion, integracion con modulo de Finanzas.
 
-## Arquitectura
-- **Backend**: FastAPI + AsyncPG + PostgreSQL
-- **Frontend**: React + Shadcn UI + Axios
-- **DB**: PostgreSQL (schema `produccion`)
+## Core Requirements
+1. Flujo de produccion completo con estados (Para Corte -> Almacen PT)
+2. Gestion de inventario FIFO con ingresos, salidas, ajustes y rollos
+3. BOM (Bill of Materials) por modelo con tallas
+4. Cierre de produccion consistente con WIP
+5. Integracion con modulo de Finanzas (proveedores, facturacion)
+6. Automatizacion Modelo -> PT
+7. Sistema de usuarios con permisos granulares
 
-## Modelo de Datos - Relaciones Clave
+## What's Been Implemented
+- Flujo de produccion completo con linea de tiempo de estado
+- Panel de cierre integrado en RegistroForm
+- Automatizacion Modelo -> PT (autocompletado)
+- Selector de proveedores desde finanzas2.cont_tercero en Ingresos
+- Badge de estado de facturacion en lista de Ingresos
+- Endpoint GET /api/ingresos-mp/para-finanzas
+- Endpoint GET /api/proveedores
+- Correccion de bugs: empresa_id, ordenamiento servicios, decimales, fechas
+- Boton prorratear cantidades por color
+- Filtros por categoria en Inventario
+- **2026-03-18**: Filtrado de items PT en selectores de Ingresos y Salidas de inventario
 
-### Materiales = Items (prod_inventario)
-- Categorias: Telas, Avios, Otros
-- NO se usa para servicios productivos (deprecated)
+## Prioritized Backlog
 
-### Servicios = Servicios de Produccion (prod_servicios_produccion)
-- Catalogo maestro: Corte, Costura, Lavanderia, Bordado, Acabado
-- Se usa en: BOM (lineas SERVICIO), Ruta de Produccion, movimientos de produccion
+### P0 - Completado
+- [x] Selector proveedores Finanzas en Ingresos
+- [x] Filtrar PT de selectores Ingresos/Salidas
 
-### Ruta de Produccion (prod_rutas_produccion)
-- Vinculada al Modelo via `ruta_produccion_id`
-- Etapas (JSONB): cada etapa tiene `nombre` (estado) + `servicio_id` (opcional)
-- Las etapas definen los estados validos del registro
-- Unica fuente de verdad para el flujo del registro
-
-### BOM (prod_modelo_bom_linea)
-- Lineas de materiales: usan `inventario_id`
-- Lineas de servicios: usan `servicio_produccion_id` (NO inventario_id)
-- `costo_manual` editable por linea SERVICIO
-
-### Modelo (prod_modelos)
-- `ruta_produccion_id` -> ruta de produccion
-- `pt_item_id` -> item PT vinculado (Producto Terminado)
-- `servicios_ids` (JSONB) -> legacy, mantener por compatibilidad
-- Al crear/editar: puede vincular PT existente o crear automaticamente con nombre del modelo
-- Endpoint: `POST /api/modelos/{id}/crear-pt` (auto-genera PT-XXX con nombre del modelo)
-- Endpoint: `GET /api/items-pt` (solo items tipo PT para selectores)
-
-### Registro (prod_registros)
-- `modelo_id` -> modelo
-- `pt_item_id` -> se auto-completa desde el modelo al crear/editar
-- `estado` -> viene de las etapas de la ruta del modelo
-- Estados disponibles = etapas de la ruta, en orden
-
-### Integración Producción-Finanzas
-- Bridge table: `finanzas2.cont_factura_ingreso_mp`
-- `GET /api/ingresos-mp/para-finanzas` (Finanzas lee ingresos con estado facturación)
-- `GET /api/ingresos-mp/{id}/trazabilidad` (detalle vinculaciones por ingreso)
-- UI: badge Pendiente/Parcial/Facturado en Ingresos
-
-## API Endpoints Clave
-
-### BOM
-- `GET/POST /api/bom` - Cabeceras BOM
-- `GET/PUT/DELETE /api/bom/{bom_id}` - Detalle BOM (lineas incluyen servicio_nombre/servicio_tarifa para SERVICIO)
-- `POST /api/bom/{bom_id}/lineas` - Agregar linea (servicio_produccion_id para SERVICIO)
-- `PUT /api/bom/{bom_id}/lineas/{linea_id}` - Actualizar linea
-- `GET /api/bom/{bom_id}/costo-estandar` - Calculo costo (usa costo_manual > servicio_tarifa para SERVICIO)
-- `POST /api/bom/{bom_id}/duplicar` - Duplicar BOM (copia servicio_produccion_id)
-- `POST /api/bom/explosion/{orden_id}` - Explosion BOM
-
-### Cierre de Produccion (WIP -> PT)
-- `GET /api/registros/{id}/preview-cierre` - Preview de costos antes de cerrar
-- `POST /api/registros/{id}/cierre-produccion` - Ejecutar cierre (crea ingreso PT, actualiza stock, marca CERRADA)
-- `GET /api/registros/{id}/cierre-produccion` - Obtener datos del cierre existente
-- Costos MP: desde `prod_inventario_salidas` (FIFO)
-- Costos Servicios: desde `prod_movimientos_produccion` (fuente unica, consistente con WIP)
-- Otros Costos: desde `prod_registro_costos_servicio` (costos adicionales manuales)
-- Al cerrar: estado_op='CERRADA', libera reservas, crea ingreso en prod_inventario_ingresos
-
-### Registros
-- `GET /api/registros/{id}/estados-disponibles` - Estados de la ruta del modelo (usa_ruta=true)
-
-### Rutas
-- `GET/POST /api/rutas-produccion` - CRUD rutas
-- Etapas: [{nombre, servicio_id (opc), orden}]
-
-## Funcionalidades Implementadas
-
-### Core
-- Autenticacion JWT
-- Dashboard, Modelos, Inventario FIFO, Ingresos/Salidas con rollos
-- Registros/Ordenes de produccion
-- Rutas de produccion con etapas nombradas
-
-### BOM
-- CRUD lineas (TELA, AVIO, SERVICIO, EMPAQUE, OTRO)
-- Materiales -> selector de items de inventario
-- Servicios -> selector de servicios de produccion (NO items)
-- Costo manual editable por linea SERVICIO
-- Costo estandar referencial, reordenamiento, duplicar, explosion
-
-### UX/UI
-- NumericInput, ScrollToTop, formulario simplificado para servicios
-- Columna Valorizado en inventario
-- Vista agrupada de salidas en registro (expandible)
-- Buscador de items en salidas (excluye servicios)
-- Pestana "Materia Prima" renombrada a "Gestion OP" en Registros.jsx
-- Pestana "Costos" renombrada a "Otros Costos" en RegistroDetalleFase2.jsx
-- Preview de cierre muestra detalle de movimientos de produccion (servicios) y 5 columnas de resumen
-
-### Validacion
-- Constraint UNIQUE en codigo de item
-- Sanitizacion de FKs opcionales (empty string -> null)
-
-## Backlog Priorizado
+### P1
+- [ ] Logica en modulo Finanzas para vincular ingresos MP a facturas
 
 ### P2
-- Limpiar lineas BOM huerfanas del schema antiguo
+- [ ] Limpiar lineas BOM huerfanas
 
 ### P3
-- Conectar modulo Produccion con Finanzas
-- Reporte de productividad por persona/servicio
-- Reordenar tallas con drag-and-drop
-- Permisos granulares con usePermissions
-- Exportacion Excel/PDF en varias pantallas
-- Accesibilidad en Dialogs (DialogTitle/DialogDescription)
+- [ ] Reporte productividad por persona/servicio
+- [ ] Drag-and-drop reordenar tallas
+- [ ] Permisos granulares con usePermissions
+- [ ] Exportacion Excel/PDF (Kardex, etc.)
+- [ ] Refactorizar RegistroForm.jsx (1600+ lineas)
+- [ ] Accesibilidad en componentes Dialog (DialogTitle/Description)
 
-## Credenciales de Prueba
-- Usuario: `eduard` / Contrasena: `eduard123`
+## Architecture
+- Backend: FastAPI + PostgreSQL (asyncpg)
+- Frontend: React + Shadcn/UI + Tailwind
+- DB Schemas: produccion (principal), finanzas2 (proveedores, facturas)
+- Auth: JWT con bcrypt
+
+## Key Credentials
+- Usuario: eduard / eduard123

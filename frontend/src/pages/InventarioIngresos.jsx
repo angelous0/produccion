@@ -399,7 +399,7 @@ export const InventarioIngresos = () => {
                       <SelectValue placeholder="Seleccionar item..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {items.map((item) => (
+                      {items.filter(i => i.categoria !== 'PT').map((item) => (
                         <SelectItem key={item.id} value={item.id}>
                           <span className="font-mono mr-2">{item.codigo}</span>
                           {item.nombre}
