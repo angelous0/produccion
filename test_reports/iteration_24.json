@@ -1,0 +1,95 @@
+{
+  "summary": "Control Operativo Phase 2 - All 13 backend tests passed (100%). Frontend verified: Table shows Entrega Final/Operativo columns with visual alerts, Control dialog has fecha_entrega_final input, Movimiento form has fecha_esperada_movimiento and responsable_movimiento fields.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: PUT /api/registros/{id}/control - Updates fecha_entrega_final",
+    "Backend: PUT /api/registros/{id}/control - Sets fecha_entrega_final to null",
+    "Backend: GET /api/registros - Returns fecha_entrega_final field",
+    "Backend: POST /api/movimientos-produccion - Creates with fecha_esperada_movimiento and responsable_movimiento",
+    "Backend: PUT /api/movimientos-produccion/{id} - Updates with new fields",
+    "Backend: GET /api/movimientos-produccion - Returns fecha_esperada_movimiento and responsable_movimiento",
+    "Backend: POST /api/incidencias - Creates without movimiento_id (optional)",
+    "Backend: POST /api/incidencias - Creates with movimiento_id (optional)",
+    "Backend: GET /api/incidencias/{registro_id} - Returns movimiento_servicio enriched",
+    "Backend: POST /api/paralizaciones - Sets estado_operativo to PARALIZADA",
+    "Backend: PUT /api/paralizaciones/{id}/levantar - Recalculates estado_operativo",
+    "Backend: POST /api/paralizaciones - Creates with optional movimiento_id",
+    "Backend: Estado EN_RIESGO when movimiento has overdue fecha_esperada_movimiento",
+    "Backend: GET /api/registros returns estado_operativo, fecha_entrega_final, incidencias_abiertas, paralizacion_activa",
+    "Frontend: Registros table shows columns - N° CORTE, FECHA, MODELO, ESTADO, ENTREGA FINAL, OPERATIVO, PIEZAS, ACCIONES",
+    "Frontend: Entrega Final column shows visual alerts (red for vencido, normal for future dates)",
+    "Frontend: Operativo column shows badges - Normal (green), En Riesgo (amber), Paralizada (red)",
+    "Frontend: Control dialog shows 'Fecha Entrega Final' date input",
+    "Frontend: Control dialog saves successfully with toast notification",
+    "Frontend: Movimiento dialog shows 'Fecha Esperada' and 'Responsable' fields",
+    "Frontend: Movimientos table shows Responsable and F. Esperada columns"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_control_produccion_v2.py",
+    "/app/test_reports/pytest/pytest_control_v2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "control_produccion.py: Good implementation of optional movimiento_id for incidencias and paralizaciones",
+    "control_produccion.py: Estado operativo recalculation includes check for overdue movimientos (fecha_esperada_movimiento < CURRENT_DATE)",
+    "server.py MovimientoBase: New fields fecha_esperada_movimiento and responsable_movimiento properly defined",
+    "server.py movimientos-produccion endpoints: INSERT and UPDATE properly handle new date and text fields",
+    "RegistroForm.jsx: Movimiento dialog includes Fecha Esperada date input and Responsable text input",
+    "RegistroForm.jsx: Movimientos table shows Responsable and F. Esperada columns with visual alerts for overdue dates",
+    "Registros.jsx: Table shows Entrega Final and Operativo columns with proper badge styling",
+    "Registros.jsx: Visual alerts (red text with 'vencido') for overdue delivery dates"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_control_produccion_v2.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (All UI components verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing registro e7082b07-7a9b-4b45-af14-bde1ebc09238 (corte 04) for testing",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Control Operativo Phase 2 fully implemented. New DB columns: prod_movimientos_produccion.fecha_esperada_movimiento DATE, prod_movimientos_produccion.responsable_movimiento VARCHAR. prod_registros.fecha_entrega_final (renamed from fecha_entrega_esperada). prod_incidencia and prod_paralizacion have movimiento_id VARCHAR column. Key data-testid: input-fecha-entrega (Control dialog), btn-guardar-control, btn-nuevo-movimiento. API slow for GET /api/registros - wait 15-30s for page loads. Estado operativo checks: PARALIZADA if any active paralizacion, EN_RIESGO if any movimiento has fecha_esperada_movimiento < today.",
+  "features_verified": {
+    "backend_api": {
+      "put_registros_control_fecha_entrega_final": true,
+      "post_movimientos_produccion_new_fields": true,
+      "put_movimientos_produccion_new_fields": true,
+      "get_movimientos_produccion_returns_new_fields": true,
+      "post_incidencias_with_optional_movimiento_id": true,
+      "get_incidencias_enriched_movimiento_servicio": true,
+      "post_paralizaciones_with_optional_movimiento_id": true,
+      "put_paralizaciones_levantar_recalculates_estado": true,
+      "get_registros_returns_all_control_fields": true,
+      "estado_operativo_en_riesgo_with_overdue_movimiento": true
+    },
+    "frontend_registros_table": {
+      "entrega_final_column": true,
+      "operativo_column": true,
+      "visual_alerts_vencido": true,
+      "badge_colors_correct": true
+    },
+    "frontend_control_dialog": {
+      "fecha_entrega_final_input": true,
+      "guardar_button": true,
+      "toast_notification": true
+    },
+    "frontend_movimiento_form": {
+      "fecha_esperada_movimiento_input": true,
+      "responsable_movimiento_input": true,
+      "table_columns_responsable_esperada": true
+    }
+  }
+}

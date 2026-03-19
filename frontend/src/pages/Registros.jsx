@@ -351,8 +351,7 @@ export const Registros = () => {
   const handleOpenControl = (item) => {
     setControlItem(item);
     setControlData({
-      fecha_entrega_esperada: item.fecha_entrega_esperada || '',
-      responsable_actual: item.responsable_actual || '',
+      fecha_entrega_final: item.fecha_entrega_final || '',
     });
     setControlDialogOpen(true);
   };
@@ -479,9 +478,8 @@ export const Registros = () => {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Modelo</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Entrega</TableHead>
+                  <TableHead>Entrega Final</TableHead>
                   <TableHead>Operativo</TableHead>
-                  <TableHead>Responsable</TableHead>
                   <TableHead>Piezas</TableHead>
                   <TableHead className="w-[200px]">Acciones</TableHead>
                 </TableRow>
@@ -489,13 +487,13 @@ export const Registros = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No hay registros
                     </TableCell>
                   </TableRow>
@@ -530,13 +528,10 @@ export const Registros = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {getFechaEntregaBadge(item.fecha_entrega_esperada, item.estado)}
+                        {getFechaEntregaBadge(item.fecha_entrega_final, item.estado)}
                       </TableCell>
                       <TableCell>
                         {getEstadoOperativoBadge(item.estado_operativo)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {item.responsable_actual || <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="font-mono font-semibold">
                         {getTotalPiezas(item)}
@@ -918,25 +913,16 @@ export const Registros = () => {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Control - Corte #{controlItem?.n_corte}</DialogTitle>
-            <DialogDescription>Fecha de entrega y responsable actual</DialogDescription>
+            <DialogDescription>Fecha de entrega final del registro</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>Fecha Entrega Esperada</Label>
+              <Label>Fecha Entrega Final</Label>
               <Input
                 type="date"
-                value={controlData.fecha_entrega_esperada}
-                onChange={(e) => setControlData({ ...controlData, fecha_entrega_esperada: e.target.value })}
+                value={controlData.fecha_entrega_final}
+                onChange={(e) => setControlData({ ...controlData, fecha_entrega_final: e.target.value })}
                 data-testid="input-fecha-entrega"
-              />
-            </div>
-            <div>
-              <Label>Responsable Actual</Label>
-              <Input
-                value={controlData.responsable_actual}
-                onChange={(e) => setControlData({ ...controlData, responsable_actual: e.target.value })}
-                placeholder="Ej: Corte, Taller Externo, Lavandería..."
-                data-testid="input-responsable"
               />
             </div>
           </div>

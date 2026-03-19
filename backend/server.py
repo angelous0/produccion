@@ -644,6 +644,8 @@ class MovimientoBase(BaseModel):
     tarifa_aplicada: float = 0
     fecha_inicio: Optional[str] = None
     fecha_fin: Optional[str] = None
+    fecha_esperada_movimiento: Optional[str] = None
+    responsable_movimiento: Optional[str] = None
     observaciones: str = ""
 
 class MovimientoCreate(MovimientoBase):
@@ -2608,8 +2610,8 @@ async def get_registros():
             d['tallas'] = parse_jsonb(d.get('tallas'))
             d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
             # Convert date fields
-            if d.get('fecha_entrega_esperada'):
-                d['fecha_entrega_esperada'] = str(d['fecha_entrega_esperada'])
+            if d.get('fecha_entrega_final'):
+                d['fecha_entrega_final'] = str(d['fecha_entrega_final'])
             # Enriquecer modelo
             modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
             if modelo:
@@ -2639,15 +2641,25 @@ async def get_registros():
             from datetime import date as date_type
             if par_activa:
                 d['estado_operativo'] = 'PARALIZADA'
-            elif d.get('fecha_entrega_esperada') and d['estado'] != 'Almacén PT':
-                try:
-                    fecha = date_type.fromisoformat(str(d['fecha_entrega_esperada']))
-                    if fecha < date_type.today():
-                        d['estado_operativo'] = 'EN_RIESGO'
-                    else:
+            elif d['estado'] != 'Almacén PT':
+                # Check if any movimiento has vencida fecha_esperada
+                mov_vencido = await conn.fetchval(
+                    "SELECT COUNT(*) FROM prod_movimientos_produccion WHERE registro_id = $1 AND fecha_esperada_movimiento < CURRENT_DATE",
+                    d['id']
+                )
+                if mov_vencido and mov_vencido > 0:
+                    d['estado_operativo'] = 'EN_RIESGO'
+                elif d.get('fecha_entrega_final'):
+                    try:
+                        fecha = date_type.fromisoformat(str(d['fecha_entrega_final']))
+                        if fecha < date_type.today():
+                            d['estado_operativo'] = 'EN_RIESGO'
+                        else:
+                            d['estado_operativo'] = 'NORMAL'
+                    except:
                         d['estado_operativo'] = 'NORMAL'
-                except:
-                    pass
+                else:
+                    d['estado_operativo'] = 'NORMAL'
             result.append(d)
         return result
 
@@ -4639,6 +4651,8 @@ async def get_movimientos(registro_id: str = None, servicio_id: str = None, pers
                 d['fecha_inicio'] = str(d['fecha_inicio'])
             if d.get('fecha_fin'):
                 d['fecha_fin'] = str(d['fecha_fin'])
+            if d.get('fecha_esperada_movimiento'):
+                d['fecha_esperada_movimiento'] = str(d['fecha_esperada_movimiento'])
             result.append(d)
         return result
 
@@ -4685,12 +4699,20 @@ async def create_movimiento(input: MovimientoCreate):
             except:
                 pass
         
+        fecha_esperada = None
+        if input.fecha_esperada_movimiento:
+            try:
+                fecha_esperada = datetime.strptime(input.fecha_esperada_movimiento, '%Y-%m-%d').date()
+            except:
+                pass
+        
         await conn.execute(
-            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, observaciones, created_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)""",
+            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, fecha_esperada_movimiento, responsable_movimiento, observaciones, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)""",
             movimiento.id, movimiento.registro_id, movimiento.servicio_id, movimiento.persona_id,
             movimiento.cantidad_enviada, movimiento.cantidad_recibida, diferencia, costo_calculado,
-            tarifa, fecha_inicio, fecha_fin, movimiento.observaciones, movimiento.created_at.replace(tzinfo=None)
+            tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None,
+            movimiento.observaciones, movimiento.created_at.replace(tzinfo=None)
         )
         
         # Crear merma si hay diferencia
@@ -4742,10 +4764,17 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
             except:
                 pass
         
+        fecha_esperada = None
+        if input.fecha_esperada_movimiento:
+            try:
+                fecha_esperada = datetime.strptime(input.fecha_esperada_movimiento, '%Y-%m-%d').date()
+            except:
+                pass
+        
         await conn.execute(
-            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, observaciones=$11 WHERE id=$12""",
+            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, fecha_esperada_movimiento=$11, responsable_movimiento=$12, observaciones=$13 WHERE id=$14""",
             input.registro_id, input.servicio_id, input.persona_id, input.cantidad_enviada, input.cantidad_recibida,
-            diferencia, costo_calculado, tarifa, fecha_inicio, fecha_fin, input.observaciones, movimiento_id
+            diferencia, costo_calculado, tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None, input.observaciones, movimiento_id
         )
         
         # Crear nueva merma si hay diferencia

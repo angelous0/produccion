@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, timezone, date
+from datetime import datetime, date
 import uuid
 
 router = APIRouter(prefix="/api", tags=["Control Producción"])
@@ -10,15 +10,17 @@ router = APIRouter(prefix="/api", tags=["Control Producción"])
 
 class IncidenciaCreate(BaseModel):
     registro_id: str
+    movimiento_id: Optional[str] = None
     tipo: str
     comentario: str = ""
     usuario: str = ""
 
 class IncidenciaUpdate(BaseModel):
-    estado: str  # ABIERTA | RESUELTA
+    estado: str
 
 class ParalizacionCreate(BaseModel):
     registro_id: str
+    movimiento_id: Optional[str] = None
     motivo: str
     comentario: str = ""
 
@@ -44,23 +46,29 @@ async def get_incidencias(registro_id: str):
             "SELECT * FROM prod_incidencia WHERE registro_id = $1 ORDER BY fecha_hora DESC",
             registro_id
         )
-        return [row_to_dict(r) for r in rows]
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            if d.get('movimiento_id'):
+                mov = await conn.fetchrow(
+                    """SELECT s.nombre as servicio_nombre FROM prod_movimientos_produccion m 
+                       JOIN prod_servicios_produccion s ON s.id = m.servicio_id 
+                       WHERE m.id = $1""", d['movimiento_id'])
+                d['movimiento_servicio'] = mov['servicio_nombre'] if mov else None
+            result.append(d)
+        return result
 
 @router.post("/incidencias")
 async def create_incidencia(input: IncidenciaCreate):
     from server import get_pool
     pool = await get_pool()
     async with pool.acquire() as conn:
-        reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
-        if not reg:
-            raise HTTPException(status_code=404, detail="Registro no encontrado")
-        
         inc_id = str(uuid.uuid4())
         now = datetime.now()
         await conn.execute(
-            """INSERT INTO prod_incidencia (id, registro_id, fecha_hora, usuario, tipo, comentario, estado, created_at, updated_at)
-               VALUES ($1,$2,$3,$4,$5,$6,'ABIERTA',$7,$7)""",
-            inc_id, input.registro_id, now, input.usuario, input.tipo, input.comentario, now
+            """INSERT INTO prod_incidencia (id, registro_id, movimiento_id, fecha_hora, usuario, tipo, comentario, estado, created_at, updated_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,'ABIERTA',$8,$8)""",
+            inc_id, input.registro_id, input.movimiento_id, now, input.usuario, input.tipo, input.comentario, now
         )
         row = await conn.fetchrow("SELECT * FROM prod_incidencia WHERE id = $1", inc_id)
         return row_to_dict(row)
@@ -73,7 +81,6 @@ async def update_incidencia(incidencia_id: str, input: IncidenciaUpdate):
         row = await conn.fetchrow("SELECT * FROM prod_incidencia WHERE id = $1", incidencia_id)
         if not row:
             raise HTTPException(status_code=404, detail="Incidencia no encontrada")
-        
         await conn.execute(
             "UPDATE prod_incidencia SET estado = $1, updated_at = $2 WHERE id = $3",
             input.estado, datetime.now(), incidencia_id
@@ -100,31 +107,45 @@ async def get_paralizaciones(registro_id: str):
             "SELECT * FROM prod_paralizacion WHERE registro_id = $1 ORDER BY fecha_inicio DESC",
             registro_id
         )
-        return [row_to_dict(r) for r in rows]
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            if d.get('movimiento_id'):
+                mov = await conn.fetchrow(
+                    """SELECT s.nombre as servicio_nombre FROM prod_movimientos_produccion m 
+                       JOIN prod_servicios_produccion s ON s.id = m.servicio_id 
+                       WHERE m.id = $1""", d['movimiento_id'])
+                d['movimiento_servicio'] = mov['servicio_nombre'] if mov else None
+            result.append(d)
+        return result
 
 @router.post("/paralizaciones")
 async def create_paralizacion(input: ParalizacionCreate):
     from server import get_pool
     pool = await get_pool()
     async with pool.acquire() as conn:
-        reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
-        if not reg:
-            raise HTTPException(status_code=404, detail="Registro no encontrado")
-        
-        # Check no active paralizacion
-        active = await conn.fetchrow(
-            "SELECT id FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE",
-            input.registro_id
-        )
-        if active:
-            raise HTTPException(status_code=400, detail="Ya existe una paralización activa para este registro")
+        # Check no active paralizacion for this registro (or movimiento)
+        if input.movimiento_id:
+            active = await conn.fetchrow(
+                "SELECT id FROM prod_paralizacion WHERE movimiento_id = $1 AND activa = TRUE",
+                input.movimiento_id
+            )
+            if active:
+                raise HTTPException(status_code=400, detail="Ya existe una paralización activa para este movimiento")
+        else:
+            active = await conn.fetchrow(
+                "SELECT id FROM prod_paralizacion WHERE registro_id = $1 AND movimiento_id IS NULL AND activa = TRUE",
+                input.registro_id
+            )
+            if active:
+                raise HTTPException(status_code=400, detail="Ya existe una paralización activa para este registro")
         
         par_id = str(uuid.uuid4())
         now = datetime.now()
         await conn.execute(
-            """INSERT INTO prod_paralizacion (id, registro_id, fecha_inicio, motivo, comentario, activa, created_at, updated_at)
-               VALUES ($1,$2,$3,$4,$5,TRUE,$6,$6)""",
-            par_id, input.registro_id, now, input.motivo, input.comentario, now
+            """INSERT INTO prod_paralizacion (id, registro_id, movimiento_id, fecha_inicio, motivo, comentario, activa, created_at, updated_at)
+               VALUES ($1,$2,$3,$4,$5,$6,TRUE,$7,$7)""",
+            par_id, input.registro_id, input.movimiento_id, now, input.motivo, input.comentario, now
         )
         
         # Update estado_operativo
@@ -155,12 +176,28 @@ async def levantar_paralizacion(paralizacion_id: str):
         
         # Recalculate estado_operativo
         registro_id = row['registro_id']
-        reg = await conn.fetchrow("SELECT fecha_entrega_esperada, estado FROM prod_registros WHERE id = $1", registro_id)
         
-        new_estado = 'NORMAL'
-        if reg and reg['fecha_entrega_esperada']:
-            if reg['fecha_entrega_esperada'] < date.today() and reg['estado'] != 'Almacén PT':
+        # Check if any other paralizacion is still active
+        other_active = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE",
+            registro_id
+        )
+        
+        if other_active and other_active > 0:
+            new_estado = 'PARALIZADA'
+        else:
+            # Check if any movimiento has vencida fecha
+            mov_vencido = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_movimientos_produccion WHERE registro_id = $1 AND fecha_esperada_movimiento < CURRENT_DATE",
+                registro_id
+            )
+            reg = await conn.fetchrow("SELECT fecha_entrega_final, estado FROM prod_registros WHERE id = $1", registro_id)
+            if mov_vencido and mov_vencido > 0:
                 new_estado = 'EN_RIESGO'
+            elif reg and reg['fecha_entrega_final'] and reg['fecha_entrega_final'] < date.today() and reg['estado'] != 'Almacén PT':
+                new_estado = 'EN_RIESGO'
+            else:
+                new_estado = 'NORMAL'
         
         await conn.execute(
             "UPDATE prod_registros SET estado_operativo = $1 WHERE id = $2",
@@ -170,7 +207,7 @@ async def levantar_paralizacion(paralizacion_id: str):
         updated = await conn.fetchrow("SELECT * FROM prod_paralizacion WHERE id = $1", paralizacion_id)
         return row_to_dict(updated)
 
-# ========== UPDATE REGISTRO FIELDS ==========
+# ========== UPDATE REGISTRO CONTROL ==========
 
 @router.put("/registros/{registro_id}/control")
 async def update_registro_control(registro_id: str, data: dict):
@@ -185,23 +222,17 @@ async def update_registro_control(registro_id: str, data: dict):
         params = []
         idx = 1
         
-        if 'fecha_entrega_esperada' in data:
-            val = data['fecha_entrega_esperada']
+        if 'fecha_entrega_final' in data:
+            val = data['fecha_entrega_final']
             if val:
-                from datetime import datetime as dt
                 try:
-                    parsed = dt.strptime(val, '%Y-%m-%d').date()
+                    parsed = datetime.strptime(val, '%Y-%m-%d').date()
                     params.append(parsed)
                 except:
                     params.append(None)
             else:
                 params.append(None)
-            sets.append(f"fecha_entrega_esperada = ${idx}")
-            idx += 1
-        
-        if 'responsable_actual' in data:
-            params.append(data['responsable_actual'] or None)
-            sets.append(f"responsable_actual = ${idx}")
+            sets.append(f"fecha_entrega_final = ${idx}")
             idx += 1
         
         if not sets:
@@ -212,16 +243,23 @@ async def update_registro_control(registro_id: str, data: dict):
         await conn.execute(query, *params)
         
         # Recalculate estado_operativo
-        active_par = await conn.fetchrow(
-            "SELECT id FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", registro_id
+        active_par = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", registro_id
         )
         updated_reg = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
         
         new_estado = 'NORMAL'
-        if active_par:
+        if active_par and active_par > 0:
             new_estado = 'PARALIZADA'
-        elif updated_reg['fecha_entrega_esperada'] and updated_reg['fecha_entrega_esperada'] < date.today() and updated_reg['estado'] != 'Almacén PT':
-            new_estado = 'EN_RIESGO'
+        elif updated_reg['estado'] != 'Almacén PT':
+            mov_vencido = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_movimientos_produccion WHERE registro_id = $1 AND fecha_esperada_movimiento < CURRENT_DATE",
+                registro_id
+            )
+            if mov_vencido and mov_vencido > 0:
+                new_estado = 'EN_RIESGO'
+            elif updated_reg['fecha_entrega_final'] and updated_reg['fecha_entrega_final'] < date.today():
+                new_estado = 'EN_RIESGO'
         
         await conn.execute("UPDATE prod_registros SET estado_operativo = $1 WHERE id = $2", new_estado, registro_id)
         

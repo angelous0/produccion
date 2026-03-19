@@ -123,6 +123,8 @@ export const RegistroForm = () => {
     cantidad_enviada: 0,
     cantidad_recibida: 0,
     tarifa_aplicada: 0,
+    fecha_esperada_movimiento: '',
+    responsable_movimiento: '',
     observaciones: '',
   });
 
@@ -705,6 +707,8 @@ export const RegistroForm = () => {
         cantidad_enviada: movimiento.cantidad_enviada || movimiento.cantidad || 0,
         cantidad_recibida: movimiento.cantidad_recibida || movimiento.cantidad || 0,
         tarifa_aplicada: movimiento.tarifa_aplicada || 0,
+        fecha_esperada_movimiento: movimiento.fecha_esperada_movimiento || '',
+        responsable_movimiento: movimiento.responsable_movimiento || '',
         observaciones: movimiento.observaciones || '',
       });
       // Filtrar personas por el servicio del movimiento (nueva estructura)
@@ -726,6 +730,8 @@ export const RegistroForm = () => {
         cantidad_enviada: cantidadTotal,
         cantidad_recibida: cantidadTotal,
         tarifa_aplicada: 0,
+        fecha_esperada_movimiento: '',
+        responsable_movimiento: '',
         observaciones: '',
       });
       setPersonasFiltradas([]);
@@ -1461,6 +1467,8 @@ export const RegistroForm = () => {
                             <TableRow className="bg-muted/50">
                               <TableHead>Servicio</TableHead>
                               <TableHead>Persona</TableHead>
+                              <TableHead>Responsable</TableHead>
+                              <TableHead className="text-center">F. Esperada</TableHead>
                               <TableHead className="text-center">Fechas</TableHead>
                               <TableHead className="text-right">Enviada</TableHead>
                               <TableHead className="text-right">Recibida</TableHead>
@@ -1473,8 +1481,18 @@ export const RegistroForm = () => {
                               const enviada = mov.cantidad_enviada || mov.cantidad || 0;
                               const recibida = mov.cantidad_recibida || mov.cantidad || 0;
                               const diferencia = enviada - recibida;
+                              // Alerta visual fecha esperada
+                              let fechaAlerta = '';
+                              let fechaClase = '';
+                              if (mov.fecha_esperada_movimiento) {
+                                const hoy = new Date(); hoy.setHours(0,0,0,0);
+                                const esp = new Date(mov.fecha_esperada_movimiento + 'T00:00:00');
+                                const diff = Math.ceil((esp - hoy) / (1000*60*60*24));
+                                if (diff < 0) { fechaAlerta = 'Vencido'; fechaClase = 'text-red-600 font-semibold'; }
+                                else if (diff <= 3) { fechaAlerta = `${diff}d`; fechaClase = 'text-amber-600 font-semibold'; }
+                              }
                               return (
-                                <TableRow key={mov.id} data-testid={`movimiento-row-${mov.id}`}>
+                                <TableRow key={mov.id} className={fechaAlerta === 'Vencido' ? 'bg-red-50 dark:bg-red-950/10' : ''} data-testid={`movimiento-row-${mov.id}`}>
                                   <TableCell>
                                     <div className="flex items-center gap-2">
                                       <Cog className="h-4 w-4 text-blue-500" />
@@ -1486,6 +1504,17 @@ export const RegistroForm = () => {
                                       <Users className="h-4 w-4 text-muted-foreground" />
                                       <span>{mov.persona_nombre}</span>
                                     </div>
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {mov.responsable_movimiento || <span className="text-muted-foreground">-</span>}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {mov.fecha_esperada_movimiento ? (
+                                      <div className={`text-xs font-mono ${fechaClase}`}>
+                                        {mov.fecha_esperada_movimiento.split('-').reverse().join('/')}
+                                        {fechaAlerta && <span className="ml-1 text-[10px]">({fechaAlerta})</span>}
+                                      </div>
+                                    ) : <span className="text-muted-foreground text-xs">-</span>}
                                   </TableCell>
                                   <TableCell className="text-center">
                                     <div className="text-xs">
@@ -1553,7 +1582,7 @@ export const RegistroForm = () => {
                               );
                             })}
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={5} className="font-semibold">Total Recibidas</TableCell>
+                              <TableCell colSpan={7} className="font-semibold">Total Recibidas</TableCell>
                               <TableCell className="text-right font-mono font-bold text-primary" colSpan={2}>
                                 {getTotalCantidadMovimientos()}
                               </TableCell>
@@ -2110,6 +2139,29 @@ export const RegistroForm = () => {
                   value={movimientoFormData.fecha_fin}
                   onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_fin: e.target.value })}
                   data-testid="input-fecha-fin"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="fecha-esperada">Fecha Esperada</Label>
+                <Input
+                  id="fecha-esperada"
+                  type="date"
+                  value={movimientoFormData.fecha_esperada_movimiento}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_esperada_movimiento: e.target.value })}
+                  data-testid="input-fecha-esperada-movimiento"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="responsable-mov">Responsable</Label>
+                <Input
+                  id="responsable-mov"
+                  value={movimientoFormData.responsable_movimiento}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, responsable_movimiento: e.target.value })}
+                  placeholder="Ej: Taller Juan, Lavandería X..."
+                  data-testid="input-responsable-movimiento"
                 />
               </div>
             </div>
