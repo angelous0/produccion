@@ -24,7 +24,7 @@ import {
 } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { getStatusClass } from '../lib/utils';
@@ -32,8 +32,51 @@ import { MultiSelectColors } from '../components/MultiSelectColors';
 import { formatDate } from '../lib/dateUtils';
 import { ExportButton } from '../components/ExportButton';
 import { RegistroDetalleFase2 } from './RegistroDetalleFase2';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Textarea } from '../components/ui/textarea';
+import { Label } from '../components/ui/label';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const TIPOS_INCIDENCIA = [
+  { value: 'FALTA_MATERIAL', label: 'Falta Material' },
+  { value: 'FALTA_AVIOS', label: 'Falta Avíos' },
+  { value: 'RETRASO_TALLER', label: 'Retraso Taller' },
+  { value: 'CALIDAD', label: 'Calidad' },
+  { value: 'CAMBIO_PRIORIDAD', label: 'Cambio Prioridad' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+const MOTIVOS_PARALIZACION = [
+  { value: 'FALTA_MATERIAL', label: 'Falta Material' },
+  { value: 'FALTA_AVIOS', label: 'Falta Avíos' },
+  { value: 'CALIDAD', label: 'Calidad' },
+  { value: 'TALLER', label: 'Taller' },
+  { value: 'OTRO', label: 'Otro' },
+];
+
+const getEstadoOperativoBadge = (estado) => {
+  switch (estado) {
+    case 'PARALIZADA':
+      return <Badge className="bg-red-600 text-white" data-testid="badge-paralizada">Paralizada</Badge>;
+    case 'EN_RIESGO':
+      return <Badge className="bg-amber-500 text-white" data-testid="badge-en-riesgo">En Riesgo</Badge>;
+    default:
+      return <Badge variant="outline" className="text-green-600 border-green-600" data-testid="badge-normal">Normal</Badge>;
+  }
+};
+
+const getFechaEntregaBadge = (fecha, estado) => {
+  if (!fecha) return <span className="text-muted-foreground text-sm">-</span>;
+  if (estado === 'Almacén PT') return <span className="text-sm font-mono">{formatDate(fecha)}</span>;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const entrega = new Date(fecha + 'T00:00:00');
+  const diffDays = Math.ceil((entrega - hoy) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return <span className="text-red-600 font-semibold text-sm font-mono">{formatDate(fecha)} (vencido)</span>;
+  if (diffDays <= 3) return <span className="text-amber-600 font-semibold text-sm font-mono">{formatDate(fecha)} ({diffDays}d)</span>;
+  return <span className="text-sm font-mono">{formatDate(fecha)}</span>;
+};
 
 export const Registros = () => {
   const navigate = useNavigate();
@@ -49,6 +92,23 @@ export const Registros = () => {
   const [coloresSeleccionados, setColoresSeleccionados] = useState([]);
   const [matrizCantidades, setMatrizCantidades] = useState({});
   const [coloresCatalogo, setColoresCatalogo] = useState([]);
+  
+  // Control de producción
+  const [controlDialogOpen, setControlDialogOpen] = useState(false);
+  const [controlItem, setControlItem] = useState(null);
+  const [controlData, setControlData] = useState({ fecha_entrega_esperada: '', responsable_actual: '' });
+  
+  // Incidencias
+  const [incidenciasDialogOpen, setIncidenciasDialogOpen] = useState(false);
+  const [incidenciasItem, setIncidenciasItem] = useState(null);
+  const [incidencias, setIncidencias] = useState([]);
+  const [incidenciaForm, setIncidenciaForm] = useState({ tipo: '', comentario: '' });
+  
+  // Paralizaciones
+  const [paralizacionDialogOpen, setParalizacionDialogOpen] = useState(false);
+  const [paralizacionItem, setParalizacionItem] = useState(null);
+  const [paralizaciones, setParalizaciones] = useState([]);
+  const [paralizacionForm, setParalizacionForm] = useState({ motivo: '', comentario: '' });
 
   const fetchItems = async () => {
     try {
@@ -286,6 +346,113 @@ export const Registros = () => {
            registro.distribucion_colores.some(t => t.colores && t.colores.length > 0);
   };
 
+  // ========== CONTROL DE PRODUCCIÓN ==========
+  
+  const handleOpenControl = (item) => {
+    setControlItem(item);
+    setControlData({
+      fecha_entrega_esperada: item.fecha_entrega_esperada || '',
+      responsable_actual: item.responsable_actual || '',
+    });
+    setControlDialogOpen(true);
+  };
+
+  const handleSaveControl = guard(async () => {
+    try {
+      await axios.put(`${API}/registros/${controlItem.id}/control`, controlData);
+      toast.success('Control actualizado');
+      setControlDialogOpen(false);
+      fetchItems();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al actualizar');
+    }
+  });
+
+  // ========== INCIDENCIAS ==========
+
+  const handleOpenIncidencias = async (item) => {
+    setIncidenciasItem(item);
+    setIncidenciaForm({ tipo: '', comentario: '' });
+    try {
+      const res = await axios.get(`${API}/incidencias/${item.id}`);
+      setIncidencias(res.data);
+    } catch { setIncidencias([]); }
+    setIncidenciasDialogOpen(true);
+  };
+
+  const handleCreateIncidencia = guard(async () => {
+    if (!incidenciaForm.tipo) { toast.error('Selecciona un tipo'); return; }
+    try {
+      await axios.post(`${API}/incidencias`, {
+        registro_id: incidenciasItem.id,
+        tipo: incidenciaForm.tipo,
+        comentario: incidenciaForm.comentario,
+        usuario: 'eduard',
+      });
+      toast.success('Incidencia registrada');
+      setIncidenciaForm({ tipo: '', comentario: '' });
+      const res = await axios.get(`${API}/incidencias/${incidenciasItem.id}`);
+      setIncidencias(res.data);
+      fetchItems();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al registrar');
+    }
+  });
+
+  const handleResolverIncidencia = guard(async (incId) => {
+    try {
+      await axios.put(`${API}/incidencias/${incId}`, { estado: 'RESUELTA' });
+      toast.success('Incidencia resuelta');
+      const res = await axios.get(`${API}/incidencias/${incidenciasItem.id}`);
+      setIncidencias(res.data);
+      fetchItems();
+    } catch (error) {
+      toast.error('Error al resolver');
+    }
+  });
+
+  // ========== PARALIZACIONES ==========
+
+  const handleOpenParalizaciones = async (item) => {
+    setParalizacionItem(item);
+    setParalizacionForm({ motivo: '', comentario: '' });
+    try {
+      const res = await axios.get(`${API}/paralizaciones/${item.id}`);
+      setParalizaciones(res.data);
+    } catch { setParalizaciones([]); }
+    setParalizacionDialogOpen(true);
+  };
+
+  const handleCrearParalizacion = guard(async () => {
+    if (!paralizacionForm.motivo) { toast.error('Selecciona un motivo'); return; }
+    try {
+      await axios.post(`${API}/paralizaciones`, {
+        registro_id: paralizacionItem.id,
+        motivo: paralizacionForm.motivo,
+        comentario: paralizacionForm.comentario,
+      });
+      toast.success('Paralización registrada');
+      setParalizacionForm({ motivo: '', comentario: '' });
+      const res = await axios.get(`${API}/paralizaciones/${paralizacionItem.id}`);
+      setParalizaciones(res.data);
+      fetchItems();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al paralizar');
+    }
+  });
+
+  const handleLevantarParalizacion = guard(async (parId) => {
+    try {
+      await axios.put(`${API}/paralizaciones/${parId}/levantar`);
+      toast.success('Paralización levantada');
+      const res = await axios.get(`${API}/paralizaciones/${paralizacionItem.id}`);
+      setParalizaciones(res.data);
+      fetchItems();
+    } catch (error) {
+      toast.error('Error al levantar paralización');
+    }
+  });
+
   return (
     <div className="space-y-6" data-testid="registros-page">
       <div className="flex items-center justify-between">
@@ -311,33 +478,44 @@ export const Registros = () => {
                   <TableHead>N° Corte</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Modelo</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead>Curva</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead>Entrega</TableHead>
+                  <TableHead>Operativo</TableHead>
+                  <TableHead>Responsable</TableHead>
                   <TableHead>Piezas</TableHead>
-                  <TableHead className="w-[150px]">Acciones</TableHead>
+                  <TableHead className="w-[200px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No hay registros
                     </TableCell>
                   </TableRow>
                 ) : (
                   items.map((item) => (
-                    <TableRow key={item.id} className="data-table-row" data-testid={`registro-row-${item.id}`}>
+                    <TableRow 
+                      key={item.id} 
+                      className={`data-table-row ${item.estado_operativo === 'PARALIZADA' ? 'bg-red-50 dark:bg-red-950/20' : item.estado_operativo === 'EN_RIESGO' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
+                      data-testid={`registro-row-${item.id}`}
+                    >
                       <TableCell className="font-mono font-medium">
                         <div className="flex items-center gap-2">
                           {item.urgente && (
                             <AlertTriangle className="h-4 w-4 text-destructive badge-urgent" />
+                          )}
+                          {item.paralizacion_activa && (
+                            <PauseCircle className="h-4 w-4 text-red-600" />
+                          )}
+                          {item.incidencias_abiertas > 0 && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold">{item.incidencias_abiertas}</span>
                           )}
                           {item.n_corte}
                         </div>
@@ -346,52 +524,44 @@ export const Registros = () => {
                         {formatDate(item.fecha_creacion)}
                       </TableCell>
                       <TableCell>{item.modelo_nombre || '-'}</TableCell>
-                      <TableCell>{item.marca_nombre || '-'}</TableCell>
-                      <TableCell className="font-mono">{item.curva || '-'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${getStatusClass(item.estado)} whitespace-nowrap`}>
                           {item.estado}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {getFechaEntregaBadge(item.fecha_entrega_esperada, item.estado)}
+                      </TableCell>
+                      <TableCell>
+                        {getEstadoOperativoBadge(item.estado_operativo)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {item.responsable_actual || <span className="text-muted-foreground">-</span>}
                       </TableCell>
                       <TableCell className="font-mono font-semibold">
                         {getTotalPiezas(item)}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleView(item)}
-                            title="Ver detalle"
-                            data-testid={`view-registro-${item.id}`}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleView(item)} title="Ver detalle" data-testid={`view-registro-${item.id}`}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenColoresDialog(item)}
-                            title="Distribuir colores"
-                            data-testid={`colores-registro-${item.id}`}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenControl(item)} title="Control" data-testid={`control-registro-${item.id}`}>
+                            <Calendar className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenIncidencias(item)} title="Incidencias" data-testid={`incidencias-registro-${item.id}`}>
+                            <FileWarning className={`h-4 w-4 ${item.incidencias_abiertas > 0 ? 'text-amber-500' : ''}`} />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenParalizaciones(item)} title={item.paralizacion_activa ? 'Paralización activa' : 'Paralizaciones'} data-testid={`paralizacion-registro-${item.id}`}>
+                            {item.paralizacion_activa ? <PlayCircle className="h-4 w-4 text-red-600" /> : <PauseCircle className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
                             <Palette className={`h-4 w-4 ${tieneColores(item) ? 'text-primary' : ''}`} />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => navigate(`/registros/editar/${item.id}`)}
-                            title="Editar"
-                            data-testid={`edit-registro-${item.id}`}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => navigate(`/registros/editar/${item.id}`)} title="Editar" data-testid={`edit-registro-${item.id}`}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(item.id)}
-                            title="Eliminar"
-                            data-testid={`delete-registro-${item.id}`}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -740,6 +910,212 @@ export const Registros = () => {
               Cerrar
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Control de Producción */}
+      <Dialog open={controlDialogOpen} onOpenChange={setControlDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Control - Corte #{controlItem?.n_corte}</DialogTitle>
+            <DialogDescription>Fecha de entrega y responsable actual</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Fecha Entrega Esperada</Label>
+              <Input
+                type="date"
+                value={controlData.fecha_entrega_esperada}
+                onChange={(e) => setControlData({ ...controlData, fecha_entrega_esperada: e.target.value })}
+                data-testid="input-fecha-entrega"
+              />
+            </div>
+            <div>
+              <Label>Responsable Actual</Label>
+              <Input
+                value={controlData.responsable_actual}
+                onChange={(e) => setControlData({ ...controlData, responsable_actual: e.target.value })}
+                placeholder="Ej: Corte, Taller Externo, Lavandería..."
+                data-testid="input-responsable"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setControlDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveControl} disabled={saving} data-testid="btn-guardar-control">
+              {saving ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Incidencias */}
+      <Dialog open={incidenciasDialogOpen} onOpenChange={setIncidenciasDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Incidencias - Corte #{incidenciasItem?.n_corte}</DialogTitle>
+            <DialogDescription>Registro y seguimiento de incidencias</DialogDescription>
+          </DialogHeader>
+          
+          {/* Formulario nueva incidencia */}
+          <Card>
+            <CardContent className="p-4 space-y-3">
+              <h4 className="text-sm font-semibold">Nueva Incidencia</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={incidenciaForm.tipo} onValueChange={(v) => setIncidenciaForm({ ...incidenciaForm, tipo: v })}>
+                    <SelectTrigger data-testid="select-tipo-incidencia">
+                      <SelectValue placeholder="Seleccionar tipo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIPOS_INCIDENCIA.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={handleCreateIncidencia} disabled={saving || !incidenciaForm.tipo} className="w-full" data-testid="btn-crear-incidencia">
+                    {saving ? 'Registrando...' : 'Registrar'}
+                  </Button>
+                </div>
+              </div>
+              <Textarea
+                value={incidenciaForm.comentario}
+                onChange={(e) => setIncidenciaForm({ ...incidenciaForm, comentario: e.target.value })}
+                placeholder="Comentario (opcional)..."
+                rows={2}
+                data-testid="input-comentario-incidencia"
+              />
+            </CardContent>
+          </Card>
+
+          {/* Historial */}
+          <div className="space-y-2 mt-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">Historial ({incidencias.length})</h4>
+            {incidencias.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Sin incidencias</p>
+            ) : (
+              incidencias.map((inc) => (
+                <div key={inc.id} className={`flex items-start justify-between p-3 rounded-lg border ${inc.estado === 'ABIERTA' ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/20' : 'border-muted'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={inc.estado === 'ABIERTA' ? 'default' : 'secondary'} className="text-xs">
+                        {TIPOS_INCIDENCIA.find(t => t.value === inc.tipo)?.label || inc.tipo}
+                      </Badge>
+                      <Badge variant="outline" className={`text-xs ${inc.estado === 'ABIERTA' ? 'text-amber-600' : 'text-green-600'}`}>
+                        {inc.estado}
+                      </Badge>
+                    </div>
+                    {inc.comentario && <p className="text-sm mt-1 text-muted-foreground">{inc.comentario}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">{new Date(inc.fecha_hora).toLocaleString('es-PE')} - {inc.usuario}</p>
+                  </div>
+                  {inc.estado === 'ABIERTA' && (
+                    <Button variant="ghost" size="sm" onClick={() => handleResolverIncidencia(inc.id)} disabled={saving} data-testid={`resolver-inc-${inc.id}`}>
+                      Resolver
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Paralizaciones */}
+      <Dialog open={paralizacionDialogOpen} onOpenChange={setParalizacionDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Paralizaciones - Corte #{paralizacionItem?.n_corte}</DialogTitle>
+            <DialogDescription>Gestión de paralizaciones del registro</DialogDescription>
+          </DialogHeader>
+
+          {/* Paralización activa */}
+          {paralizacionItem?.paralizacion_activa ? (
+            <Card className="border-red-300 bg-red-50 dark:bg-red-950/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <PauseCircle className="h-5 w-5 text-red-600" />
+                      <span className="font-semibold text-red-700">Paralización Activa</span>
+                    </div>
+                    <p className="text-sm mt-1">
+                      Motivo: {MOTIVOS_PARALIZACION.find(m => m.value === paralizaciones.find(p => p.activa)?.motivo)?.label || paralizaciones.find(p => p.activa)?.motivo}
+                    </p>
+                    {paralizaciones.find(p => p.activa)?.comentario && (
+                      <p className="text-sm text-muted-foreground">{paralizaciones.find(p => p.activa)?.comentario}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">Desde: {new Date(paralizaciones.find(p => p.activa)?.fecha_inicio).toLocaleString('es-PE')}</p>
+                  </div>
+                  <Button variant="destructive" onClick={() => handleLevantarParalizacion(paralizaciones.find(p => p.activa)?.id)} disabled={saving} data-testid="btn-levantar-paralizacion">
+                    {saving ? 'Levantando...' : 'Levantar'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Formulario nueva paralización */
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <h4 className="text-sm font-semibold">Nueva Paralización</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Motivo</Label>
+                    <Select value={paralizacionForm.motivo} onValueChange={(v) => setParalizacionForm({ ...paralizacionForm, motivo: v })}>
+                      <SelectTrigger data-testid="select-motivo-paralizacion">
+                        <SelectValue placeholder="Seleccionar motivo..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MOTIVOS_PARALIZACION.map(m => (
+                          <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button variant="destructive" onClick={handleCrearParalizacion} disabled={saving || !paralizacionForm.motivo} className="w-full" data-testid="btn-crear-paralizacion">
+                      {saving ? 'Paralizando...' : 'Paralizar'}
+                    </Button>
+                  </div>
+                </div>
+                <Textarea
+                  value={paralizacionForm.comentario}
+                  onChange={(e) => setParalizacionForm({ ...paralizacionForm, comentario: e.target.value })}
+                  placeholder="Comentario (opcional)..."
+                  rows={2}
+                  data-testid="input-comentario-paralizacion"
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Historial */}
+          <div className="space-y-2 mt-2">
+            <h4 className="text-sm font-semibold text-muted-foreground">Historial ({paralizaciones.length})</h4>
+            {paralizaciones.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Sin paralizaciones</p>
+            ) : (
+              paralizaciones.map((par) => (
+                <div key={par.id} className={`p-3 rounded-lg border ${par.activa ? 'border-red-300 bg-red-50 dark:bg-red-950/20' : 'border-muted'}`}>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={par.activa ? 'destructive' : 'secondary'} className="text-xs">
+                      {MOTIVOS_PARALIZACION.find(m => m.value === par.motivo)?.label || par.motivo}
+                    </Badge>
+                    <Badge variant="outline" className={`text-xs ${par.activa ? 'text-red-600' : 'text-green-600'}`}>
+                      {par.activa ? 'Activa' : 'Levantada'}
+                    </Badge>
+                  </div>
+                  {par.comentario && <p className="text-sm mt-1 text-muted-foreground">{par.comentario}</p>}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Inicio: {new Date(par.fecha_inicio).toLocaleString('es-PE')}
+                    {par.fecha_fin && ` | Fin: ${new Date(par.fecha_fin).toLocaleString('es-PE')}`}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

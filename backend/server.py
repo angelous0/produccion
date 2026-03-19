@@ -2607,6 +2607,9 @@ async def get_registros():
             d = row_to_dict(r)
             d['tallas'] = parse_jsonb(d.get('tallas'))
             d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
+            # Convert date fields
+            if d.get('fecha_entrega_esperada'):
+                d['fecha_entrega_esperada'] = str(d['fecha_entrega_esperada'])
             # Enriquecer modelo
             modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
             if modelo:
@@ -2625,6 +2628,26 @@ async def get_registros():
             if d.get('hilo_especifico_id'):
                 hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
                 d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
+            # Conteo de incidencias abiertas y paralización activa
+            inc_count = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_incidencia WHERE registro_id = $1 AND estado = 'ABIERTA'", d['id'])
+            d['incidencias_abiertas'] = inc_count or 0
+            par_activa = await conn.fetchrow(
+                "SELECT id, motivo FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", d['id'])
+            d['paralizacion_activa'] = row_to_dict(par_activa) if par_activa else None
+            # Recalcular estado_operativo en tiempo real
+            from datetime import date as date_type
+            if par_activa:
+                d['estado_operativo'] = 'PARALIZADA'
+            elif d.get('fecha_entrega_esperada') and d['estado'] != 'Almacén PT':
+                try:
+                    fecha = date_type.fromisoformat(str(d['fecha_entrega_esperada']))
+                    if fecha < date_type.today():
+                        d['estado_operativo'] = 'EN_RIESGO'
+                    else:
+                        d['estado_operativo'] = 'NORMAL'
+                except:
+                    pass
             result.append(d)
         return result
 
@@ -5948,6 +5971,7 @@ from routes.servicios import router as servicios_router
 from routes.cierre_v2 import router as cierre_v2_router
 from routes.reportes import router as reportes_router
 from routes.integracion_finanzas import router as integracion_finanzas_router
+from routes.control_produccion import router as control_produccion_router
 
 # ==================== STARTUP/SHUTDOWN ====================
 
@@ -5992,3 +6016,5 @@ app.include_router(integracion_finanzas_router)
 # BOM router
 from routes.bom import router as bom_router
 app.include_router(bom_router)
+
+app.include_router(control_produccion_router)

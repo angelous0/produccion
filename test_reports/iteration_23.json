@@ -1,0 +1,100 @@
+{
+  "summary": "Control de Producción module fully tested. All 20 backend API tests passed (100%). Frontend UI verified: table shows Entrega/Operativo/Responsable columns, Control/Incidencias/Paralizaciones dialogs work correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/registros returns estado_operativo, fecha_entrega_esperada, responsable_actual, incidencias_abiertas, paralizacion_activa",
+    "Backend: PUT /api/registros/{id}/control - Updates fecha_entrega_esperada",
+    "Backend: PUT /api/registros/{id}/control - Updates responsable_actual",
+    "Backend: PUT /api/registros/{id}/control - Returns 404 for nonexistent registro",
+    "Backend: GET /api/incidencias/{registro_id} - Returns list of incidencias",
+    "Backend: POST /api/incidencias - Creates incidencia with estado ABIERTA",
+    "Backend: POST /api/incidencias - Supports all tipos (FALTA_MATERIAL, FALTA_AVIOS, RETRASO_TALLER, CALIDAD, CAMBIO_PRIORIDAD, OTRO)",
+    "Backend: PUT /api/incidencias/{id} - Resolves incidencia (estado=RESUELTA)",
+    "Backend: incidencias_abiertas count matches actual ABIERTA count",
+    "Backend: POST /api/incidencias - Returns 404 for nonexistent registro",
+    "Backend: GET /api/paralizaciones/{registro_id} - Returns list of paralizaciones",
+    "Backend: POST /api/paralizaciones - Creates paralización with activa=True and sets estado_operativo=PARALIZADA",
+    "Backend: POST /api/paralizaciones - Returns 400 when trying to create second active paralización",
+    "Backend: PUT /api/paralizaciones/{id}/levantar - Lifts paralización and updates estado_operativo",
+    "Backend: PUT /api/paralizaciones/{id}/levantar - Returns 400 for already lifted paralización",
+    "Backend: POST /api/paralizaciones - Returns 404 for nonexistent registro",
+    "Backend: Estado EN_RIESGO when fecha_entrega_esperada is in the past",
+    "Backend: Estado NORMAL when fecha_entrega_esperada is in the future",
+    "Backend: Estado PARALIZADA overrides EN_RIESGO",
+    "Frontend: Table shows columns - N° CORTE, FECHA, MODELO, ESTADO, ENTREGA, OPERATIVO, RESPONSABLE, PIEZAS, ACCIONES",
+    "Frontend: Control dialog opens with fecha_entrega_esperada and responsable_actual inputs",
+    "Frontend: Control dialog save works (toast: Control actualizado)",
+    "Frontend: Incidencias dialog opens with tipo selector, comentario textarea, Registrar button",
+    "Frontend: Incidencias dialog shows history section",
+    "Frontend: Creating incidencia works (toast: Incidencia registrada)",
+    "Frontend: Paralizaciones dialog opens with motivo selector, comentario textarea, Paralizar button",
+    "Frontend: Paralizaciones dialog shows history with levantada status"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_control_produccion.py",
+    "/app/test_reports/pytest/pytest_control_produccion.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "control_produccion.py: Good separation of concerns with dedicated routes file",
+    "control_produccion.py: Proper validation - only 1 active paralización per registro",
+    "control_produccion.py: Estado operativo recalculation on paralización create/levantar",
+    "server.py GET /api/registros: Enriches each registro with incidencias_abiertas count and paralizacion_activa",
+    "server.py GET /api/registros: Real-time estado_operativo calculation based on paralizacion and fecha_entrega",
+    "Registros.jsx: All dialogs properly implemented with data-testid attributes",
+    "Registros.jsx: getEstadoOperativoBadge helper renders correct badge colors (red=PARALIZADA, amber=EN_RIESGO, green=NORMAL)",
+    "Registros.jsx: getFechaEntregaBadge helper shows visual alerts for expired/near dates"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_control_produccion.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% (All UI components verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing registro e7082b07-7a9b-4b45-af14-bde1ebc09238 (corte 04) for testing. Created test incidencias and paralizaciones during testing, cleaned up afterward.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Control de Producción module fully implemented. Key test IDs: control-registro-*, incidencias-registro-*, paralizacion-registro-*, input-fecha-entrega, input-responsable, btn-guardar-control, select-tipo-incidencia, btn-crear-incidencia, select-motivo-paralizacion, btn-crear-paralizacion, btn-levantar-paralizacion. Tables: prod_incidencia, prod_paralizacion. Columns added to prod_registros: fecha_entrega_esperada, estado_operativo, responsable_actual.",
+  "features_verified": {
+    "backend_api": {
+      "put_registros_control": true,
+      "get_incidencias": true,
+      "post_incidencias": true,
+      "put_incidencias_resolve": true,
+      "get_paralizaciones": true,
+      "post_paralizaciones": true,
+      "put_paralizaciones_levantar": true,
+      "get_registros_enriched_fields": true
+    },
+    "estado_operativo_logic": {
+      "paralizada_on_active_paralizacion": true,
+      "en_riesgo_on_expired_fecha": true,
+      "normal_on_future_fecha": true,
+      "paralizada_overrides_en_riesgo": true
+    },
+    "frontend_table": {
+      "entrega_column": true,
+      "operativo_column": true,
+      "responsable_column": true,
+      "badge_colors": true
+    },
+    "frontend_dialogs": {
+      "control_dialog": true,
+      "incidencias_dialog": true,
+      "paralizaciones_dialog": true
+    }
+  }
+}
