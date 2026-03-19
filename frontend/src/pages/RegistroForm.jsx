@@ -124,7 +124,6 @@ export const RegistroForm = () => {
     cantidad_recibida: 0,
     tarifa_aplicada: 0,
     fecha_esperada_movimiento: '',
-    responsable_movimiento: '',
     observaciones: '',
   });
 
@@ -708,7 +707,6 @@ export const RegistroForm = () => {
         cantidad_recibida: movimiento.cantidad_recibida || movimiento.cantidad || 0,
         tarifa_aplicada: movimiento.tarifa_aplicada || 0,
         fecha_esperada_movimiento: movimiento.fecha_esperada_movimiento || '',
-        responsable_movimiento: movimiento.responsable_movimiento || '',
         observaciones: movimiento.observaciones || '',
       });
       // Filtrar personas por el servicio del movimiento (nueva estructura)
@@ -1467,7 +1465,6 @@ export const RegistroForm = () => {
                             <TableRow className="bg-muted/50">
                               <TableHead>Servicio</TableHead>
                               <TableHead>Persona</TableHead>
-                              <TableHead>Responsable</TableHead>
                               <TableHead className="text-center">F. Esperada</TableHead>
                               <TableHead className="text-center">Fechas</TableHead>
                               <TableHead className="text-right">Enviada</TableHead>
@@ -1504,9 +1501,6 @@ export const RegistroForm = () => {
                                       <Users className="h-4 w-4 text-muted-foreground" />
                                       <span>{mov.persona_nombre}</span>
                                     </div>
-                                  </TableCell>
-                                  <TableCell className="text-sm">
-                                    {mov.responsable_movimiento || <span className="text-muted-foreground">-</span>}
                                   </TableCell>
                                   <TableCell className="text-center">
                                     {mov.fecha_esperada_movimiento ? (
@@ -1582,7 +1576,7 @@ export const RegistroForm = () => {
                               );
                             })}
                             <TableRow className="bg-muted/30">
-                              <TableCell colSpan={7} className="font-semibold">Total Recibidas</TableCell>
+                              <TableCell colSpan={6} className="font-semibold">Total Recibidas</TableCell>
                               <TableCell className="text-right font-mono font-bold text-primary" colSpan={2}>
                                 {getTotalCantidadMovimientos()}
                               </TableCell>
@@ -2042,7 +2036,7 @@ export const RegistroForm = () => {
 
       {/* Dialog para crear/editar movimiento de producción */}
       <Dialog open={movimientoDialogOpen} onOpenChange={setMovimientoDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingMovimiento ? 'Editar Movimiento' : 'Nuevo Movimiento de Producción'}</DialogTitle>
             <DialogDescription>
@@ -2155,13 +2149,13 @@ export const RegistroForm = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="responsable-mov">Responsable</Label>
+                <Label htmlFor="observaciones-mov">Observaciones</Label>
                 <Input
-                  id="responsable-mov"
-                  value={movimientoFormData.responsable_movimiento}
-                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, responsable_movimiento: e.target.value })}
-                  placeholder="Ej: Taller Juan, Lavandería X..."
-                  data-testid="input-responsable-movimiento"
+                  id="observaciones-mov"
+                  value={movimientoFormData.observaciones}
+                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, observaciones: e.target.value })}
+                  placeholder="Observaciones..."
+                  data-testid="input-observaciones-movimiento"
                 />
               </div>
             </div>
