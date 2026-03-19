@@ -11,6 +11,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 5. Integracion con modulo de Finanzas (proveedores, facturacion)
 6. Automatizacion Modelo -> PT
 7. Sistema de usuarios con permisos granulares
+8. Control de produccion: atrasos, incidencias, paralizaciones
 
 ## What's Been Implemented
 - Flujo de produccion completo con linea de tiempo de estado
@@ -25,18 +26,32 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - Filtros por categoria en Inventario
 - **2026-03-18**: Filtrado de items PT en selectores de Ingresos y Salidas
 - **2026-03-18**: Proteccion anti doble-click con hook `useSaving()` en 21 paginas
-- **2026-03-18**: Fix tarifa_aplicada: nueva columna en BD, backend guarda/devuelve la tarifa del movimiento
+- **2026-03-18**: Fix tarifa_aplicada: nueva columna en BD
+- **2026-03-18**: Fix WIP vacio (empresa_id=7 → 6)
+- **2026-03-18**: Sidebar fijo al navegar
+- **2026-03-19**: Control de Produccion completo:
+  - Fecha entrega esperada con alertas visuales
+  - Estado operativo automatico (NORMAL/EN_RIESGO/PARALIZADA)
+  - Responsable actual
+  - Sistema de incidencias (CRUD + historial)
+  - Sistema de paralizaciones (crear/levantar + validacion 1 activa)
 
 ## DB Changes
-- `prod_movimientos_produccion`: Agregada columna `tarifa_aplicada NUMERIC(14,4)`
+- `prod_movimientos_produccion`: columna `tarifa_aplicada NUMERIC(14,4)`
+- `prod_registros`: columnas `fecha_entrega_esperada DATE`, `estado_operativo VARCHAR(20)`, `responsable_actual VARCHAR(100)`
+- `prod_incidencia`: tabla nueva (id, empresa_id, registro_id, fecha_hora, usuario, tipo, comentario, estado)
+- `prod_paralizacion`: tabla nueva (id, empresa_id, registro_id, fecha_inicio, fecha_fin, motivo, comentario, activa)
 
 ## Prioritized Backlog
 
 ### P0 - Completado
 - [x] Selector proveedores Finanzas en Ingresos
 - [x] Filtrar PT de selectores Ingresos/Salidas
-- [x] Proteccion anti doble-click global (useSaving hook)
-- [x] Fix tarifa_aplicada persistencia en movimientos
+- [x] Proteccion anti doble-click global
+- [x] Fix tarifa_aplicada persistencia
+- [x] Fix WIP vacio
+- [x] Sidebar fijo
+- [x] Control de produccion (fecha entrega, estado operativo, incidencias, paralizaciones, responsable)
 
 ### P1
 - [ ] Logica en modulo Finanzas para vincular ingresos MP a facturas
@@ -50,14 +65,29 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [ ] Permisos granulares con usePermissions
 - [ ] Exportacion Excel/PDF (Kardex, etc.)
 - [ ] Refactorizar RegistroForm.jsx (1600+ lineas)
-- [ ] Accesibilidad en componentes Dialog (DialogTitle/Description)
+- [ ] Accesibilidad en componentes Dialog
 
 ## Architecture
 - Backend: FastAPI + PostgreSQL (asyncpg)
 - Frontend: React + Shadcn/UI + Tailwind
 - DB Schemas: produccion (principal), finanzas2 (proveedores, facturas)
 - Auth: JWT con bcrypt
-- Hook reutilizable: useSaving() para proteccion anti doble-click
+
+## Key Files
+- /app/frontend/src/hooks/useSaving.js - Hook anti doble-click
+- /app/frontend/src/pages/Registros.jsx - Tabla registros con control produccion
+- /app/frontend/src/pages/RegistroForm.jsx - Formulario registro produccion
+- /app/backend/routes/control_produccion.py - Endpoints incidencias/paralizaciones
+- /app/backend/routes/integracion_finanzas.py - Endpoints integracion Finanzas
+- /app/backend/server.py - Backend principal
+
+## Key API Endpoints
+- PUT /api/registros/{id}/control - Actualizar fecha entrega y responsable
+- GET/POST /api/incidencias/{registro_id} - Listar/crear incidencias
+- PUT /api/incidencias/{id} - Resolver incidencia
+- GET /api/paralizaciones/{registro_id} - Listar paralizaciones
+- POST /api/paralizaciones - Crear paralizacion
+- PUT /api/paralizaciones/{id}/levantar - Levantar paralizacion
 
 ## Key Credentials
 - Usuario: eduard / eduard123
