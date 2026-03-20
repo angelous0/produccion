@@ -1499,7 +1499,17 @@ export const RegistroForm = () => {
                                   <TableCell>
                                     <div className="flex items-center gap-2">
                                       <Users className="h-4 w-4 text-muted-foreground" />
-                                      <span>{mov.persona_nombre}</span>
+                                      <div>
+                                        <span>{mov.persona_nombre}</span>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                          <Badge variant={mov.persona_tipo === 'INTERNO' ? 'default' : 'outline'} className={`text-[10px] px-1 py-0 ${mov.persona_tipo === 'INTERNO' ? 'bg-blue-600' : ''}`} data-testid={`persona-tipo-badge-${mov.id}`}>
+                                            {mov.persona_tipo === 'INTERNO' ? 'Interno' : 'Externo'}
+                                          </Badge>
+                                          {mov.unidad_interna_nombre && (
+                                            <span className="text-[10px] text-muted-foreground" data-testid={`unidad-interna-label-${mov.id}`}>{mov.unidad_interna_nombre}</span>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-center">
@@ -2097,10 +2107,15 @@ export const RegistroForm = () => {
                       const tarifaPersona = getTarifaPersonaServicio(persona.id, movimientoFormData.servicio_id);
                       return (
                         <SelectItem key={persona.id} value={persona.id}>
-                          {persona.nombre}
-                          {tarifaPersona > 0 && (
-                            <span className="ml-2 text-green-600">({formatCurrency(tarifaPersona)}/prenda)</span>
-                          )}
+                          <span className="flex items-center gap-2">
+                            {persona.nombre}
+                            <span className={`text-[10px] px-1 rounded ${persona.tipo_persona === 'INTERNO' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+                              {persona.tipo_persona === 'INTERNO' ? 'INT' : 'EXT'}
+                            </span>
+                            {tarifaPersona > 0 && (
+                              <span className="text-green-600">({formatCurrency(tarifaPersona)}/prenda)</span>
+                            )}
+                          </span>
                         </SelectItem>
                       );
                     })
@@ -2112,6 +2127,25 @@ export const RegistroForm = () => {
                   No hay personas asignadas a este servicio. Asígnalas en Maestros → Personas.
                 </p>
               )}
+              {movimientoFormData.persona_id && (() => {
+                const personaSel = personasFiltradas.find(p => p.id === movimientoFormData.persona_id);
+                if (!personaSel) return null;
+                return (
+                  <div className={`p-2 rounded-lg border text-xs ${personaSel.tipo_persona === 'INTERNO' ? 'bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800' : 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'}`} data-testid="persona-tipo-info">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={personaSel.tipo_persona === 'INTERNO' ? 'default' : 'outline'} className={`text-[10px] px-1 py-0 ${personaSel.tipo_persona === 'INTERNO' ? 'bg-blue-600' : ''}`}>
+                        {personaSel.tipo_persona === 'INTERNO' ? 'Interno' : 'Externo'}
+                      </Badge>
+                      {personaSel.tipo_persona === 'INTERNO' && personaSel.unidad_interna_nombre && (
+                        <span className="text-muted-foreground">Unidad: <strong>{personaSel.unidad_interna_nombre}</strong></span>
+                      )}
+                      {personaSel.tipo_persona === 'EXTERNO' && (
+                        <span className="text-muted-foreground">Costo externo - sin unidad interna</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="grid grid-cols-2 gap-4">

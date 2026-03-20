@@ -21,7 +21,7 @@ import os
 from datetime import date, timedelta
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://prod-cierre-flow.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://prod-control-12.preview.emergentagent.com').rstrip('/')
 
 # Test registro ID (corte 04)
 TEST_REGISTRO_ID = "e7082b07-7a9b-4b45-af14-bde1ebc09238"

@@ -626,6 +626,8 @@ class PersonaBase(BaseModel):
     direccion: str = ""
     servicios: List[PersonaServicio] = []
     activo: bool = True
+    tipo_persona: str = "EXTERNO"
+    unidad_interna_id: Optional[int] = None
 
 class PersonaCreate(PersonaBase):
     pass
@@ -2027,6 +2029,10 @@ async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
                     "tarifa": s.get('tarifa', 0)
                 })
             d['servicios_detalle'] = servicios_detalle
+            # Enriquecer unidad interna
+            if d.get('unidad_interna_id'):
+                ui = await conn.fetchrow("SELECT nombre FROM finanzas2.fin_unidad_interna WHERE id = $1", d['unidad_interna_id'])
+                d['unidad_interna_nombre'] = ui['nombre'] if ui else None
             if servicio_id:
                 if any(s.get('servicio_id') == servicio_id for s in d['servicios']):
                     result.append(d)
@@ -2041,8 +2047,8 @@ async def create_persona_produccion(input: PersonaCreate):
     async with pool.acquire() as conn:
         servicios_json = json.dumps([s.model_dump() for s in persona.servicios])
         await conn.execute(
-            "INSERT INTO prod_personas_produccion (id, nombre, tipo, telefono, email, direccion, servicios, activo, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-            persona.id, persona.nombre, persona.tipo, persona.telefono, persona.email, persona.direccion, servicios_json, persona.activo, persona.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_personas_produccion (id, nombre, tipo, telefono, email, direccion, servicios, activo, tipo_persona, unidad_interna_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+            persona.id, persona.nombre, persona.tipo, persona.telefono, persona.email, persona.direccion, servicios_json, persona.activo, persona.tipo_persona, persona.unidad_interna_id, persona.created_at.replace(tzinfo=None)
         )
     return persona
 
@@ -2055,8 +2061,8 @@ async def update_persona_produccion(persona_id: str, input: PersonaCreate):
             raise HTTPException(status_code=404, detail="Persona no encontrada")
         servicios_json = json.dumps([s.model_dump() for s in input.servicios])
         await conn.execute(
-            "UPDATE prod_personas_produccion SET nombre=$1, tipo=$2, telefono=$3, email=$4, direccion=$5, servicios=$6, activo=$7 WHERE id=$8",
-            input.nombre, input.tipo, input.telefono, input.email, input.direccion, servicios_json, input.activo, persona_id
+            "UPDATE prod_personas_produccion SET nombre=$1, tipo=$2, telefono=$3, email=$4, direccion=$5, servicios=$6, activo=$7, tipo_persona=$8, unidad_interna_id=$9 WHERE id=$10",
+            input.nombre, input.tipo, input.telefono, input.email, input.direccion, servicios_json, input.activo, input.tipo_persona, input.unidad_interna_id, persona_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
@@ -4641,10 +4647,14 @@ async def get_movimientos(registro_id: str = None, servicio_id: str = None, pers
         for r in rows:
             d = row_to_dict(r)
             srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", d.get('servicio_id'))
-            per = await conn.fetchrow("SELECT nombre FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
+            per = await conn.fetchrow("SELECT nombre, tipo_persona, unidad_interna_id FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
             reg = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d.get('registro_id'))
             d['servicio_nombre'] = srv['nombre'] if srv else None
             d['persona_nombre'] = per['nombre'] if per else None
+            d['persona_tipo'] = per['tipo_persona'] if per else None
+            if per and per['unidad_interna_id']:
+                ui = await conn.fetchrow("SELECT nombre FROM finanzas2.fin_unidad_interna WHERE id = $1", per['unidad_interna_id'])
+                d['unidad_interna_nombre'] = ui['nombre'] if ui else None
             d['registro_n_corte'] = reg['n_corte'] if reg else None
             # Convertir fechas a string
             if d.get('fecha_inicio'):

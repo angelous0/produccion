@@ -1,162 +1,163 @@
 <analysis>**original_problem_statement:**
-A lo largo de la sesión, el usuario ha solicitado una serie de correcciones, mejoras y una refactorización arquitectónica clave, culminando en una pregunta sobre el flujo de finalización de producción.
+El usuario ha solicitado una serie de mejoras incrementales para añadir control operativo al módulo de producción existente, sin rehacerlo.
 
-1.  **Refactorización Arquitectónica (Solicitud Principal):** Separar Servicios de Producción de Items de Inventario.
-    *   Los Items deben ser solo para materiales (MP, Avío, PT). El tipo  debe ser deprecado.
-    *   El BOM para líneas de servicio debe usar un  de un nuevo catálogo maestro, no un .
-    *   La Ruta de Producción se vincula a un Modelo y define la secuencia exacta de estados/etapas (ej: 'Para Corte', 'Corte', 'Almacén').
-    *   El Estado del Registro debe ser un selector que solo muestre las etapas de la Ruta de Producción del modelo asociado, en el orden correcto.
+**Requerimiento 1: Control de Atrasos, Incidencias y Paralizaciones (Implementado y Refactorizado)**
+Inicialmente se solicitó agregar campos de control (, , ) e incidencias/paralizaciones a nivel de la cabecera del registro de producción.
 
-2.  **Corrección de Bugs:**
-    *   Error al guardar un nuevo registro ( por enviar  en vez de ).
-    *   Error al procesar salidas de materia prima desde un registro (se exigía un requerimiento previo y faltaba ).
-    *   El reporte de WIP en proceso aparecía vacío (la consulta era incorrecta y había una inconsistencia de ).
-    *   Al guardar un registro, la cantidad por talla se reseteaba a cero (bug en el modelo Pydantic y falta de sincronización con la tabla ).
-    *   El orden de los Servicios de Producción se alteraba alfabéticamente al crear uno nuevo.
-    *   El diálogo para editar Rutas de Producción no tenía scroll, ocultando el botón de guardar al añadir muchas etapas.
+**Requerimiento 2: Mover el Control a los Movimientos (Implementado)**
+Posteriormente, el usuario refinó el requerimiento para mover el control principal a los movimientos de producción, ya que es una representación más precisa de dónde ocurren los atrasos.
+- La cabecera del registro solo conserva .
+- Cada movimiento de producción ahora tiene su propia  con alertas visuales (normal, por vencer, vencido).
+- El  del registro general (, , ) se calcula automáticamente en función del estado de sus movimientos y paralizaciones.
+- Las incidencias y paralizaciones ahora pueden vincularse a un  específico.
+- Se eliminó el campo  del registro y  del movimiento por ser redundante con .
 
-3.  **Mejoras de UX:**
-    *   En el formulario de registro, agrupar las salidas de inventario por ítem, mostrando una sumatoria colapsable.
-    *   En el diálogo de Nueva Salida de Inventario, añadir un buscador para los ítems y filtrar para excluir los de tipo Servicio.
+**Requerimiento 3: Identificar Personal Interno vs. Externo (En Progreso)**
+Se solicitó mejorar el control de costos diferenciando entre movimientos de producción internos y externos.
+- Reutilizar  para marcar a cada persona como  o .
+- Si una persona es , se debe vincular a una  de la tabla  (que ya existe).
+- El objetivo es que el módulo de Finanzas pueda identificar qué movimientos generan cargos internos y cuáles son costos externos.
 
-4.  **Pregunta Funcional (Última Solicitud):**
-    *   ¿Cómo culmina un registro su proceso para convertirse en Producto Terminado, entrar al inventario valorizado de PT y salir del reporte de WIP en proceso?
+**PRODUCT REQUIREMENTS:**
+1.  **Control a Nivel de Movimiento:** Cada movimiento debe tener su propia fecha esperada y alertas visuales.
+2.  **Estado Operativo Automático:** El estado general del registro debe reflejar el estado de sus movimientos (ej. si un movimiento está vencido, el registro está EN RIESGO).
+3.  **Trazabilidad de Incidencias/Paralizaciones:** Las incidencias y paralizaciones deben poder vincularse a movimientos específicos.
+4.  **Diferenciación Interno/Externo:** Se debe poder marcar a cada persona de producción como interna o externa y vincular al personal interno con una unidad de costo de Finanzas.
+5.  **UI Simple:** Los cambios en el frontend deben ser mínimos e integrados en las pantallas existentes de  y .
 
 **User's preferred language**: Spanish
 
 **what currently exists?**
-La aplicación ha pasado por una refactorización significativa. La lógica de negocio ahora distingue claramente entre Items (materiales) y Servicios de Producción (procesos). El BOM, las Rutas de Producción y el estado de los Registros de producción se han alineado con esta nueva arquitectura. Se corrigieron múltiples bugs críticos relacionados con el guardado de datos, el procesamiento de salidas de inventario y la visualización de reportes (WIP). La UX ha sido mejorada con selectores con búsqueda y vistas agrupadas/colapsables. Todos los cambios anteriores fueron implementados y probados. El sistema está ahora estable y listo para implementar el flujo de finalización de producción.
+La aplicación ahora tiene un sistema de control operativo a nivel de movimientos de producción. Cada movimiento puede tener su fecha esperada y el estado del registro general se actualiza automáticamente. Se ha implementado un sistema de incidencias y paralizaciones que se pueden vincular a registros o movimientos específicos. Se ha solucionado un problema de usabilidad global que impedía hacer click en botones de guardado múltiples veces ( hook) y se ha corregido el layout para que el menú lateral sea fijo. Se ha iniciado la implementación para diferenciar personal interno y externo, modificando la base de datos, el backend y el formulario de .
 
 **Last working item**:
-- Last item agent was working: Investigar y definir el proceso para que un registro de producción finalice su ciclo, se convierta en Producto Terminado (PT) y actualice el inventario, saliendo del Work-In-Progress (WIP).
-- Status: NOT STARTED
-- Agent Testing Done: N
-- Which testing method agent to use? both. Se necesitarán pruebas de backend (curl) para verificar la lógica de cierre, la creación del ingreso de PT y la actualización del estado. Se requerirá un screenshot para validar cualquier cambio en la UI (ej. un botón de Finalizar Producción).
+- Last item agent was working: Implementar la capacidad de marcar a las personas de producción como  o  y, en caso de ser , vincularlas a una  del módulo de finanzas.
+- Status: IN PROGRESS
+- Agent Testing Done: Y
+- Which testing method agent to use? frontend testing agent. El agente debe verificar el flujo completo: 1. Abrir el formulario de Personas. 2. Editar una persona existente, cambiar su tipo a INTERNO. 3. Verificar que el selector de Unidad Interna se habilite y muestre las opciones de finanzas. 4. Seleccionar una unidad y guardar. 5. Ir al formulario de Registro, crear un nuevo movimiento y verificar que al seleccionar a esa persona, se muestre visualmente que es INTERNA y su unidad asociada.
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1: **Implementar el flujo de finalización de un registro de producción (WIP a PT)** (P0)
-  
+  - Issue 1: Falta de scroll en el diálogo de Movimientos de Producción. (Recientemente corregido, pendiente de validación completa del usuario).
+  - Issue 2: La accesibilidad en los componentes  (falta de  y ) sigue sin abordarse (recurrente).
+
   Issues Detail:
-  - Issue 1: 
-     - Attempted fixes: Ninguno. El agente estaba en la fase de investigación, revisando los archivos relevantes (, , ) para entender el estado actual antes de proponer una solución.
-     - Next debug checklist: 
-        1.  **(Backend)** En  o , determinar cuál es la etapa final de una ruta de producción (ej. la última etapa o una con un flag ).
-        2.  **(Backend)** En , modificar el endpoint . Cuando el  de un registro se actualice a la etapa final:
-            *   Cambiar el  del registro a 'CERRADA' o 'TERMINADO'.
-            *   Calcular el costo final total del WIP para ese registro (suma de costos de MP y servicios).
-            *   Generar un ingreso de inventario para el Producto Terminado ( del registro) en la tabla , usando el costo calculado. La cantidad será la suma de las tallas del registro.
-            *   Esto hará que el registro ya no aparezca en el reporte WIP.
-        3.  **(Frontend)** En , considerar añadir un botón Finalizar Producción que solo se active cuando el registro esté en la penúltima etapa de su ruta. Este botón se encargaría de actualizar el estado a la etapa final.
-        4.  **(Frontend)** Actualizar el selector de estado para que no permita seleccionar manualmente la etapa final, forzando el uso del nuevo botón.
-     - Why fix this issue and what will be achieved with the fix?: Este es el paso final y crucial del ciclo de producción. Permitirá que los productos fabricados se reflejen correctamente en el inventario de productos terminados con su costo real de producción, y limpiará el reporte de trabajos en proceso (WIP).
-     - Status:  NOT STARTED
+  - Issue 1:
+     - Attempted fixes: Se agregó  al componente  en .
+     - Next debug checklist: El usuario debe confirmar que el scroll funciona como se espera en su próxima interacción.
+     - Why fix this issue and what will be achieved with the fix?: Permitirá al usuario ver y llenar todos los campos del formulario de movimiento, incluso en pantallas pequeñas.
+     - Status: USER VERIFICATION PENDING
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? both
+     - Should Test frontend/backend/both after fix?: frontend
+     - Blocked on other issue: No
+  - Issue 2:
+     - Attempted fixes: Ninguno en esta sesión.
+     - Next debug checklist: Revisar todos los componentes  de la aplicación y asegurarse de que incluyan los componentes hijos  y  para mejorar la accesibilidad, como se hizo en la implementación de Control Operativo.
+     - Why fix this issue and what will be achieved with the fix?: Mejora la accesibilidad y el cumplimiento de las buenas prácticas de UI/UX para usuarios con lectores de pantalla.
+     - Status: NOT STARTED
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix?: frontend
      - Blocked on other issue: No
 
 **In progress Task List**:
-  - None
+  - Task 1: Finalizar la implementación de Personal Interno/Externo.
+     - Where to resume: En . El backend ya devuelve el  y  en el endpoint de movimientos y en el de personas. Falta mostrar esta información en la UI cuando se selecciona una persona en el formulario de creación/edición de movimiento.
+     - What will be achieved with this?: Proporcionará la base para que el módulo de finanzas pueda calcular correctamente los costos internos y externos.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix?: frontend
+     - Blocked on something: No
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks**:
-    - **(P2)** Limpiar líneas BOM huérfanas del schema antiguo (si se restaura data antigua).
+    - **(P1)** Implementar la lógica en el **módulo de Finanzas** para consumir el endpoint  y generar cargos internos basados en los movimientos de producción realizados por personal .
 - **Future Tasks**:
-    - **(P3)** Implementar la conexión del módulo de Producción con el de Finanzas.
+    - **(P2)** Limpiar líneas BOM huérfanas que puedan existir del esquema antiguo.
     - **(P3)** Crear el reporte de Productividad por persona/servicio.
     - **(P3)** Implementar la capacidad de reordenar tallas con drag-and-drop.
     - **(P3)** Aplicar permisos granulares en toda la UI con el hook .
-    - **(P3)** Finalizar la funcionalidad de exportación a Excel/PDF en varias pantallas.
+    - **(P3)** Finalizar la funcionalidad de exportación a Excel/PDF en varias pantallas (ej. Kardex).
 
 **Completed work in this session**
-- **Refactorización Arquitectónica Clave**: Separado el concepto de Servicios de Producción de Items.
-  - El BOM ahora usa  para servicios (, ).
-  - El estado del registro ahora se basa en las etapas de la Ruta de Producción asociada al modelo ().
-  - El formulario de creación de Items ya no permite crear items de tipo Servicio ().
-  - Se realizó una migración de datos para actualizar las líneas de BOM existentes ().
-- **Corrección de Bugs Críticos**:
-  - Solucionado error al guardar registros con FKs vacías ().
-  - Solucionado error en salidas de materia prima (lógica de requerimiento y ) ().
-  - Corregido reporte de WIP que aparecía vacío ().
-  - Corregido bug que reseteaba a 0 las cantidades por talla al guardar un registro ().
-  - Arreglado el ordenamiento en el maestro de Servicios de Producción ().
-  - Añadido scroll al diálogo de edición de Rutas de Producción ().
-- **Mejoras de UX**:
-  - Vista agrupada y colapsable para salidas de inventario en el formulario de registro ().
-  - Selector de ítems con buscador y filtro en el diálogo de nueva salida de inventario ().
+- **Protección Anti Doble-Click:** Se creó un hook  y se implementó globalmente en 21 páginas para deshabilitar los botones de guardado durante el envío de formularios, evitando registros duplicados.
+- **Control Operativo (v1 y v2):** Se implementó y luego se refactorizó un sistema de control de producción, moviendo la lógica de  e  de la cabecera del registro a cada movimiento de producción individual.
+- **Bug Fix - Tarifa de Movimiento:** Se corrigió un bug que causaba que la  se perdiera al editar un movimiento de producción.
+- **Bug Fix - Reporte WIP Vacío:** Se solucionó un problema en el reporte WIP causado por un  incorrecto en el frontend.
+- **Fix de Layout - Sidebar Fijo:** Se modificó  para que el menú lateral permanezca fijo y solo el área de contenido principal haga scroll, mejorando la navegación.
+- **Filtro de Items:** Se excluyeron los productos de categoría PT (Producto Terminado) de los selectores de items en Ingresos y Salidas de inventario.
+- **Refactorización de Diálogos:** Se corrigió el problema de scroll en el diálogo de movimiento y se eliminó el campo redundante .
 
 **Earlier issues found/mentioned but not fixed**
-   - Issue 1: **Clarificar e implementar la lógica de borrado inteligente del BOM**. (BLOCKED - requiere input del usuario).
-   - Issue 2: **Finalizar la exportación a Excel/PDF en la página de Kardex**. (NOT STARTED).
-   - Issue 3: **Aplicar permisos granulares en toda la UI con el hook **. (NOT STARTED).
+   - Issue 1: Clarificar e implementar la lógica de borrado inteligente del BOM (BLOCKED - requiere input del usuario).
 
 **Known issue recurrence from previous fork**
   - Issue recurrence in previous fork: El problema de accesibilidad en los componentes  (falta de  y ) sigue sin abordarse.
-  - Recurrence count: 8
+  - Recurrence count: 10
   - Status: NOT STARTED
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Refactor Arquitectónico**: Desacoplamiento de conceptos de negocio (Items vs. Servicios), migrando la lógica en DB, backend y frontend.
-- **Sincronización de Datos**: Implementación de lógica en el backend para mantener sincronizada una tabla relacional () con datos de un campo JSONB ().
-- **Cálculo de Reportes en Tiempo Real**: El reporte WIP ahora calcula los costos al momento de la consulta () uniendo múltiples tablas, en lugar de depender de una tabla intermedia que no se actualizaba.
-- **Flujo de Estado Dirigido por Datos**: El estado de un registro de producción ahora es dinámico y se basa en la configuración de la Ruta de Producción asociada a su modelo.
+- **Custom Hook para Estado Asíncrono ():** Se creó un hook reutilizable para gestionar el estado de guardando, previniendo envíos duplicados de formularios en toda la aplicación.
+- **Refactorización Evolutiva:** La funcionalidad de Control Operativo fue implementada y luego refactorizada basándose en el feedback del usuario, moviendo la lógica desde la entidad principal (registro) a sus componentes (movimientos).
+- **Cálculos de Estado en Backend:** El campo  de un registro ahora se calcula dinámicamente en el backend () basado en el estado agregado de sus movimientos dependientes.
+- **Integración Cross-Schema:** Lectura de datos desde la tabla  para ser usados en la lógica y UI del módulo de Producción.
 
 **key DB schema**
-- ****: Añadida columna  (FK a ), deprecando  para servicios.
-- ****: La columna  ahora es la fuente de verdad para el nombre de la etapa.
-- ****: Añadida columna  para ordenamiento manual.
-- ****: Tabla que se sincroniza desde el campo JSONB  para facilitar las consultas.
+- ****: Columna  renombrada a .
+- ****: Añadidas las columnas  y  (esta última fue eliminada posteriormente por redundancia).
+- ****: Añadida la columna  (FK opcional a ).
+- ****: Añadida la columna  (FK opcional a ).
+- ****: Se utilizaron las columnas existentes  y  para la nueva funcionalidad.
 
 **changes in tech stack**
 - Ninguno.
 
 **All files of reference**
--  (Clave para la lógica de finalización)
--  (Contiene la consulta del reporte WIP)
--  (UI para el registro de producción)
-- 
-- 
-- 
-- 
+- : Hook global para prevenir doble click.
+- : Componente principal para la gestión de registros. Muy modificado para reflejar la lógica de control en los movimientos.
+- : Vista de tabla principal. Modificada para mostrar el estado operativo y las nuevas acciones.
+- : Modificado para permitir la configuración de personal interno/externo.
+- : Modificado extensamente para adaptar los endpoints de registros, movimientos y personas a la nueva lógica.
+- : Nuevo archivo para gestionar la lógica de incidencias y paralizaciones.
+- : Modificado para añadir un endpoint que lista las unidades internas de finanzas.
 
 **Areas that need refactoring**:
-- La lógica que sincroniza  (JSONB) con  en  debería estar dentro de una transacción de base de datos para garantizar la atomicidad.
-- La compleja consulta del reporte WIP en  podría optimizarse creando una vista materializada () en PostgreSQL que se refresque periódicamente.
+- El componente  sigue siendo extremadamente grande y complejo (+2200 líneas). Debería dividirse en sub-componentes (ej. , , ).
 
 **key api endpoints**
--  (Endpoint a modificar para implementar el cierre de producción)
--  (Endpoint del reporte de trabajo en proceso)
--  (Endpoint para obtener las rutas de producción y sus etapas)
--  (Modificado para usar )
--  (Modificado para no requerir una reserva previa)
+-  (NUEVO): Lista las unidades internas desde el esquema .
+- ,  (NUEVOS): Endpoints para la nueva funcionalidad de control.
+- : Modificado para calcular y devolver el  y .
+- : Modificado para devolver los nuevos campos (, , etc.).
+- , : Modificados para guardar los nuevos campos.
+- : Modificado para guardar  y .
 
 **Critical Info for New Agent**
-- La próxima y más importante tarea es implementar el flujo de cierre de producción. El usuario quiere que al mover un registro a su estado final, este se convierta en un Producto Terminado (PT), cree un ingreso de inventario con su costo real de producción, y desaparezca del reporte WIP.
-- La arquitectura acaba de ser refactorizada. Servicios (procesos como 'Corte') ya no son Items. Toda nueva lógica debe respetar esta separación.
-- El estado de un registro () está ahora gobernado por las etapas de la  del modelo. El campo  se usa para el estado general ('ABIERTA', 'EN_PROCESO', 'CERRADA').
+- El control operativo ahora reside en los **movimientos de producción**, no en la cabecera del registro. La UI y el backend reflejan este cambio.
+- Se implementó un hook global  para evitar envíos duplicados. Casi todos los formularios de la aplicación lo utilizan.
+- El  por defecto parece ser  para la mayoría de los datos de prueba. Ten esto en cuenta al depurar reportes.
+- La distinción entre personal interno y externo está a medio implementar. El backend y el formulario de Personas están listos. El último paso es mostrar esta información en el formulario de Movimientos.
 
 **documents and test reports created in this job**
--  (Reporte de la implementación del costo editable en BOM)
--  (Reporte de la refactorización mayor de Servicios vs Items)
--  (Actualizado)
+- 
+- 
+-  (Actualizado múltiples veces)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-- **10. (USER):** Reporta que al actualizar la cantidad de prendas en un registro, el WIP sigue mostrando 0 prendas.
-- **9. (AGENT):** Investiga y descubre que el WIP leía de la tabla  que no se estaba sincronizando con las cantidades del registro.
-- **8. (AGENT):** Implementa la sincronización de la tabla  al guardar el registro.
-- **7. (USER):** Reporta que el diálogo de edición de rutas de producción no tiene scroll.
-- **6. (AGENT):** Corrige el problema de UI añadiendo scroll y un footer fijo al diálogo.
-- **5. (USER):** Pregunta cómo un registro finaliza su proceso para convertirse en Producto Terminado y salir del WIP.
-- **4. (AGENT):** Comienza a investigar la nueva solicitud funcional.
-- **3. (AGENT):** Revisa el formulario de registro ().
-- **2. (AGENT):** Revisa el backend de registros ().
-- **1. (AGENT):** Revisa el backend de reportes () para entender el flujo actual.
+1. **(USER):** Solicitó refactorizar el control operativo, moviéndolo de la cabecera del registro a cada movimiento de producción individual.
+2. **(AGENT):** Implementó la refactorización completa (DB, Backend, Frontend) y la validó con el testing agent.
+3. **(USER):** Reportó que el diálogo de movimiento de producción no tenía scroll y que el campo responsable era redundante.
+4. **(AGENT):** Aplicó el fix para el scroll y eliminó el campo responsable_movimiento de la UI y la lógica.
+5. **(USER):** Pidió una nueva mejora: diferenciar entre personal de producción  y .
+6. **(AGENT):** Analizó las tablas existentes y confirmó que la estructura básica ya estaba presente.
+7. **(AGENT):** Implementó los cambios en el backend (modelos, endpoints de Personas y Movimientos) para soportar la nueva lógica.
+8. **(AGENT):** Creó un nuevo endpoint para que el frontend pueda obtener la lista de  desde el módulo de Finanzas.
+9. **(AGENT):** Modificó el frontend de  para añadir una columna de Tipo y permitir la edición de  y .
+10. **(AGENT):** La implementación está pendiente de completarse en  para mostrar el tipo de persona al crear un movimiento.
 
 **Project Health Check:**
-- **Broken**: Ninguna funcionalidad crítica. El flujo de finalización de producción está pendiente, no roto.
+- **Broken**: No.
 - **Mocked**: No.
 
 **3rd Party Integrations**
@@ -167,14 +168,14 @@ La aplicación ha pasado por una refactorización significativa. La lógica de n
 - 
 
 **Testing status**
-  - Testing agent used after significant changes: YES (usado exitosamente tras la refactorización mayor)
+  - Testing agent used after significant changes: YES
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: No
-  - Known regressions: Ninguno.
+  - Known regressions: No
 
 **Credentials to test flow:**
 - **Usuario**: 
 - **Contraseña**: 
 
 **What agent forgot to execute**
-- El agente ha sido muy metódico, abordando cada bug y solicitud de manera secuencial. No hay tareas pendientes que hayan sido olvidadas de las conversaciones de esta sesión.</analysis>
+- El agente no completó el último paso de la tarea Personal Interno/Externo, que consistía en mostrar la información del tipo de persona (/) en el formulario de creación/edición de movimientos (). El backend ya está preparado para proporcionar esta información.</analysis>

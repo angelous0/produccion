@@ -34,6 +34,15 @@ async def get_proveedores(
         return [row_to_dict(r) for r in rows]
 
 
+@router.get("/unidades-internas")
+async def get_unidades_internas(current_user: dict = Depends(get_current_user)):
+    """Lista unidades internas desde finanzas2.fin_unidad_interna"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT id, nombre, tipo FROM finanzas2.fin_unidad_interna ORDER BY nombre")
+        return [row_to_dict(r) for r in rows]
+
+
 @router.get("/ingresos-mp/para-finanzas")
 async def get_ingresos_para_finanzas(
     empresa_id: int = Query(7),

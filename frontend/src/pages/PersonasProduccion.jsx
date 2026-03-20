@@ -145,6 +145,14 @@ const SortableRow = ({ persona, onEdit, onDelete, onToggleActivo }) => {
         </div>
       </td>
       <td className="p-3">
+        <Badge variant={persona.tipo_persona === 'INTERNO' ? 'default' : 'outline'} className={`text-xs ${persona.tipo_persona === 'INTERNO' ? 'bg-blue-600' : ''}`}>
+          {persona.tipo_persona === 'INTERNO' ? 'Interno' : 'Externo'}
+        </Badge>
+        {persona.unidad_interna_nombre && (
+          <span className="ml-1 text-xs text-muted-foreground">{persona.unidad_interna_nombre}</span>
+        )}
+      </td>
+      <td className="p-3">
         <ServiciosTarifaCell servicios={persona.servicios_detalle || []} />
       </td>
       <td className="p-3">
@@ -197,13 +205,16 @@ export const PersonasProduccion = () => {
   const [editingPersona, setEditingPersona] = useState(null);
   const [formData, setFormData] = useState({
     nombre: '',
-    servicios: [],  // [{servicio_id, tarifa}]
+    servicios: [],
     telefono: '',
     direccion: '',
     activo: true,
     orden: 0,
+    tipo_persona: 'EXTERNO',
+    unidad_interna_id: null,
   });
   const [filtroActivo, setFiltroActivo] = useState(null);
+  const [unidadesInternas, setUnidadesInternas] = useState([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -214,12 +225,14 @@ export const PersonasProduccion = () => {
 
   const fetchData = async () => {
     try {
-      const [personasRes, serviciosRes] = await Promise.all([
+      const [personasRes, serviciosRes, uiRes] = await Promise.all([
         axios.get(`${API}/personas-produccion`),
         axios.get(`${API}/servicios-produccion`),
+        axios.get(`${API}/unidades-internas`),
       ]);
       setPersonas(personasRes.data);
       setServicios(serviciosRes.data);
+      setUnidadesInternas(uiRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
@@ -246,6 +259,8 @@ export const PersonasProduccion = () => {
         direccion: persona.direccion || '',
         activo: persona.activo !== false,
         orden: persona.orden || 0,
+        tipo_persona: persona.tipo_persona || 'EXTERNO',
+        unidad_interna_id: persona.unidad_interna_id || null,
       });
     } else {
       setEditingPersona(null);
@@ -257,6 +272,8 @@ export const PersonasProduccion = () => {
         direccion: '',
         activo: true,
         orden: maxOrden + 1,
+        tipo_persona: 'EXTERNO',
+        unidad_interna_id: null,
       });
     }
     setDialogOpen(true);
@@ -461,6 +478,7 @@ export const PersonasProduccion = () => {
                 <thead>
                   <tr className="bg-muted/50 border-b">
                     <th className="p-3 text-left text-sm font-semibold">Nombre</th>
+                    <th className="p-3 text-left text-sm font-semibold">Tipo</th>
                     <th className="p-3 text-left text-sm font-semibold">Servicios (Tarifa)</th>
                     <th className="p-3 text-left text-sm font-semibold">Teléfono</th>
                     <th className="p-3 text-center text-sm font-semibold">Estado</th>
@@ -540,6 +558,37 @@ export const PersonasProduccion = () => {
                   data-testid="input-direccion-persona"
                 />
               </div>
+            </div>
+
+            {/* Tipo Persona e Unidad Interna */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo Persona</Label>
+                <Select value={formData.tipo_persona} onValueChange={(v) => setFormData({ ...formData, tipo_persona: v, unidad_interna_id: v === 'EXTERNO' ? null : formData.unidad_interna_id })}>
+                  <SelectTrigger data-testid="select-tipo-persona">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INTERNO">Interno</SelectItem>
+                    <SelectItem value="EXTERNO">Externo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.tipo_persona === 'INTERNO' && (
+                <div className="space-y-2">
+                  <Label>Unidad Interna</Label>
+                  <Select value={formData.unidad_interna_id ? String(formData.unidad_interna_id) : ''} onValueChange={(v) => setFormData({ ...formData, unidad_interna_id: v ? parseInt(v) : null })}>
+                    <SelectTrigger data-testid="select-unidad-interna">
+                      <SelectValue placeholder="Seleccionar unidad..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unidadesInternas.map(u => (
+                        <SelectItem key={u.id} value={String(u.id)}>{u.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
