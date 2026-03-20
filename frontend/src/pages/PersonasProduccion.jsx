@@ -21,6 +21,13 @@ import {
 } from '../components/ui/popover';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Plus, Pencil, Trash2, Users, Phone, CheckCircle, XCircle, GripVertical, DollarSign, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
