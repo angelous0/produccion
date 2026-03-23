@@ -1,0 +1,96 @@
+{
+  "summary": "Bidirectional State-Movement Linking Feature - All 14 backend tests passed (100%). Frontend verified: RutasProduccion shows Oblig/Opc and Estado/Solo mov toggles that are clickable. RegistroForm shows inconsistencias banner with 'Aplicar estado sugerido' button that works correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/rutas-produccion returns list of routes",
+    "Backend: EtapaRuta has obligatorio field (defaults to true)",
+    "Backend: EtapaRuta has aparece_en_estado field (defaults to true)",
+    "Backend: PUT /api/rutas-produccion/{id} accepts obligatorio and aparece_en_estado fields",
+    "Backend: GET /api/registros/{id}/estados-disponibles returns etapas_completas",
+    "Backend: GET /api/registros/{id}/estados-disponibles filters by aparece_en_estado",
+    "Backend: GET /api/registros/{id}/analisis-estado returns estado_actual, estado_sugerido, siguiente_estado_sugerido, movimiento_faltante_por_estado, inconsistencias, bloqueos",
+    "Backend: analisis-estado inconsistencias have tipo, mensaje, severidad structure",
+    "Backend: analisis-estado movimiento_faltante_por_estado has servicio_id, servicio_nombre, etapa_nombre",
+    "Backend: POST /api/registros/{id}/validar-cambio-estado validates valid state",
+    "Backend: POST /api/registros/{id}/validar-cambio-estado blocks state outside route",
+    "Backend: POST /api/registros/{id}/validar-cambio-estado returns sugerencia_movimiento when applicable",
+    "Backend: POST /api/registros/{id}/validar-cambio-estado returns 400 without nuevo_estado",
+    "Backend: Full flow - get analysis then validate state change",
+    "Frontend RutasProduccion: Edit dialog shows 8 etapas with Oblig/Opc toggles",
+    "Frontend RutasProduccion: Edit dialog shows 8 etapas with Estado/Solo mov toggles",
+    "Frontend RutasProduccion: Oblig toggle is clickable and changes state (Oblig. <-> Opc.)",
+    "Frontend RutasProduccion: Estado toggle is clickable and changes state (Estado <-> Solo mov.)",
+    "Frontend RegistroForm: Estado banner shows current state and route name",
+    "Frontend RegistroForm: Inconsistencias banner shows warning when state and movements don't match",
+    "Frontend RegistroForm: 'Aplicar estado sugerido' button is visible and clickable",
+    "Frontend RegistroForm: Clicking 'Aplicar estado sugerido' updates state and shows toast"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_estado_movimiento_vinculacion.py",
+    "/app/test_reports/pytest/pytest_estado_movimiento.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py EtapaRuta model (lines 462-468): Correctly defines obligatorio and aparece_en_estado with default True",
+    "server.py estados-disponibles (lines 2797-2826): Properly filters estados by aparece_en_estado and returns etapas_completas",
+    "server.py analisis-estado (lines 2828-2998): Comprehensive analysis of state vs movements with inconsistencias and bloqueos",
+    "server.py validar-cambio-estado (lines 2999-3079): Validates state changes, blocks invalid states, returns sugerencia_movimiento",
+    "RutasProduccion.jsx SortableEtapa (lines 54-120): Toggle buttons with data-testid for obligatorio and aparece_en_estado",
+    "RutasProduccion.jsx handleToggleEtapaField (lines 207-214): Correctly toggles field values",
+    "RegistroForm.jsx inconsistencias banner (lines 1131-1163): Shows warning with details and 'Aplicar estado sugerido' button",
+    "RegistroForm.jsx estado change validation (lines 1049-1069): Calls validar-cambio-estado API and shows toast on block"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_estado_movimiento_vinculacion.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% (All UI components verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing registro 04 (id: e7082b07-7a9b-4b45-af14-bde1ebc09238) with Pantalon Denim route",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bidirectional state-movement linking fully implemented. EtapaRuta model has obligatorio (bool, default true) and aparece_en_estado (bool, default true) fields. Three new endpoints: GET /api/registros/{id}/estados-disponibles (returns etapas_completas), GET /api/registros/{id}/analisis-estado (returns estado_sugerido, inconsistencias, bloqueos), POST /api/registros/{id}/validar-cambio-estado (validates state change, returns sugerencia_movimiento). Frontend RutasProduccion has toggle buttons with data-testid='toggle-obligatorio-{index}' and 'toggle-visible-{index}'. RegistroForm shows inconsistencias banner with data-testid='inconsistencias-banner' and 'btn-aplicar-estado-sugerido'. Registro 04 state was changed from 'Para Corte' to 'Corte' during testing.",
+  "features_verified": {
+    "backend_api": {
+      "etapa_ruta_obligatorio_field": true,
+      "etapa_ruta_aparece_en_estado_field": true,
+      "put_rutas_produccion_with_new_fields": true,
+      "get_estados_disponibles_etapas_completas": true,
+      "get_estados_disponibles_filters_aparece_en_estado": true,
+      "get_analisis_estado_all_fields": true,
+      "get_analisis_estado_inconsistencias_structure": true,
+      "get_analisis_estado_movimiento_faltante_structure": true,
+      "post_validar_cambio_estado_valid": true,
+      "post_validar_cambio_estado_blocks_invalid": true,
+      "post_validar_cambio_estado_sugerencia_movimiento": true,
+      "post_validar_cambio_estado_missing_body_400": true
+    },
+    "frontend_rutas_produccion": {
+      "edit_dialog_shows_etapas": true,
+      "oblig_opc_toggle_visible": true,
+      "oblig_opc_toggle_clickable": true,
+      "estado_solo_mov_toggle_visible": true,
+      "estado_solo_mov_toggle_clickable": true
+    },
+    "frontend_registro_form": {
+      "estado_banner_visible": true,
+      "inconsistencias_banner_visible": true,
+      "aplicar_estado_sugerido_button": true,
+      "aplicar_estado_sugerido_works": true,
+      "toast_notification_on_state_change": true
+    }
+  }
+}

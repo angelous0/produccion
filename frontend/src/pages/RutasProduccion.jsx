@@ -51,7 +51,7 @@ import { CSS } from '@dnd-kit/utilities';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Componente sorteable para etapas
-const SortableEtapa = ({ etapa, index, servicios, onRemove }) => {
+const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle }) => {
   const {
     attributes,
     listeners,
@@ -84,10 +84,28 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove }) => {
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </button>
       <Badge variant="outline" className="font-mono">{index + 1}</Badge>
-      <span className="flex-1 font-medium">{etapa.nombre || 'Sin nombre'}</span>
+      <span className="flex-1 font-medium text-sm">{etapa.nombre || 'Sin nombre'}</span>
       {servicio && (
         <Badge variant="secondary" className="text-xs">{servicio.nombre}</Badge>
       )}
+      <button
+        type="button"
+        onClick={() => onToggle(etapa.id, 'obligatorio')}
+        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${etapa.obligatorio !== false ? 'bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
+        title={etapa.obligatorio !== false ? 'Obligatorio (click para cambiar)' : 'Opcional (click para cambiar)'}
+        data-testid={`toggle-obligatorio-${index}`}
+      >
+        {etapa.obligatorio !== false ? 'Oblig.' : 'Opc.'}
+      </button>
+      <button
+        type="button"
+        onClick={() => onToggle(etapa.id, 'aparece_en_estado')}
+        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${etapa.aparece_en_estado !== false ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
+        title={etapa.aparece_en_estado !== false ? 'Visible como estado (click para cambiar)' : 'Solo movimiento (click para cambiar)'}
+        data-testid={`toggle-visible-${index}`}
+      >
+        {etapa.aparece_en_estado !== false ? 'Estado' : 'Solo mov.'}
+      </button>
       <Button
         variant="ghost"
         size="icon"
@@ -147,6 +165,8 @@ export const RutasProduccion = () => {
       const etapasConId = (ruta.etapas || []).map((e, i) => ({
         ...e,
         id: `etapa-${i}-${Date.now()}`,
+        obligatorio: e.obligatorio !== false,
+        aparece_en_estado: e.aparece_en_estado !== false,
       }));
       setFormData({
         nombre: ruta.nombre,
@@ -173,6 +193,8 @@ export const RutasProduccion = () => {
       nombre: nombreEtapaToAdd.trim(),
       servicio_id: (servicioToAdd && servicioToAdd !== 'none') ? servicioToAdd : null,
       orden: formData.etapas.length,
+      obligatorio: true,
+      aparece_en_estado: true,
     };
     setFormData({
       ...formData,
@@ -180,6 +202,15 @@ export const RutasProduccion = () => {
     });
     setNombreEtapaToAdd('');
     setServicioToAdd('');
+  };
+
+  const handleToggleEtapaField = (etapaId, field) => {
+    setFormData({
+      ...formData,
+      etapas: formData.etapas.map(e =>
+        e.id === etapaId ? { ...e, [field]: !(e[field] !== false) } : e
+      ),
+    });
   };
 
   const handleRemoveEtapa = (etapaId) => {
@@ -221,6 +252,8 @@ export const RutasProduccion = () => {
         nombre: e.nombre,
         servicio_id: e.servicio_id || null,
         orden: i,
+        obligatorio: e.obligatorio !== false,
+        aparece_en_estado: e.aparece_en_estado !== false,
       }));
 
       const payload = {
@@ -306,7 +339,10 @@ export const RutasProduccion = () => {
                           .sort((a, b) => a.orden - b.orden)
                           .map((etapa, i) => (
                             <span key={i} className="flex items-center">
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge
+                                variant={etapa.aparece_en_estado === false ? 'outline' : 'secondary'}
+                                className={`text-xs ${etapa.obligatorio === false ? 'opacity-60 border-dashed' : ''}`}
+                              >
                                 {etapa.nombre || etapa.servicio_nombre || 'N/A'}
                               </Badge>
                               {i < ruta.etapas.length - 1 && (
@@ -443,6 +479,7 @@ export const RutasProduccion = () => {
                             index={i}
                             servicios={servicios}
                             onRemove={handleRemoveEtapa}
+                            onToggle={handleToggleEtapaField}
                           />
                         ))}
                       </div>

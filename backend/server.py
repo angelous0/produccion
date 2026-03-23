@@ -463,6 +463,8 @@ class EtapaRuta(BaseModel):
     nombre: str
     servicio_id: Optional[str] = None
     orden: int = 0
+    obligatorio: bool = True
+    aparece_en_estado: bool = True
 
 class RutaProduccionBase(BaseModel):
     nombre: str
@@ -2809,16 +2811,273 @@ async def get_estados_disponibles_registro(registro_id: str):
             if ruta and ruta['etapas']:
                 etapas = ruta['etapas'] if isinstance(ruta['etapas'], list) else json.loads(ruta['etapas'])
                 etapas_sorted = sorted(etapas, key=lambda e: e.get('orden', 0))
-                estados = [e['nombre'] for e in etapas_sorted if e.get('nombre')]
+                # Solo mostrar etapas con aparece_en_estado=true (default true para compatibilidad)
+                estados = [e['nombre'] for e in etapas_sorted if e.get('nombre') and e.get('aparece_en_estado', True)]
                 return {
                     "estados": estados,
                     "usa_ruta": True,
                     "ruta_nombre": ruta['nombre'],
-                    "estado_actual": registro['estado']
+                    "estado_actual": registro['estado'],
+                    "etapas_completas": etapas_sorted
                 }
         
         # Fallback: lista genérica si no hay ruta
         return {"estados": ESTADOS_PRODUCCION, "usa_ruta": False, "estado_actual": registro['estado']}
+
+
+@api_router.get("/registros/{registro_id}/analisis-estado")
+async def analisis_estado_registro(registro_id: str):
+    """Analiza la coherencia entre estado del registro y sus movimientos."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        estado_actual = registro['estado']
+        
+        # Obtener ruta del modelo
+        modelo = await conn.fetchrow("SELECT ruta_produccion_id FROM prod_modelos WHERE id = $1", registro['modelo_id']) if registro['modelo_id'] else None
+        ruta_id = modelo['ruta_produccion_id'] if modelo and modelo['ruta_produccion_id'] else None
+        
+        if not ruta_id:
+            return {
+                "usa_ruta": False,
+                "estado_actual": estado_actual,
+                "estado_sugerido": None,
+                "siguiente_estado_sugerido": None,
+                "movimiento_faltante_por_estado": None,
+                "inconsistencias": [],
+                "bloqueos": []
+            }
+        
+        ruta = await conn.fetchrow("SELECT etapas, nombre FROM prod_rutas_produccion WHERE id = $1", ruta_id)
+        if not ruta or not ruta['etapas']:
+            return {
+                "usa_ruta": False,
+                "estado_actual": estado_actual,
+                "estado_sugerido": None,
+                "siguiente_estado_sugerido": None,
+                "movimiento_faltante_por_estado": None,
+                "inconsistencias": [],
+                "bloqueos": []
+            }
+        
+        etapas = ruta['etapas'] if isinstance(ruta['etapas'], list) else json.loads(ruta['etapas'])
+        etapas_sorted = sorted(etapas, key=lambda e: e.get('orden', 0))
+        
+        # Obtener movimientos del registro
+        movimientos = await conn.fetch(
+            "SELECT mp.*, sp.nombre as servicio_nombre FROM prod_movimientos_produccion mp LEFT JOIN prod_servicios_produccion sp ON mp.servicio_id = sp.id WHERE mp.registro_id = $1",
+            registro_id
+        )
+        
+        # Mapear movimientos por servicio_id
+        movs_por_servicio = {}
+        for m in movimientos:
+            sid = m['servicio_id']
+            if sid not in movs_por_servicio:
+                movs_por_servicio[sid] = []
+            movs_por_servicio[sid].append(dict(m))
+        
+        # Encontrar la etapa actual en la ruta
+        etapa_actual_idx = None
+        for i, et in enumerate(etapas_sorted):
+            if et.get('nombre') == estado_actual:
+                etapa_actual_idx = i
+                break
+        
+        # Determinar etapas visibles (aparece_en_estado=true)
+        etapas_visibles = [e for e in etapas_sorted if e.get('aparece_en_estado', True)]
+        
+        # --- Calcular estado sugerido basado en movimientos ---
+        estado_sugerido = None
+        # Recorrer etapas de atrás hacia adelante: la última etapa con movimiento iniciado es la sugerida
+        for et in reversed(etapas_sorted):
+            sid = et.get('servicio_id')
+            if sid and sid in movs_por_servicio:
+                movs = movs_por_servicio[sid]
+                alguno_iniciado = any(m.get('fecha_inicio') for m in movs)
+                if alguno_iniciado and et.get('aparece_en_estado', True):
+                    estado_sugerido = et['nombre']
+                    break
+        
+        # --- Calcular siguiente estado sugerido ---
+        siguiente_estado_sugerido = None
+        if etapa_actual_idx is not None and etapa_actual_idx < len(etapas_sorted) - 1:
+            for et in etapas_sorted[etapa_actual_idx + 1:]:
+                if et.get('aparece_en_estado', True):
+                    siguiente_estado_sugerido = et['nombre']
+                    break
+        
+        # --- Verificar si falta movimiento para el estado actual ---
+        movimiento_faltante_por_estado = None
+        if etapa_actual_idx is not None:
+            etapa_act = etapas_sorted[etapa_actual_idx]
+            sid = etapa_act.get('servicio_id')
+            if sid and sid not in movs_por_servicio:
+                srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", sid)
+                movimiento_faltante_por_estado = {
+                    "servicio_id": sid,
+                    "servicio_nombre": srv['nombre'] if srv else etapa_act['nombre'],
+                    "etapa_nombre": etapa_act['nombre']
+                }
+        
+        # --- Inconsistencias ---
+        inconsistencias = []
+        
+        # 1. Estado actual no está en la ruta
+        nombres_ruta = [e['nombre'] for e in etapas_sorted]
+        if estado_actual not in nombres_ruta:
+            inconsistencias.append({
+                "tipo": "estado_fuera_ruta",
+                "mensaje": f"El estado '{estado_actual}' no existe en la ruta de producción.",
+                "severidad": "error"
+            })
+        
+        # 2. Estado avanzado pero movimiento de etapa anterior obligatoria sigue abierto
+        if etapa_actual_idx is not None:
+            for i, et in enumerate(etapas_sorted[:etapa_actual_idx]):
+                sid = et.get('servicio_id')
+                if not sid:
+                    continue
+                if not et.get('obligatorio', True):
+                    continue
+                if sid in movs_por_servicio:
+                    movs = movs_por_servicio[sid]
+                    alguno_sin_cerrar = any(m.get('fecha_inicio') and not m.get('fecha_fin') for m in movs)
+                    if alguno_sin_cerrar:
+                        inconsistencias.append({
+                            "tipo": "etapa_previa_abierta",
+                            "mensaje": f"La etapa '{et['nombre']}' tiene movimiento(s) sin cerrar (sin fecha_fin).",
+                            "severidad": "warning"
+                        })
+                else:
+                    # Etapa obligatoria previa sin movimiento
+                    inconsistencias.append({
+                        "tipo": "etapa_obligatoria_sin_movimiento",
+                        "mensaje": f"La etapa obligatoria '{et['nombre']}' no tiene movimiento registrado.",
+                        "severidad": "warning"
+                    })
+        
+        # 3. Estado sugiere que estamos en etapa X pero ya hay movimientos de etapas posteriores
+        if etapa_actual_idx is not None:
+            for et in etapas_sorted[etapa_actual_idx + 1:]:
+                sid = et.get('servicio_id')
+                if sid and sid in movs_por_servicio:
+                    movs = movs_por_servicio[sid]
+                    alguno_iniciado = any(m.get('fecha_inicio') for m in movs)
+                    if alguno_iniciado and et.get('aparece_en_estado', True):
+                        inconsistencias.append({
+                            "tipo": "movimiento_adelantado",
+                            "mensaje": f"Ya existe movimiento de '{et['nombre']}' pero el estado sigue en '{estado_actual}'.",
+                            "severidad": "info"
+                        })
+        
+        # --- Bloqueos (solo graves) ---
+        bloqueos = []
+        
+        return {
+            "usa_ruta": True,
+            "ruta_nombre": ruta['nombre'],
+            "estado_actual": estado_actual,
+            "estado_sugerido": estado_sugerido,
+            "siguiente_estado_sugerido": siguiente_estado_sugerido,
+            "movimiento_faltante_por_estado": movimiento_faltante_por_estado,
+            "inconsistencias": inconsistencias,
+            "bloqueos": bloqueos,
+            "etapas": etapas_sorted,
+            "movimientos_resumen": [
+                {
+                    "servicio_id": m['servicio_id'],
+                    "servicio_nombre": m['servicio_nombre'],
+                    "fecha_inicio": str(m['fecha_inicio']) if m.get('fecha_inicio') else None,
+                    "fecha_fin": str(m['fecha_fin']) if m.get('fecha_fin') else None
+                } for m in movimientos
+            ]
+        }
+
+@api_router.post("/registros/{registro_id}/validar-cambio-estado")
+async def validar_cambio_estado(registro_id: str, body: dict):
+    """Valida si un cambio de estado es permitido. Retorna bloqueos si los hay."""
+    nuevo_estado = body.get("nuevo_estado")
+    if not nuevo_estado:
+        raise HTTPException(status_code=400, detail="nuevo_estado requerido")
+    
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        modelo = await conn.fetchrow("SELECT ruta_produccion_id FROM prod_modelos WHERE id = $1", registro['modelo_id']) if registro['modelo_id'] else None
+        ruta_id = modelo['ruta_produccion_id'] if modelo and modelo['ruta_produccion_id'] else None
+        
+        if not ruta_id:
+            return {"permitido": True, "bloqueos": [], "sugerencia_movimiento": None}
+        
+        ruta = await conn.fetchrow("SELECT etapas FROM prod_rutas_produccion WHERE id = $1", ruta_id)
+        if not ruta or not ruta['etapas']:
+            return {"permitido": True, "bloqueos": [], "sugerencia_movimiento": None}
+        
+        etapas = ruta['etapas'] if isinstance(ruta['etapas'], list) else json.loads(ruta['etapas'])
+        etapas_sorted = sorted(etapas, key=lambda e: e.get('orden', 0))
+        nombres_ruta = [e['nombre'] for e in etapas_sorted]
+        
+        bloqueos = []
+        
+        # Bloqueo 1: estado fuera de ruta
+        if nuevo_estado not in nombres_ruta:
+            bloqueos.append(f"El estado '{nuevo_estado}' no pertenece a la ruta de producción asignada.")
+        
+        # Bloqueo 2: saltar etapa obligatoria previa sin movimiento completado
+        nuevo_idx = None
+        for i, e in enumerate(etapas_sorted):
+            if e['nombre'] == nuevo_estado:
+                nuevo_idx = i
+                break
+        
+        movimientos = await conn.fetch(
+            "SELECT servicio_id, fecha_inicio, fecha_fin FROM prod_movimientos_produccion WHERE registro_id = $1",
+            registro_id
+        )
+        movs_por_servicio = {}
+        for m in movimientos:
+            sid = m['servicio_id']
+            if sid not in movs_por_servicio:
+                movs_por_servicio[sid] = []
+            movs_por_servicio[sid].append(dict(m))
+        
+        if nuevo_idx is not None:
+            for et in etapas_sorted[:nuevo_idx]:
+                if not et.get('obligatorio', True):
+                    continue
+                sid = et.get('servicio_id')
+                if not sid:
+                    continue
+                # Verificar si tiene al menos un movimiento con fecha_inicio
+                if sid not in movs_por_servicio:
+                    bloqueos.append(f"La etapa obligatoria '{et['nombre']}' no tiene movimiento registrado.")
+        
+        # Sugerencia: si el nuevo estado tiene servicio vinculado y no hay movimiento
+        sugerencia_movimiento = None
+        if nuevo_idx is not None and not bloqueos:
+            etapa_nueva = etapas_sorted[nuevo_idx]
+            sid = etapa_nueva.get('servicio_id')
+            if sid and sid not in movs_por_servicio:
+                srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", sid)
+                sugerencia_movimiento = {
+                    "servicio_id": sid,
+                    "servicio_nombre": srv['nombre'] if srv else etapa_nueva['nombre'],
+                    "etapa_nombre": etapa_nueva['nombre']
+                }
+        
+        return {
+            "permitido": len(bloqueos) == 0,
+            "bloqueos": bloqueos,
+            "sugerencia_movimiento": sugerencia_movimiento
+        }
+
 
 
 # ==================== FASE 2: ENDPOINTS TALLAS POR REGISTRO ====================

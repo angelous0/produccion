@@ -33,7 +33,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
@@ -114,6 +114,12 @@ export const RegistroForm = () => {
   const [cierreExistente, setCierreExistente] = useState(null);
   const [ejecutandoCierre, setEjecutandoCierre] = useState(false);
 
+  // Análisis de estado vs movimientos
+  const [analisisEstado, setAnalisisEstado] = useState(null);
+  const [sugerenciaEstadoDialog, setSugerenciaEstadoDialog] = useState(null); // {tipo, mensaje, estadoSugerido}
+  const [sugerenciaMovDialog, setSugerenciaMovDialog] = useState(null); // {servicio_id, servicio_nombre, etapa_nombre}
+  const [etapasCompletas, setEtapasCompletas] = useState([]);
+
   const esUltimaEtapa = estados.length > 0 && formData.estado === estados[estados.length - 1];
   const [movimientoFormData, setMovimientoFormData] = useState({
     servicio_id: '',
@@ -167,6 +173,7 @@ export const RegistroForm = () => {
       setUsaRuta(false);
       setRutaNombre('');
       setSiguienteEstado(null);
+      setEtapasCompletas([]);
       return;
     }
     try {
@@ -176,9 +183,21 @@ export const RegistroForm = () => {
       setUsaRuta(data.usa_ruta || false);
       setRutaNombre(data.ruta_nombre || '');
       setSiguienteEstado(data.siguiente_estado || null);
+      setEtapasCompletas(data.etapas_completas || []);
     } catch (error) {
       console.error('Error fetching estados disponibles:', error);
       setEstados(estadosGlobales);
+    }
+  };
+
+  // Cargar análisis estado vs movimientos
+  const fetchAnalisisEstado = async () => {
+    if (!id || !usaRuta) return;
+    try {
+      const response = await axios.get(`${API}/registros/${id}/analisis-estado`);
+      setAnalisisEstado(response.data);
+    } catch (error) {
+      console.error('Error fetching analisis estado:', error);
     }
   };
 
@@ -260,6 +279,13 @@ export const RegistroForm = () => {
       fetchMovimientosProduccion();
     }
   }, [id]);
+
+  // Cargar análisis de estado cuando cambian los movimientos o la ruta
+  useEffect(() => {
+    if (id && usaRuta) {
+      fetchAnalisisEstado();
+    }
+  }, [id, usaRuta, movimientosProduccion.length]);
 
   // Cargar preview de cierre cuando estado es última etapa
   useEffect(() => {
@@ -793,7 +819,36 @@ export const RegistroForm = () => {
       }
       setMovimientoDialogOpen(false);
       setEditingMovimiento(null);
-      fetchMovimientosProduccion();
+      await fetchMovimientosProduccion();
+
+      // Sugerencia bidireccional: movimiento -> estado
+      if (usaRuta && etapasCompletas.length > 0) {
+        const servicioMov = movimientoFormData.servicio_id;
+        const etapaVinculada = etapasCompletas.find(e => e.servicio_id === servicioMov && e.aparece_en_estado !== false);
+        if (etapaVinculada) {
+          const etapaNombre = etapaVinculada.nombre;
+          if (movimientoFormData.fecha_inicio && !movimientoFormData.fecha_fin && etapaNombre !== formData.estado) {
+            // Se inició el movimiento - sugerir actualizar estado a esta etapa
+            setSugerenciaEstadoDialog({
+              tipo: 'inicio',
+              mensaje: `Se inició ${etapaVinculada.nombre}. ¿Deseas actualizar el estado del registro?`,
+              estadoSugerido: etapaNombre,
+            });
+          } else if (movimientoFormData.fecha_fin) {
+            // Se finalizó el movimiento - sugerir avanzar al siguiente estado
+            const etapaIdx = etapasCompletas.indexOf(etapaVinculada);
+            const siguientes = etapasCompletas.slice(etapaIdx + 1);
+            const sigEstado = siguientes.find(e => e.aparece_en_estado !== false);
+            if (sigEstado && sigEstado.nombre !== formData.estado) {
+              setSugerenciaEstadoDialog({
+                tipo: 'fin',
+                mensaje: `${etapaVinculada.nombre} fue finalizada. ¿Deseas avanzar el estado del registro?`,
+                estadoSugerido: sigEstado.nombre,
+              });
+            }
+          }
+        }
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al guardar movimiento');
     }
@@ -993,7 +1048,26 @@ export const RegistroForm = () => {
                     </div>
                     <Select
                       value={formData.estado}
-                      onValueChange={(value) => setFormData({ ...formData, estado: value })}
+                      onValueChange={async (value) => {
+                        if (usaRuta && id) {
+                          try {
+                            const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: value });
+                            const data = resp.data;
+                            if (!data.permitido) {
+                              toast.error(data.bloqueos.join(' '));
+                              return;
+                            }
+                            setFormData({ ...formData, estado: value });
+                            if (data.sugerencia_movimiento) {
+                              setSugerenciaMovDialog(data.sugerencia_movimiento);
+                            }
+                          } catch {
+                            setFormData({ ...formData, estado: value });
+                          }
+                        } else {
+                          setFormData({ ...formData, estado: value });
+                        }
+                      }}
                     >
                       <SelectTrigger data-testid="select-estado" className="w-[260px] h-11 text-base font-semibold border-primary/40 bg-white dark:bg-zinc-900">
                         <SelectValue placeholder="Seleccionar estado" />
@@ -1025,7 +1099,26 @@ export const RegistroForm = () => {
                                 isPast ? 'bg-primary/20 text-primary' :
                                 'bg-muted text-muted-foreground'
                               }`}
-                              onClick={() => setFormData({ ...formData, estado: e })}
+                              onClick={async () => {
+                                if (usaRuta && id) {
+                                  try {
+                                    const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: e });
+                                    const data = resp.data;
+                                    if (!data.permitido) {
+                                      toast.error(data.bloqueos.join(' '));
+                                      return;
+                                    }
+                                    setFormData({ ...formData, estado: e });
+                                    if (data.sugerencia_movimiento) {
+                                      setSugerenciaMovDialog(data.sugerencia_movimiento);
+                                    }
+                                  } catch {
+                                    setFormData({ ...formData, estado: e });
+                                  }
+                                } else {
+                                  setFormData({ ...formData, estado: e });
+                                }
+                              }}
                             >
                               {e}
                             </div>
@@ -1035,6 +1128,38 @@ export const RegistroForm = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Banner de inconsistencias estado vs movimientos */}
+                {analisisEstado && analisisEstado.inconsistencias && analisisEstado.inconsistencias.length > 0 && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-3 space-y-1" data-testid="inconsistencias-banner">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Estado y movimientos no coinciden completamente</span>
+                    </div>
+                    {analisisEstado.inconsistencias.map((inc, i) => (
+                      <p key={i} className={`text-xs ml-6 ${inc.severidad === 'error' ? 'text-red-600 font-medium' : inc.severidad === 'warning' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                        {inc.mensaje}
+                      </p>
+                    ))}
+                    {analisisEstado.estado_sugerido && analisisEstado.estado_sugerido !== formData.estado && (
+                      <div className="ml-6 mt-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs border-amber-400 text-amber-700 hover:bg-amber-100"
+                          onClick={() => {
+                            setFormData({ ...formData, estado: analisisEstado.estado_sugerido });
+                            toast.success(`Estado actualizado a "${analisisEstado.estado_sugerido}"`);
+                          }}
+                          data-testid="btn-aplicar-estado-sugerido"
+                        >
+                          Aplicar estado sugerido: {analisisEstado.estado_sugerido}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Panel de Cierre de Producción */}
                 {esUltimaEtapa && (
@@ -2301,6 +2426,85 @@ export const RegistroForm = () => {
               data-testid="btn-guardar-movimiento"
             >
               {saving ? 'Guardando...' : (editingMovimiento ? 'Actualizar' : 'Registrar Movimiento')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Sugerencia de cambio de estado (después de guardar movimiento) */}
+      <Dialog open={!!sugerenciaEstadoDialog} onOpenChange={() => setSugerenciaEstadoDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Sugerencia de Estado</DialogTitle>
+            <DialogDescription>{sugerenciaEstadoDialog?.mensaje}</DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <Badge variant="outline">{formData.estado}</Badge>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <Badge className="bg-primary">{sugerenciaEstadoDialog?.estadoSugerido}</Badge>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSugerenciaEstadoDialog(null)} data-testid="btn-rechazar-sugerencia-estado">
+              No, mantener estado
+            </Button>
+            <Button
+              onClick={() => {
+                setFormData(prev => ({ ...prev, estado: sugerenciaEstadoDialog.estadoSugerido }));
+                toast.success(`Estado actualizado a "${sugerenciaEstadoDialog.estadoSugerido}"`);
+                setSugerenciaEstadoDialog(null);
+              }}
+              data-testid="btn-aceptar-sugerencia-estado"
+            >
+              Sí, actualizar estado
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Sugerencia de crear movimiento (después de cambiar estado) */}
+      <Dialog open={!!sugerenciaMovDialog} onOpenChange={() => setSugerenciaMovDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Movimiento Faltante</DialogTitle>
+            <DialogDescription>
+              El estado "{formData.estado}" está vinculado al servicio "{sugerenciaMovDialog?.servicio_nombre}" y no existe un movimiento registrado. ¿Deseas crearlo ahora?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSugerenciaMovDialog(null)} data-testid="btn-rechazar-sugerencia-mov">
+              No, solo cambiar estado
+            </Button>
+            <Button
+              onClick={() => {
+                const sug = sugerenciaMovDialog;
+                setSugerenciaMovDialog(null);
+                // Abrir diálogo de movimiento pre-llenado con el servicio
+                const cantidadTotal = calcularCantidadTotalRegistro();
+                setEditingMovimiento(null);
+                setMovimientoFormData({
+                  servicio_id: sug.servicio_id,
+                  persona_id: '',
+                  fecha_inicio: new Date().toISOString().split('T')[0],
+                  fecha_fin: '',
+                  cantidad_enviada: cantidadTotal,
+                  cantidad_recibida: cantidadTotal,
+                  tarifa_aplicada: 0,
+                  fecha_esperada_movimiento: '',
+                  observaciones: '',
+                });
+                // Filtrar personas por servicio
+                const filtradas = personasProduccion.filter(p => {
+                  const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === sug.servicio_id);
+                  const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === sug.servicio_id);
+                  const tieneEnIds = (p.servicio_ids || []).includes(sug.servicio_id);
+                  return tieneEnDetalle || tieneEnServicios || tieneEnIds;
+                });
+                setPersonasFiltradas(filtradas);
+                setMovimientoDialogOpen(true);
+              }}
+              data-testid="btn-aceptar-sugerencia-mov"
+            >
+              Sí, crear movimiento
             </Button>
           </DialogFooter>
         </DialogContent>
