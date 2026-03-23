@@ -51,7 +51,7 @@ import { CSS } from '@dnd-kit/utilities';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Componente sorteable para etapas
-const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle }) => {
+const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle, onUpdate }) => {
   const {
     attributes,
     listeners,
@@ -66,8 +66,6 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle }) => {
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
-
-  const servicio = etapa.servicio_id ? servicios.find(s => s.id === etapa.servicio_id) : null;
 
   return (
     <div
@@ -84,14 +82,28 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle }) => {
         <GripVertical className="h-4 w-4 text-muted-foreground" />
       </button>
       <Badge variant="outline" className="font-mono">{index + 1}</Badge>
-      <span className="flex-1 font-medium text-sm">{etapa.nombre || 'Sin nombre'}</span>
-      {servicio && (
-        <Badge variant="secondary" className="text-xs">{servicio.nombre}</Badge>
-      )}
+      <Input
+        value={etapa.nombre || ''}
+        onChange={(e) => onUpdate(etapa.id, 'nombre', e.target.value)}
+        className="h-7 text-sm flex-1 min-w-[100px]"
+        placeholder="Nombre etapa"
+        data-testid={`input-nombre-etapa-${index}`}
+      />
+      <select
+        value={etapa.servicio_id || 'none'}
+        onChange={(e) => onUpdate(etapa.id, 'servicio_id', e.target.value === 'none' ? null : e.target.value)}
+        className="h-7 text-xs rounded border bg-background px-1 max-w-[130px]"
+        data-testid={`select-servicio-etapa-${index}`}
+      >
+        <option value="none">Sin servicio</option>
+        {servicios.map(s => (
+          <option key={s.id} value={s.id}>{s.nombre}</option>
+        ))}
+      </select>
       <button
         type="button"
         onClick={() => onToggle(etapa.id, 'obligatorio')}
-        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${etapa.obligatorio !== false ? 'bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
+        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors shrink-0 ${etapa.obligatorio !== false ? 'bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
         title={etapa.obligatorio !== false ? 'Obligatorio (click para cambiar)' : 'Opcional (click para cambiar)'}
         data-testid={`toggle-obligatorio-${index}`}
       >
@@ -100,7 +112,7 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle }) => {
       <button
         type="button"
         onClick={() => onToggle(etapa.id, 'aparece_en_estado')}
-        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors ${etapa.aparece_en_estado !== false ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
+        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors shrink-0 ${etapa.aparece_en_estado !== false ? 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
         title={etapa.aparece_en_estado !== false ? 'Visible como estado (click para cambiar)' : 'Solo movimiento (click para cambiar)'}
         data-testid={`toggle-visible-${index}`}
       >
@@ -109,7 +121,7 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle }) => {
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6"
+        className="h-6 w-6 shrink-0"
         onClick={() => onRemove(etapa.id)}
         data-testid={`remove-etapa-${index}`}
       >
@@ -209,6 +221,15 @@ export const RutasProduccion = () => {
       ...formData,
       etapas: formData.etapas.map(e =>
         e.id === etapaId ? { ...e, [field]: !(e[field] !== false) } : e
+      ),
+    });
+  };
+
+  const handleUpdateEtapa = (etapaId, field, value) => {
+    setFormData({
+      ...formData,
+      etapas: formData.etapas.map(e =>
+        e.id === etapaId ? { ...e, [field]: value } : e
       ),
     });
   };
@@ -480,6 +501,7 @@ export const RutasProduccion = () => {
                             servicios={servicios}
                             onRemove={handleRemoveEtapa}
                             onToggle={handleToggleEtapaField}
+                            onUpdate={handleUpdateEtapa}
                           />
                         ))}
                       </div>
