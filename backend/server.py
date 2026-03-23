@@ -2084,27 +2084,30 @@ async def delete_persona_produccion(persona_id: str):
 async def get_modelos():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_modelos ORDER BY created_at DESC")
+        rows = await conn.fetch("""
+            SELECT m.*,
+                ma.nombre as marca_nombre,
+                t.nombre as tipo_nombre,
+                e.nombre as entalle_nombre,
+                te.nombre as tela_nombre,
+                h.nombre as hilo_nombre,
+                rp.nombre as ruta_nombre,
+                inv.nombre as pt_item_nombre,
+                inv.codigo as pt_item_codigo
+            FROM prod_modelos m
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+            LEFT JOIN prod_telas te ON m.tela_id = te.id
+            LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+            LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
+            LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
+            ORDER BY m.created_at DESC
+        """)
         result = []
         for r in rows:
             d = row_to_dict(r)
             d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
-            # Enriquecer con nombres
-            marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", d.get('marca_id'))
-            tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", d.get('tipo_id'))
-            entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", d.get('entalle_id'))
-            tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", d.get('tela_id'))
-            hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", d.get('hilo_id'))
-            ruta = await conn.fetchrow("SELECT nombre FROM prod_rutas_produccion WHERE id = $1", d.get('ruta_produccion_id')) if d.get('ruta_produccion_id') else None
-            d['marca_nombre'] = marca['nombre'] if marca else None
-            d['tipo_nombre'] = tipo['nombre'] if tipo else None
-            d['entalle_nombre'] = entalle['nombre'] if entalle else None
-            d['tela_nombre'] = tela['nombre'] if tela else None
-            d['hilo_nombre'] = hilo['nombre'] if hilo else None
-            d['ruta_nombre'] = ruta['nombre'] if ruta else None
-            pt_item = await conn.fetchrow("SELECT id, codigo, nombre FROM prod_inventario WHERE id = $1", d.get('pt_item_id')) if d.get('pt_item_id') else None
-            d['pt_item_nombre'] = pt_item['nombre'] if pt_item else None
-            d['pt_item_codigo'] = pt_item['codigo'] if pt_item else None
             result.append(d)
         return result
 
@@ -2611,59 +2614,54 @@ async def get_estados():
 async def get_registros():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_registros ORDER BY fecha_creacion DESC")
+        # Single query with JOINs to avoid N+1
+        rows = await conn.fetch("""
+            SELECT r.*,
+                m.nombre as modelo_nombre,
+                ma.nombre as marca_nombre,
+                t.nombre as tipo_nombre,
+                e.nombre as entalle_nombre,
+                te.nombre as tela_nombre,
+                h.nombre as hilo_nombre,
+                he.nombre as hilo_especifico_nombre,
+                (SELECT COUNT(*) FROM prod_incidencia i WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas,
+                (SELECT row_to_json(p.*) FROM prod_paralizacion p WHERE p.registro_id = r.id AND p.activa = TRUE LIMIT 1) as paralizacion_json,
+                (SELECT COUNT(*) FROM prod_movimientos_produccion mp WHERE mp.registro_id = r.id AND mp.fecha_esperada_movimiento < CURRENT_DATE) as movs_vencidos
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+            LEFT JOIN prod_telas te ON m.tela_id = te.id
+            LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+            LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
+            ORDER BY r.fecha_creacion DESC
+        """)
         result = []
+        from datetime import date as date_type
         for r in rows:
             d = row_to_dict(r)
             d['tallas'] = parse_jsonb(d.get('tallas'))
             d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
-            # Convert date fields
             if d.get('fecha_entrega_final'):
                 d['fecha_entrega_final'] = str(d['fecha_entrega_final'])
-            # Enriquecer modelo
-            modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
-            if modelo:
-                d['modelo_nombre'] = modelo['nombre']
-                marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", modelo['marca_id'])
-                tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", modelo['tipo_id'])
-                entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", modelo['entalle_id'])
-                tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", modelo['tela_id'])
-                hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", modelo['hilo_id'])
-                d['marca_nombre'] = marca['nombre'] if marca else None
-                d['tipo_nombre'] = tipo['nombre'] if tipo else None
-                d['entalle_nombre'] = entalle['nombre'] if entalle else None
-                d['tela_nombre'] = tela['nombre'] if tela else None
-                d['hilo_nombre'] = hilo['nombre'] if hilo else None
-            # Enriquecer hilo específico
-            if d.get('hilo_especifico_id'):
-                hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
-                d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
-            # Conteo de incidencias abiertas y paralización activa
-            inc_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM prod_incidencia WHERE registro_id = $1 AND estado = 'ABIERTA'", d['id'])
-            d['incidencias_abiertas'] = inc_count or 0
-            par_activa = await conn.fetchrow(
-                "SELECT id, motivo FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", d['id'])
-            d['paralizacion_activa'] = row_to_dict(par_activa) if par_activa else None
-            # Recalcular estado_operativo en tiempo real
-            from datetime import date as date_type
-            if par_activa:
+            # Paralización activa
+            par_json = d.pop('paralizacion_json', None)
+            if par_json and isinstance(par_json, str):
+                import json as json_mod
+                par_json = json_mod.loads(par_json)
+            d['paralizacion_activa'] = par_json
+            # Estado operativo
+            movs_vencidos = d.pop('movs_vencidos', 0) or 0
+            if par_json:
                 d['estado_operativo'] = 'PARALIZADA'
             elif d['estado'] != 'Almacén PT':
-                # Check if any movimiento has vencida fecha_esperada
-                mov_vencido = await conn.fetchval(
-                    "SELECT COUNT(*) FROM prod_movimientos_produccion WHERE registro_id = $1 AND fecha_esperada_movimiento < CURRENT_DATE",
-                    d['id']
-                )
-                if mov_vencido and mov_vencido > 0:
+                if movs_vencidos > 0:
                     d['estado_operativo'] = 'EN_RIESGO'
                 elif d.get('fecha_entrega_final'):
                     try:
                         fecha = date_type.fromisoformat(str(d['fecha_entrega_final']))
-                        if fecha < date_type.today():
-                            d['estado_operativo'] = 'EN_RIESGO'
-                        else:
-                            d['estado_operativo'] = 'NORMAL'
+                        d['estado_operativo'] = 'EN_RIESGO' if fecha < date_type.today() else 'NORMAL'
                     except:
                         d['estado_operativo'] = 'NORMAL'
                 else:
