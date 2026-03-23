@@ -2935,24 +2935,24 @@ async def analisis_estado_registro(registro_id: str):
                 "severidad": "error"
             })
         
-        # 2. Estado avanzado pero movimiento de etapa anterior obligatoria sigue abierto
+        # 2. Estado avanzado pero etapa anterior tiene problemas
         if etapa_actual_idx is not None:
             for i, et in enumerate(etapas_sorted[:etapa_actual_idx]):
                 sid = et.get('servicio_id')
                 if not sid:
                     continue
-                if not et.get('obligatorio', True):
-                    continue
+                es_obligatoria = et.get('obligatorio', True)
                 if sid in movs_por_servicio:
                     movs = movs_por_servicio[sid]
                     alguno_sin_cerrar = any(m.get('fecha_inicio') and not m.get('fecha_fin') for m in movs)
                     if alguno_sin_cerrar:
+                        sev = "warning" if es_obligatoria else "info"
                         inconsistencias.append({
                             "tipo": "etapa_previa_abierta",
                             "mensaje": f"La etapa '{et['nombre']}' tiene movimiento(s) sin cerrar (sin fecha_fin).",
-                            "severidad": "warning"
+                            "severidad": sev
                         })
-                else:
+                elif es_obligatoria:
                     # Etapa obligatoria previa sin movimiento
                     inconsistencias.append({
                         "tipo": "etapa_obligatoria_sin_movimiento",
@@ -3050,14 +3050,22 @@ async def validar_cambio_estado(registro_id: str, body: dict):
         
         if nuevo_idx is not None:
             for et in etapas_sorted[:nuevo_idx]:
-                if not et.get('obligatorio', True):
-                    continue
                 sid = et.get('servicio_id')
                 if not sid:
                     continue
-                # Verificar si tiene al menos un movimiento con fecha_inicio
-                if sid not in movs_por_servicio:
+                es_obligatoria = et.get('obligatorio', True)
+                
+                if es_obligatoria and sid not in movs_por_servicio:
+                    # Etapa obligatoria sin movimiento -> bloquear
                     bloqueos.append(f"La etapa obligatoria '{et['nombre']}' no tiene movimiento registrado.")
+                elif sid in movs_por_servicio:
+                    # Tiene movimiento(s): verificar si alguno sigue abierto
+                    alguno_abierto = any(m.get('fecha_inicio') and not m.get('fecha_fin') for m in movs_por_servicio[sid])
+                    if alguno_abierto:
+                        if es_obligatoria:
+                            bloqueos.append(f"La etapa obligatoria '{et['nombre']}' tiene movimiento iniciado sin cerrar.")
+                        else:
+                            bloqueos.append(f"La etapa '{et['nombre']}' tiene movimiento activo sin cerrar. Ciérralo antes de avanzar.")
         
         # Sugerencia: si el nuevo estado tiene servicio vinculado y no hay movimiento
         sugerencia_movimiento = None
