@@ -17,17 +17,20 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - fecha_esperada_movimiento por cada movimiento
   - Alertas visuales por movimiento (normal/por vencer/vencido)
   - Estado operativo automatico (NORMAL/EN_RIESGO/PARALIZADA)
-  - Incidencias con vinculacion opcional a movimiento
-  - Paralizaciones con vinculacion opcional a movimiento
+  - Incidencias y paralizaciones vinculadas a registros o movimientos
 - **Personal Interno/Externo (COMPLETADO 2026-03-20):**
-  - Backend: GET /api/personas-produccion devuelve tipo_persona y unidad_interna_nombre
-  - Backend: GET /api/movimientos-produccion devuelve persona_tipo y unidad_interna_nombre
-  - Backend: GET /api/unidades-internas lista unidades del modulo de Finanzas
-  - Backend: PUT /api/personas-produccion actualiza tipo_persona y unidad_interna_id
-  - Frontend PersonasProduccion: columna Tipo con badge INTERNO/EXTERNO, selector tipo y unidad interna en formulario
-  - Frontend RegistroForm tabla movimientos: badge INTERNO/EXTERNO debajo del nombre + unidad interna
-  - Frontend RegistroForm dialogo movimiento: indicador INT/EXT en dropdown + info box post-seleccion
-- **Accesibilidad Dialogs:** Todos los Dialog tienen DialogTitle y DialogDescription
+  - Backend y Frontend: tipo_persona (INTERNO/EXTERNO) y unidad_interna en personas y movimientos
+  - Badges visuales en tabla de movimientos y dropdown de personas en RegistroForm
+- **Vinculacion Bidireccional Estado-Movimientos (COMPLETADO 2026-03-23):**
+  - EtapaRuta: campos `obligatorio` y `aparece_en_estado` (toggles en UI de Rutas)
+  - Endpoint `GET /api/registros/{id}/analisis-estado`: estado_sugerido, inconsistencias, bloqueos
+  - Endpoint `POST /api/registros/{id}/validar-cambio-estado`: valida cambios, bloquea estado fuera de ruta, sugiere crear movimiento
+  - `GET /api/registros/{id}/estados-disponibles`: filtra por aparece_en_estado, retorna etapas_completas
+  - Frontend RutasProduccion: toggles Oblig/Opc y Estado/Solo mov por etapa
+  - Frontend RegistroForm: banner de inconsistencias amarillo con detalles y boton "Aplicar estado sugerido"
+  - Frontend RegistroForm: al guardar movimiento, sugiere cambiar estado (dialogo)
+  - Frontend RegistroForm: al cambiar estado, si falta movimiento, sugiere crearlo (dialogo con formulario pre-llenado)
+  - Frontend RegistroForm: bloqueo de estado fuera de ruta y salto de etapa obligatoria
 
 ## DB Schema
 - prod_registros: +fecha_entrega_final, +estado_operativo
@@ -35,16 +38,20 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - prod_incidencia: id, registro_id, movimiento_id(nullable), tipo, comentario, estado, usuario, fecha_hora
 - prod_paralizacion: id, registro_id, movimiento_id(nullable), motivo, comentario, activa, fecha_inicio, fecha_fin
 - prod_personas_produccion: tipo_persona (INTERNO/EXTERNO), unidad_interna_id (FK a finanzas2.fin_unidad_interna)
+- prod_rutas_produccion.etapas (JSONB): cada etapa tiene nombre, servicio_id, orden, obligatorio, aparece_en_estado
 
 ## Key API Endpoints
-- PUT /api/registros/{id}/control - Fecha entrega final
-- GET/POST /api/incidencias/{registro_id} - CRUD incidencias
-- GET/POST /api/paralizaciones/{registro_id} - CRUD paralizaciones
-- PUT /api/paralizaciones/{id}/levantar - Levantar paralizacion
-- POST/PUT /api/movimientos-produccion - Con fecha_esperada
-- GET /api/unidades-internas - Lista unidades internas de finanzas
-- GET /api/personas-produccion - Devuelve tipo_persona y unidad_interna_nombre
-- GET /api/movimientos-produccion - Devuelve persona_tipo y unidad_interna_nombre
+- `GET /api/registros/{id}/analisis-estado` - Analisis coherencia estado vs movimientos
+- `POST /api/registros/{id}/validar-cambio-estado` - Validacion con bloqueos y sugerencias
+- `GET /api/registros/{id}/estados-disponibles` - Estados filtrados por ruta + etapas_completas
+- `PUT /api/registros/{id}/control` - Fecha entrega final
+- `GET/POST /api/incidencias/{registro_id}` - CRUD incidencias
+- `GET/POST /api/paralizaciones/{registro_id}` - CRUD paralizaciones
+- `PUT /api/paralizaciones/{id}/levantar` - Levantar paralizacion
+- `POST/PUT /api/movimientos-produccion` - Con fecha_esperada
+- `GET /api/unidades-internas` - Lista unidades internas de finanzas
+- `GET /api/personas-produccion` - tipo_persona y unidad_interna_nombre
+- `GET /api/movimientos-produccion` - persona_tipo y unidad_interna_nombre
 
 ## Prioritized Backlog
 ### P1
@@ -56,7 +63,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [ ] Drag-and-drop reordenar tallas
 - [ ] Permisos granulares con usePermissions
 - [ ] Exportacion Excel/PDF (Kardex, etc.)
-- [ ] Refactorizar RegistroForm.jsx (2300+ lineas)
+- [ ] Refactorizar RegistroForm.jsx (2500+ lineas) en sub-componentes
 
 ## Key Credentials
 - Usuario: eduard / eduard123
