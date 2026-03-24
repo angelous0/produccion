@@ -82,6 +82,8 @@ async def init_trazabilidad_tables():
             )
         """)
         await conn.execute("ALTER TABLE prod_mermas ADD COLUMN IF NOT EXISTS tipo VARCHAR DEFAULT 'FALTANTE'")
+        await conn.execute("ALTER TABLE prod_arreglos ADD COLUMN IF NOT EXISTS motivo TEXT")
+        await conn.execute("ALTER TABLE prod_arreglos ADD COLUMN IF NOT EXISTS motivo_no_resuelta TEXT")
 
 
 # ==================== MODELS ====================
@@ -99,12 +101,15 @@ class FalladoCreate(BaseModel):
     observaciones: str = ""
 
 class FalladoUpdate(BaseModel):
+    cantidad_detectada: Optional[int] = None
     cantidad_reparable: Optional[int] = None
     cantidad_no_reparable: Optional[int] = None
     destino_no_reparable: Optional[str] = None
     motivo: Optional[str] = None
     estado: Optional[str] = None
     observaciones: Optional[str] = None
+    fecha_deteccion: Optional[str] = None
+    servicio_detectado_id: Optional[str] = None
 
 class ArregloCreate(BaseModel):
     fallado_id: str
@@ -114,6 +119,7 @@ class ArregloCreate(BaseModel):
     servicio_destino_id: Optional[str] = None
     persona_destino_id: Optional[str] = None
     fecha_envio: Optional[str] = None
+    motivo: str = ""
     observaciones: str = ""
 
 class ArregloCierre(BaseModel):
@@ -121,6 +127,7 @@ class ArregloCierre(BaseModel):
     cantidad_resuelta: int = 0
     cantidad_no_resuelta: int = 0
     resultado_final: str = "BUENO"
+    motivo_no_resuelta: Optional[str] = None
     observaciones: Optional[str] = None
 
 
@@ -198,24 +205,32 @@ async def update_fallado(
         if not existing:
             raise HTTPException(status_code=404, detail="Fallado no encontrado")
 
+        det = input.cantidad_detectada if input.cantidad_detectada is not None else existing["cantidad_detectada"]
         rep = input.cantidad_reparable if input.cantidad_reparable is not None else existing["cantidad_reparable"]
         norep = input.cantidad_no_reparable if input.cantidad_no_reparable is not None else existing["cantidad_no_reparable"]
-        if rep + norep > existing["cantidad_detectada"]:
+        if rep + norep > det:
             raise HTTPException(status_code=400, detail="Reparable + No reparable no puede exceder cantidad detectada")
 
         sets = []
         params = []
         for field, val in [
+            ("cantidad_detectada", input.cantidad_detectada),
             ("cantidad_reparable", input.cantidad_reparable),
             ("cantidad_no_reparable", input.cantidad_no_reparable),
             ("destino_no_reparable", input.destino_no_reparable),
             ("motivo", input.motivo),
             ("estado", input.estado),
             ("observaciones", input.observaciones),
+            ("servicio_detectado_id", input.servicio_detectado_id),
         ]:
             if val is not None:
                 params.append(val)
                 sets.append(f"{field} = ${len(params)}")
+
+        if input.fecha_deteccion is not None:
+            from datetime import date as date_type
+            params.append(date_type.fromisoformat(input.fecha_deteccion))
+            sets.append(f"fecha_deteccion = ${len(params)}")
 
         if sets:
             params.append(fallado_id)
@@ -313,11 +328,11 @@ async def create_arreglo(
         await conn.execute("""
             INSERT INTO prod_arreglos (id, fallado_id, registro_id, cantidad_enviada,
                 tipo, servicio_destino_id, persona_destino_id,
-                fecha_envio, fecha_limite, estado, observaciones)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                fecha_envio, fecha_limite, estado, motivo, observaciones)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
         """, aid, input.fallado_id, input.registro_id, input.cantidad_enviada,
             input.tipo, input.servicio_destino_id, input.persona_destino_id,
-            fecha_envio, fecha_limite, 'PENDIENTE', input.observaciones)
+            fecha_envio, fecha_limite, 'PENDIENTE', input.motivo, input.observaciones)
 
         # Update fallado estado
         await conn.execute("UPDATE prod_fallados SET estado = 'EN_PROCESO' WHERE id = $1", input.fallado_id)
@@ -348,10 +363,11 @@ async def cerrar_arreglo(
         await conn.execute("""
             UPDATE prod_arreglos SET
                 fecha_retorno = $1, cantidad_resuelta = $2, cantidad_no_resuelta = $3,
-                resultado_final = $4, estado = $5, observaciones = COALESCE($6, observaciones)
-            WHERE id = $7
+                resultado_final = $4, estado = $5, observaciones = COALESCE($6, observaciones),
+                motivo_no_resuelta = $7
+            WHERE id = $8
         """, fecha_retorno, input.cantidad_resuelta, input.cantidad_no_resuelta,
-            input.resultado_final, estado, input.observaciones, arreglo_id)
+            input.resultado_final, estado, input.observaciones, input.motivo_no_resuelta, arreglo_id)
 
         # Check if all arreglos for this fallado are resolved
         fallado_id = arreglo["fallado_id"]

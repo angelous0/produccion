@@ -99,7 +99,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     cantidad_reparable: 0,
     cantidad_no_reparable: 0,
     destino_no_reparable: 'PENDIENTE',
-    motivo: '',
+    motivo_no_reparable: '',
     servicio_detectado_id: '',
     fecha_deteccion: '',
     observaciones: '',
@@ -111,6 +111,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     servicio_destino_id: '',
     persona_destino_id: '',
     fecha_envio: '',
+    motivo: '',
     observaciones: '',
   });
 
@@ -118,6 +119,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     cantidad_resuelta: 0,
     cantidad_no_resuelta: 0,
     resultado_final: 'BUENO',
+    motivo_no_resuelta: '',
     fecha_retorno: '',
     observaciones: '',
   });
@@ -156,8 +158,10 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       const payload = {
         registro_id: registroId,
         ...falladoForm,
+        motivo: falladoForm.motivo_no_reparable || '',
         servicio_detectado_id: falladoForm.servicio_detectado_id || null,
       };
+      delete payload.motivo_no_reparable;
       if (editingFalladoId) {
         await axios.put(`${API}/fallados/${editingFalladoId}`, payload, { headers: getHeaders() });
         toast.success('Fallado actualizado');
@@ -183,7 +187,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       cantidad_reparable: f.cantidad_reparable || 0,
       cantidad_no_reparable: f.cantidad_no_reparable || 0,
       destino_no_reparable: f.destino_no_reparable || 'PENDIENTE',
-      motivo: f.motivo || '',
+      motivo_no_reparable: f.motivo || '',
       servicio_detectado_id: f.servicio_detectado_id || '',
       fecha_deteccion: f.fecha_deteccion ? String(f.fecha_deteccion).slice(0, 10) : '',
       observaciones: f.observaciones || '',
@@ -252,7 +256,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
   const resetFalladoForm = () => setFalladoForm({
     cantidad_detectada: 0, cantidad_reparable: 0, cantidad_no_reparable: 0,
-    destino_no_reparable: 'PENDIENTE', motivo: '', servicio_detectado_id: '',
+    destino_no_reparable: 'PENDIENTE', motivo_no_reparable: '', servicio_detectado_id: '',
     fecha_deteccion: '', observaciones: '',
   });
 
@@ -260,7 +264,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
   const resetArregloForm = () => setArregloForm({
     cantidad_enviada: 0, tipo: 'ARREGLO_EXTERNO', servicio_destino_id: '',
-    persona_destino_id: '', fecha_envio: todayStr, observaciones: '',
+    persona_destino_id: '', fecha_envio: todayStr, motivo: '', observaciones: '',
   });
 
   const openArregloDialog = (fallado) => {
@@ -282,7 +286,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     setSelectedArreglo(arreglo);
     setCierreForm({
       cantidad_resuelta: arreglo.cantidad_enviada, cantidad_no_resuelta: 0,
-      resultado_final: 'LIQUIDACION', fecha_retorno: todayStr, observaciones: '',
+      resultado_final: 'LIQUIDACION', motivo_no_resuelta: '', fecha_retorno: todayStr, observaciones: '',
     });
     setCierreArregloDialogOpen(true);
   };
@@ -471,8 +475,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                           <div><span className="text-muted-foreground">Destino NR:</span> <span className="font-medium">{f.destino_no_reparable}</span></div>
                           <div><span className="text-muted-foreground">Fecha:</span> <span className="font-mono">{fmtDate(f.fecha_deteccion)}</span></div>
                         </div>
-                        {f.motivo && <p className="text-xs text-muted-foreground">Motivo: {f.motivo}</p>}
-                        {f.servicio_detectado_nombre && <p className="text-xs text-muted-foreground">Servicio: {f.servicio_detectado_nombre}</p>}
+                        {f.motivo && <p className="text-xs text-muted-foreground">Motivo NR: {f.motivo}</p>}
+                        {f.servicio_detectado_nombre && <p className="text-xs text-muted-foreground">Detectado en: {f.servicio_detectado_nombre}</p>}
 
                         {/* Arreglos anidados */}
                         {arreglosDeFallado.length > 0 && (
@@ -726,11 +730,13 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                 onChange={e => setFalladoForm(p => ({ ...p, fecha_deteccion: e.target.value }))}
                 data-testid="input-fallado-fecha" />
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Motivo</Label>
-              <Input value={falladoForm.motivo} onChange={e => setFalladoForm(p => ({ ...p, motivo: e.target.value }))}
-                placeholder="Costura torcida, manchas, etc." data-testid="input-fallado-motivo" />
-            </div>
+            {falladoForm.cantidad_no_reparable > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Motivo no reparables</Label>
+                <Input value={falladoForm.motivo_no_reparable} onChange={e => setFalladoForm(p => ({ ...p, motivo_no_reparable: e.target.value }))}
+                  placeholder="Ej: Manchas irreparables, tela rota..." data-testid="input-fallado-motivo" />
+              </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">Observaciones</Label>
               <Textarea value={falladoForm.observaciones} onChange={e => setFalladoForm(p => ({ ...p, observaciones: e.target.value }))}
@@ -808,6 +814,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                 data-testid="input-arreglo-fecha" />
             </div>
             <div className="space-y-1">
+              <Label className="text-xs">Motivo del arreglo</Label>
+              <Input value={arregloForm.motivo} onChange={e => setArregloForm(p => ({ ...p, motivo: e.target.value }))}
+                placeholder="Ej: Costura torcida, ojal desalineado..." data-testid="input-arreglo-motivo" />
+            </div>
+            <div className="space-y-1">
               <Label className="text-xs">Observaciones</Label>
               <Textarea value={arregloForm.observaciones} onChange={e => setArregloForm(p => ({ ...p, observaciones: e.target.value }))}
                 rows={2} data-testid="input-arreglo-obs" />
@@ -866,7 +877,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
             {/* Destino de no resueltas - solo si hay */}
             {cierreForm.cantidad_no_resuelta > 0 && (
-              <div className="space-y-1 p-3 rounded-lg border border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/10">
+              <div className="space-y-2 p-3 rounded-lg border border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/10">
                 <Label className="text-xs font-semibold text-red-700 dark:text-red-400">Destino de las {cierreForm.cantidad_no_resuelta} no resueltas</Label>
                 <Select value={cierreForm.resultado_final} onValueChange={v => setCierreForm(p => ({ ...p, resultado_final: v }))}>
                   <SelectTrigger data-testid="select-cierre-resultado"><SelectValue /></SelectTrigger>
@@ -876,6 +887,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                     <SelectItem value="DESCARTE">Descarte</SelectItem>
                   </SelectContent>
                 </Select>
+                <Input value={cierreForm.motivo_no_resuelta} onChange={e => setCierreForm(p => ({ ...p, motivo_no_resuelta: e.target.value }))}
+                  placeholder="Motivo: ej. No se pudo reparar costura..." className="text-xs" data-testid="input-cierre-motivo" />
               </div>
             )}
             <div className="space-y-1">
