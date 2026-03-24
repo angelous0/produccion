@@ -186,7 +186,7 @@ class TestMatrizFilaStructure:
 
 
 class TestMatrizDetalleStructure:
-    """Test Matriz detalle structure"""
+    """Test Matriz detalle structure including enriched fields"""
     
     @pytest.fixture(scope="class")
     def auth_headers(self):
@@ -198,7 +198,7 @@ class TestMatrizDetalleStructure:
         return {"Authorization": f"Bearer {token}"}
     
     def test_matriz_detalle_has_required_fields(self, auth_headers):
-        """Matriz detalle has all required fields"""
+        """Matriz detalle has all required fields including enriched fields"""
         response = requests.get(
             f"{BASE_URL}/api/reportes-produccion/matriz",
             headers=auth_headers
@@ -209,11 +209,18 @@ class TestMatrizDetalleStructure:
             fila = data["filas"][0]
             if fila["detalle"]:
                 detalle = fila["detalle"][0]
+                # Original required fields
                 required_fields = [
                     "id", "n_corte", "estado", "prendas",
                     "modelo", "ruta", "urgente", "es_hijo", "fecha_entrega"
                 ]
-                for field in required_fields:
+                # NEW enriched fields
+                enriched_fields = [
+                    "curva", "curva_detalle", "hilo_especifico",
+                    "dias_proceso", "ult_mov_servicio", "ult_mov_fecha",
+                    "diferencia_acumulada", "total_movimientos"
+                ]
+                for field in required_fields + enriched_fields:
                     assert field in detalle, f"Missing field in detalle: {field}"
     
     def test_matriz_detalle_types(self, auth_headers):
@@ -234,6 +241,54 @@ class TestMatrizDetalleStructure:
                 assert isinstance(detalle["prendas"], int)
                 assert isinstance(detalle["urgente"], bool)
                 assert isinstance(detalle["es_hijo"], bool)
+    
+    def test_matriz_detalle_enriched_types(self, auth_headers):
+        """Matriz detalle enriched fields have correct types"""
+        response = requests.get(
+            f"{BASE_URL}/api/reportes-produccion/matriz",
+            headers=auth_headers
+        )
+        data = response.json()
+        
+        if data["filas"]:
+            fila = data["filas"][0]
+            if fila["detalle"]:
+                detalle = fila["detalle"][0]
+                # curva is string (can be empty)
+                assert isinstance(detalle["curva"], str)
+                # curva_detalle is list of {talla, cantidad}
+                assert isinstance(detalle["curva_detalle"], list)
+                # hilo_especifico is string (can be empty)
+                assert isinstance(detalle["hilo_especifico"], str)
+                # dias_proceso is int
+                assert isinstance(detalle["dias_proceso"], int)
+                # ult_mov_servicio is string (can be empty)
+                assert isinstance(detalle["ult_mov_servicio"], str)
+                # ult_mov_fecha is string or None
+                assert detalle["ult_mov_fecha"] is None or isinstance(detalle["ult_mov_fecha"], str)
+                # diferencia_acumulada is int
+                assert isinstance(detalle["diferencia_acumulada"], int)
+                # total_movimientos is int
+                assert isinstance(detalle["total_movimientos"], int)
+    
+    def test_matriz_detalle_curva_detalle_structure(self, auth_headers):
+        """Matriz detalle curva_detalle has talla and cantidad"""
+        response = requests.get(
+            f"{BASE_URL}/api/reportes-produccion/matriz",
+            headers=auth_headers
+        )
+        data = response.json()
+        
+        if data["filas"]:
+            fila = data["filas"][0]
+            if fila["detalle"]:
+                detalle = fila["detalle"][0]
+                if detalle["curva_detalle"]:
+                    item = detalle["curva_detalle"][0]
+                    assert "talla" in item, "curva_detalle item missing 'talla'"
+                    assert "cantidad" in item, "curva_detalle item missing 'cantidad'"
+                    assert isinstance(item["talla"], str)
+                    assert isinstance(item["cantidad"], int)
 
 
 class TestMatrizFilters:

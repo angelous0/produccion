@@ -1,0 +1,75 @@
+{
+  "summary": "Matriz Dinámica de Producción - NEW FEATURES (Column Merge + Rich Detail Modal) fully tested. Backend: 27/27 tests passed (100%). Frontend: All new features verified including enriched modal content, column merge/undo, localStorage persistence, and navigation buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Backend: GET /api/reportes-produccion/matriz returns enriched detalle with curva, curva_detalle, hilo_especifico",
+    "Backend: Detalle includes dias_proceso, ult_mov_servicio, ult_mov_fecha",
+    "Backend: Detalle includes diferencia_acumulada, total_movimientos",
+    "Backend: curva_detalle is array of {talla, cantidad} objects",
+    "Backend: All 27 pytest tests passed (100%)",
+    "Frontend: Click on cell value (e.g., Costura=2) opens modal showing only registros in that estado",
+    "Frontend: Click on item name opens modal showing ALL registros for that item",
+    "Frontend: Click on total value opens modal showing ALL registros for that item",
+    "Frontend: Modal shows n_corte with estado badge",
+    "Frontend: Modal shows Modelo, Ruta, Prendas, Curva fields",
+    "Frontend: Modal shows Hilo Específico (e.g., 'Beis', 'Negro')",
+    "Frontend: Modal shows Entrega date in red when overdue (2026-02-20)",
+    "Frontend: Modal shows Días (dias_proceso) with clock icon",
+    "Frontend: Modal shows Movimientos count (total_movimientos)",
+    "Frontend: Modal shows Último mov with servicio name and date",
+    "Frontend: Modal shows Diferencia/Merma when > 0",
+    "Frontend: Modal shows curva_detalle as talla×cantidad chips (28×185, 30×150, etc.)",
+    "Frontend: Modal shows URGENTE badge for urgent registros",
+    "Frontend: Modal shows DIV badge for es_hijo registros (fraccionados)",
+    "Frontend: Modal Trazabilidad button navigates to /reportes/trazabilidad/{id}",
+    "Frontend: Modal Abrir button navigates to /registros/editar/{id}",
+    "Frontend: Column merge mode - click Columnas > Fusionar columnas activates merge UI",
+    "Frontend: Merge UI shows 'Selecciona 2+ columnas. La primera será la que absorbe a las demás.'",
+    "Frontend: Select 2+ columns and Apply merges them (Acabado + Limpieza tested)",
+    "Frontend: After merge, absorbed column disappears from table",
+    "Frontend: After merge, target column header shows +absorbed name (e.g., 'Costura +Para Costura')",
+    "Frontend: Merge badge appears in toolbar with undo (X) button",
+    "Frontend: Column count updates after merge (14/14 → 13/14)",
+    "Frontend: Undo merge (X button) restores the absorbed column",
+    "Frontend: Column count restores after undo (13/14 → 14/14)",
+    "Frontend: Merge preferences persist in localStorage key 'matriz-produccion-prefs'",
+    "Frontend: localStorage stores merged columns in 'merged' field",
+    "Frontend: Clicking merged column cell shows merged names in modal title (→ Costura (+Para Costura))",
+    "Frontend: 'Deshacer fusiones' button in column config undoes all merges"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_matriz_produccion.py",
+    "/app/test_reports/pytest/pytest_matriz_produccion_v2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend LATERAL JOINs for ult_mov, diferencia, hilo_especifico are efficient and correct",
+    "Frontend DetalleModal component is well-structured with all enriched fields displayed",
+    "Column merge logic correctly handles nested merges (if absorbed column was target of another merge)",
+    "localStorage persistence works correctly with ruta-specific preferences",
+    "All interactive elements have data-testid attributes for testing"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_matriz_produccion.py"
+  ],
+  "success_rate": {
+    "backend": "100% (27/27 tests passed)",
+    "frontend": "100% (All new features verified)"
+  },
+  "test_credentials": {
+    "username": "eduard",
+    "password": "eduard123"
+  },
+  "seed_data_creation": "Used existing test data: 4 active registros (02=Atraque/Ojal with 3 movimientos, 03=Estampado with hilo_especifico='Negro', 04=Costura padre with 2 movimientos and hilo_especifico='Beis', 04-1=Costura hijo DIV with hilo_especifico='Beis'). Curva detalle has talla×cantidad for all.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Matriz Dinámica de Producción fully implemented with TWO NEW FEATURES: 1) Column Merge - allows merging columns (e.g., Acabado absorbs Limpieza), values are summed, persisted in localStorage. 2) Rich Detail Modal - click on cell/item/total opens modal with enriched data: n_corte, estado badge, modelo, ruta, prendas, curva, hilo_especifico, entrega (red if overdue), dias_proceso, movimientos, ultimo_mov, diferencia, curva_detalle chips, urgente/DIV badges, Trazabilidad and Abrir buttons. Test file updated: /app/backend/tests/test_matriz_produccion.py with 27 tests including new enriched field tests."
+}

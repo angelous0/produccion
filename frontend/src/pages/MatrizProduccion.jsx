@@ -1,35 +1,34 @@
 import { useEffect, useState, useMemo, useCallback, Fragment } from 'react';
 import axios from 'axios';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
 import { Label } from '../components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import {
-  Popover, PopoverContent, PopoverTrigger,
-} from '../components/ui/popover';
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '../components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Settings2, GripVertical, ChevronDown, ChevronRight,
-  ExternalLink, Eye, EyeOff, ArrowLeftRight, MoveLeft, MoveRight,
+  ArrowLeft, Settings2, ChevronDown, ChevronRight,
+  ExternalLink, Eye, EyeOff, MoveLeft, MoveRight,
+  Merge, X, AlertTriangle, Clock, GitBranch,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STORAGE_KEY = 'matriz-produccion-prefs';
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── Persistencia ──────────────────────────────────────────────
 function loadPrefs() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; } catch { return null; }
 }
-function savePrefs(prefs) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs)); } catch {}
+function savePrefs(p) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch {}
 }
 
-// ── Filtro individual ─────────────────────────────────────────
+// ── FilterSelect ──────────────────────────────────────────────
 const FilterSelect = ({ label, value, onChange, options, testId }) => (
   <div className="flex flex-col gap-1">
     <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</Label>
@@ -39,147 +38,263 @@ const FilterSelect = ({ label, value, onChange, options, testId }) => (
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="_all">Todos</SelectItem>
-        {options.map(o => (
-          <SelectItem key={o.id} value={o.id}>{o.nombre}</SelectItem>
-        ))}
+        {options.map(o => <SelectItem key={o.id} value={o.id}>{o.nombre}</SelectItem>)}
       </SelectContent>
     </Select>
   </div>
+);
+
+// ── DetalleModal ──────────────────────────────────────────────
+const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
+  <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto" data-testid="detalle-modal">
+      <DialogHeader>
+        <DialogTitle className="text-base">{titulo}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3 mt-2">
+        {(registros || []).map(d => (
+          <div key={d.id} className="border rounded-lg p-3 hover:bg-muted/20 transition-colors" data-testid={`modal-reg-${d.n_corte}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-base">{d.n_corte}</span>
+                <Badge variant="outline">{d.estado}</Badge>
+                {d.urgente && <Badge variant="destructive" className="text-[10px]">URGENTE</Badge>}
+                {d.es_hijo && <Badge variant="secondary" className="text-[10px]"><GitBranch className="h-2.5 w-2.5 mr-0.5 inline" />DIV</Badge>}
+              </div>
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { onClose(); navigate(`/reportes/trazabilidad/${d.id}`); }}>
+                  Trazabilidad
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { onClose(); navigate(`/registros/editar/${d.id}`); }}>
+                  <ExternalLink className="h-3 w-3 mr-1" /> Abrir
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 text-xs">
+              <div><span className="text-muted-foreground">Modelo:</span> <strong>{d.modelo}</strong></div>
+              <div><span className="text-muted-foreground">Ruta:</span> <strong>{d.ruta || '-'}</strong></div>
+              <div><span className="text-muted-foreground">Prendas:</span> <strong className="font-mono">{d.prendas.toLocaleString()}</strong></div>
+              <div><span className="text-muted-foreground">Curva:</span> <strong className="font-mono">{d.curva || '-'}</strong></div>
+              <div><span className="text-muted-foreground">Hilo Específico:</span> <strong>{d.hilo_especifico || '-'}</strong></div>
+              <div>
+                <span className="text-muted-foreground">Entrega:</span>{' '}
+                {d.fecha_entrega ? (
+                  <strong className={new Date(d.fecha_entrega) < new Date() ? 'text-destructive' : ''}>{d.fecha_entrega}</strong>
+                ) : <span>-</span>}
+              </div>
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Días:</span> <strong className="font-mono">{d.dias_proceso}d</strong>
+              </div>
+              <div><span className="text-muted-foreground">Movimientos:</span> <strong className="font-mono">{d.total_movimientos}</strong></div>
+              {d.ult_mov_servicio && (
+                <div className="col-span-2"><span className="text-muted-foreground">Último mov:</span> <strong>{d.ult_mov_servicio}</strong> {d.ult_mov_fecha && <span className="text-muted-foreground">({d.ult_mov_fecha})</span>}</div>
+              )}
+              {d.diferencia_acumulada > 0 && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Diferencia/Merma:</span>{' '}
+                  <strong className="text-destructive font-mono">{d.diferencia_acumulada}</strong>
+                </div>
+              )}
+            </div>
+
+            {/* Curva detalle */}
+            {d.curva_detalle && d.curva_detalle.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-dashed">
+                {d.curva_detalle.map((t, i) => (
+                  <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
+                    <span className="font-semibold">{t.talla}</span>
+                    <span className="text-muted-foreground">×</span>
+                    <span>{t.cantidad}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {(!registros || registros.length === 0) && (
+          <div className="text-center text-muted-foreground py-6">Sin registros</div>
+        )}
+      </div>
+    </DialogContent>
+  </Dialog>
 );
 
 // ── Componente principal ──────────────────────────────────────
 export const MatrizProduccion = () => {
   const navigate = useNavigate();
 
-  // Data
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Filtros
   const [filters, setFilters] = useState({
     ruta_id: '', marca_id: '', tipo_id: '', entalle_id: '',
     tela_id: '', hilo_id: '', modelo_id: '', estado: '',
     solo_atrasados: false, solo_activos: true, solo_fraccionados: false,
   });
+  const [metrica, setMetrica] = useState('registros');
+  const [visibleCols, setVisibleCols] = useState(null);
+  const [colOrder, setColOrder] = useState(null);
+  const [mergedCols, setMergedCols] = useState({}); // { targetCol: [absorbed1, absorbed2] }
 
-  // Métrica
-  const [metrica, setMetrica] = useState('registros'); // 'registros' | 'prendas'
+  // Fusión UI state
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergeSelection, setMergeSelection] = useState([]);
 
-  // Columnas visibles y orden
-  const [visibleCols, setVisibleCols] = useState(null);  // null = all
-  const [colOrder, setColOrder] = useState(null);         // null = default
+  // Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalRegistros, setModalRegistros] = useState([]);
+  const [modalTitulo, setModalTitulo] = useState('');
 
-  // Expandidos
-  const [expanded, setExpanded] = useState({});
-
-  // ── Cargar datos ────────────────────────────────────────────
+  // ── Fetch ───────────────────────────────────────────────────
   const fetchData = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => {
-      if (v !== '' && v !== false) {
-        params.append(k, String(v));
-      }
+      if (v !== '' && v !== false) params.append(k, String(v));
     });
     axios.get(`${API}/reportes-produccion/matriz?${params}`)
       .then(res => {
         setData(res.data);
-        // Initialize column prefs from saved or API defaults
         const apiCols = res.data.columnas || [];
         const saved = loadPrefs();
         if (saved && saved.ruta === (filters.ruta_id || '__global__')) {
-          // Restore saved prefs for same ruta context
-          const savedVisible = saved.visible?.filter(c => apiCols.includes(c));
-          const savedOrder = saved.order?.filter(c => apiCols.includes(c));
-          // Add any new cols from API not in saved
-          const missing = apiCols.filter(c => !savedOrder?.includes(c));
-          setVisibleCols(savedVisible?.length ? savedVisible : apiCols);
-          setColOrder(savedOrder?.length ? [...savedOrder, ...missing] : apiCols);
+          const sv = saved.visible?.filter(c => apiCols.includes(c));
+          const so = saved.order?.filter(c => apiCols.includes(c));
+          const miss = apiCols.filter(c => !so?.includes(c));
+          setVisibleCols(sv?.length ? sv : apiCols);
+          setColOrder(so?.length ? [...so, ...miss] : apiCols);
+          setMergedCols(saved.merged || {});
         } else {
           setVisibleCols(apiCols);
           setColOrder(apiCols);
+          setMergedCols({});
         }
       })
-      .catch(err => console.error('Error loading matriz:', err))
+      .catch(err => console.error(err))
       .finally(() => setLoading(false));
   }, [filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Guardar prefs cuando cambian ────────────────────────────
+  // ── Guardar prefs ───────────────────────────────────────────
   useEffect(() => {
     if (visibleCols && colOrder) {
       savePrefs({
         ruta: filters.ruta_id || '__global__',
         visible: visibleCols,
         order: colOrder,
+        merged: mergedCols,
       });
     }
-  }, [visibleCols, colOrder, filters.ruta_id]);
+  }, [visibleCols, colOrder, mergedCols, filters.ruta_id]);
 
-  // ── Columnas efectivas (visibles + ordenadas) ───────────────
-  const effectiveCols = useMemo(() => {
-    if (!colOrder || !visibleCols) return data?.columnas || [];
-    return colOrder.filter(c => visibleCols.includes(c));
-  }, [colOrder, visibleCols, data]);
-
-  // ── Handlers filtros ────────────────────────────────────────
-  const setFilter = (key, val) => {
-    setFilters(prev => ({ ...prev, [key]: val }));
-    setExpanded({});
-  };
-  const clearFilters = () => {
-    setFilters({
-      ruta_id: '', marca_id: '', tipo_id: '', entalle_id: '',
-      tela_id: '', hilo_id: '', modelo_id: '', estado: '',
-      solo_atrasados: false, solo_activos: true, solo_fraccionados: false,
-    });
-    setExpanded({});
-  };
-
-  // ── Handlers columnas ───────────────────────────────────────
-  const toggleCol = (col) => {
-    setVisibleCols(prev => {
-      if (!prev) return [];
-      return prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col];
-    });
-  };
-  const moveCol = (col, direction) => {
-    setColOrder(prev => {
-      if (!prev) return prev;
-      const idx = prev.indexOf(col);
-      if (idx < 0) return prev;
-      const newIdx = direction === 'left' ? idx - 1 : idx + 1;
-      if (newIdx < 0 || newIdx >= prev.length) return prev;
-      const arr = [...prev];
-      [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
-      return arr;
-    });
-  };
-  const showAllCols = () => setVisibleCols(data?.columnas || []);
-
-  // ── Toggle expand ───────────────────────────────────────────
-  const toggleExpand = (key) => {
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  // ── Valor de celda según métrica ────────────────────────────
-  const cellVal = (celdas, col) => {
-    const c = celdas?.[col];
-    if (!c) return 0;
-    return metrica === 'prendas' ? c.prendas : c.registros;
-  };
-  const totalVal = (total) => {
-    if (!total) return 0;
-    return metrica === 'prendas' ? total.prendas : total.registros;
-  };
-
-  const filtrosDisp = data?.filtros_disponibles || {};
+  // ── Columnas efectivas (post-merge) ─────────────────────────
   const allCols = data?.columnas || [];
-  const hasActiveFilters = Object.entries(filters).some(([k, v]) => {
-    if (k === 'solo_activos') return !v;
-    return v !== '' && v !== false;
-  });
+  const absorbedSet = useMemo(() => {
+    const s = new Set();
+    Object.values(mergedCols).forEach(arr => arr.forEach(c => s.add(c)));
+    return s;
+  }, [mergedCols]);
+
+  const effectiveCols = useMemo(() => {
+    if (!colOrder || !visibleCols) return allCols.filter(c => !absorbedSet.has(c));
+    return colOrder.filter(c => visibleCols.includes(c) && !absorbedSet.has(c));
+  }, [colOrder, visibleCols, allCols, absorbedSet]);
+
+  // ── Valor de celda con merge ────────────────────────────────
+  const cellVal = useCallback((celdas, col) => {
+    let reg = 0, prn = 0;
+    const cols = [col, ...(mergedCols[col] || [])];
+    cols.forEach(c => {
+      const v = celdas?.[c];
+      if (v) { reg += v.registros; prn += v.prendas; }
+    });
+    return metrica === 'prendas' ? prn : reg;
+  }, [metrica, mergedCols]);
+
+  const totalVal = (total) => total ? (metrica === 'prendas' ? total.prendas : total.registros) : 0;
+
+  // ── Totales con merge ───────────────────────────────────────
+  const colTotal = useCallback((col) => {
+    const cols = [col, ...(mergedCols[col] || [])];
+    let reg = 0, prn = 0;
+    cols.forEach(c => {
+      const t = data?.totales_columna?.[c];
+      if (t) { reg += t.registros; prn += t.prendas; }
+    });
+    return metrica === 'prendas' ? prn : reg;
+  }, [data, metrica, mergedCols]);
+
+  // ── Handlers ────────────────────────────────────────────────
+  const setFilter = (k, v) => { setFilters(p => ({ ...p, [k]: v })); };
+  const clearFilters = () => {
+    setFilters({ ruta_id: '', marca_id: '', tipo_id: '', entalle_id: '', tela_id: '', hilo_id: '', modelo_id: '', estado: '', solo_atrasados: false, solo_activos: true, solo_fraccionados: false });
+  };
+  const toggleCol = (c) => setVisibleCols(p => p?.includes(c) ? p.filter(x => x !== c) : [...(p || []), c]);
+  const moveCol = (c, dir) => {
+    setColOrder(p => {
+      if (!p) return p;
+      const i = p.indexOf(c);
+      const j = dir === 'left' ? i - 1 : i + 1;
+      if (i < 0 || j < 0 || j >= p.length) return p;
+      const a = [...p]; [a[i], a[j]] = [a[j], a[i]]; return a;
+    });
+  };
+
+  // ── Fusión de columnas ──────────────────────────────────────
+  const toggleMergeSelect = (col) => {
+    setMergeSelection(prev =>
+      prev.includes(col) ? prev.filter(c => c !== col) : [...prev, col]
+    );
+  };
+  const applyMerge = () => {
+    if (mergeSelection.length < 2) return;
+    const target = mergeSelection[0]; // primera seleccionada es la que absorbe
+    const absorbed = mergeSelection.slice(1);
+    setMergedCols(prev => {
+      const next = { ...prev };
+      // Si el target ya tenía absorbidas, agregar las nuevas
+      next[target] = [...(next[target] || []), ...absorbed];
+      // Si alguna absorbida era target de otra fusión, mover sus absorbidas al nuevo target
+      absorbed.forEach(a => {
+        if (next[a]) {
+          next[target] = [...next[target], ...next[a]];
+          delete next[a];
+        }
+      });
+      return next;
+    });
+    setMergeSelection([]);
+    setMergeMode(false);
+  };
+  const undoMerge = (target) => {
+    setMergedCols(prev => {
+      const next = { ...prev };
+      delete next[target];
+      return next;
+    });
+  };
+  const undoAllMerges = () => { setMergedCols({}); setMergeSelection([]); setMergeMode(false); };
+
+  // ── Modal: abrir con registros filtrados ────────────────────
+  const openModal = (fila, col) => {
+    let regs = fila.detalle || [];
+    let titulo = fila.item;
+    if (col) {
+      // Celda específica: filtrar por estado, incluyendo columnas absorbidas
+      const cols = [col, ...(mergedCols[col] || [])];
+      regs = regs.filter(r => cols.includes(r.estado));
+      titulo = `${fila.item} → ${col}${mergedCols[col]?.length ? ` (+${mergedCols[col].join(', ')})` : ''}`;
+    }
+    setModalRegistros(regs);
+    setModalTitulo(titulo);
+    setModalOpen(true);
+  };
+
+  const hasActiveFilters = Object.entries(filters).some(([k, v]) => k === 'solo_activos' ? !v : v !== '' && v !== false);
+  const hasMerges = Object.keys(mergedCols).length > 0;
+  const filtrosDisp = data?.filtros_disponibles || {};
 
   return (
     <div className="space-y-3" data-testid="matriz-produccion">
@@ -188,9 +303,9 @@ export const MatrizProduccion = () => {
         <Button variant="ghost" size="icon" onClick={() => navigate('/reportes/dashboard')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
+        <div>
           <h2 className="text-2xl font-bold tracking-tight">Matriz de Producción</h2>
-          <p className="text-muted-foreground text-sm">Vista global por Item × Estado</p>
+          <p className="text-muted-foreground text-sm">Click en una celda o fila para ver detalle completo</p>
         </div>
       </div>
 
@@ -220,87 +335,111 @@ export const MatrizProduccion = () => {
               <Label htmlFor="solo-fraccionados" className="text-xs">Solo fraccionados</Label>
             </div>
             {hasActiveFilters && (
-              <Button variant="outline" size="sm" className="text-xs h-7" onClick={clearFilters}>
-                Limpiar filtros
-              </Button>
+              <Button variant="outline" size="sm" className="text-xs h-7" onClick={clearFilters}>Limpiar filtros</Button>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Toolbar: Métrica + Columnas ──────────────────────── */}
+      {/* ── Toolbar ──────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        {/* Métrica */}
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5" data-testid="metrica-toggle">
-          <button
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${metrica === 'registros' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setMetrica('registros')}
-            data-testid="metrica-registros"
-          >
-            Registros
-          </button>
-          <button
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${metrica === 'prendas' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setMetrica('prendas')}
-            data-testid="metrica-prendas"
-          >
-            Prendas
-          </button>
+        <div className="flex items-center gap-2">
+          {/* Métrica */}
+          <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5" data-testid="metrica-toggle">
+            <button className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${metrica === 'registros' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setMetrica('registros')} data-testid="metrica-registros">Registros</button>
+            <button className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${metrica === 'prendas' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => setMetrica('prendas')} data-testid="metrica-prendas">Prendas</button>
+          </div>
+
+          {/* Merges activos */}
+          {hasMerges && (
+            <div className="flex items-center gap-1">
+              {Object.entries(mergedCols).map(([target, absorbed]) => (
+                <Badge key={target} variant="secondary" className="gap-1 text-[10px] pr-0.5">
+                  <Merge className="h-2.5 w-2.5" />
+                  {target} +{absorbed.length}
+                  <button className="ml-0.5 p-0.5 hover:bg-muted rounded" onClick={() => undoMerge(target)} data-testid={`undo-merge-${target}`}>
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Panel de columnas */}
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs">
-            {effectiveCols.length}/{allCols.length} columnas
-          </Badge>
+          {data && !loading && (
+            <div className="flex gap-1.5 text-xs">
+              <Badge variant="outline">{data.filas.length} items</Badge>
+              <Badge variant="outline">{data.total_general.registros} reg</Badge>
+              <Badge variant="outline">{data.total_general.prendas.toLocaleString()} prn</Badge>
+            </div>
+          )}
+          <Badge variant="secondary" className="text-xs">{effectiveCols.length}/{allCols.length} col</Badge>
+
+          {/* Config columnas */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className="text-xs h-8 gap-1" data-testid="btn-config-columnas">
                 <Settings2 className="h-3.5 w-3.5" /> Columnas
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 max-h-[400px] overflow-y-auto" align="end">
+            <PopoverContent className="w-80 max-h-[420px] overflow-y-auto" align="end">
               <div className="space-y-1">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium">Columnas visibles</p>
-                  <Button variant="ghost" size="sm" className="text-xs h-6" onClick={showAllCols}>
-                    Mostrar todas
-                  </Button>
+                  <p className="text-sm font-medium">Configurar columnas</p>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" className="text-xs h-6" onClick={() => setVisibleCols(allCols)}>Todas</Button>
+                    {hasMerges && <Button variant="ghost" size="sm" className="text-xs h-6 text-destructive" onClick={undoAllMerges}>Deshacer fusiones</Button>}
+                  </div>
                 </div>
-                {(colOrder || allCols).map((col, idx) => {
+
+                {/* Modo fusión */}
+                <div className="border rounded-md p-2 mb-2 bg-muted/30">
+                  {!mergeMode ? (
+                    <Button variant="outline" size="sm" className="w-full text-xs h-7 gap-1" onClick={() => setMergeMode(true)} data-testid="btn-start-merge">
+                      <Merge className="h-3 w-3" /> Fusionar columnas
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-muted-foreground">Selecciona 2+ columnas. La primera será la que absorbe a las demás.</p>
+                      <div className="flex flex-wrap gap-1">
+                        {allCols.filter(c => !absorbedSet.has(c)).map(c => (
+                          <button
+                            key={c}
+                            className={`px-2 py-1 rounded text-[10px] border transition-colors ${mergeSelection.includes(c) ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}`}
+                            onClick={() => toggleMergeSelect(c)}
+                            data-testid={`merge-sel-${c}`}
+                          >
+                            {mergeSelection.indexOf(c) === 0 && '★ '}{c}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" className="text-xs h-6 flex-1" disabled={mergeSelection.length < 2} onClick={applyMerge} data-testid="btn-apply-merge">
+                          Fusionar ({mergeSelection.length})
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-xs h-6" onClick={() => { setMergeMode(false); setMergeSelection([]); }}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Lista de columnas */}
+                {(colOrder || allCols).filter(c => !absorbedSet.has(c)).map((col, idx) => {
                   const isVisible = visibleCols?.includes(col);
+                  const hasMerge = mergedCols[col]?.length > 0;
                   return (
                     <div key={col} className="flex items-center gap-1.5 py-1 px-1 rounded hover:bg-muted/50 group">
-                      <GripVertical className="h-3 w-3 text-muted-foreground/40" />
-                      <button
-                        className="flex-1 text-left text-xs flex items-center gap-1.5"
-                        onClick={() => toggleCol(col)}
-                        data-testid={`col-toggle-${col}`}
-                      >
-                        {isVisible ? (
-                          <Eye className="h-3 w-3 text-primary" />
-                        ) : (
-                          <EyeOff className="h-3 w-3 text-muted-foreground" />
-                        )}
+                      <button className="flex-1 text-left text-xs flex items-center gap-1.5" onClick={() => toggleCol(col)} data-testid={`col-toggle-${col}`}>
+                        {isVisible ? <Eye className="h-3 w-3 text-primary" /> : <EyeOff className="h-3 w-3 text-muted-foreground" />}
                         <span className={isVisible ? '' : 'text-muted-foreground line-through'}>{col}</span>
+                        {hasMerge && <Badge variant="secondary" className="text-[9px] px-1">+{mergedCols[col].length}</Badge>}
                       </button>
                       <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          className="p-0.5 hover:bg-muted rounded"
-                          onClick={() => moveCol(col, 'left')}
-                          disabled={idx === 0}
-                          title="Mover izquierda"
-                        >
-                          <MoveLeft className="h-3 w-3" />
-                        </button>
-                        <button
-                          className="p-0.5 hover:bg-muted rounded"
-                          onClick={() => moveCol(col, 'right')}
-                          disabled={idx === (colOrder || allCols).length - 1}
-                          title="Mover derecha"
-                        >
-                          <MoveRight className="h-3 w-3" />
-                        </button>
+                        <button className="p-0.5 hover:bg-muted rounded" onClick={() => moveCol(col, 'left')} title="Mover izq"><MoveLeft className="h-3 w-3" /></button>
+                        <button className="p-0.5 hover:bg-muted rounded" onClick={() => moveCol(col, 'right')} title="Mover der"><MoveRight className="h-3 w-3" /></button>
                       </div>
                     </div>
                   );
@@ -311,164 +450,83 @@ export const MatrizProduccion = () => {
         </div>
       </div>
 
-      {/* ── Resumen ──────────────────────────────────────────── */}
-      {data && !loading && (
-        <div className="flex gap-3 text-xs">
-          <Badge variant="outline">{data.filas.length} items</Badge>
-          <Badge variant="outline">{data.total_general.registros} registros</Badge>
-          <Badge variant="outline">{data.total_general.prendas.toLocaleString()} prendas</Badge>
-        </div>
-      )}
-
       {/* ── Matriz ───────────────────────────────────────────── */}
       <Card className="overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              Cargando matriz...
-            </div>
+            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Cargando matriz...</div>
           ) : !data || data.filas.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              Sin datos para los filtros seleccionados
-            </div>
+            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">Sin datos para los filtros seleccionados</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse" data-testid="matriz-table">
-                {/* Header */}
                 <thead>
                   <tr className="bg-muted/60">
-                    <th className="text-left p-2.5 font-semibold sticky left-0 bg-muted/60 z-10 min-w-[280px] border-r">
-                      Item
-                    </th>
-                    <th className="text-left p-2.5 font-semibold sticky left-[280px] bg-muted/60 z-10 min-w-[90px] border-r">
-                      Hilo
-                    </th>
+                    <th className="text-left p-2.5 font-semibold sticky left-0 bg-muted/60 z-10 min-w-[280px] border-r">Item</th>
+                    <th className="text-left p-2.5 font-semibold sticky left-[280px] bg-muted/60 z-10 min-w-[90px] border-r">Hilo</th>
                     {effectiveCols.map(col => (
                       <th key={col} className="text-center p-2.5 font-medium min-w-[70px] border-r whitespace-nowrap">
-                        {col}
+                        <div>{col}</div>
+                        {mergedCols[col]?.length > 0 && (
+                          <div className="text-[9px] text-muted-foreground font-normal">+{mergedCols[col].join(', ')}</div>
+                        )}
                       </th>
                     ))}
-                    <th className="text-center p-2.5 font-semibold min-w-[80px] bg-muted/40">
-                      Total
-                    </th>
+                    <th className="text-center p-2.5 font-semibold min-w-[80px] bg-muted/40">Total</th>
                   </tr>
                 </thead>
-
-                {/* Body */}
                 <tbody>
                   {data.filas.map((fila, idx) => {
                     const key = `${fila.marca}-${fila.tipo}-${fila.entalle}-${fila.tela}-${fila.hilo}`;
-                    const isExpanded = expanded[key];
-
                     return (
-                      <Fragment key={key}>
-                        <tr
-                          className={`border-b hover:bg-muted/20 transition-colors ${isExpanded ? 'bg-muted/10' : ''}`}
-                          data-testid={`fila-${idx}`}
-                        >
-                          {/* Item (sticky) */}
-                          <td className="p-2.5 sticky left-0 bg-background z-10 border-r">
-                            <button
-                              className="flex items-center gap-1.5 text-left w-full group"
-                              onClick={() => toggleExpand(key)}
-                              data-testid={`expand-${idx}`}
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      <tr key={key} className="border-b hover:bg-muted/20 transition-colors" data-testid={`fila-${idx}`}>
+                        <td className="p-2.5 sticky left-0 bg-background z-10 border-r">
+                          <button
+                            className="flex items-center gap-1.5 text-left w-full group hover:text-primary transition-colors"
+                            onClick={() => openModal(fila, null)}
+                            data-testid={`item-click-${idx}`}
+                          >
+                            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 group-hover:text-primary" />
+                            <span className="font-medium truncate">{fila.item}</span>
+                          </button>
+                        </td>
+                        <td className="p-2.5 sticky left-[280px] bg-background z-10 border-r text-muted-foreground">{fila.hilo}</td>
+                        {effectiveCols.map(col => {
+                          const val = cellVal(fila.celdas, col);
+                          return (
+                            <td key={col} className="text-center p-2.5 border-r">
+                              {val > 0 ? (
+                                <button
+                                  className="font-mono font-medium hover:text-primary hover:underline transition-colors cursor-pointer"
+                                  onClick={() => openModal(fila, col)}
+                                  data-testid={`cell-${idx}-${col}`}
+                                >
+                                  {val.toLocaleString()}
+                                </button>
                               ) : (
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                <span className="text-muted-foreground/40">-</span>
                               )}
-                              <span className="font-medium truncate">{fila.item}</span>
-                            </button>
-                          </td>
-                          {/* Hilo (sticky) */}
-                          <td className="p-2.5 sticky left-[280px] bg-background z-10 border-r text-muted-foreground">
-                            {fila.hilo}
-                          </td>
-                          {/* Celdas */}
-                          {effectiveCols.map(col => {
-                            const val = cellVal(fila.celdas, col);
-                            return (
-                              <td key={col} className={`text-center p-2.5 font-mono border-r ${val > 0 ? 'font-medium' : 'text-muted-foreground/40'}`}>
-                                {val > 0 ? val.toLocaleString() : '-'}
-                              </td>
-                            );
-                          })}
-                          {/* Total */}
-                          <td className="text-center p-2.5 font-mono font-bold bg-muted/20">
-                            {totalVal(fila.total).toLocaleString()}
-                          </td>
-                        </tr>
-
-                        {/* Detalle expandido */}
-                        {isExpanded && (
-                          <tr className="bg-muted/5">
-                            <td colSpan={effectiveCols.length + 3} className="p-0">
-                              <div className="px-4 py-2 border-b">
-                                <table className="w-full text-xs">
-                                  <thead>
-                                    <tr className="text-muted-foreground">
-                                      <th className="text-left p-1.5 font-medium">Corte</th>
-                                      <th className="text-left p-1.5 font-medium">Estado</th>
-                                      <th className="text-right p-1.5 font-medium">Prendas</th>
-                                      <th className="text-left p-1.5 font-medium">Modelo</th>
-                                      <th className="text-left p-1.5 font-medium">Ruta</th>
-                                      <th className="text-left p-1.5 font-medium">Entrega</th>
-                                      <th className="text-center p-1.5 font-medium">Info</th>
-                                      <th className="text-center p-1.5 font-medium">Acción</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {fila.detalle.map(d => (
-                                      <tr key={d.id} className="border-t border-dashed hover:bg-muted/30" data-testid={`detalle-${d.n_corte}`}>
-                                        <td className="p-1.5 font-mono font-semibold">{d.n_corte}</td>
-                                        <td className="p-1.5"><Badge variant="outline" className="text-[10px] px-1">{d.estado}</Badge></td>
-                                        <td className="p-1.5 text-right font-mono">{d.prendas.toLocaleString()}</td>
-                                        <td className="p-1.5 text-muted-foreground">{d.modelo}</td>
-                                        <td className="p-1.5 text-muted-foreground">{d.ruta || '-'}</td>
-                                        <td className="p-1.5">
-                                          {d.fecha_entrega ? (
-                                            <span className={new Date(d.fecha_entrega) < new Date() ? 'text-destructive' : ''}>
-                                              {d.fecha_entrega}
-                                            </span>
-                                          ) : '-'}
-                                        </td>
-                                        <td className="p-1.5 text-center">
-                                          {d.urgente && <Badge variant="destructive" className="text-[9px] px-1">URG</Badge>}
-                                          {d.es_hijo && <Badge variant="outline" className="text-[9px] px-1 ml-0.5">DIV</Badge>}
-                                        </td>
-                                        <td className="p-1.5 text-center">
-                                          <div className="flex justify-center gap-0.5">
-                                            <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => navigate(`/reportes/trazabilidad/${d.id}`)}>
-                                              Traza
-                                            </Button>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigate(`/registros/editar/${d.id}`)}>
-                                              <ExternalLink className="h-3 w-3" />
-                                            </Button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
                             </td>
-                          </tr>
-                        )}
-                      </Fragment>
+                          );
+                        })}
+                        <td className="text-center p-2.5 font-mono font-bold bg-muted/20">
+                          <button
+                            className="hover:text-primary hover:underline transition-colors cursor-pointer"
+                            onClick={() => openModal(fila, null)}
+                            data-testid={`total-${idx}`}
+                          >
+                            {totalVal(fila.total).toLocaleString()}
+                          </button>
+                        </td>
+                      </tr>
                     );
                   })}
                 </tbody>
-
-                {/* Footer totals */}
                 <tfoot>
                   <tr className="bg-muted/40 font-semibold border-t-2">
-                    <td className="p-2.5 sticky left-0 bg-muted/40 z-10 border-r" colSpan={2}>
-                      TOTALES
-                    </td>
+                    <td className="p-2.5 sticky left-0 bg-muted/40 z-10 border-r" colSpan={2}>TOTALES</td>
                     {effectiveCols.map(col => {
-                      const t = data.totales_columna[col];
-                      const val = t ? (metrica === 'prendas' ? t.prendas : t.registros) : 0;
+                      const val = colTotal(col);
                       return (
                         <td key={col} className={`text-center p-2.5 font-mono border-r ${val > 0 ? '' : 'text-muted-foreground/40'}`}>
                           {val > 0 ? val.toLocaleString() : '-'}
@@ -485,6 +543,15 @@ export const MatrizProduccion = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* ── Modal de detalle ─────────────────────────────────── */}
+      <DetalleModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        registros={modalRegistros}
+        titulo={modalTitulo}
+        navigate={navigate}
+      />
     </div>
   );
 };

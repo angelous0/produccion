@@ -795,6 +795,8 @@ async def matriz_produccion(
                 r.id, r.n_corte, r.estado, r.estado_op, r.urgente,
                 r.fecha_entrega_final, r.tallas as tallas_jsonb,
                 r.dividido_desde_registro_id,
+                r.curva,
+                r.fecha_creacion,
                 COALESCE(ma.id,'')   as marca_id,
                 COALESCE(ma.nombre,'Sin marca')  as marca,
                 COALESCE(tp.id,'')   as tipo_id_val,
@@ -805,9 +807,15 @@ async def matriz_produccion(
                 COALESCE(te.nombre,'Sin tela')   as tela,
                 COALESCE(hi.id,'')   as hilo_id_val,
                 COALESCE(hi.nombre,'Sin hilo')   as hilo,
+                COALESCE(he.nombre,'')   as hilo_especifico,
                 m.nombre  as modelo_nombre,
                 rp.nombre as ruta_nombre,
-                COALESCE(rt_sum.prendas, 0) as prendas_tabla
+                COALESCE(rt_sum.prendas, 0) as prendas_tabla,
+                (CURRENT_DATE - r.fecha_creacion::date) as dias_proceso,
+                COALESCE(mov_ult.ult_servicio, '') as ult_mov_servicio,
+                mov_ult.ult_fecha_inicio as ult_mov_fecha,
+                COALESCE(mov_agg.diferencia_total, 0) as diferencia_acumulada,
+                COALESCE(mov_agg.total_movimientos, 0) as total_movimientos
             FROM prod_registros r
             LEFT JOIN prod_modelos m  ON r.modelo_id = m.id
             LEFT JOIN prod_marcas ma  ON m.marca_id = ma.id
@@ -815,11 +823,26 @@ async def matriz_produccion(
             LEFT JOIN prod_entalles en ON m.entalle_id = en.id
             LEFT JOIN prod_telas te   ON m.tela_id = te.id
             LEFT JOIN prod_hilos hi   ON m.hilo_id = hi.id
+            LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
             LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(rt.cantidad_real), 0) as prendas
                 FROM prod_registro_tallas rt WHERE rt.registro_id = r.id
             ) rt_sum ON true
+            LEFT JOIN LATERAL (
+                SELECT sp.nombre as ult_servicio, mp.fecha_inicio as ult_fecha_inicio
+                FROM prod_movimientos_produccion mp
+                LEFT JOIN prod_servicios_produccion sp ON mp.servicio_id = sp.id
+                WHERE mp.registro_id = r.id
+                ORDER BY mp.fecha_inicio DESC NULLS LAST, mp.created_at DESC
+                LIMIT 1
+            ) mov_ult ON true
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(mp2.diferencia), 0) as diferencia_total,
+                       COUNT(*) as total_movimientos
+                FROM prod_movimientos_produccion mp2
+                WHERE mp2.registro_id = r.id
+            ) mov_agg ON true
             WHERE {where_sql}
             ORDER BY ma.nombre, tp.nombre, en.nombre, te.nombre, hi.nombre, r.n_corte
         """, *params)
@@ -865,7 +888,12 @@ async def matriz_produccion(
             g["total"]["registros"] += 1
             g["total"]["prendas"] += prendas
 
-            # Detalle
+            # Detalle enriquecido
+            tallas_raw = parse_jsonb(r["tallas_jsonb"])
+            curva_detalle = [
+                {"talla": t.get("talla_nombre", ""), "cantidad": safe_int(t.get("cantidad", 0))}
+                for t in tallas_raw
+            ]
             g["detalle"].append({
                 "id": r["id"],
                 "n_corte": r["n_corte"],
@@ -876,6 +904,14 @@ async def matriz_produccion(
                 "urgente": r["urgente"],
                 "es_hijo": r["dividido_desde_registro_id"] is not None,
                 "fecha_entrega": str(r["fecha_entrega_final"]) if r["fecha_entrega_final"] else None,
+                "curva": r["curva"] or "",
+                "curva_detalle": curva_detalle,
+                "hilo_especifico": r["hilo_especifico"],
+                "dias_proceso": safe_int(r["dias_proceso"]),
+                "ult_mov_servicio": r["ult_mov_servicio"],
+                "ult_mov_fecha": str(r["ult_mov_fecha"]) if r["ult_mov_fecha"] else None,
+                "diferencia_acumulada": safe_int(r["diferencia_acumulada"]),
+                "total_movimientos": safe_int(r["total_movimientos"]),
             })
 
         # ── 5. Construir respuesta ────────────────────────────────
