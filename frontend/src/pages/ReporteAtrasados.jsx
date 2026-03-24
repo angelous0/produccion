@@ -8,6 +8,11 @@ import { ArrowLeft, ExternalLink, AlertTriangle, Clock } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+function fmtDate(val) {
+  if (!val) return '-';
+  try { const d = new Date(val); if (isNaN(d)) return val; return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getFullYear()).slice(-2)}`; } catch { return val; }
+}
+
 export const ReporteAtrasados = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +73,7 @@ export const ReporteAtrasados = () => {
                         <div className="flex flex-col gap-0.5">
                           {r.entrega_vencida && (
                             <div className="flex items-center gap-1 text-destructive text-xs">
-                              <Clock className="h-3 w-3" /> Entrega vencida ({r.fecha_entrega_final})
+                              <Clock className="h-3 w-3" /> Entrega vencida ({fmtDate(r.fecha_entrega_final)})
                             </div>
                           )}
                           {r.movs_vencidos > 0 && (

@@ -10,6 +10,11 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
+function fmtDate(val) {
+  if (!val) return '-';
+  try { const d = new Date(val); if (isNaN(d)) return val; return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getFullYear()).slice(-2)}`; } catch { return val; }
+}
+
 export const ReporteWIPEtapa = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -112,7 +117,7 @@ export const ReporteWIPEtapa = () => {
                           {e.urgentes > 0 ? <Badge variant="destructive">{e.urgentes}</Badge> : <span className="text-muted-foreground">0</span>}
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">
-                          {e.lote_mas_antiguo ? new Date(e.lote_mas_antiguo).toLocaleDateString() : '-'}
+                          {e.lote_mas_antiguo ? fmtDate(e.lote_mas_antiguo) : '-'}
                         </td>
                       </tr>
                     ))}

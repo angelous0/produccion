@@ -214,11 +214,12 @@ class TestMatrizDetalleStructure:
                     "id", "n_corte", "estado", "prendas",
                     "modelo", "ruta", "urgente", "es_hijo", "fecha_entrega"
                 ]
-                # NEW enriched fields
+                # NEW enriched fields including fecha_inicio_prod
                 enriched_fields = [
                     "curva", "curva_detalle", "hilo_especifico",
                     "dias_proceso", "ult_mov_servicio", "ult_mov_fecha",
-                    "diferencia_acumulada", "total_movimientos"
+                    "diferencia_acumulada", "total_movimientos",
+                    "fecha_inicio_prod"  # NEW: first movement's fecha_inicio
                 ]
                 for field in required_fields + enriched_fields:
                     assert field in detalle, f"Missing field in detalle: {field}"
@@ -270,6 +271,48 @@ class TestMatrizDetalleStructure:
                 assert isinstance(detalle["diferencia_acumulada"], int)
                 # total_movimientos is int
                 assert isinstance(detalle["total_movimientos"], int)
+                # fecha_inicio_prod is string or None (first movement's fecha_inicio)
+                assert detalle["fecha_inicio_prod"] is None or isinstance(detalle["fecha_inicio_prod"], str)
+    
+    def test_matriz_detalle_dias_proceso_from_first_movement(self, auth_headers):
+        """Matriz detalle dias_proceso is calculated from first movement's fecha_inicio, not fecha_creacion"""
+        response = requests.get(
+            f"{BASE_URL}/api/reportes-produccion/matriz",
+            headers=auth_headers
+        )
+        data = response.json()
+        
+        # Find a registro with movements (fecha_inicio_prod not null)
+        for fila in data["filas"]:
+            for detalle in fila["detalle"]:
+                if detalle["fecha_inicio_prod"] is not None:
+                    # dias_proceso should be >= 0 when fecha_inicio_prod exists
+                    assert detalle["dias_proceso"] >= 0, f"dias_proceso should be >= 0 for registro with movements"
+                    print(f"Registro {detalle['n_corte']}: dias_proceso={detalle['dias_proceso']}, fecha_inicio_prod={detalle['fecha_inicio_prod']}")
+                    return
+        
+        # If no registro with movements found, skip
+        pytest.skip("No registro with movements found to test dias_proceso calculation")
+    
+    def test_matriz_detalle_dias_proceso_zero_without_movements(self, auth_headers):
+        """Matriz detalle dias_proceso is 0 when registro has no movements (fecha_inicio_prod is null)"""
+        response = requests.get(
+            f"{BASE_URL}/api/reportes-produccion/matriz",
+            headers=auth_headers
+        )
+        data = response.json()
+        
+        # Find a registro without movements (fecha_inicio_prod is null)
+        for fila in data["filas"]:
+            for detalle in fila["detalle"]:
+                if detalle["fecha_inicio_prod"] is None:
+                    # dias_proceso should be 0 when no movements
+                    assert detalle["dias_proceso"] == 0, f"dias_proceso should be 0 for registro without movements, got {detalle['dias_proceso']}"
+                    print(f"Registro {detalle['n_corte']}: dias_proceso={detalle['dias_proceso']}, fecha_inicio_prod=null (no movements)")
+                    return
+        
+        # If no registro without movements found, skip
+        pytest.skip("No registro without movements found to test dias_proceso=0")
     
     def test_matriz_detalle_curva_detalle_structure(self, auth_headers):
         """Matriz detalle curva_detalle has talla and cantidad"""

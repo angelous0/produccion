@@ -9,6 +9,11 @@ import { ArrowLeft, ExternalLink, AlertTriangle } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+function fmtDate(val) {
+  if (!val) return '-';
+  try { const d = new Date(val); if (isNaN(d)) return val; return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getFullYear()).slice(-2)}`; } catch { return val; }
+}
+
 export const ReporteEnProceso = () => {
   const [data, setData] = useState(null);
   const [filtros, setFiltros] = useState(null);
@@ -133,7 +138,7 @@ export const ReporteEnProceso = () => {
                       <td className="p-3 text-sm">
                         {r.fecha_entrega_final ? (
                           <span className={new Date(r.fecha_entrega_final) < new Date() ? 'text-destructive font-medium' : ''}>
-                            {r.fecha_entrega_final}
+                            {fmtDate(r.fecha_entrega_final)}
                           </span>
                         ) : '-'}
                       </td>

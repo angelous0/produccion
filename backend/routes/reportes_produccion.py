@@ -811,7 +811,8 @@ async def matriz_produccion(
                 m.nombre  as modelo_nombre,
                 rp.nombre as ruta_nombre,
                 COALESCE(rt_sum.prendas, 0) as prendas_tabla,
-                (CURRENT_DATE - r.fecha_creacion::date) as dias_proceso,
+                COALESCE(CURRENT_DATE - mov_first.primera_fecha, 0) as dias_proceso,
+                mov_first.primera_fecha as fecha_inicio_prod,
                 COALESCE(mov_ult.ult_servicio, '') as ult_mov_servicio,
                 mov_ult.ult_fecha_inicio as ult_mov_fecha,
                 COALESCE(mov_agg.diferencia_total, 0) as diferencia_acumulada,
@@ -829,6 +830,11 @@ async def matriz_produccion(
                 SELECT COALESCE(SUM(rt.cantidad_real), 0) as prendas
                 FROM prod_registro_tallas rt WHERE rt.registro_id = r.id
             ) rt_sum ON true
+            LEFT JOIN LATERAL (
+                SELECT MIN(mp0.fecha_inicio) as primera_fecha
+                FROM prod_movimientos_produccion mp0
+                WHERE mp0.registro_id = r.id AND mp0.fecha_inicio IS NOT NULL
+            ) mov_first ON true
             LEFT JOIN LATERAL (
                 SELECT sp.nombre as ult_servicio, mp.fecha_inicio as ult_fecha_inicio
                 FROM prod_movimientos_produccion mp
@@ -904,6 +910,7 @@ async def matriz_produccion(
                 "urgente": r["urgente"],
                 "es_hijo": r["dividido_desde_registro_id"] is not None,
                 "fecha_entrega": str(r["fecha_entrega_final"]) if r["fecha_entrega_final"] else None,
+                "fecha_inicio_prod": str(r["fecha_inicio_prod"]) if r["fecha_inicio_prod"] else None,
                 "curva": r["curva"] or "",
                 "curva_detalle": curva_detalle,
                 "hilo_especifico": r["hilo_especifico"],

@@ -8,6 +8,11 @@ import { ArrowLeft, ExternalLink, CheckCircle2, Clock, AlertTriangle, ArrowRight
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+function fmtDate(val) {
+  if (!val) return '-';
+  try { const d = new Date(val); if (isNaN(d)) return val; return `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getFullYear()).slice(-2)}`; } catch { return val; }
+}
+
 export const ReporteTrazabilidad = () => {
   const { registroId } = useParams();
   const [data, setData] = useState(null);
@@ -60,7 +65,7 @@ export const ReporteTrazabilidad = () => {
         <Badge variant={reg.estado_op === 'CERRADA' ? 'default' : 'secondary'}>{reg.estado_op}</Badge>
         <Badge variant="secondary">{reg.total_prendas.toLocaleString()} prendas</Badge>
         {reg.urgente && <Badge variant="destructive">URGENTE</Badge>}
-        {reg.fecha_entrega_final && <Badge variant="outline">Entrega: {reg.fecha_entrega_final}</Badge>}
+        {reg.fecha_entrega_final && <Badge variant="outline">Entrega: {fmtDate(reg.fecha_entrega_final)}</Badge>}
       </div>
 
       {/* Tallas */}
@@ -135,18 +140,18 @@ export const ReporteTrazabilidad = () => {
                             {m.diferencia > 0 && <span className="text-destructive">Diferencia: {m.diferencia}</span>}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
-                            {m.fecha_inicio && <span>Inicio: {m.fecha_inicio}</span>}
+                            {m.fecha_inicio && <span>Inicio: {fmtDate(m.fecha_inicio)}</span>}
                             {m.fecha_fin && (
                               <>
                                 <ArrowRight className="h-3 w-3" />
-                                <span>Fin: {m.fecha_fin}</span>
+                                <span>Fin: {fmtDate(m.fecha_fin)}</span>
                                 <span className="text-muted-foreground">({m.dias_servicio} días)</span>
                               </>
                             )}
                           </div>
                           {m.fecha_esperada_movimiento && (
                             <div className={isOverdue ? 'text-destructive' : ''}>
-                              Esperado: {m.fecha_esperada_movimiento}
+                              Esperado: {fmtDate(m.fecha_esperada_movimiento)}
                             </div>
                           )}
                           {m.costo_calculado > 0 && (

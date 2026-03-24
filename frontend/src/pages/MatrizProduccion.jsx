@@ -12,13 +12,30 @@ import {
 } from '../components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Settings2, ChevronDown, ChevronRight,
+  ArrowLeft, Settings2, ChevronRight,
   ExternalLink, Eye, EyeOff, MoveLeft, MoveRight,
-  Merge, X, AlertTriangle, Clock, GitBranch,
+  Merge, X,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const STORAGE_KEY = 'matriz-produccion-prefs';
+
+// ── Formato fecha dd-mm-yy ────────────────────────────────────
+function fmtDate(val) {
+  if (!val) return '-';
+  try {
+    const d = new Date(val);
+    if (isNaN(d)) return val;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}-${mm}-${yy}`;
+  } catch { return val; }
+}
+function isOverdue(val) {
+  if (!val) return false;
+  try { return new Date(val) < new Date(); } catch { return false; }
+}
 
 // ── Persistencia ──────────────────────────────────────────────
 function loadPrefs() {
@@ -44,78 +61,78 @@ const FilterSelect = ({ label, value, onChange, options, testId }) => (
   </div>
 );
 
-// ── DetalleModal ──────────────────────────────────────────────
+// ── DetalleModal (tabla tipo Excel) ────────────────────────────
 const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
   <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-    <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto" data-testid="detalle-modal">
-      <DialogHeader>
+    <DialogContent className="max-w-[95vw] w-fit max-h-[85vh] overflow-hidden p-0" data-testid="detalle-modal">
+      <DialogHeader className="px-4 pt-4 pb-2">
         <DialogTitle className="text-base">{titulo}</DialogTitle>
+        <p className="text-xs text-muted-foreground">{(registros || []).length} registros</p>
       </DialogHeader>
-      <div className="space-y-3 mt-2">
-        {(registros || []).map(d => (
-          <div key={d.id} className="border rounded-lg p-3 hover:bg-muted/20 transition-colors" data-testid={`modal-reg-${d.n_corte}`}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-base">{d.n_corte}</span>
-                <Badge variant="outline">{d.estado}</Badge>
-                {d.urgente && <Badge variant="destructive" className="text-[10px]">URGENTE</Badge>}
-                {d.es_hijo && <Badge variant="secondary" className="text-[10px]"><GitBranch className="h-2.5 w-2.5 mr-0.5 inline" />DIV</Badge>}
-              </div>
-              <div className="flex gap-1">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { onClose(); navigate(`/reportes/trazabilidad/${d.id}`); }}>
-                  Trazabilidad
-                </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { onClose(); navigate(`/registros/editar/${d.id}`); }}>
-                  <ExternalLink className="h-3 w-3 mr-1" /> Abrir
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1.5 text-xs">
-              <div><span className="text-muted-foreground">Modelo:</span> <strong>{d.modelo}</strong></div>
-              <div><span className="text-muted-foreground">Ruta:</span> <strong>{d.ruta || '-'}</strong></div>
-              <div><span className="text-muted-foreground">Prendas:</span> <strong className="font-mono">{d.prendas.toLocaleString()}</strong></div>
-              <div><span className="text-muted-foreground">Curva:</span> <strong className="font-mono">{d.curva || '-'}</strong></div>
-              <div><span className="text-muted-foreground">Hilo Específico:</span> <strong>{d.hilo_especifico || '-'}</strong></div>
-              <div>
-                <span className="text-muted-foreground">Entrega:</span>{' '}
-                {d.fecha_entrega ? (
-                  <strong className={new Date(d.fecha_entrega) < new Date() ? 'text-destructive' : ''}>{d.fecha_entrega}</strong>
-                ) : <span>-</span>}
-              </div>
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Días:</span> <strong className="font-mono">{d.dias_proceso}d</strong>
-              </div>
-              <div><span className="text-muted-foreground">Movimientos:</span> <strong className="font-mono">{d.total_movimientos}</strong></div>
-              {d.ult_mov_servicio && (
-                <div className="col-span-2"><span className="text-muted-foreground">Último mov:</span> <strong>{d.ult_mov_servicio}</strong> {d.ult_mov_fecha && <span className="text-muted-foreground">({d.ult_mov_fecha})</span>}</div>
-              )}
-              {d.diferencia_acumulada > 0 && (
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Diferencia/Merma:</span>{' '}
-                  <strong className="text-destructive font-mono">{d.diferencia_acumulada}</strong>
-                </div>
-              )}
-            </div>
-
-            {/* Curva detalle */}
-            {d.curva_detalle && d.curva_detalle.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-dashed">
-                {d.curva_detalle.map((t, i) => (
-                  <div key={i} className="flex items-center gap-1 px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">
-                    <span className="font-semibold">{t.talla}</span>
-                    <span className="text-muted-foreground">×</span>
-                    <span>{t.cantidad}</span>
+      <div className="overflow-auto max-h-[calc(85vh-80px)] px-1 pb-2">
+        <table className="w-full text-xs border-collapse min-w-[900px]">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/80 backdrop-blur">
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Corte</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Estado</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Modelo</th>
+              <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Prendas</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Curva</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Hilo Esp.</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Ruta</th>
+              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Entrega</th>
+              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Inicio Prod.</th>
+              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Días</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Últ. Mov</th>
+              <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Dif.</th>
+              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Info</th>
+              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(registros || []).map(d => (
+              <tr key={d.id} className="border-b hover:bg-muted/30 transition-colors" data-testid={`modal-reg-${d.n_corte}`}>
+                <td className="p-2 font-mono font-semibold whitespace-nowrap">{d.n_corte}</td>
+                <td className="p-2"><Badge variant="outline" className="text-[10px] px-1">{d.estado}</Badge></td>
+                <td className="p-2 whitespace-nowrap">{d.modelo}</td>
+                <td className="p-2 text-right font-mono">{d.prendas.toLocaleString()}</td>
+                <td className="p-2 font-mono text-muted-foreground whitespace-nowrap">{d.curva || '-'}</td>
+                <td className="p-2 whitespace-nowrap">{d.hilo_especifico || '-'}</td>
+                <td className="p-2 text-muted-foreground whitespace-nowrap">{d.ruta || '-'}</td>
+                <td className={`p-2 text-center font-mono whitespace-nowrap ${isOverdue(d.fecha_entrega) ? 'text-destructive font-semibold' : ''}`}>
+                  {fmtDate(d.fecha_entrega)}
+                </td>
+                <td className="p-2 text-center font-mono whitespace-nowrap">{fmtDate(d.fecha_inicio_prod)}</td>
+                <td className="p-2 text-center font-mono">{d.dias_proceso > 0 ? `${d.dias_proceso}d` : '-'}</td>
+                <td className="p-2 whitespace-nowrap">
+                  {d.ult_mov_servicio ? (
+                    <span>{d.ult_mov_servicio} <span className="text-muted-foreground">({fmtDate(d.ult_mov_fecha)})</span></span>
+                  ) : '-'}
+                </td>
+                <td className="p-2 text-right font-mono">
+                  {d.diferencia_acumulada > 0 ? <span className="text-destructive">{d.diferencia_acumulada}</span> : '-'}
+                </td>
+                <td className="p-2 text-center whitespace-nowrap">
+                  {d.urgente && <Badge variant="destructive" className="text-[9px] px-1 mr-0.5">URG</Badge>}
+                  {d.es_hijo && <Badge variant="secondary" className="text-[9px] px-1">DIV</Badge>}
+                </td>
+                <td className="p-2 text-center whitespace-nowrap">
+                  <div className="flex justify-center gap-0.5">
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => { onClose(); navigate(`/reportes/trazabilidad/${d.id}`); }}>
+                      Traza
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { onClose(); navigate(`/registros/editar/${d.id}`); }}>
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
                   </div>
-                ))}
-              </div>
+                </td>
+              </tr>
+            ))}
+            {(!registros || registros.length === 0) && (
+              <tr><td colSpan={14} className="p-6 text-center text-muted-foreground">Sin registros</td></tr>
             )}
-          </div>
-        ))}
-        {(!registros || registros.length === 0) && (
-          <div className="text-center text-muted-foreground py-6">Sin registros</div>
-        )}
+          </tbody>
+        </table>
       </div>
     </DialogContent>
   </Dialog>
