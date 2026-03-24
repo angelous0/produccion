@@ -90,9 +90,20 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
   const [falladoDialogOpen, setFalladoDialogOpen] = useState(false);
   const [editingFalladoId, setEditingFalladoId] = useState(null);
   const [arregloDialogOpen, setArregloDialogOpen] = useState(false);
+  const [editArregloDialogOpen, setEditArregloDialogOpen] = useState(false);
   const [cierreArregloDialogOpen, setCierreArregloDialogOpen] = useState(false);
+  const [liquidacionDialogOpen, setLiquidacionDialogOpen] = useState(false);
   const [selectedFallado, setSelectedFallado] = useState(null);
   const [selectedArreglo, setSelectedArreglo] = useState(null);
+
+  const [editArregloForm, setEditArregloForm] = useState({
+    cantidad_enviada: 0, tipo: 'ARREGLO_EXTERNO', servicio_destino_id: '',
+    persona_destino_id: '', fecha_envio: '', motivo: '', observaciones: '',
+  });
+
+  const [liquidacionForm, setLiquidacionForm] = useState({
+    cantidad: 0, destino: 'LIQUIDACION', motivo: '',
+  });
 
   const [falladoForm, setFalladoForm] = useState({
     cantidad_detectada: 0,
@@ -251,6 +262,64 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       fetchAll();
     } catch (err) {
       toast.error('Error al eliminar');
+    }
+  };
+
+  const openEditArreglo = (a) => {
+    setSelectedArreglo(a);
+    setEditArregloForm({
+      cantidad_enviada: a.cantidad_enviada || 0,
+      tipo: a.tipo || 'ARREGLO_EXTERNO',
+      servicio_destino_id: a.servicio_destino_id || '',
+      persona_destino_id: a.persona_destino_id || '',
+      fecha_envio: a.fecha_envio ? String(a.fecha_envio).slice(0, 10) : '',
+      motivo: a.motivo || '',
+      observaciones: a.observaciones || '',
+    });
+    setEditArregloDialogOpen(true);
+  };
+
+  const handleUpdateArreglo = async () => {
+    if (!selectedArreglo || saving) return;
+    setSaving(true);
+    try {
+      await axios.put(`${API}/arreglos/${selectedArreglo.id}`, {
+        ...editArregloForm,
+        servicio_destino_id: editArregloForm.servicio_destino_id || null,
+        persona_destino_id: editArregloForm.persona_destino_id || null,
+      }, { headers: getHeaders() });
+      toast.success('Arreglo actualizado');
+      setEditArregloDialogOpen(false);
+      fetchAll();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al actualizar arreglo');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openLiquidacionDialog = (fallado) => {
+    setSelectedFallado(fallado);
+    setLiquidacionForm({ cantidad: 0, destino: 'LIQUIDACION', motivo: '' });
+    setLiquidacionDialogOpen(true);
+  };
+
+  const handleLiquidacionDirecta = async () => {
+    if (!selectedFallado || saving) return;
+    setSaving(true);
+    try {
+      await axios.post(`${API}/liquidacion-directa`, {
+        fallado_id: selectedFallado.id,
+        registro_id: registroId,
+        ...liquidacionForm,
+      }, { headers: getHeaders() });
+      toast.success('Liquidacion registrada');
+      setLiquidacionDialogOpen(false);
+      fetchAll();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al registrar liquidacion');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -464,6 +533,10 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                               title="Enviar a arreglo" data-testid={`btn-arreglo-${f.id}`}>
                               <Wrench className="h-3.5 w-3.5 text-violet-500" />
                             </Button>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLiquidacionDialog(f)}
+                              title="Liquidar directo" data-testid={`btn-liquidar-${f.id}`}>
+                              <ArrowRight className="h-3.5 w-3.5 text-red-500" />
+                            </Button>
                             <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteFallado(f.id)} data-testid={`btn-del-fallado-${f.id}`}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
@@ -493,9 +566,14 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                                   </div>
                                   <div className="flex items-center gap-1">
                                     {a.estado === 'PENDIENTE' && (
-                                      <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => openCierreDialog(a)} title="Cerrar arreglo" data-testid={`btn-cerrar-arreglo-${a.id}`}>
-                                        <CheckCircle2 className="h-3 w-3 text-green-600" />
-                                      </Button>
+                                      <>
+                                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEditArreglo(a)} title="Editar arreglo" data-testid={`btn-edit-arreglo-${a.id}`}>
+                                          <Pencil className="h-3 w-3 text-blue-500" />
+                                        </Button>
+                                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => openCierreDialog(a)} title="Cerrar arreglo" data-testid={`btn-cerrar-arreglo-${a.id}`}>
+                                          <CheckCircle2 className="h-3 w-3 text-green-600" />
+                                        </Button>
+                                      </>
                                     )}
                                     <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-del-arreglo-${a.id}`}>
                                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -569,9 +647,14 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
                               {a.estado === 'PENDIENTE' && (
-                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCierreDialog(a)} data-testid={`btn-cerrar-arreglo-tbl-${a.id}`}>
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                                </Button>
+                                <>
+                                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditArreglo(a)} title="Editar" data-testid={`btn-edit-arreglo-tbl-${a.id}`}>
+                                    <Pencil className="h-3.5 w-3.5 text-blue-500" />
+                                  </Button>
+                                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCierreDialog(a)} data-testid={`btn-cerrar-arreglo-tbl-${a.id}`}>
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                                  </Button>
+                                </>
                               )}
                               <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-del-arreglo-tbl-${a.id}`}>
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
@@ -909,6 +992,129 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
               disabled={saving || (cierreForm.cantidad_resuelta + cierreForm.cantidad_no_resuelta) > (selectedArreglo?.cantidad_enviada || 0)}
               data-testid="btn-confirmar-cierre-arreglo">
               {saving ? 'Guardando...' : 'Cerrar Arreglo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Editar Arreglo */}
+      <Dialog open={editArregloDialogOpen} onOpenChange={setEditArregloDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Arreglo</DialogTitle>
+            <DialogDescription>Modifica los datos del arreglo antes de cerrarlo.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Cantidad enviada</Label>
+                <Input type="number" min="1" value={editArregloForm.cantidad_enviada}
+                  onChange={e => setEditArregloForm(p => ({ ...p, cantidad_enviada: parseInt(e.target.value) || 0 }))}
+                  data-testid="input-edit-arreglo-cantidad" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tipo</Label>
+                <Select value={editArregloForm.tipo} onValueChange={v => setEditArregloForm(p => ({ ...p, tipo: v }))}>
+                  <SelectTrigger data-testid="select-edit-arreglo-tipo"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ARREGLO_INTERNO">Interno</SelectItem>
+                    <SelectItem value="ARREGLO_EXTERNO">Externo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Servicio destino</Label>
+              <Select value={editArregloForm.servicio_destino_id} onValueChange={v => setEditArregloForm(p => ({ ...p, servicio_destino_id: v, persona_destino_id: '' }))}>
+                <SelectTrigger data-testid="select-edit-arreglo-servicio"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectContent>
+                  {servicios.map(s => <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Persona destino</Label>
+              <Select value={editArregloForm.persona_destino_id} onValueChange={v => setEditArregloForm(p => ({ ...p, persona_destino_id: v }))}>
+                <SelectTrigger data-testid="select-edit-arreglo-persona"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                <SelectContent>
+                  {(editArregloForm.servicio_destino_id
+                    ? personas.filter(p => {
+                        const enDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === editArregloForm.servicio_destino_id);
+                        const enServicios = (p.servicios || []).some(s => s.servicio_id === editArregloForm.servicio_destino_id);
+                        const enIds = (p.servicio_ids || []).includes(editArregloForm.servicio_destino_id);
+                        return enDetalle || enServicios || enIds;
+                      })
+                    : personas
+                  ).map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Fecha envio</Label>
+              <Input type="date" value={editArregloForm.fecha_envio}
+                onChange={e => setEditArregloForm(p => ({ ...p, fecha_envio: e.target.value }))}
+                data-testid="input-edit-arreglo-fecha" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Motivo del arreglo</Label>
+              <Input value={editArregloForm.motivo} onChange={e => setEditArregloForm(p => ({ ...p, motivo: e.target.value }))}
+                placeholder="Ej: Costura torcida..." data-testid="input-edit-arreglo-motivo" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Observaciones</Label>
+              <Textarea value={editArregloForm.observaciones} onChange={e => setEditArregloForm(p => ({ ...p, observaciones: e.target.value }))}
+                rows={2} data-testid="input-edit-arreglo-obs" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEditArregloDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" onClick={handleUpdateArreglo} disabled={saving || editArregloForm.cantidad_enviada < 1}
+              data-testid="btn-guardar-edit-arreglo">
+              {saving ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Liquidación Directa */}
+      <Dialog open={liquidacionDialogOpen} onOpenChange={setLiquidacionDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Liquidacion Directa</DialogTitle>
+            <DialogDescription>
+              Enviar prendas directamente a liquidacion/segunda/descarte sin pasar por arreglo.
+              Fallado: {selectedFallado?.cantidad_detectada} detectados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Cantidad a liquidar</Label>
+              <Input type="number" min="1" value={liquidacionForm.cantidad}
+                onChange={e => setLiquidacionForm(p => ({ ...p, cantidad: parseInt(e.target.value) || 0 }))}
+                data-testid="input-liquidacion-cantidad" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Destino</Label>
+              <Select value={liquidacionForm.destino} onValueChange={v => setLiquidacionForm(p => ({ ...p, destino: v }))}>
+                <SelectTrigger data-testid="select-liquidacion-destino"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LIQUIDACION">Liquidacion</SelectItem>
+                  <SelectItem value="SEGUNDA">Segunda</SelectItem>
+                  <SelectItem value="DESCARTE">Descarte</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Motivo</Label>
+              <Input value={liquidacionForm.motivo} onChange={e => setLiquidacionForm(p => ({ ...p, motivo: e.target.value }))}
+                placeholder="Ej: Manchas irreparables..." data-testid="input-liquidacion-motivo" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setLiquidacionDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" onClick={handleLiquidacionDirecta} disabled={saving || liquidacionForm.cantidad < 1}
+              data-testid="btn-confirmar-liquidacion">
+              {saving ? 'Guardando...' : 'Confirmar Liquidacion'}
             </Button>
           </DialogFooter>
         </DialogContent>

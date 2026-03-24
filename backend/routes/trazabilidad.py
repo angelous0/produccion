@@ -130,6 +130,22 @@ class ArregloCierre(BaseModel):
     motivo_no_resuelta: Optional[str] = None
     observaciones: Optional[str] = None
 
+class ArregloUpdate(BaseModel):
+    cantidad_enviada: Optional[int] = None
+    tipo: Optional[str] = None
+    servicio_destino_id: Optional[str] = None
+    persona_destino_id: Optional[str] = None
+    fecha_envio: Optional[str] = None
+    motivo: Optional[str] = None
+    observaciones: Optional[str] = None
+
+class LiquidacionDirecta(BaseModel):
+    fallado_id: str
+    registro_id: str
+    cantidad: int
+    destino: str = "LIQUIDACION"
+    motivo: str = ""
+
 
 # ==================== FALLADOS CRUD ====================
 
@@ -379,6 +395,93 @@ async def cerrar_arreglo(
             await conn.execute("UPDATE prod_fallados SET estado = 'CERRADO' WHERE id = $1", fallado_id)
 
         return {"message": "Arreglo cerrado"}
+
+
+@router.put("/arreglos/{arreglo_id}")
+async def update_arreglo(
+    arreglo_id: str,
+    input: ArregloUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow("SELECT * FROM prod_arreglos WHERE id = $1", arreglo_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Arreglo no encontrado")
+        if existing["estado"] == "RESUELTO":
+            raise HTTPException(status_code=400, detail="No se puede editar un arreglo ya cerrado")
+
+        sets = []
+        params = []
+        for field, val in [
+            ("cantidad_enviada", input.cantidad_enviada),
+            ("tipo", input.tipo),
+            ("servicio_destino_id", input.servicio_destino_id),
+            ("persona_destino_id", input.persona_destino_id),
+            ("motivo", input.motivo),
+            ("observaciones", input.observaciones),
+        ]:
+            if val is not None:
+                params.append(val)
+                sets.append(f"{field} = ${len(params)}")
+
+        if input.fecha_envio is not None:
+            params.append(date.fromisoformat(input.fecha_envio[:10]))
+            sets.append(f"fecha_envio = ${len(params)}")
+            fecha_limite = date.fromisoformat(input.fecha_envio[:10]) + timedelta(days=3)
+            params.append(fecha_limite)
+            sets.append(f"fecha_limite = ${len(params)}")
+
+        if sets:
+            params.append(arreglo_id)
+            await conn.execute(f"UPDATE prod_arreglos SET {', '.join(sets)} WHERE id = ${len(params)}", *params)
+
+        return {"message": "Arreglo actualizado"}
+
+
+@router.post("/liquidacion-directa")
+async def liquidacion_directa(
+    input: LiquidacionDirecta,
+    current_user: dict = Depends(get_current_user),
+):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        fallado = await conn.fetchrow("SELECT * FROM prod_fallados WHERE id = $1", input.fallado_id)
+        if not fallado:
+            raise HTTPException(status_code=404, detail="Fallado no encontrado")
+
+        if input.cantidad < 1:
+            raise HTTPException(status_code=400, detail="Cantidad debe ser mayor a 0")
+
+        aid = str(uuid.uuid4())
+        today = date.today()
+
+        await conn.execute("""
+            INSERT INTO prod_arreglos (id, fallado_id, registro_id, cantidad_enviada,
+                cantidad_resuelta, cantidad_no_resuelta,
+                tipo, fecha_envio, fecha_retorno, resultado_final, estado,
+                motivo, motivo_no_resuelta)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        """, aid, input.fallado_id, input.registro_id, input.cantidad,
+            0, input.cantidad,
+            'LIQUIDACION_DIRECTA', today, today, input.destino, 'RESUELTO',
+            input.motivo, input.motivo)
+
+        await conn.execute("UPDATE prod_fallados SET estado = 'EN_PROCESO' WHERE id = $1", input.fallado_id)
+
+        pending = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_arreglos WHERE fallado_id = $1 AND estado IN ('PENDIENTE','EN_PROCESO')",
+            input.fallado_id
+        )
+        if safe_int(pending) == 0:
+            total_nr = await conn.fetchval(
+                "SELECT COALESCE(SUM(cantidad_no_resuelta),0) FROM prod_arreglos WHERE fallado_id = $1 AND estado = 'RESUELTO'",
+                input.fallado_id
+            )
+            if safe_int(total_nr) >= fallado["cantidad_reparable"]:
+                await conn.execute("UPDATE prod_fallados SET estado = 'CERRADO' WHERE id = $1", input.fallado_id)
+
+        return {"id": aid, "message": "Liquidacion directa registrada"}
 
 
 @router.delete("/arreglos/{arreglo_id}")
