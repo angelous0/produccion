@@ -222,9 +222,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     fecha_deteccion: '', observaciones: '',
   });
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   const resetArregloForm = () => setArregloForm({
     cantidad_enviada: 0, tipo: 'ARREGLO_EXTERNO', servicio_destino_id: '',
-    persona_destino_id: '', fecha_envio: '', observaciones: '',
+    persona_destino_id: '', fecha_envio: todayStr, observaciones: '',
   });
 
   const openArregloDialog = (fallado) => {
@@ -232,6 +234,15 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     resetArregloForm();
     setArregloDialogOpen(true);
   };
+
+  const personasFiltradasArreglo = arregloForm.servicio_destino_id
+    ? personas.filter(p => {
+        const enDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === arregloForm.servicio_destino_id);
+        const enServicios = (p.servicios || []).some(s => s.servicio_id === arregloForm.servicio_destino_id);
+        const enIds = (p.servicio_ids || []).includes(arregloForm.servicio_destino_id);
+        return enDetalle || enServicios || enIds;
+      })
+    : personas;
 
   const openCierreDialog = (arreglo) => {
     setSelectedArreglo(arreglo);
@@ -729,7 +740,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Servicio destino</Label>
-              <Select value={arregloForm.servicio_destino_id} onValueChange={v => setArregloForm(p => ({ ...p, servicio_destino_id: v }))}>
+              <Select value={arregloForm.servicio_destino_id} onValueChange={v => setArregloForm(p => ({ ...p, servicio_destino_id: v, persona_destino_id: '' }))}>
                 <SelectTrigger data-testid="select-arreglo-servicio"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                 <SelectContent>
                   {servicios.map(s => <SelectItem key={s.id} value={s.id}>{s.nombre}</SelectItem>)}
@@ -741,9 +752,16 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
               <Select value={arregloForm.persona_destino_id} onValueChange={v => setArregloForm(p => ({ ...p, persona_destino_id: v }))}>
                 <SelectTrigger data-testid="select-arreglo-persona"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
                 <SelectContent>
-                  {personas.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)}
+                  {personasFiltradasArreglo.length === 0 ? (
+                    <SelectItem value="_none" disabled>Sin personas para este servicio</SelectItem>
+                  ) : (
+                    personasFiltradasArreglo.map(p => <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>)
+                  )}
                 </SelectContent>
               </Select>
+              {arregloForm.servicio_destino_id && personasFiltradasArreglo.length === 0 && (
+                <p className="text-[10px] text-amber-600">No hay personas asignadas a este servicio</p>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Fecha envio</Label>
