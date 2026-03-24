@@ -79,6 +79,7 @@ const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
               <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Prendas</th>
               <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Curva</th>
               <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Hilo Esp.</th>
+              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Colores</th>
               <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Ruta</th>
               <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Entrega</th>
               <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Inicio Prod.</th>
@@ -98,6 +99,11 @@ const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
                 <td className="p-2 text-right font-mono">{d.prendas.toLocaleString()}</td>
                 <td className="p-2 font-mono text-muted-foreground whitespace-nowrap">{d.curva || '-'}</td>
                 <td className="p-2 whitespace-nowrap">{d.hilo_especifico || '-'}</td>
+                <td className="p-2">
+                  {d.colores_resumen ? (
+                    <span className="text-[10px] leading-tight" title={d.colores_resumen}>{d.colores_resumen}</span>
+                  ) : '-'}
+                </td>
                 <td className="p-2 text-muted-foreground whitespace-nowrap">{d.ruta || '-'}</td>
                 <td className={`p-2 text-center font-mono whitespace-nowrap ${isOverdue(d.fecha_entrega) ? 'text-destructive font-semibold' : ''}`}>
                   {fmtDate(d.fecha_entrega)}
@@ -129,7 +135,7 @@ const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
               </tr>
             ))}
             {(!registros || registros.length === 0) && (
-              <tr><td colSpan={14} className="p-6 text-center text-muted-foreground">Sin registros</td></tr>
+              <tr><td colSpan={15} className="p-6 text-center text-muted-foreground">Sin registros</td></tr>
             )}
           </tbody>
         </table>
@@ -481,6 +487,7 @@ export const MatrizProduccion = () => {
                   <tr className="bg-muted/60">
                     <th className="text-left p-2.5 font-semibold sticky left-0 bg-muted/60 z-10 min-w-[280px] border-r">Item</th>
                     <th className="text-left p-2.5 font-semibold sticky left-[280px] bg-muted/60 z-10 min-w-[90px] border-r">Hilo</th>
+                    <th className="text-left p-2.5 font-medium min-w-[120px] border-r">Colores</th>
                     {effectiveCols.map(col => (
                       <th key={col} className="text-center p-2.5 font-medium min-w-[70px] border-r whitespace-nowrap">
                         <div>{col}</div>
@@ -508,6 +515,11 @@ export const MatrizProduccion = () => {
                           </button>
                         </td>
                         <td className="p-2.5 sticky left-[280px] bg-background z-10 border-r text-muted-foreground">{fila.hilo}</td>
+                        <td className="p-2.5 border-r">
+                          {fila.colores_resumen ? (
+                            <span className="text-[10px] text-muted-foreground leading-tight line-clamp-2" title={fila.colores_resumen}>{fila.colores_resumen}</span>
+                          ) : <span className="text-muted-foreground/40">-</span>}
+                        </td>
                         {effectiveCols.map(col => {
                           const val = cellVal(fila.celdas, col);
                           return (
@@ -541,7 +553,7 @@ export const MatrizProduccion = () => {
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/40 font-semibold border-t-2">
-                    <td className="p-2.5 sticky left-0 bg-muted/40 z-10 border-r" colSpan={2}>TOTALES</td>
+                    <td className="p-2.5 sticky left-0 bg-muted/40 z-10 border-r" colSpan={3}>TOTALES</td>
                     {effectiveCols.map(col => {
                       const val = colTotal(col);
                       return (

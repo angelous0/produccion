@@ -797,6 +797,7 @@ async def matriz_produccion(
                 r.dividido_desde_registro_id,
                 r.curva,
                 r.fecha_creacion,
+                r.distribucion_colores as dist_colores_raw,
                 COALESCE(ma.id,'')   as marca_id,
                 COALESCE(ma.nombre,'Sin marca')  as marca,
                 COALESCE(tp.id,'')   as tipo_id_val,
@@ -881,6 +882,7 @@ async def matriz_produccion(
                     "celdas": {},
                     "total": {"registros": 0, "prendas": 0},
                     "detalle": [],
+                    "colores_grupo": {},
                 }
             g = groups[key]
 
@@ -900,6 +902,18 @@ async def matriz_produccion(
                 {"talla": t.get("talla_nombre", ""), "cantidad": safe_int(t.get("cantidad", 0))}
                 for t in tallas_raw
             ]
+
+            # Colores: agregar desde distribucion_colores (JSONB por talla)
+            dist_colores = parse_jsonb(r["dist_colores_raw"])
+            colores_map = {}  # color_nombre -> cantidad total
+            for talla_entry in dist_colores:
+                for c in (talla_entry.get("colores") or []):
+                    cn = c.get("color_nombre", "")
+                    if cn:
+                        colores_map[cn] = colores_map.get(cn, 0) + safe_int(c.get("cantidad", 0))
+            colores_lista = [{"color": k, "cantidad": v} for k, v in colores_map.items()]
+            colores_resumen = ", ".join(colores_map.keys()) if colores_map else ""
+
             g["detalle"].append({
                 "id": r["id"],
                 "n_corte": r["n_corte"],
@@ -919,10 +933,21 @@ async def matriz_produccion(
                 "ult_mov_fecha": str(r["ult_mov_fecha"]) if r["ult_mov_fecha"] else None,
                 "diferencia_acumulada": safe_int(r["diferencia_acumulada"]),
                 "total_movimientos": safe_int(r["total_movimientos"]),
+                "colores": colores_lista,
+                "colores_resumen": colores_resumen,
             })
+
+            # Acumular colores a nivel de grupo
+            for cn, cant in colores_map.items():
+                g["colores_grupo"][cn] = g["colores_grupo"].get(cn, 0) + cant
 
         # ── 5. Construir respuesta ────────────────────────────────
         filas = list(groups.values())
+        # Convertir colores_grupo dict a lista legible
+        for f in filas:
+            cg = f.pop("colores_grupo", {})
+            f["colores"] = [{"color": k, "cantidad": v} for k, v in cg.items()]
+            f["colores_resumen"] = ", ".join(cg.keys()) if cg else ""
 
         # Totales por columna
         totales_columna = {}
