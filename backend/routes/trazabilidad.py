@@ -134,7 +134,6 @@ async def get_fallados(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await init_trazabilidad_tables()
         query = """
             SELECT f.*,
                    sp.nombre as servicio_detectado_nombre,
@@ -172,9 +171,10 @@ async def create_fallado(
 
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await init_trazabilidad_tables()
         fid = str(uuid.uuid4())
-        fecha = input.fecha_deteccion or str(date.today())
+        # Convert fecha_deteccion string to date object for asyncpg
+        fecha_str = input.fecha_deteccion or str(date.today())
+        fecha = date.fromisoformat(fecha_str[:10]) if fecha_str else date.today()
         await conn.execute("""
             INSERT INTO prod_fallados (id, registro_id, movimiento_id, servicio_detectado_id,
                 cantidad_detectada, cantidad_reparable, cantidad_no_reparable, destino_no_reparable,
@@ -247,7 +247,6 @@ async def get_arreglos(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await init_trazabilidad_tables()
         query = """
             SELECT a.*,
                    sp.nombre as servicio_destino_nombre,
@@ -293,7 +292,6 @@ async def create_arreglo(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await init_trazabilidad_tables()
         fallado = await conn.fetchrow("SELECT * FROM prod_fallados WHERE id = $1", input.fallado_id)
         if not fallado:
             raise HTTPException(status_code=404, detail="Fallado no encontrado")
@@ -307,8 +305,10 @@ async def create_arreglo(
             raise HTTPException(status_code=400, detail="Cantidad de arreglos excede las reparables del fallado")
 
         aid = str(uuid.uuid4())
-        fecha_envio = input.fecha_envio or str(date.today())
-        fecha_limite = str(date.fromisoformat(fecha_envio) + timedelta(days=DIAS_LIMITE_ARREGLO))
+        # Convert fecha_envio string to date object for asyncpg
+        fecha_envio_str = input.fecha_envio or str(date.today())
+        fecha_envio = date.fromisoformat(fecha_envio_str[:10]) if fecha_envio_str else date.today()
+        fecha_limite = fecha_envio + timedelta(days=DIAS_LIMITE_ARREGLO)
 
         await conn.execute("""
             INSERT INTO prod_arreglos (id, fallado_id, registro_id, cantidad_enviada,
@@ -322,7 +322,7 @@ async def create_arreglo(
         # Update fallado estado
         await conn.execute("UPDATE prod_fallados SET estado = 'EN_PROCESO' WHERE id = $1", input.fallado_id)
 
-        return {"id": aid, "message": "Arreglo creado", "fecha_limite": fecha_limite}
+        return {"id": aid, "message": "Arreglo creado", "fecha_limite": str(fecha_limite)}
 
 
 @router.put("/arreglos/{arreglo_id}/cerrar")
@@ -340,7 +340,9 @@ async def cerrar_arreglo(
         if input.cantidad_resuelta + input.cantidad_no_resuelta > arreglo["cantidad_enviada"]:
             raise HTTPException(status_code=400, detail="Resuelta + No resuelta excede cantidad enviada")
 
-        fecha_retorno = input.fecha_retorno or str(date.today())
+        # Convert fecha_retorno string to date object for asyncpg
+        fecha_retorno_str = input.fecha_retorno or str(date.today())
+        fecha_retorno = date.fromisoformat(fecha_retorno_str[:10]) if fecha_retorno_str else date.today()
         estado = "RESUELTO"
 
         await conn.execute("""
@@ -387,7 +389,6 @@ async def resumen_cantidades(
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await init_trazabilidad_tables()
 
         reg = await conn.fetchrow("""
             SELECT r.id, r.n_corte, r.estado, r.estado_op, r.tallas,
@@ -517,7 +518,6 @@ async def trazabilidad_completa(
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await init_trazabilidad_tables()
 
         # Registro info
         reg = await conn.fetchrow("""

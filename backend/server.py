@@ -6531,6 +6531,8 @@ async def startup():
         # Columnas para división de lote
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS dividido_desde_registro_id VARCHAR NULL")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
+    # Tablas de trazabilidad unificada (fallados, arreglos)
+    await init_trazabilidad_tables()
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -6566,3 +6568,7 @@ app.include_router(bom_router)
 
 app.include_router(control_produccion_router)
 app.include_router(reportes_produccion_router)
+
+# Trazabilidad unificada router
+from routes.trazabilidad import router as trazabilidad_router, init_trazabilidad_tables
+app.include_router(trazabilidad_router)

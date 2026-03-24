@@ -39,6 +39,7 @@ import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { MultiSelectColors } from '../components/MultiSelectColors';
 import { Textarea } from '../components/ui/textarea';
+import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -1903,6 +1904,15 @@ export const RegistroForm = () => {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Trazabilidad Unificada (solo en modo edición) */}
+            {isEditing && (
+              <TrazabilidadPanel
+                registroId={id}
+                servicios={serviciosProduccion}
+                personas={personasProduccion}
+              />
             )}
           </div>
 
