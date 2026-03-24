@@ -959,6 +959,26 @@ export const RegistroForm = () => {
   };
 
   // Guardar registro
+  // Auto-guardar estado sin requerir click en "Actualizar Registro"
+  const autoGuardarEstado = async (nuevoEstado) => {
+    if (!id || !isEditing) return;
+    try {
+      const payload = {
+        ...formData,
+        estado: nuevoEstado,
+        tallas: tallasSeleccionadas,
+        distribucion_colores: distribucionColores,
+      };
+      await axios.put(`${API}/registros/${id}`, payload);
+      setFormData(prev => ({ ...prev, estado: nuevoEstado }));
+      toast.success(`Estado actualizado a "${nuevoEstado}"`);
+      // Refrescar análisis de inconsistencias
+      fetchAnalisisEstado();
+    } catch (error) {
+      toast.error('Error al guardar estado');
+    }
+  };
+
   const handleSubmit = async (e, silentMode = false) => {
     if (e) e.preventDefault();
     setLoading(true);
@@ -1057,15 +1077,15 @@ export const RegistroForm = () => {
                               toast.error(data.bloqueos.join(' '));
                               return;
                             }
-                            setFormData({ ...formData, estado: value });
+                            await autoGuardarEstado(value);
                             if (data.sugerencia_movimiento) {
                               setSugerenciaMovDialog(data.sugerencia_movimiento);
                             }
                           } catch {
-                            setFormData({ ...formData, estado: value });
+                            await autoGuardarEstado(value);
                           }
                         } else {
-                          setFormData({ ...formData, estado: value });
+                          await autoGuardarEstado(value);
                         }
                       }}
                     >
@@ -1108,15 +1128,15 @@ export const RegistroForm = () => {
                                       toast.error(data.bloqueos.join(' '));
                                       return;
                                     }
-                                    setFormData({ ...formData, estado: e });
+                                    await autoGuardarEstado(e);
                                     if (data.sugerencia_movimiento) {
                                       setSugerenciaMovDialog(data.sugerencia_movimiento);
                                     }
                                   } catch {
-                                    setFormData({ ...formData, estado: e });
+                                    await autoGuardarEstado(e);
                                   }
                                 } else {
-                                  setFormData({ ...formData, estado: e });
+                                  await autoGuardarEstado(e);
                                 }
                               }}
                             >
@@ -1148,9 +1168,8 @@ export const RegistroForm = () => {
                           variant="outline"
                           size="sm"
                           className="h-6 text-xs border-amber-400 text-amber-700 hover:bg-amber-100"
-                          onClick={() => {
-                            setFormData({ ...formData, estado: analisisEstado.estado_sugerido });
-                            toast.success(`Estado actualizado a "${analisisEstado.estado_sugerido}"`);
+                          onClick={async () => {
+                            await autoGuardarEstado(analisisEstado.estado_sugerido);
                           }}
                           data-testid="btn-aplicar-estado-sugerido"
                         >
@@ -2448,10 +2467,10 @@ export const RegistroForm = () => {
               No, mantener estado
             </Button>
             <Button
-              onClick={() => {
-                setFormData(prev => ({ ...prev, estado: sugerenciaEstadoDialog.estadoSugerido }));
-                toast.success(`Estado actualizado a "${sugerenciaEstadoDialog.estadoSugerido}"`);
+              onClick={async () => {
+                const estadoNuevo = sugerenciaEstadoDialog.estadoSugerido;
                 setSugerenciaEstadoDialog(null);
+                await autoGuardarEstado(estadoNuevo);
               }}
               data-testid="btn-aceptar-sugerencia-estado"
             >
