@@ -766,21 +766,39 @@ export const RegistroForm = () => {
   const handleServicioChange = (servicioId) => {
     // Filtrar personas que tienen asignado este servicio (nueva estructura)
     const filtradas = personasProduccion.filter(p => {
-      // Verificar en servicios_detalle (formato con detalles)
       const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === servicioId);
-      // Verificar en servicios (formato nuevo)
       const tieneEnServicios = (p.servicios || []).some(s => s.servicio_id === servicioId);
-      // Formato antiguo (servicio_ids)
       const tieneEnIds = (p.servicio_ids || []).includes(servicioId);
       return tieneEnDetalle || tieneEnServicios || tieneEnIds;
     });
     setPersonasFiltradas(filtradas);
     
+    // Auto-sugerir fecha_inicio basada en la etapa anterior de la ruta
+    let fechaInicioSugerida = movimientoFormData.fecha_inicio;
+    if (usaRuta && etapasCompletas.length > 0 && !editingMovimiento) {
+      const etapaIdx = etapasCompletas.findIndex(e => e.servicio_id === servicioId);
+      if (etapaIdx > 0) {
+        // Buscar la etapa anterior más cercana que tenga movimiento con fecha_fin
+        for (let i = etapaIdx - 1; i >= 0; i--) {
+          const etapaAnterior = etapasCompletas[i];
+          if (!etapaAnterior.servicio_id) continue;
+          const movsAnteriores = movimientosProduccion.filter(m => m.servicio_id === etapaAnterior.servicio_id && m.fecha_fin);
+          if (movsAnteriores.length > 0) {
+            // Tomar la fecha_fin más reciente
+            const fechas = movsAnteriores.map(m => m.fecha_fin).sort();
+            fechaInicioSugerida = fechas[fechas.length - 1];
+            break;
+          }
+        }
+      }
+    }
+    
     setMovimientoFormData({ 
       ...movimientoFormData, 
       servicio_id: servicioId,
       persona_id: '',
-      tarifa_aplicada: 0  // Se pre-llenará cuando se seleccione persona
+      tarifa_aplicada: 0,
+      fecha_inicio: fechaInicioSugerida,
     });
   };
 
@@ -2305,6 +2323,20 @@ export const RegistroForm = () => {
                   id="fecha-inicio"
                   type="date"
                   value={movimientoFormData.fecha_inicio}
+                  min={(() => {
+                    if (!usaRuta || !etapasCompletas.length || !movimientoFormData.servicio_id) return undefined;
+                    const etapaIdx = etapasCompletas.findIndex(e => e.servicio_id === movimientoFormData.servicio_id);
+                    if (etapaIdx <= 0) return undefined;
+                    for (let i = etapaIdx - 1; i >= 0; i--) {
+                      const ea = etapasCompletas[i];
+                      if (!ea.servicio_id) continue;
+                      const movsAnt = movimientosProduccion.filter(m => m.servicio_id === ea.servicio_id && m.fecha_fin);
+                      if (movsAnt.length > 0) {
+                        return movsAnt.map(m => m.fecha_fin).sort().pop();
+                      }
+                    }
+                    return undefined;
+                  })()}
                   onChange={(e) => {
                     const val = e.target.value;
                     const updates = { fecha_inicio: val };
