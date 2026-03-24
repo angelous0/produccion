@@ -64,12 +64,12 @@ const FilterSelect = ({ label, value, onChange, options, testId }) => (
 // ── DetalleModal (tabla tipo Excel) ────────────────────────────
 const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
   <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-    <DialogContent className="max-w-[95vw] w-fit max-h-[85vh] overflow-hidden p-0" data-testid="detalle-modal">
+    <DialogContent className="max-w-[98vw] w-[98vw] max-h-[90vh] overflow-hidden p-0" data-testid="detalle-modal">
       <DialogHeader className="px-4 pt-4 pb-2">
         <DialogTitle className="text-base">{titulo}</DialogTitle>
         <p className="text-xs text-muted-foreground">{(registros || []).length} registros</p>
       </DialogHeader>
-      <div className="overflow-auto max-h-[calc(85vh-80px)] px-1 pb-2">
+      <div className="overflow-auto max-h-[calc(90vh-80px)] px-1 pb-2">
         <table className="w-full text-xs border-collapse min-w-[900px]">
           <thead className="sticky top-0 z-10">
             <tr className="bg-muted/80 backdrop-blur">
