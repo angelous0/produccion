@@ -827,8 +827,11 @@ export const RegistroForm = () => {
         const etapaVinculada = etapasCompletas.find(e => e.servicio_id === servicioMov && e.aparece_en_estado !== false);
         if (etapaVinculada) {
           const etapaNombre = etapaVinculada.nombre;
-          if (movimientoFormData.fecha_inicio && !movimientoFormData.fecha_fin && etapaNombre !== formData.estado) {
-            // Se inició el movimiento - sugerir actualizar estado a esta etapa
+          const idxEtapaMov = etapasCompletas.indexOf(etapaVinculada);
+          const idxEstadoActual = etapasCompletas.findIndex(e => e.nombre === formData.estado);
+
+          if (movimientoFormData.fecha_inicio && !movimientoFormData.fecha_fin && etapaNombre !== formData.estado && idxEtapaMov > idxEstadoActual) {
+            // Se inició el movimiento y la etapa está ADELANTE del estado actual
             setSugerenciaEstadoDialog({
               tipo: 'inicio',
               mensaje: `Se inició ${etapaVinculada.nombre}. ¿Deseas actualizar el estado del registro?`,
@@ -836,15 +839,18 @@ export const RegistroForm = () => {
             });
           } else if (movimientoFormData.fecha_fin) {
             // Se finalizó el movimiento - sugerir avanzar al siguiente estado
-            const etapaIdx = etapasCompletas.indexOf(etapaVinculada);
-            const siguientes = etapasCompletas.slice(etapaIdx + 1);
+            const siguientes = etapasCompletas.slice(idxEtapaMov + 1);
             const sigEstado = siguientes.find(e => e.aparece_en_estado !== false);
             if (sigEstado && sigEstado.nombre !== formData.estado) {
-              setSugerenciaEstadoDialog({
-                tipo: 'fin',
-                mensaje: `${etapaVinculada.nombre} fue finalizada. ¿Deseas avanzar el estado del registro?`,
-                estadoSugerido: sigEstado.nombre,
-              });
+              const idxSig = etapasCompletas.findIndex(e => e.nombre === sigEstado.nombre);
+              // Solo sugerir si el siguiente estado está ADELANTE del actual
+              if (idxSig > idxEstadoActual) {
+                setSugerenciaEstadoDialog({
+                  tipo: 'fin',
+                  mensaje: `${etapaVinculada.nombre} fue finalizada. ¿Deseas avanzar el estado del registro?`,
+                  estadoSugerido: sigEstado.nombre,
+                });
+              }
             }
           }
         }
