@@ -1,181 +1,139 @@
-<analysis>**original_problem_statement:**
-El usuario ha solicitado una serie de mejoras incrementales para añadir control operativo al módulo de producción existente, sin rehacerlo.
+<analysis>**original_problem_statement**: 
+El usuario solicitó implementar un módulo de REPORTES de producción textil dividido en fases (P0, P1, P2) para tener control operativo real. El sistema actual ya cuenta con registros, rutas, estados, movimientos, incidencias y fraccionamiento de lotes. Se requiere empezar por los reportes P0 (Dashboard, Producción en Proceso, WIP por etapa, Lotes Atrasados, Trazabilidad, Cumplimiento ruta, Balance por terceros y Lotes fraccionados), evaluando primero si la estructura de base de datos actual soporta estos reportes o qué ajustes mínimos se necesitan.
 
-**Requerimiento 1: Control de Atrasos, Incidencias y Paralizaciones (Implementado y Refactorizado)**
-Inicialmente se solicitó agregar campos de control (, , ) e incidencias/paralizaciones a nivel de la cabecera del registro de producción.
+**PRODUCT REQUIREMENTS**:
+1. **Diseño Práctico:** Reportes enfocados en la operación diaria, no solo en tablas teóricas.
+2. **Fases:** Implementar primero los P0 (Indispensables), dejando la base para P1 y P2.
+3. **P0 - Reportes Indispensables:** 
+   - Dashboard principal (KPIs)
+   - Producción en Proceso
+   - WIP real por etapa
+   - Lotes atrasados
+   - Trazabilidad por registro (cronología de movimientos)
+   - Cumplimiento de ruta (lo ejecutado vs esperado)
+   - Balance por servicio externo / tercero
+   - Lotes fraccionados
+4. **Filtros Globales:** Fechas, ruta, modelo, servicio, estado, responsable, etc.
+5. **Navegación:** Menú ordenado de reportes con posibilidad de navegar al detalle del registro.
 
-**Requerimiento 2: Mover el Control a los Movimientos (Implementado)**
-Posteriormente, el usuario refinó el requerimiento para mover el control principal a los movimientos de producción, ya que es una representación más precisa de dónde ocurren los atrasos.
-- La cabecera del registro solo conserva .
-- Cada movimiento de producción ahora tiene su propia  con alertas visuales (normal, por vencer, vencido).
-- El  del registro general (, , ) se calcula automáticamente en función del estado de sus movimientos y paralizaciones.
-- Las incidencias y paralizaciones ahora pueden vincularse a un  específico.
-- Se eliminó el campo  del registro y  del movimiento por ser redundante con .
+**User's preferred language**: Spanish (INSTRUCT next agent to respond in Spanish)
 
-**Requerimiento 3: Identificar Personal Interno vs. Externo (En Progreso)**
-Se solicitó mejorar el control de costos diferenciando entre movimientos de producción internos y externos.
-- Reutilizar  para marcar a cada persona como  o .
-- Si una persona es , se debe vincular a una  de la tabla  (que ya existe).
-- El objetivo es que el módulo de Finanzas pueda identificar qué movimientos generan cargos internos y cuáles son costos externos.
+**what currently exists?** 
+El sistema es una plataforma completa de producción textil que incluye gestión de inventarios, modelos (BOM) y registros de producción. Recientemente se implementó una vinculación bidireccional entre estados y movimientos (con sugerencias automáticas y bloqueos), optimización de tiempos de carga eliminando N+1 queries, validaciones estrictas de fechas en movimientos y la capacidad de fraccionar/dividir lotes manteniendo el historial. La aplicación es completamente funcional, pero carece de un módulo de visualización y análisis (Reportes).
 
-**PRODUCT REQUIREMENTS:**
-1.  **Control a Nivel de Movimiento:** Cada movimiento debe tener su propia fecha esperada y alertas visuales.
-2.  **Estado Operativo Automático:** El estado general del registro debe reflejar el estado de sus movimientos (ej. si un movimiento está vencido, el registro está EN RIESGO).
-3.  **Trazabilidad de Incidencias/Paralizaciones:** Las incidencias y paralizaciones deben poder vincularse a movimientos específicos.
-4.  **Diferenciación Interno/Externo:** Se debe poder marcar a cada persona de producción como interna o externa y vincular al personal interno con una unidad de costo de Finanzas.
-5.  **UI Simple:** Los cambios en el frontend deben ser mínimos e integrados en las pantallas existentes de  y .
+**Last working item**: 
+    - Last item agent was working: Analizando la base de datos para responder a la solicitud del usuario sobre el diseño técnico del nuevo módulo de Reportes (P0).
+    - Status: IN PROGRESS
+    - Agent Testing Done: N
+    - Which testing method agent to use: both (testing_agent_v3_fork para endpoints de reportes y UI).
+    - User Testing Done: N
 
-**User's preferred language**: Spanish
+**All Pending/In progress Issue list**: 
+Ningún issue funcional pendiente detectado en la última fase de la sesión anterior.
 
-**what currently exists?**
-La aplicación ahora tiene un sistema de control operativo a nivel de movimientos de producción. Cada movimiento puede tener su fecha esperada y el estado del registro general se actualiza automáticamente. Se ha implementado un sistema de incidencias y paralizaciones que se pueden vincular a registros o movimientos específicos. Se ha solucionado un problema de usabilidad global que impedía hacer click en botones de guardado múltiples veces ( hook) y se ha corregido el layout para que el menú lateral sea fijo. Se ha iniciado la implementación para diferenciar personal interno y externo, modificando la base de datos, el backend y el formulario de .
-
-**Last working item**:
-- Last item agent was working: Implementar la capacidad de marcar a las personas de producción como  o  y, en caso de ser , vincularlas a una  del módulo de finanzas.
-- Status: IN PROGRESS
-- Agent Testing Done: Y
-- Which testing method agent to use? frontend testing agent. El agente debe verificar el flujo completo: 1. Abrir el formulario de Personas. 2. Editar una persona existente, cambiar su tipo a INTERNO. 3. Verificar que el selector de Unidad Interna se habilite y muestre las opciones de finanzas. 4. Seleccionar una unidad y guardar. 5. Ir al formulario de Registro, crear un nuevo movimiento y verificar que al seleccionar a esa persona, se muestre visualmente que es INTERNA y su unidad asociada.
-- User Testing Done: N
-
-**All Pending/In progress Issue list**:
-  - Issue 1: Falta de scroll en el diálogo de Movimientos de Producción. (Recientemente corregido, pendiente de validación completa del usuario).
-  - Issue 2: La accesibilidad en los componentes  (falta de  y ) sigue sin abordarse (recurrente).
-
-  Issues Detail:
-  - Issue 1:
-     - Attempted fixes: Se agregó  al componente  en .
-     - Next debug checklist: El usuario debe confirmar que el scroll funciona como se espera en su próxima interacción.
-     - Why fix this issue and what will be achieved with the fix?: Permitirá al usuario ver y llenar todos los campos del formulario de movimiento, incluso en pantallas pequeñas.
-     - Status: USER VERIFICATION PENDING
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix?: frontend
-     - Blocked on other issue: No
-  - Issue 2:
-     - Attempted fixes: Ninguno en esta sesión.
-     - Next debug checklist: Revisar todos los componentes  de la aplicación y asegurarse de que incluyan los componentes hijos  y  para mejorar la accesibilidad, como se hizo en la implementación de Control Operativo.
-     - Why fix this issue and what will be achieved with the fix?: Mejora la accesibilidad y el cumplimiento de las buenas prácticas de UI/UX para usuarios con lectores de pantalla.
-     - Status: NOT STARTED
-     - Is recurring issue? Y
-     - Should Test frontend/backend/both after fix?: frontend
-     - Blocked on other issue: No
-
-**In progress Task List**:
-  - Task 1: Finalizar la implementación de Personal Interno/Externo.
-     - Where to resume: En . El backend ya devuelve el  y  en el endpoint de movimientos y en el de personas. Falta mostrar esta información en la UI cuando se selecciona una persona en el formulario de creación/edición de movimiento.
-     - What will be achieved with this?: Proporcionará la base para que el módulo de finanzas pueda calcular correctamente los costos internos y externos.
+**In progress Task List**: 
+  - Task 1: Análisis y Propuesta del Módulo de Reportes P0
+     - Where to resume: El agente acaba de ejecutar consultas a la BD para entender el esquema. Se debe responder al usuario con la **propuesta técnica** solicitada (qué reportes P0 se pueden hacer con la data actual, qué ajustes menores de esquema/backend se necesitan) y luego proceder con la **implementación de la base del backend y el frontend (Dashboard y Reportes P0)**.
+     - What will be achieved with this?: Un módulo gerencial y operativo de reportes.
      - Status: IN PROGRESS
-     - Should Test frontend/backend/both after fix?: frontend
-     - Blocked on something: No
+     - Should Test frontend/backend/both after fix?: both
+     - Blocked on something: N/A
 
 **Upcoming and Future Tasks**
-- **Upcoming Tasks**:
-    - **(P1)** Implementar la lógica en el **módulo de Finanzas** para consumir el endpoint  y generar cargos internos basados en los movimientos de producción realizados por personal .
-- **Future Tasks**:
-    - **(P2)** Limpiar líneas BOM huérfanas que puedan existir del esquema antiguo.
-    - **(P3)** Crear el reporte de Productividad por persona/servicio.
-    - **(P3)** Implementar la capacidad de reordenar tallas con drag-and-drop.
-    - **(P3)** Aplicar permisos granulares en toda la UI con el hook .
-    - **(P3)** Finalizar la funcionalidad de exportación a Excel/PDF en varias pantallas (ej. Kardex).
+  - **P0**: 
+    - Implementar Endpoints y UI de Reportes P0 (Dashboard, WIP, Atrasados, Trazabilidad, Cumplimiento, Terceros, Lotes Fraccionados).
+  - **P1**:
+    - Lógica en el módulo de Finanzas para generar cargos internos desde Producción (Tarea heredada de sesiones previas).
+    - Implementar Reportes P1: Productividad (persona/servicio), Incidencias/Glosas, PT generado, Antigüedad, Mermas.
+  - **P2 / Backlog**:
+    - Implementar Reportes P2: Reprocesos, Eficiencia vs Estándar, Cumplimiento por modelo, Carga futura, Consistencia.
+    - Refactorizar  (dividir el archivo que supera las 2700 líneas en subcomponentes).
+    - Limpiar líneas BOM huérfanas del esquema antiguo.
+    - Permisos granulares con .
+    - Exportación a Excel/PDF en las tablas principales.
 
 **Completed work in this session**
-- **Protección Anti Doble-Click:** Se creó un hook  y se implementó globalmente en 21 páginas para deshabilitar los botones de guardado durante el envío de formularios, evitando registros duplicados.
-- **Control Operativo (v1 y v2):** Se implementó y luego se refactorizó un sistema de control de producción, moviendo la lógica de  e  de la cabecera del registro a cada movimiento de producción individual.
-- **Bug Fix - Tarifa de Movimiento:** Se corrigió un bug que causaba que la  se perdiera al editar un movimiento de producción.
-- **Bug Fix - Reporte WIP Vacío:** Se solucionó un problema en el reporte WIP causado por un  incorrecto en el frontend.
-- **Fix de Layout - Sidebar Fijo:** Se modificó  para que el menú lateral permanezca fijo y solo el área de contenido principal haga scroll, mejorando la navegación.
-- **Filtro de Items:** Se excluyeron los productos de categoría PT (Producto Terminado) de los selectores de items en Ingresos y Salidas de inventario.
-- **Refactorización de Diálogos:** Se corrigió el problema de scroll en el diálogo de movimiento y se eliminó el campo redundante .
+- **Personal Interno/Externo (Frontend)**: Visualización en tabla y diálogo de movimientos de .
+- **Vinculación Bidireccional Estado ↔ Movimientos**: Validación estricta, sugerencias automáticas de cambio de estado o creación de movimientos, y banner de inconsistencias (, ).
+- **Edición inline de Rutas**: Refactorización de  para permitir editar nombre, servicio y toggles (obligatorio/estado) en .
+- **Performance Fix (Registros)**: Optimización de endpoints  y  eliminando N+1 queries (tiempo de carga reducido de 5.8s a 0.5s).
+- **UX Improvements**: Auto-guardado de estado en  sin requerir click en actualizar; Validaciones de  dates en fechas de inicio y fin de movimientos; Auto-fill de fecha de inicio basado en la etapa previa.
+- **División de Lotes (Splitting)**: Capacidad de fraccionar un registro en subregistros (ej. 04 → 04-1) seleccionando tallas específicas. Implementación de  y , UI en frontend, e indicadores visuales de divisiones en la tabla general.
 
 **Earlier issues found/mentioned but not fixed**
-   - Issue 1: Clarificar e implementar la lógica de borrado inteligente del BOM (BLOCKED - requiere input del usuario).
+Ninguno. El issue de accesibilidad en los diálogos fue revisado y ya estaba resuelto en forks anteriores.
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: El problema de accesibilidad en los componentes  (falta de  y ) sigue sin abordarse.
-  - Recurrence count: 10
-  - Status: NOT STARTED
+  - Ninguno activo.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Custom Hook para Estado Asíncrono ():** Se creó un hook reutilizable para gestionar el estado de guardando, previniendo envíos duplicados de formularios en toda la aplicación.
-- **Refactorización Evolutiva:** La funcionalidad de Control Operativo fue implementada y luego refactorizada basándose en el feedback del usuario, moviendo la lógica desde la entidad principal (registro) a sus componentes (movimientos).
-- **Cálculos de Estado en Backend:** El campo  de un registro ahora se calcula dinámicamente en el backend () basado en el estado agregado de sus movimientos dependientes.
-- **Integración Cross-Schema:** Lectura de datos desde la tabla  para ser usados en la lógica y UI del módulo de Producción.
+- **Vinculación Estado-Movimiento**: La  dicta la secuencia y qué etapas son  y cuáles . El Backend bloquea avances si hay etapas obligatorias con movimientos abiertos (sin ).
+- **División de Lotes**: Se introdujo recursividad básica con  en . Al dividir, se actualiza el JSONB  y se insertan/modifican/eliminan filas en la tabla relacional .
+- **Optimización de Queries**: Uso intensivo de , , y subqueries como LEFT JOINS para compilar datos de registros en un solo viaje a la BD.
 
 **key DB schema**
-- ****: Columna  renombrada a .
-- ****: Añadidas las columnas  y  (esta última fue eliminada posteriormente por redundancia).
-- ****: Añadida la columna  (FK opcional a ).
-- ****: Añadida la columna  (FK opcional a ).
-- ****: Se utilizaron las columnas existentes  y  para la nueva funcionalidad.
+  - :  (relación a misma tabla para divisiones),  (JSONB)
+  - : Tabla relacional que debe estar estrictamente sincronizada con el JSONB de .
+  - : , , .
+  -  & :  (bool),  (bool).
 
 **changes in tech stack**
-- Ninguno.
+  - Ninguno.
 
-**All files of reference**
-- : Hook global para prevenir doble click.
-- : Componente principal para la gestión de registros. Muy modificado para reflejar la lógica de control en los movimientos.
-- : Vista de tabla principal. Modificada para mostrar el estado operativo y las nuevas acciones.
-- : Modificado para permitir la configuración de personal interno/externo.
-- : Modificado extensamente para adaptar los endpoints de registros, movimientos y personas a la nueva lógica.
-- : Nuevo archivo para gestionar la lógica de incidencias y paralizaciones.
-- : Modificado para añadir un endpoint que lista las unidades internas de finanzas.
+**All files of reference** 
+  - : Rutas, modelos y endpoints clave creados y fuertemente modificados en esta sesión.
+  - : Componente central modificado para sugerencias, validación, autoguardado, y ui de división de lote.
+  - : Lista general, ahora muestra badges para hijos y padres fraccionados.
+  - : Modificado para edición inline de etapas.
 
-**Areas that need refactoring**:
-- El componente  sigue siendo extremadamente grande y complejo (+2200 líneas). Debería dividirse en sub-componentes (ej. , , ).
+**Areas that need refactoring**: 
+  - : Urgente dividir en subcomponentes (Movimientos, Tallas, Inconsistencias, Diálogos) para mejorar el mantenimiento.
+  - : Migrar funciones a routers dedicados (ej. , ).
 
 **key api endpoints**
--  (NUEVO): Lista las unidades internas desde el esquema .
-- ,  (NUEVOS): Endpoints para la nueva funcionalidad de control.
-- : Modificado para calcular y devolver el  y .
-- : Modificado para devolver los nuevos campos (, , etc.).
-- , : Modificados para guardar los nuevos campos.
-- : Modificado para guardar  y .
+  - : (Altamente optimizado en esta sesión).
+  - : Retorna inconsistencias y sugerencias.
+  - : Previene saltos de etapas obligatorias y evalúa el árbol de la ruta.
+  -  & : Endpoints para el manejo de sublotes.
 
-**Critical Info for New Agent**
-- El control operativo ahora reside en los **movimientos de producción**, no en la cabecera del registro. La UI y el backend reflejan este cambio.
-- Se implementó un hook global  para evitar envíos duplicados. Casi todos los formularios de la aplicación lo utilizan.
-- El  por defecto parece ser  para la mayoría de los datos de prueba. Ten esto en cuenta al depurar reportes.
-- La distinción entre personal interno y externo está a medio implementar. El backend y el formulario de Personas están listos. El último paso es mostrar esta información en el formulario de Movimientos.
+**Critical Info for New Agent** 
+- El usuario envió un **prompt masivo de requerimientos** para construir un Módulo de Reportes. El agente en el fork anterior sólo alcanzó a leer el esquema de la base de datos pero **no ha emitido ninguna respuesta**.
+- **Tu primera acción debe ser responder al usuario (sin implementar código aún)** con el análisis de los Reportes P0: qué se puede hacer con la estructura actual (que es casi todo) y qué cambios muy menores se requieren. Utiliza  para confirmar el enfoque antes de codificar.
+- Recuerda que la sincronización de tallas ahora ocurre en dos lugares paralelos: el campo JSONB  en  y los registros en la tabla . Si haces operaciones sobre reportes de cantidades, considera .
+- Al crear consultas para reportes, ten extremo cuidado de evitar , usa las optimizaciones logradas recientemente.
 
-**documents and test reports created in this job**
-- 
-- 
--  (Actualizado múltiples veces)
+**documents and test reports created in this job** 
+  -  (Updated)
+  -  (Validó lógica bidireccional)
+  -  (Validó división de lotes)
 
 **Last 10 User Messages and any pending HUMAN messages** 
-1. **(USER):** Solicitó refactorizar el control operativo, moviéndolo de la cabecera del registro a cada movimiento de producción individual.
-2. **(AGENT):** Implementó la refactorización completa (DB, Backend, Frontend) y la validó con el testing agent.
-3. **(USER):** Reportó que el diálogo de movimiento de producción no tenía scroll y que el campo responsable era redundante.
-4. **(AGENT):** Aplicó el fix para el scroll y eliminó el campo responsable_movimiento de la UI y la lógica.
-5. **(USER):** Pidió una nueva mejora: diferenciar entre personal de producción  y .
-6. **(AGENT):** Analizó las tablas existentes y confirmó que la estructura básica ya estaba presente.
-7. **(AGENT):** Implementó los cambios en el backend (modelos, endpoints de Personas y Movimientos) para soportar la nueva lógica.
-8. **(AGENT):** Creó un nuevo endpoint para que el frontend pueda obtener la lista de  desde el módulo de Finanzas.
-9. **(AGENT):** Modificó el frontend de  para añadir una columna de Tipo y permitir la edición de  y .
-10. **(AGENT):** La implementación está pendiente de completarse en  para mostrar el tipo de persona al crear un movimiento.
+ - Sequential concise summary along with completion status:
+   1. User asks how to handle fractional advances (e.g. 500 go forward, 400 stay back). (Answered)
+   2. Agent proposes logic for División de lote.
+   3. User agrees, sets rules for nomenclature and size selection, asks about reversing (reunificar). (Answered)
+   4. Agent explains reunify logic.
+   5. User says si implementa. (Completed & Tested)
+   6. **PENDING**: User provides a massive, highly detailed specification to build a Módulo de Reportes divided into P0, P1, P2. Explicitly requested to *only start with P0* and to *first provide an analysis of the existing schema vs the requested reports*. (Action Required)
 
 **Project Health Check:**
-- **Broken**: No.
-- **Mocked**: No.
+  - Broken: No
+  - Mocked: No
 
-**3rd Party Integrations**
-- , , 
-- , 
-- 
-- , 
-- 
+**3rd Party Integrations** 
+  - None required for this specific reporting scope at the moment. Chart libraries (like ) are likely already installed or should be used for the Dashboard.
 
 **Testing status**
   - Testing agent used after significant changes: YES
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: No
-  - Known regressions: No
+  - Test files created: None
+  - Known regressions: None
 
 **Credentials to test flow:**
-- **Usuario**: 
-- **Contraseña**: 
+  -  / 
 
 **What agent forgot to execute**
-- El agente no completó el último paso de la tarea Personal Interno/Externo, que consistía en mostrar la información del tipo de persona (/) en el formulario de creación/edición de movimientos (). El backend ya está preparado para proporcionar esta información.</analysis>
+  - Responder al extenso prompt del usuario sobre la planificación del Módulo de Reportes. La sesión terminó mientras el agente recopilaba información de la base de datos.</analysis>
