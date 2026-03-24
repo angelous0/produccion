@@ -130,6 +130,7 @@ const reportesProduccionItems = [
   { to: '/reportes/cumplimiento-ruta', icon: TrendingUp, label: 'Cumplimiento Ruta' },
   { to: '/reportes/balance-terceros', icon: Users, label: 'Balance Terceros' },
   { to: '/reportes/lotes-fraccionados', icon: GitBranch, label: 'Fraccionados' },
+  { to: '/reportes/trazabilidad-general', icon: Shield, label: 'Trazabilidad' },
 ];
 
 function ScrollToTop() {
