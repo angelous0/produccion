@@ -407,11 +407,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openArregloDialog(f)}
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openArregloDialog(f)}
                               title="Enviar a arreglo" data-testid={`btn-arreglo-${f.id}`}>
                               <Wrench className="h-3.5 w-3.5 text-violet-500" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteFallado(f.id)} data-testid={`btn-del-fallado-${f.id}`}>
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteFallado(f.id)} data-testid={`btn-del-fallado-${f.id}`}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </div>
@@ -440,11 +440,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                                   </div>
                                   <div className="flex items-center gap-1">
                                     {a.estado === 'PENDIENTE' && (
-                                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openCierreDialog(a)} title="Cerrar arreglo" data-testid={`btn-cerrar-arreglo-${a.id}`}>
+                                      <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => openCierreDialog(a)} title="Cerrar arreglo" data-testid={`btn-cerrar-arreglo-${a.id}`}>
                                         <CheckCircle2 className="h-3 w-3 text-green-600" />
                                       </Button>
                                     )}
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-del-arreglo-${a.id}`}>
+                                    <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-del-arreglo-${a.id}`}>
                                       <Trash2 className="h-3 w-3 text-destructive" />
                                     </Button>
                                   </div>
@@ -516,11 +516,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
                               {a.estado === 'PENDIENTE' && (
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCierreDialog(a)} data-testid={`btn-cerrar-arreglo-tbl-${a.id}`}>
+                                <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openCierreDialog(a)} data-testid={`btn-cerrar-arreglo-tbl-${a.id}`}>
                                   <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
                                 </Button>
                               )}
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-del-arreglo-tbl-${a.id}`}>
+                              <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-del-arreglo-tbl-${a.id}`}>
                                 <Trash2 className="h-3.5 w-3.5 text-destructive" />
                               </Button>
                             </div>
