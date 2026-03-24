@@ -1,38 +1,32 @@
 # PRD - Produccion Textil
 
 ## Original Problem Statement
-Sistema de gestion de produccion textil con flujo de trabajo completo: desde corte hasta almacen PT. Incluye gestion de inventario FIFO, BOM, movimientos de produccion, cierre de produccion, integracion con modulo de Finanzas, control operativo por movimiento, division de lotes, y reportes de produccion P0.
+Sistema de gestion de produccion textil con flujo de trabajo completo: desde corte hasta almacen PT. Incluye gestion de inventario FIFO, BOM, movimientos de produccion, cierre de produccion, control operativo por movimiento, division de lotes, y reportes de produccion P0.
 
 ## What's Been Implemented
 - Flujo de produccion completo con linea de tiempo de estado
 - Panel de cierre integrado en RegistroForm
 - Proteccion anti doble-click con hook useSaving() en 21+ paginas
-- Sidebar fijo al navegar
 - Control Operativo: fecha_esperada por movimiento, alertas, incidencias, paralizaciones
-- Personal Interno/Externo: tipo_persona y unidad_interna en personas y movimientos
+- Personal Interno/Externo: tipo_persona y unidad_interna
 - Vinculacion Bidireccional Estado-Movimientos (sugerencias, bloqueos, auto-guardado)
 - Division de Lote (Split): dividir, reunificar, nomenclatura automatica
 - Performance: GET registros 5.8s->0.5s, GET modelos 3.3s->0.5s
 - Rutas editables inline
 - **Modulo Reportes P0** (2026-03-24):
   - Dashboard KPIs, En Proceso, WIP por Etapa, Atrasados, Trazabilidad, Cumplimiento Ruta, Balance Terceros, Lotes Fraccionados
-  - 9 endpoints optimizados, filtros globales, navegacion entre reportes
 - **Matriz Dinamica de Produccion** (2026-03-24):
-  - Reporte tipo Power BI: Filas = Item (Marca-Tipo-Entalle-Tela) + Hilo
+  - Filas = Item (Marca-Tipo-Entalle-Tela) + Hilo
   - Columnas = Estados dinamicos (adaptan segun ruta seleccionada)
   - Toggle Registros/Prendas, 7 filtros + 3 toggles
   - Columnas visibles/reordenables, preferencias en localStorage
-  - **Fusion de columnas**: Acabado absorbe Limpieza, valores se suman, persistente
-  - **Pop-up modal detallado**: click en celda/fila/total abre dialogo con
-    n_corte, modelo, curva, curva_detalle (tallas), hilo_especifico, estado,
-    prendas, ruta, fecha_entrega, dias_proceso, ultimo_movimiento, diferencia,
-    total_movimientos, badges urgente/fraccionado, botones Trazabilidad y Abrir
+  - Fusion de columnas (absorber columnas, valores sumados, persistente)
+  - **Pop-up modal tipo tabla Excel** con: Corte, Estado, Modelo, Prendas, Curva, Hilo Esp., Ruta, Entrega, Inicio Prod., Dias, Ult. Mov, Dif., Info, Accion
+  - Click en celda filtra por estado; click en item/total muestra todos
+  - **Dias = desde fecha_inicio del primer movimiento** (no creacion)
+  - **Todas las fechas en formato dd-mm-yy** en todo el modulo de reportes
 
 ## Key API Endpoints
-- POST /api/registros/{id}/dividir
-- POST /api/registros/{id}/reunificar
-- GET /api/registros/{id}/analisis-estado
-- POST /api/registros/{id}/validar-cambio-estado
 - GET /api/reportes-produccion/dashboard
 - GET /api/reportes-produccion/en-proceso
 - GET /api/reportes-produccion/wip-etapa
@@ -47,9 +41,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 ## Prioritized Backlog
 ### P0 (COMPLETADO)
 - [x] Modulo Reportes P0 (8 reportes + filtros)
-- [x] Matriz Dinamica de Produccion
-- [x] Fusion de columnas en Matriz
-- [x] Pop-up modal detallado en Matriz
+- [x] Matriz Dinamica de Produccion (fusion, modal Excel, dias desde primer mov, dd-mm-yy)
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
