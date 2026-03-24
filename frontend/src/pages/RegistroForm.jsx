@@ -2299,7 +2299,17 @@ export const RegistroForm = () => {
                   id="fecha-inicio"
                   type="date"
                   value={movimientoFormData.fecha_inicio}
-                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_inicio: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const updates = { fecha_inicio: val };
+                    if (movimientoFormData.fecha_fin && val && movimientoFormData.fecha_fin < val) {
+                      updates.fecha_fin = '';
+                    }
+                    if (movimientoFormData.fecha_esperada_movimiento && val && movimientoFormData.fecha_esperada_movimiento < val) {
+                      updates.fecha_esperada_movimiento = '';
+                    }
+                    setMovimientoFormData({ ...movimientoFormData, ...updates });
+                  }}
                   data-testid="input-fecha-inicio"
                 />
               </div>
@@ -2309,6 +2319,7 @@ export const RegistroForm = () => {
                   id="fecha-fin"
                   type="date"
                   value={movimientoFormData.fecha_fin}
+                  min={movimientoFormData.fecha_inicio || undefined}
                   onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_fin: e.target.value })}
                   data-testid="input-fecha-fin"
                 />
@@ -2322,6 +2333,7 @@ export const RegistroForm = () => {
                   id="fecha-esperada"
                   type="date"
                   value={movimientoFormData.fecha_esperada_movimiento}
+                  min={movimientoFormData.fecha_inicio || undefined}
                   onChange={(e) => setMovimientoFormData({ ...movimientoFormData, fecha_esperada_movimiento: e.target.value })}
                   data-testid="input-fecha-esperada-movimiento"
                 />
