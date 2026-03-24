@@ -327,13 +327,14 @@ async def create_arreglo(
         if not fallado:
             raise HTTPException(status_code=404, detail="Fallado no encontrado")
 
-        # Validate: sum of arreglos.cantidad_enviada <= fallado.cantidad_reparable
+        # Validate: sum of arreglos.cantidad_enviada <= fallado.cantidad_detectada
         existing_sum = await conn.fetchval(
             "SELECT COALESCE(SUM(cantidad_enviada),0) FROM prod_arreglos WHERE fallado_id = $1",
             input.fallado_id
         )
-        if safe_int(existing_sum) + input.cantidad_enviada > fallado["cantidad_reparable"]:
-            raise HTTPException(status_code=400, detail="Cantidad de arreglos excede las reparables del fallado")
+        disponible = fallado["cantidad_detectada"] - safe_int(existing_sum)
+        if input.cantidad_enviada > disponible:
+            raise HTTPException(status_code=400, detail=f"Cantidad excede disponible ({disponible} de {fallado['cantidad_detectada']})")
 
         aid = str(uuid.uuid4())
         # Convert fecha_envio string to date object for asyncpg
@@ -452,6 +453,14 @@ async def liquidacion_directa(
 
         if input.cantidad < 1:
             raise HTTPException(status_code=400, detail="Cantidad debe ser mayor a 0")
+
+        existing_sum = await conn.fetchval(
+            "SELECT COALESCE(SUM(cantidad_enviada),0) FROM prod_arreglos WHERE fallado_id = $1",
+            input.fallado_id
+        )
+        disponible = fallado["cantidad_detectada"] - safe_int(existing_sum)
+        if input.cantidad > disponible:
+            raise HTTPException(status_code=400, detail=f"Cantidad excede disponible ({disponible} de {fallado['cantidad_detectada']})")
 
         aid = str(uuid.uuid4())
         today = date.today()
