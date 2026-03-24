@@ -1908,11 +1908,13 @@ export const RegistroForm = () => {
 
             {/* Trazabilidad Unificada (solo en modo edición) */}
             {isEditing && (
-              <TrazabilidadPanel
-                registroId={id}
-                servicios={serviciosProduccion}
-                personas={personasProduccion}
-              />
+              <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
+                <TrazabilidadPanel
+                  registroId={id}
+                  servicios={serviciosProduccion}
+                  personas={personasProduccion}
+                />
+              </div>
             )}
           </div>
 

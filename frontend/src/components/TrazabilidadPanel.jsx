@@ -409,13 +409,13 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
             {balance.cantidad_inicial > 0 && (() => {
               const total = balance.cantidad_inicial;
               const segments = [
-                { val: balance.en_produccion, color: 'bg-blue-500', label: 'Produccion' },
-                { val: balance.fallados_en_arreglo, color: 'bg-violet-500', label: 'En arreglo' },
-                { val: balance.fallados_reparados, color: 'bg-green-500', label: 'Reparados' },
-                { val: balance.fallados_liquidados, color: 'bg-red-500', label: 'Liquidados' },
-                { val: balance.fallados_sin_asignar, color: 'bg-orange-400', label: 'Sin asignar' },
-                { val: balance.mermas, color: 'bg-amber-500', label: 'Mermas' },
-                { val: balance.divididos, color: 'bg-cyan-500', label: 'Divididos' },
+                { val: balance.en_produccion || 0, color: 'bg-blue-500', label: 'Produccion' },
+                { val: balance.fallados_en_arreglo || 0, color: 'bg-violet-500', label: 'En arreglo' },
+                { val: balance.fallados_reparados || 0, color: 'bg-green-500', label: 'Reparados' },
+                { val: balance.fallados_liquidados || 0, color: 'bg-red-500', label: 'Liquidados' },
+                { val: balance.fallados_sin_asignar || 0, color: 'bg-orange-400', label: 'Sin asignar' },
+                { val: balance.mermas || 0, color: 'bg-amber-500', label: 'Mermas' },
+                { val: balance.divididos || 0, color: 'bg-cyan-500', label: 'Divididos' },
               ].filter(s => s.val > 0);
               return (
                 <div>
@@ -498,7 +498,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
               {/* Verificación de suma */}
               {(() => {
-                const suma = balance.en_produccion + balance.fallados_total - balance.fallados_reparados + balance.mermas + balance.divididos;
+                const suma = (balance.en_produccion || 0) + (balance.fallados_total || 0) - (balance.fallados_reparados || 0) + (balance.mermas || 0) + (balance.divididos || 0);
                 const cuadra = suma === balance.cantidad_inicial;
                 return (
                   <div className={`flex items-center justify-between pt-1 border-t font-semibold ${cuadra ? 'text-green-600' : 'text-red-600'}`}>
