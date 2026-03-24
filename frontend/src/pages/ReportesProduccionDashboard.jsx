@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 import {
-  Activity, AlertTriangle, Clock, Package, GitBranch, TrendingUp, Layers, Users,
+  Activity, AlertTriangle, Clock, Package, GitBranch, TrendingUp, Layers, Users, Shield,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -132,6 +132,13 @@ export const ReportesProduccionDashboard = () => {
           testId="kpi-servicios"
           onClick={() => navigate('/reportes/balance-terceros')}
         />
+        <KpiCard
+          title="Trazabilidad General"
+          value="Ver"
+          icon={Shield}
+          testId="kpi-trazabilidad-general"
+          onClick={() => navigate('/reportes/trazabilidad-general')}
+        />
       </div>
 
       {/* Charts */}
@@ -238,6 +245,7 @@ export const ReportesProduccionDashboard = () => {
               { label: 'Cumplimiento de Ruta', to: '/reportes/cumplimiento-ruta', icon: TrendingUp },
               { label: 'Balance por Terceros', to: '/reportes/balance-terceros', icon: Users },
               { label: 'Lotes Fraccionados', to: '/reportes/lotes-fraccionados', icon: GitBranch },
+              { label: 'Trazabilidad General', to: '/reportes/trazabilidad-general', icon: Shield },
             ].map(link => (
               <button
                 key={link.to}

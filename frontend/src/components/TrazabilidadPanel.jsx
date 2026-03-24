@@ -395,30 +395,123 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       {/* Balance del Lote */}
       {balance && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4 text-blue-500" />
-              Balance del Lote
-            </CardTitle>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Shield className="h-4 w-4 text-blue-500" />
+                Balance del Lote
+              </CardTitle>
+              <span className="text-xs text-muted-foreground font-mono">Total: {balance.cantidad_inicial}</span>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-              <BalanceCard label="Inicial" value={balance.cantidad_inicial} color="primary" />
-              <BalanceCard label="Faltante" value={balance.extraviado_faltante} color={balance.extraviado_faltante > 0 ? 'warning' : 'default'} />
-              <BalanceCard label="Fallados" value={balance.fallados_detectados} color={balance.fallados_detectados > 0 ? 'danger' : 'default'}
-                sub={balance.fallados_detectados > 0 ? `${balance.reparables}R / ${balance.no_reparables}NR` : undefined} />
-              <BalanceCard label="Reparados" value={balance.reparados_cerrados} color={balance.reparados_cerrados > 0 ? 'success' : 'default'} />
-              <BalanceCard label="Pend. Arreglo" value={balance.pendientes_arreglo} color={balance.pendientes_arreglo > 0 ? 'warning' : 'default'}
-                sub={balance.arreglos_vencidos > 0 ? `${balance.arreglos_vencidos} vencidos` : undefined} />
-              <BalanceCard label="Liquidacion" value={balance.liquidacion + balance.segunda + balance.descarte}
-                color={(balance.liquidacion + balance.segunda + balance.descarte) > 0 ? 'danger' : 'default'}
-                sub={balance.liquidacion > 0 || balance.segunda > 0 || balance.descarte > 0
-                  ? `L:${balance.liquidacion} S:${balance.segunda} D:${balance.descarte}` : undefined} />
+          <CardContent className="space-y-3">
+            {/* Barra de distribución visual */}
+            {balance.cantidad_inicial > 0 && (() => {
+              const total = balance.cantidad_inicial;
+              const segments = [
+                { val: balance.en_produccion, color: 'bg-blue-500', label: 'Produccion' },
+                { val: balance.fallados_en_arreglo, color: 'bg-violet-500', label: 'En arreglo' },
+                { val: balance.fallados_reparados, color: 'bg-green-500', label: 'Reparados' },
+                { val: balance.fallados_liquidados, color: 'bg-red-500', label: 'Liquidados' },
+                { val: balance.fallados_sin_asignar, color: 'bg-orange-400', label: 'Sin asignar' },
+                { val: balance.mermas, color: 'bg-amber-500', label: 'Mermas' },
+                { val: balance.divididos, color: 'bg-cyan-500', label: 'Divididos' },
+              ].filter(s => s.val > 0);
+              return (
+                <div>
+                  <div className="flex h-3 rounded-full overflow-hidden border">
+                    {segments.map((s, i) => (
+                      <div key={i} className={`${s.color} transition-all`} style={{ width: `${(s.val / total) * 100}%` }} title={`${s.label}: ${s.val}`} />
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                    {segments.map((s, i) => (
+                      <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className={`inline-block w-2 h-2 rounded-sm ${s.color}`} />
+                        {s.label}: {s.val}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <Separator />
+
+            {/* Distribución detallada */}
+            <div className="space-y-1.5 text-sm">
+              <div className="flex items-center justify-between font-semibold border-b pb-1">
+                <span>Inicial</span>
+                <span className="font-mono">{balance.cantidad_inicial}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-blue-700 dark:text-blue-400">
+                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-blue-500" /> En produccion</span>
+                <span className="font-mono">{balance.en_produccion}</span>
+              </div>
+
+              {balance.fallados_total > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-red-700 dark:text-red-400">
+                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-500" /> Fallados</span>
+                    <span className="font-mono">{balance.fallados_total}</span>
+                  </div>
+                  <div className="pl-5 space-y-0.5 text-xs text-muted-foreground">
+                    {balance.fallados_en_arreglo > 0 && (
+                      <div className="flex justify-between">
+                        <span>En arreglo{balance.arreglos_vencidos > 0 ? ` (${balance.arreglos_vencidos} vencidos)` : ''}</span>
+                        <span className="font-mono">{balance.fallados_en_arreglo}</span>
+                      </div>
+                    )}
+                    {balance.fallados_reparados > 0 && (
+                      <div className="flex justify-between text-green-600">
+                        <span>Reparados (reintegrados)</span>
+                        <span className="font-mono">{balance.fallados_reparados}</span>
+                      </div>
+                    )}
+                    {balance.liquidacion > 0 && <div className="flex justify-between"><span>Liquidacion</span><span className="font-mono">{balance.liquidacion}</span></div>}
+                    {balance.segunda > 0 && <div className="flex justify-between"><span>Segunda</span><span className="font-mono">{balance.segunda}</span></div>}
+                    {balance.descarte > 0 && <div className="flex justify-between"><span>Descarte</span><span className="font-mono">{balance.descarte}</span></div>}
+                    {balance.fallados_sin_asignar > 0 && (
+                      <div className="flex justify-between text-orange-600 font-medium">
+                        <span>Sin asignar</span>
+                        <span className="font-mono">{balance.fallados_sin_asignar}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {balance.mermas > 0 && (
+                <div className="flex items-center justify-between text-amber-700 dark:text-amber-400">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500" /> Mermas/Faltantes</span>
+                  <span className="font-mono">{balance.mermas}</span>
+                </div>
+              )}
+
+              {balance.divididos > 0 && (
+                <div className="flex items-center justify-between text-cyan-700 dark:text-cyan-400">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-cyan-500" /> Divididos (lotes hijos)</span>
+                  <span className="font-mono">{balance.divididos}</span>
+                </div>
+              )}
+
+              {/* Verificación de suma */}
+              {(() => {
+                const suma = balance.en_produccion + balance.fallados_total - balance.fallados_reparados + balance.mermas + balance.divididos;
+                const cuadra = suma === balance.cantidad_inicial;
+                return (
+                  <div className={`flex items-center justify-between pt-1 border-t font-semibold ${cuadra ? 'text-green-600' : 'text-red-600'}`}>
+                    <span>{cuadra ? 'Total' : 'Total (descuadre)'}</span>
+                    <span className="font-mono">{cuadra ? balance.cantidad_inicial : suma} {cuadra ? '=' : '≠'} {balance.cantidad_inicial}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Padre / Hijos */}
             {(balance.padre || balance.hijos?.length > 0) && (
-              <div className="mt-3 pt-3 border-t">
+              <div className="pt-2 border-t">
                 <div className="flex flex-wrap gap-2 text-xs">
                   {balance.padre && (
                     <Badge variant="outline" className="gap-1">

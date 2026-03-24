@@ -610,27 +610,134 @@ async def resumen_cantidades(
             # Only alert if padre was split but quantities don't add up
             pass
 
+        # ---- Distribución que suma al total ----
+        # Fallados sin asignar = detectados - (en arreglo pendiente + en arreglo resuelto + liquidados directo)
+        fallados_en_arreglo_pendiente = arreglos_pendientes
+        fallados_en_arreglo_resuelto_buenos = arreglos_resueltos  # volvieron a producción
+        fallados_liquidados = total_liquidacion + total_segunda + total_descarte
+        fallados_sin_asignar = fallados_detectados - sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows)
+
+        # En producción = inicial - mermas - fallados + reparados que volvieron
+        en_produccion = cantidad_inicial - safe_int(merma_total) - fallados_detectados + fallados_en_arreglo_resuelto_buenos - total_hijos_prendas
+
         return {
             "registro_id": registro_id,
             "n_corte": reg["n_corte"],
             "estado": reg["estado"],
             "cantidad_inicial": cantidad_inicial,
-            "extraviado_faltante": safe_int(merma_total),
-            "fallados_detectados": fallados_detectados,
-            "reparables": total_reparable,
-            "no_reparables": total_no_reparable,
-            "reparados_cerrados": arreglos_resueltos,
-            "pendientes_arreglo": arreglos_pendientes,
-            "arreglos_vencidos": arreglos_vencidos,
+            # Distribución (suma = cantidad_inicial)
+            "en_produccion": max(en_produccion, 0),
+            "mermas": safe_int(merma_total),
+            "fallados_total": fallados_detectados,
+            "fallados_en_arreglo": fallados_en_arreglo_pendiente,
+            "fallados_reparados": fallados_en_arreglo_resuelto_buenos,
+            "fallados_liquidados": fallados_liquidados,
+            "fallados_sin_asignar": max(fallados_sin_asignar, 0),
+            "divididos": total_hijos_prendas,
+            # Desglose liquidación
             "liquidacion": total_liquidacion,
             "segunda": total_segunda,
             "descarte": total_descarte,
+            # Desglose fallados
+            "reparables": total_reparable,
+            "no_reparables": total_no_reparable,
             "no_reparables_pendiente": no_rep_pendiente,
-            "ingresadas_pt": max(ingresadas_pt, 0),
+            # Arreglos detalle
+            "arreglos_vencidos": arreglos_vencidos,
+            # Padre/hijos
             "padre": padre,
             "hijos": hijos_data,
             "alertas": alertas,
         }
+
+
+# ==================== REPORTE TRAZABILIDAD GENERAL ====================
+
+@router.get("/reporte-trazabilidad")
+async def reporte_trazabilidad(
+    current_user: dict = Depends(get_current_user),
+):
+    """Resumen de trazabilidad de todos los registros activos."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registros = await conn.fetch("""
+            SELECT r.id, r.n_corte, r.estado, r.estado_op,
+                   m.nombre as modelo_nombre, ma.nombre as marca,
+                   COALESCE((SELECT SUM(rt.cantidad_real) FROM prod_registro_tallas rt WHERE rt.registro_id = r.id), 0) as cantidad_inicial
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            ORDER BY r.n_corte
+        """)
+
+        resultado = []
+        for reg in registros:
+            rid = reg["id"]
+            ci = safe_int(reg["cantidad_inicial"])
+
+            merma = safe_int(await conn.fetchval(
+                "SELECT COALESCE(SUM(cantidad),0) FROM prod_mermas WHERE registro_id = $1", rid))
+
+            fallados_total = safe_int(await conn.fetchval(
+                "SELECT COALESCE(SUM(cantidad_detectada),0) FROM prod_fallados WHERE registro_id = $1", rid))
+
+            arreglos_rows = await conn.fetch("SELECT * FROM prod_arreglos WHERE registro_id = $1", rid)
+            en_arreglo = sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows if a["estado"] in ("PENDIENTE", "EN_PROCESO"))
+            reparados = sum(safe_int(a["cantidad_resuelta"]) for a in arreglos_rows if a["estado"] == "RESUELTO")
+            liquidados = sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a["estado"] == "RESUELTO")
+            sin_asignar = fallados_total - sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows)
+            en_produccion = max(ci - merma - fallados_total + reparados, 0)
+
+            vencidos = 0
+            for a in arreglos_rows:
+                if a["estado"] in ("PENDIENTE", "EN_PROCESO") and a.get("fecha_limite"):
+                    try:
+                        lim = a["fecha_limite"] if isinstance(a["fecha_limite"], date) else date.fromisoformat(str(a["fecha_limite"])[:10])
+                        if lim < date.today():
+                            vencidos += safe_int(a["cantidad_enviada"])
+                    except:
+                        pass
+
+            divididos = safe_int(await conn.fetchval(
+                "SELECT COALESCE(SUM(rt.cantidad_real),0) FROM prod_registro_tallas rt JOIN prod_registros r ON rt.registro_id = r.id WHERE r.dividido_desde_registro_id = $1", rid))
+
+            tiene_novedades = fallados_total > 0 or merma > 0 or divididos > 0
+
+            resultado.append({
+                "id": rid,
+                "n_corte": reg["n_corte"],
+                "estado": reg["estado"],
+                "modelo": reg["modelo_nombre"] or "",
+                "marca": reg["marca"] or "",
+                "cantidad_inicial": ci,
+                "en_produccion": en_produccion,
+                "fallados_total": fallados_total,
+                "en_arreglo": en_arreglo,
+                "reparados": reparados,
+                "liquidados": liquidados,
+                "sin_asignar": max(sin_asignar, 0),
+                "mermas": merma,
+                "divididos": divididos,
+                "vencidos": vencidos,
+                "tiene_novedades": tiene_novedades,
+            })
+
+        # Totales generales
+        totales = {
+            "registros": len(resultado),
+            "cantidad_inicial": sum(r["cantidad_inicial"] for r in resultado),
+            "en_produccion": sum(r["en_produccion"] for r in resultado),
+            "fallados_total": sum(r["fallados_total"] for r in resultado),
+            "en_arreglo": sum(r["en_arreglo"] for r in resultado),
+            "reparados": sum(r["reparados"] for r in resultado),
+            "liquidados": sum(r["liquidados"] for r in resultado),
+            "sin_asignar": sum(r["sin_asignar"] for r in resultado),
+            "mermas": sum(r["mermas"] for r in resultado),
+            "divididos": sum(r["divididos"] for r in resultado),
+            "vencidos": sum(r["vencidos"] for r in resultado),
+        }
+
+        return {"registros": resultado, "totales": totales}
 
 
 # ==================== TRAZABILIDAD COMPLETA ====================

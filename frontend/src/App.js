@@ -47,6 +47,7 @@ import { ReporteCumplimientoRuta } from "./pages/ReporteCumplimientoRuta";
 import { ReporteBalanceTerceros } from "./pages/ReporteBalanceTerceros";
 import { ReporteLotesFraccionados } from "./pages/ReporteLotesFraccionados";
 import { MatrizProduccion } from "./pages/MatrizProduccion";
+import TrazabilidadReporte from "./pages/TrazabilidadReporte";
 import { Loader2 } from "lucide-react";
 
 // Componente de ruta protegida
@@ -148,6 +149,7 @@ function AppRoutes() {
         <Route path="reportes/balance-terceros" element={<ReporteBalanceTerceros />} />
         <Route path="reportes/lotes-fraccionados" element={<ReporteLotesFraccionados />} />
         <Route path="reportes/matriz" element={<MatrizProduccion />} />
+        <Route path="reportes/trazabilidad-general" element={<TrazabilidadReporte />} />
       </Route>
       
       {/* Redirigir cualquier ruta desconocida a login */}
