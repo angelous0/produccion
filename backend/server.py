@@ -6279,6 +6279,7 @@ from routes.cierre_v2 import router as cierre_v2_router
 from routes.reportes import router as reportes_router
 from routes.integracion_finanzas import router as integracion_finanzas_router
 from routes.control_produccion import router as control_produccion_router
+from routes.reportes_produccion import router as reportes_produccion_router
 
 
 # ==================== DIVISIÓN DE LOTE ====================
@@ -6564,3 +6565,4 @@ from routes.bom import router as bom_router
 app.include_router(bom_router)
 
 app.include_router(control_produccion_router)
+app.include_router(reportes_produccion_router)

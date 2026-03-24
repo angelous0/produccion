@@ -38,6 +38,14 @@ import { ReporteEstadosItem } from "./pages/ReporteEstadosItem";
 import { GuiasRemision } from "./pages/GuiasRemision";
 import { HilosEspecificos } from "./pages/HilosEspecificos";
 import { ReporteMPValorizado, ReporteWIP, ReportePTValorizado } from "./pages/ReportesValorizacion";
+import { ReportesProduccionDashboard } from "./pages/ReportesProduccionDashboard";
+import { ReporteEnProceso } from "./pages/ReporteEnProceso";
+import { ReporteWIPEtapa } from "./pages/ReporteWIPEtapa";
+import { ReporteAtrasados } from "./pages/ReporteAtrasados";
+import { ReporteTrazabilidad } from "./pages/ReporteTrazabilidad";
+import { ReporteCumplimientoRuta } from "./pages/ReporteCumplimientoRuta";
+import { ReporteBalanceTerceros } from "./pages/ReporteBalanceTerceros";
+import { ReporteLotesFraccionados } from "./pages/ReporteLotesFraccionados";
 import { Loader2 } from "lucide-react";
 
 // Componente de ruta protegida
@@ -130,6 +138,14 @@ function AppRoutes() {
         <Route path="reportes/mp-valorizado" element={<ReporteMPValorizado />} />
         <Route path="reportes/wip" element={<ReporteWIP />} />
         <Route path="reportes/pt-valorizado" element={<ReportePTValorizado />} />
+        <Route path="reportes/dashboard" element={<ReportesProduccionDashboard />} />
+        <Route path="reportes/en-proceso" element={<ReporteEnProceso />} />
+        <Route path="reportes/wip-etapa" element={<ReporteWIPEtapa />} />
+        <Route path="reportes/atrasados" element={<ReporteAtrasados />} />
+        <Route path="reportes/trazabilidad/:registroId" element={<ReporteTrazabilidad />} />
+        <Route path="reportes/cumplimiento-ruta" element={<ReporteCumplimientoRuta />} />
+        <Route path="reportes/balance-terceros" element={<ReporteBalanceTerceros />} />
+        <Route path="reportes/lotes-fraccionados" element={<ReporteLotesFraccionados />} />
       </Route>
       
       {/* Redirigir cualquier ruta desconocida a login */}

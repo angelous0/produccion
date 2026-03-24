@@ -59,7 +59,11 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeft,
-  Database
+  Database,
+  Activity,
+  Clock,
+  GitBranch,
+  TrendingUp,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -114,6 +118,16 @@ const valorizacionItems = [
   { to: '/reportes/mp-valorizado', icon: Package, label: 'MP Valorizado' },
   { to: '/reportes/wip', icon: ClipboardList, label: 'WIP (En Proceso)' },
   { to: '/reportes/pt-valorizado', icon: Box, label: 'PT Valorizado' },
+];
+
+const reportesProduccionItems = [
+  { to: '/reportes/dashboard', icon: Activity, label: 'Dashboard' },
+  { to: '/reportes/en-proceso', icon: ClipboardList, label: 'En Proceso' },
+  { to: '/reportes/wip-etapa', icon: Layers, label: 'WIP por Etapa' },
+  { to: '/reportes/atrasados', icon: AlertTriangle, label: 'Atrasados' },
+  { to: '/reportes/cumplimiento-ruta', icon: TrendingUp, label: 'Cumplimiento Ruta' },
+  { to: '/reportes/balance-terceros', icon: Users, label: 'Balance Terceros' },
+  { to: '/reportes/lotes-fraccionados', icon: GitBranch, label: 'Fraccionados' },
 ];
 
 function ScrollToTop() {
@@ -465,6 +479,29 @@ export const Layout = () => {
                   `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-${item.label.toLowerCase()}`}
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
+              </NavLink>
+            ))}
+
+            {/* Separador Reportes Producción */}
+            <div className="mt-4 mb-2">
+              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
+                Reportes Producción
+              </p>
+              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
+            </div>
+            {reportesProduccionItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
+                }
+                data-testid={`nav-rep-${item.label.toLowerCase().replace(/ /g, '-')}`}
                 title={sidebarCollapsed ? item.label : undefined}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />
