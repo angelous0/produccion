@@ -6358,6 +6358,25 @@ async def dividir_lote(registro_id: str, body: DivisionLoteRequest):
             json.dumps(nuevas_tallas_padre), registro_id
         )
         
+        # Sincronizar prod_registro_tallas del padre (actualizar cantidades)
+        for tp in nuevas_tallas_padre:
+            await conn.execute(
+                "UPDATE prod_registro_tallas SET cantidad_real = $1, updated_at = CURRENT_TIMESTAMP WHERE registro_id = $2 AND talla_id = $3",
+                tp['cantidad'], registro_id, tp['talla_id']
+            )
+        
+        # Crear prod_registro_tallas del hijo
+        # Obtener empresa_id real desde los registros existentes
+        empresa_id_real = await conn.fetchval(
+            "SELECT empresa_id FROM prod_registro_tallas WHERE registro_id = $1 LIMIT 1", registro_id
+        ) or 7
+        for th in tallas_hijo_final:
+            await conn.execute(
+                """INSERT INTO prod_registro_tallas (id, registro_id, talla_id, cantidad_real, empresa_id, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
+                str(uuid.uuid4()), hijo_id, th['talla_id'], th['cantidad'], empresa_id_real
+            )
+        
         return {
             "mensaje": f"Lote dividido exitosamente. Nuevo registro: {n_corte_hijo}",
             "registro_hijo_id": hijo_id,
@@ -6463,6 +6482,26 @@ async def reunificar_lote(registro_id: str):
             "UPDATE prod_registros SET tallas = $1::jsonb WHERE id = $2",
             json.dumps(nuevas_tallas), padre_id
         )
+        
+        # Sincronizar prod_registro_tallas del padre
+        for tp in nuevas_tallas:
+            existing = await conn.fetchval(
+                "SELECT id FROM prod_registro_tallas WHERE registro_id = $1 AND talla_id = $2", padre_id, tp['talla_id']
+            )
+            if existing:
+                await conn.execute(
+                    "UPDATE prod_registro_tallas SET cantidad_real = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                    tp['cantidad'], existing
+                )
+            else:
+                await conn.execute(
+                    """INSERT INTO prod_registro_tallas (id, registro_id, talla_id, cantidad_real, empresa_id, created_at, updated_at)
+                       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
+                    str(uuid.uuid4()), padre_id, tp['talla_id'], tp['cantidad'], 7
+                )
+        
+        # Eliminar prod_registro_tallas del hijo
+        await conn.execute("DELETE FROM prod_registro_tallas WHERE registro_id = $1", registro_id)
         
         # Eliminar incidencias y paralizaciones del hijo
         await conn.execute("DELETE FROM prod_incidencia WHERE registro_id = $1", registro_id)
