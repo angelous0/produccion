@@ -672,3 +672,248 @@ async def get_filtros_reportes(
             "modelos": [{"id": r["id"], "nombre": r["nombre"]} for r in modelos],
             "estados": [r["estado"] for r in estados],
         }
+
+
+
+# ==================== 9. MATRIZ DINÁMICA ====================
+
+@router.get("/matriz")
+async def matriz_produccion(
+    empresa_id: int = Query(6),
+    ruta_id: Optional[str] = None,
+    marca_id: Optional[str] = None,
+    tipo_id: Optional[str] = None,
+    entalle_id: Optional[str] = None,
+    tela_id: Optional[str] = None,
+    hilo_id: Optional[str] = None,
+    modelo_id: Optional[str] = None,
+    estado: Optional[str] = None,
+    solo_atrasados: bool = False,
+    solo_activos: bool = True,
+    solo_fraccionados: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Matriz dinámica de producción.
+    Filas = Item (Marca-Tipo-Entalle-Tela) + Hilo.
+    Columnas = Estados de producción (dinámicos según ruta).
+    Valores = Registros y Prendas por celda.
+
+    Regla fraccionados: Se incluyen TODOS los registros (padres y hijos).
+    Las prendas de prod_registro_tallas ya reflejan la distribución correcta
+    tras la división, por lo que no hay duplicación.
+
+    Regla prendas: Se usa SUM(prod_registro_tallas.cantidad_real).
+    Si no existe detalle en la tabla, se hace fallback a la suma del campo
+    JSONB tallas del registro.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+
+        # ── 1. Determinar columnas (estados) ──────────────────────
+        if ruta_id:
+            ruta_row = await conn.fetchrow(
+                "SELECT etapas FROM prod_rutas_produccion WHERE id = $1", ruta_id
+            )
+            if not ruta_row:
+                raise HTTPException(status_code=404, detail="Ruta no encontrada")
+            etapas_ruta = parse_jsonb(ruta_row["etapas"])
+            columnas = [
+                e["nombre"] for e in etapas_ruta if e.get("aparece_en_estado")
+            ]
+        else:
+            # Sin filtro de ruta: unir etapas visibles de TODAS las rutas activas,
+            # deduplicar, y ordenar por posición promedio.
+            all_rutas = await conn.fetch("SELECT etapas FROM prod_rutas_produccion")
+            col_positions = {}  # nombre -> list of positions
+            for rr in all_rutas:
+                etapas = parse_jsonb(rr["etapas"])
+                pos = 0
+                for e in etapas:
+                    if e.get("aparece_en_estado"):
+                        name = e["nombre"]
+                        col_positions.setdefault(name, []).append(pos)
+                        pos += 1
+            # Ordenar por posición promedio
+            columnas = sorted(
+                col_positions.keys(),
+                key=lambda n: sum(col_positions[n]) / len(col_positions[n]),
+            )
+
+        if not columnas:
+            columnas = ["Sin estado"]
+
+        # ── 2. Query principal: un registro por fila ──────────────
+        where_clauses = ["r.empresa_id = $1"]
+        params = [empresa_id]
+
+        if solo_activos:
+            where_clauses.append("r.estado_op IN ('ABIERTA','EN_PROCESO')")
+
+        if ruta_id:
+            params.append(ruta_id)
+            where_clauses.append(f"m.ruta_produccion_id = ${len(params)}")
+        if marca_id:
+            params.append(marca_id)
+            where_clauses.append(f"m.marca_id = ${len(params)}")
+        if tipo_id:
+            params.append(tipo_id)
+            where_clauses.append(f"m.tipo_id = ${len(params)}")
+        if entalle_id:
+            params.append(entalle_id)
+            where_clauses.append(f"m.entalle_id = ${len(params)}")
+        if tela_id:
+            params.append(tela_id)
+            where_clauses.append(f"m.tela_id = ${len(params)}")
+        if hilo_id:
+            params.append(hilo_id)
+            where_clauses.append(f"m.hilo_id = ${len(params)}")
+        if modelo_id:
+            params.append(modelo_id)
+            where_clauses.append(f"r.modelo_id = ${len(params)}")
+        if estado:
+            params.append(estado)
+            where_clauses.append(f"r.estado = ${len(params)}")
+        if solo_atrasados:
+            where_clauses.append(
+                "(r.fecha_entrega_final < CURRENT_DATE OR EXISTS ("
+                "SELECT 1 FROM prod_movimientos_produccion mp "
+                "WHERE mp.registro_id = r.id "
+                "AND mp.fecha_esperada_movimiento < CURRENT_DATE "
+                "AND mp.fecha_fin IS NULL))"
+            )
+        if solo_fraccionados:
+            where_clauses.append(
+                "(r.dividido_desde_registro_id IS NOT NULL OR EXISTS ("
+                "SELECT 1 FROM prod_registros ch WHERE ch.dividido_desde_registro_id = r.id))"
+            )
+
+        where_sql = " AND ".join(where_clauses)
+
+        rows = await conn.fetch(f"""
+            SELECT
+                r.id, r.n_corte, r.estado, r.estado_op, r.urgente,
+                r.fecha_entrega_final, r.tallas as tallas_jsonb,
+                r.dividido_desde_registro_id,
+                COALESCE(ma.id,'')   as marca_id,
+                COALESCE(ma.nombre,'Sin marca')  as marca,
+                COALESCE(tp.id,'')   as tipo_id_val,
+                COALESCE(tp.nombre,'Sin tipo')   as tipo,
+                COALESCE(en.id,'')   as entalle_id_val,
+                COALESCE(en.nombre,'Sin entalle') as entalle,
+                COALESCE(te.id,'')   as tela_id_val,
+                COALESCE(te.nombre,'Sin tela')   as tela,
+                COALESCE(hi.id,'')   as hilo_id_val,
+                COALESCE(hi.nombre,'Sin hilo')   as hilo,
+                m.nombre  as modelo_nombre,
+                rp.nombre as ruta_nombre,
+                COALESCE(rt_sum.prendas, 0) as prendas_tabla
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m  ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma  ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos tp   ON m.tipo_id = tp.id
+            LEFT JOIN prod_entalles en ON m.entalle_id = en.id
+            LEFT JOIN prod_telas te   ON m.tela_id = te.id
+            LEFT JOIN prod_hilos hi   ON m.hilo_id = hi.id
+            LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(rt.cantidad_real), 0) as prendas
+                FROM prod_registro_tallas rt WHERE rt.registro_id = r.id
+            ) rt_sum ON true
+            WHERE {where_sql}
+            ORDER BY ma.nombre, tp.nombre, en.nombre, te.nombre, hi.nombre, r.n_corte
+        """, *params)
+
+        # ── 3. Calcular prendas con fallback ──────────────────────
+        def calc_prendas(row):
+            """prod_registro_tallas primero; fallback a JSONB tallas."""
+            p = safe_int(row["prendas_tabla"])
+            if p > 0:
+                return p
+            tallas = parse_jsonb(row["tallas_jsonb"])
+            return sum(safe_int(t.get("cantidad", 0)) for t in tallas)
+
+        # ── 4. Agrupar en memoria ─────────────────────────────────
+        # Clave de agrupación: (marca, tipo, entalle, tela, hilo)
+        groups = {}   # key -> {celdas, detalle, meta}
+        for r in rows:
+            key = (r["marca"], r["tipo"], r["entalle"], r["tela"], r["hilo"])
+            prendas = calc_prendas(r)
+            est = r["estado"]
+
+            if key not in groups:
+                groups[key] = {
+                    "marca": r["marca"],
+                    "tipo": r["tipo"],
+                    "entalle": r["entalle"],
+                    "tela": r["tela"],
+                    "hilo": r["hilo"],
+                    "item": f"{r['marca']} - {r['tipo']} - {r['entalle']} - {r['tela']}",
+                    "celdas": {},
+                    "total": {"registros": 0, "prendas": 0},
+                    "detalle": [],
+                }
+            g = groups[key]
+
+            # Celda
+            if est not in g["celdas"]:
+                g["celdas"][est] = {"registros": 0, "prendas": 0}
+            g["celdas"][est]["registros"] += 1
+            g["celdas"][est]["prendas"] += prendas
+
+            # Total fila
+            g["total"]["registros"] += 1
+            g["total"]["prendas"] += prendas
+
+            # Detalle
+            g["detalle"].append({
+                "id": r["id"],
+                "n_corte": r["n_corte"],
+                "estado": est,
+                "prendas": prendas,
+                "modelo": r["modelo_nombre"],
+                "ruta": r["ruta_nombre"],
+                "urgente": r["urgente"],
+                "es_hijo": r["dividido_desde_registro_id"] is not None,
+                "fecha_entrega": str(r["fecha_entrega_final"]) if r["fecha_entrega_final"] else None,
+            })
+
+        # ── 5. Construir respuesta ────────────────────────────────
+        filas = list(groups.values())
+
+        # Totales por columna
+        totales_columna = {}
+        total_general = {"registros": 0, "prendas": 0}
+        for f in filas:
+            for col, vals in f["celdas"].items():
+                if col not in totales_columna:
+                    totales_columna[col] = {"registros": 0, "prendas": 0}
+                totales_columna[col]["registros"] += vals["registros"]
+                totales_columna[col]["prendas"] += vals["prendas"]
+            total_general["registros"] += f["total"]["registros"]
+            total_general["prendas"] += f["total"]["prendas"]
+
+        # ── 6. Filtros disponibles para el frontend ───────────────
+        marcas = await conn.fetch("SELECT id, nombre FROM prod_marcas ORDER BY nombre")
+        tipos = await conn.fetch("SELECT id, nombre FROM prod_tipos ORDER BY nombre")
+        entalles = await conn.fetch("SELECT id, nombre FROM prod_entalles ORDER BY nombre")
+        telas = await conn.fetch("SELECT id, nombre FROM prod_telas ORDER BY nombre")
+        hilos = await conn.fetch("SELECT id, nombre FROM prod_hilos ORDER BY nombre")
+        rutas = await conn.fetch("SELECT id, nombre FROM prod_rutas_produccion ORDER BY nombre")
+        modelos = await conn.fetch("SELECT id, nombre FROM prod_modelos ORDER BY nombre")
+
+        return {
+            "columnas": columnas,
+            "filas": filas,
+            "totales_columna": totales_columna,
+            "total_general": total_general,
+            "filtros_disponibles": {
+                "marcas": [{"id": r["id"], "nombre": r["nombre"]} for r in marcas],
+                "tipos": [{"id": r["id"], "nombre": r["nombre"]} for r in tipos],
+                "entalles": [{"id": r["id"], "nombre": r["nombre"]} for r in entalles],
+                "telas": [{"id": r["id"], "nombre": r["nombre"]} for r in telas],
+                "hilos": [{"id": r["id"], "nombre": r["nombre"]} for r in hilos],
+                "rutas": [{"id": r["id"], "nombre": r["nombre"]} for r in rutas],
+                "modelos": [{"id": r["id"], "nombre": r["nombre"]} for r in modelos],
+            },
+        }

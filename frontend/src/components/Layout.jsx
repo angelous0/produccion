@@ -64,6 +64,7 @@ import {
   Clock,
   GitBranch,
   TrendingUp,
+  Grid3X3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -122,6 +123,7 @@ const valorizacionItems = [
 
 const reportesProduccionItems = [
   { to: '/reportes/dashboard', icon: Activity, label: 'Dashboard' },
+  { to: '/reportes/matriz', icon: Grid3X3, label: 'Matriz Dinámica' },
   { to: '/reportes/en-proceso', icon: ClipboardList, label: 'En Proceso' },
   { to: '/reportes/wip-etapa', icon: Layers, label: 'WIP por Etapa' },
   { to: '/reportes/atrasados', icon: AlertTriangle, label: 'Atrasados' },
