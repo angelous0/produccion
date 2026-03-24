@@ -19,7 +19,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import {
   AlertTriangle, Clock, CheckCircle2, XCircle, ArrowRight,
-  Package, Wrench, Trash2, Plus, Eye, ChevronDown, ChevronUp,
+  Package, Wrench, Trash2, Plus, Pencil, ChevronDown, ChevronUp,
   ArrowUpCircle, Shield, Timer, CircleDot,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -87,6 +87,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
   // Dialogs
   const [falladoDialogOpen, setFalladoDialogOpen] = useState(false);
+  const [editingFalladoId, setEditingFalladoId] = useState(null);
   const [arregloDialogOpen, setArregloDialogOpen] = useState(false);
   const [cierreArregloDialogOpen, setCierreArregloDialogOpen] = useState(false);
   const [selectedFallado, setSelectedFallado] = useState(null);
@@ -147,20 +148,42 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // ========== Handlers ==========
-  const handleCreateFallado = async () => {
+  const handleSaveFallado = async () => {
     try {
-      await axios.post(`${API}/fallados`, {
+      const payload = {
         registro_id: registroId,
         ...falladoForm,
         servicio_detectado_id: falladoForm.servicio_detectado_id || null,
-      }, { headers: getHeaders() });
-      toast.success('Fallado registrado');
+      };
+      if (editingFalladoId) {
+        await axios.put(`${API}/fallados/${editingFalladoId}`, payload, { headers: getHeaders() });
+        toast.success('Fallado actualizado');
+      } else {
+        await axios.post(`${API}/fallados`, payload, { headers: getHeaders() });
+        toast.success('Fallado registrado');
+      }
       setFalladoDialogOpen(false);
+      setEditingFalladoId(null);
       resetFalladoForm();
       fetchAll();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Error al crear fallado');
+      toast.error(err.response?.data?.detail || 'Error al guardar fallado');
     }
+  };
+
+  const openEditFallado = (f) => {
+    setEditingFalladoId(f.id);
+    setFalladoForm({
+      cantidad_detectada: f.cantidad_detectada || 0,
+      cantidad_reparable: f.cantidad_reparable || 0,
+      cantidad_no_reparable: f.cantidad_no_reparable || 0,
+      destino_no_reparable: f.destino_no_reparable || 'PENDIENTE',
+      motivo: f.motivo || '',
+      servicio_detectado_id: f.servicio_detectado_id || '',
+      fecha_deteccion: f.fecha_deteccion ? String(f.fecha_deteccion).slice(0, 10) : '',
+      observaciones: f.observaciones || '',
+    });
+    setFalladoDialogOpen(true);
   };
 
   const handleDeleteFallado = async (id) => {
@@ -398,7 +421,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-sm">Productos Fallados</CardTitle>
-              <Button size="sm" type="button" onClick={() => { resetFalladoForm(); setFalladoDialogOpen(true); }} data-testid="btn-nuevo-fallado">
+              <Button size="sm" type="button" onClick={() => { setEditingFalladoId(null); resetFalladoForm(); setFalladoDialogOpen(true); }} data-testid="btn-nuevo-fallado">
                 <Plus className="h-3.5 w-3.5 mr-1" /> Registrar Fallado
               </Button>
             </CardHeader>
@@ -418,6 +441,10 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                             </Badge>
                           </div>
                           <div className="flex items-center gap-1">
+                            <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEditFallado(f)}
+                              title="Editar fallado" data-testid={`btn-edit-fallado-${f.id}`}>
+                              <Pencil className="h-3.5 w-3.5 text-blue-500" />
+                            </Button>
                             <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => openArregloDialog(f)}
                               title="Enviar a arreglo" data-testid={`btn-arreglo-${f.id}`}>
                               <Wrench className="h-3.5 w-3.5 text-violet-500" />
@@ -631,11 +658,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
       {/* ========== DIALOGS ========== */}
 
-      {/* Dialog: Nuevo Fallado */}
-      <Dialog open={falladoDialogOpen} onOpenChange={setFalladoDialogOpen}>
+      {/* Dialog: Nuevo/Editar Fallado */}
+      <Dialog open={falladoDialogOpen} onOpenChange={v => { if (!v) setEditingFalladoId(null); setFalladoDialogOpen(v); }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar Productos Fallados</DialogTitle>
+            <DialogTitle>{editingFalladoId ? 'Editar Fallado' : 'Registrar Productos Fallados'}</DialogTitle>
             <DialogDescription>Indica la cantidad detectada y clasifica en reparables / no reparables.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -700,11 +727,11 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setFalladoDialogOpen(false)}>Cancelar</Button>
-            <Button type="button" onClick={handleCreateFallado}
+            <Button type="button" variant="outline" onClick={() => { setEditingFalladoId(null); setFalladoDialogOpen(false); }}>Cancelar</Button>
+            <Button type="button" onClick={handleSaveFallado}
               disabled={falladoForm.cantidad_detectada < 1 || (falladoForm.cantidad_reparable + falladoForm.cantidad_no_reparable) > falladoForm.cantidad_detectada}
               data-testid="btn-guardar-fallado">
-              Registrar Fallado
+              {editingFalladoId ? 'Guardar Cambios' : 'Registrar Fallado'}
             </Button>
           </DialogFooter>
         </DialogContent>
