@@ -83,6 +83,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
   const [fallados, setFallados] = useState([]);
   const [arreglos, setArreglos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('balance');
 
   // Dialogs
@@ -149,6 +150,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
 
   // ========== Handlers ==========
   const handleSaveFallado = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = {
         registro_id: registroId,
@@ -168,6 +171,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       fetchAll();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al guardar fallado');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -198,7 +203,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
   };
 
   const handleCreateArreglo = async () => {
-    if (!selectedFallado) return;
+    if (!selectedFallado || saving) return;
+    setSaving(true);
     try {
       await axios.post(`${API}/arreglos`, {
         fallado_id: selectedFallado.id,
@@ -213,11 +219,14 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       fetchAll();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al crear arreglo');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCerrarArreglo = async () => {
-    if (!selectedArreglo) return;
+    if (!selectedArreglo || saving) return;
+    setSaving(true);
     try {
       await axios.put(`${API}/arreglos/${selectedArreglo.id}/cerrar`, cierreForm, { headers: getHeaders() });
       toast.success('Arreglo cerrado');
@@ -225,6 +234,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
       fetchAll();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al cerrar arreglo');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -729,9 +740,9 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => { setEditingFalladoId(null); setFalladoDialogOpen(false); }}>Cancelar</Button>
             <Button type="button" onClick={handleSaveFallado}
-              disabled={falladoForm.cantidad_detectada < 1 || (falladoForm.cantidad_reparable + falladoForm.cantidad_no_reparable) > falladoForm.cantidad_detectada}
+              disabled={saving || falladoForm.cantidad_detectada < 1 || (falladoForm.cantidad_reparable + falladoForm.cantidad_no_reparable) > falladoForm.cantidad_detectada}
               data-testid="btn-guardar-fallado">
-              {editingFalladoId ? 'Guardar Cambios' : 'Registrar Fallado'}
+              {saving ? 'Guardando...' : editingFalladoId ? 'Guardar Cambios' : 'Registrar Fallado'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -804,8 +815,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setArregloDialogOpen(false)}>Cancelar</Button>
-            <Button type="button" onClick={handleCreateArreglo} disabled={arregloForm.cantidad_enviada < 1} data-testid="btn-guardar-arreglo">
-              Crear Arreglo
+            <Button type="button" onClick={handleCreateArreglo} disabled={saving || arregloForm.cantidad_enviada < 1} data-testid="btn-guardar-arreglo">
+              {saving ? 'Guardando...' : 'Crear Arreglo'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -862,9 +873,9 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setCierreArregloDialogOpen(false)}>Cancelar</Button>
             <Button type="button" onClick={handleCerrarArreglo}
-              disabled={(cierreForm.cantidad_resuelta + cierreForm.cantidad_no_resuelta) > (selectedArreglo?.cantidad_enviada || 0)}
+              disabled={saving || (cierreForm.cantidad_resuelta + cierreForm.cantidad_no_resuelta) > (selectedArreglo?.cantidad_enviada || 0)}
               data-testid="btn-confirmar-cierre-arreglo">
-              Cerrar Arreglo
+              {saving ? 'Guardando...' : 'Cerrar Arreglo'}
             </Button>
           </DialogFooter>
         </DialogContent>
