@@ -21,49 +21,51 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Validacion min en fechas (fin >= inicio, esperada >= inicio)
 - **Division de Lote (Split)**:
   - POST /api/registros/{id}/dividir: crea registro hijo con tallas seleccionadas
-  - POST /api/registros/{id}/reunificar: merge hijo al padre (si no tiene movimientos/salidas)
-  - GET /api/registros/{id}/divisiones: info de padre, hijos, hermanos
+  - POST /api/registros/{id}/reunificar: merge hijo al padre
   - Nomenclatura automatica: 15-1, 15-2, 15-3...
-  - Divisiones multiples soportadas
   - Sincronizacion JSONB + prod_registro_tallas
-  - Frontend: boton Dividir Lote, dialogo selector tallas, banner de divisiones, links navegables, boton Reunificar
-  - Badges en lista de registros para lotes divididos
+  - Frontend: boton Dividir Lote, dialogo selector tallas, banner de divisiones, links navegables
 - **Performance**: GET registros 5.8s->0.5s, GET modelos 3.3s->0.5s (JOINs)
 - **Rutas editables**: nombre, servicio, obligatorio, aparece_en_estado inline
 - **Modulo Reportes P0** (2026-03-24):
-  - Dashboard KPIs: lotes en proceso, prendas, atrasados, movimientos abiertos, fraccionados
-  - Produccion en Proceso: tabla con filtros (estado, modelo), dias en proceso, movimientos
-  - WIP por Etapa: grafico de barras + tabla con distribucion por estado actual
-  - Lotes Atrasados: tabla con motivo (entrega vencida, movimientos vencidos)
-  - Trazabilidad: timeline cronologico de movimientos por registro, tallas, ruta esperada
-  - Cumplimiento de Ruta: barra de progreso por registro, detalle etapas completadas/pendientes
-  - Balance por Terceros: tabla y grafico por servicio/persona, prendas en poder
-  - Lotes Fraccionados: cards de familias padre/hijo con cantidades
-  - Filtros globales: servicio, ruta, modelo, estado
-  - Navegacion desde sidebar y desde cualquier reporte al detalle
-
-## DB Schema Changes
-- prod_registros: +dividido_desde_registro_id (VARCHAR NULL), +division_numero (INT DEFAULT 0)
+  - Dashboard KPIs, En Proceso, WIP por Etapa, Atrasados, Trazabilidad, Cumplimiento Ruta, Balance Terceros, Lotes Fraccionados
+  - 9 endpoints optimizados, filtros globales, navegacion entre reportes
+- **Matriz Dinamica de Produccion** (2026-03-24):
+  - Reporte tipo Power BI: Filas = Item (Marca-Tipo-Entalle-Tela) + Hilo
+  - Columnas = Estados dinamicos (se adaptan segun ruta seleccionada)
+  - Toggle Registros/Prendas para cambiar metrica en toda la tabla
+  - 7 filtros (Ruta, Marca, Tipo, Entalle, Tela, Hilo, Modelo) + 3 toggles (activos, atrasados, fraccionados)
+  - Columnas visibles configurables con show/hide
+  - Reordenamiento de columnas con botones izq/der
+  - Filas expandibles con detalle (Corte, Estado, Prendas, Modelo, Ruta, Entrega, acciones)
+  - Totales por fila, columna y total general
+  - Columnas sticky (Item + Hilo)
+  - Preferencias guardadas en localStorage
+  - Prendas: usa prod_registro_tallas con fallback a JSONB tallas
+  - Fraccionados: incluye padres e hijos (prendas correctamente distribuidas)
+  - Sin ruta: columnas derivadas de todas las rutas activas (aparece_en_estado)
+  - Con ruta: columnas respetan orden de la ruta seleccionada
 
 ## Key API Endpoints
-- POST /api/registros/{id}/dividir - Division de lote
-- POST /api/registros/{id}/reunificar - Reunificacion de lote hijo
-- GET /api/registros/{id}/divisiones - Info de divisiones
-- GET /api/registros/{id}/analisis-estado - Analisis coherencia
-- POST /api/registros/{id}/validar-cambio-estado - Validacion con bloqueos
-- GET /api/reportes-produccion/dashboard - KPIs dashboard
-- GET /api/reportes-produccion/en-proceso - Produccion en proceso con filtros
-- GET /api/reportes-produccion/wip-etapa - WIP agrupado por etapa
-- GET /api/reportes-produccion/atrasados - Lotes atrasados
-- GET /api/reportes-produccion/trazabilidad/{id} - Timeline de movimientos
-- GET /api/reportes-produccion/cumplimiento-ruta - Cumplimiento ruta con filtros
-- GET /api/reportes-produccion/balance-terceros - Balance por servicio/persona
-- GET /api/reportes-produccion/lotes-fraccionados - Familias de lotes
-- GET /api/reportes-produccion/filtros - Opciones de filtro
+- POST /api/registros/{id}/dividir
+- POST /api/registros/{id}/reunificar
+- GET /api/registros/{id}/analisis-estado
+- POST /api/registros/{id}/validar-cambio-estado
+- GET /api/reportes-produccion/dashboard
+- GET /api/reportes-produccion/en-proceso
+- GET /api/reportes-produccion/wip-etapa
+- GET /api/reportes-produccion/atrasados
+- GET /api/reportes-produccion/trazabilidad/{id}
+- GET /api/reportes-produccion/cumplimiento-ruta
+- GET /api/reportes-produccion/balance-terceros
+- GET /api/reportes-produccion/lotes-fraccionados
+- GET /api/reportes-produccion/filtros
+- GET /api/reportes-produccion/matriz
 
 ## Prioritized Backlog
 ### P0 (COMPLETADO)
 - [x] Modulo Reportes P0 (8 reportes + filtros)
+- [x] Matriz Dinamica de Produccion
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
@@ -74,7 +76,6 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [ ] Limpiar lineas BOM huerfanas
 
 ### P3
-- [ ] Drag-and-drop reordenar tallas
 - [ ] Permisos granulares con usePermissions
 - [ ] Exportacion Excel/PDF
 - [ ] Refactorizar RegistroForm.jsx (~2700 lineas)
