@@ -120,6 +120,11 @@ export const RegistroForm = () => {
   const [sugerenciaMovDialog, setSugerenciaMovDialog] = useState(null); // {servicio_id, servicio_nombre, etapa_nombre}
   const [etapasCompletas, setEtapasCompletas] = useState([]);
 
+  // División de lote
+  const [divisionDialogOpen, setDivisionDialogOpen] = useState(false);
+  const [divisionTallas, setDivisionTallas] = useState([]);
+  const [divisionInfo, setDivisionInfo] = useState(null);
+
   const esUltimaEtapa = estados.length > 0 && formData.estado === estados[estados.length - 1];
   const [movimientoFormData, setMovimientoFormData] = useState({
     servicio_id: '',
@@ -277,8 +282,74 @@ export const RegistroForm = () => {
     if (id) {
       fetchSalidasRegistro();
       fetchMovimientosProduccion();
+      fetchDivisionInfo();
     }
   }, [id]);
+
+  // Cargar info de divisiones
+  const fetchDivisionInfo = async () => {
+    if (!id) return;
+    try {
+      const response = await axios.get(`${API}/registros/${id}/divisiones`);
+      setDivisionInfo(response.data);
+    } catch (error) {
+      // No es crítico
+    }
+  };
+
+  const handleOpenDivision = () => {
+    // Preparar tallas para el diálogo de división (cantidad 0 por defecto)
+    setDivisionTallas(tallasSeleccionadas.map(t => ({
+      talla_id: t.talla_id,
+      talla_nombre: t.talla_nombre,
+      cantidad_disponible: t.cantidad,
+      cantidad_dividir: 0,
+    })));
+    setDivisionDialogOpen(true);
+  };
+
+  const handleDividirLote = async () => {
+    const tallasConCantidad = divisionTallas.filter(t => t.cantidad_dividir > 0);
+    if (tallasConCantidad.length === 0) {
+      toast.error('Asigna al menos una cantidad a dividir');
+      return;
+    }
+    // Validar que no exceda
+    for (const t of tallasConCantidad) {
+      if (t.cantidad_dividir > t.cantidad_disponible) {
+        toast.error(`La cantidad para ${t.talla_nombre} excede lo disponible`);
+        return;
+      }
+    }
+    try {
+      const resp = await axios.post(`${API}/registros/${id}/dividir`, {
+        tallas_hijo: tallasConCantidad.map(t => ({ talla_id: t.talla_id, cantidad: t.cantidad_dividir })),
+      });
+      toast.success(resp.data.mensaje);
+      setDivisionDialogOpen(false);
+      // Refrescar datos del registro actual (tallas cambiaron)
+      const regResp = await axios.get(`${API}/registros/${id}`);
+      const regData = regResp.data;
+      const nuevasTallas = regData.tallas || [];
+      setTallasSeleccionadas(nuevasTallas);
+      fetchDivisionInfo();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al dividir lote');
+    }
+  };
+
+  const handleReunificar = async (hijoId) => {
+    try {
+      const resp = await axios.post(`${API}/registros/${hijoId}/reunificar`);
+      toast.success('Lote reunificado exitosamente');
+      // Refrescar datos
+      const regResp = await axios.get(`${API}/registros/${id}`);
+      setTallasSeleccionadas(regResp.data.tallas || []);
+      fetchDivisionInfo();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al reunificar');
+    }
+  };
 
   // Cargar análisis de estado cuando cambian los movimientos o la ruta
   useEffect(() => {
@@ -1204,6 +1275,63 @@ export const RegistroForm = () => {
                   </div>
                 )}
 
+                {/* Banner de división de lote */}
+                {divisionInfo && (divisionInfo.es_hijo || divisionInfo.hijos.length > 0) && (
+                  <div className="rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700 p-3 space-y-2" data-testid="division-banner">
+                    <div className="flex items-center gap-2">
+                      <Scissors className="h-4 w-4 text-blue-600 shrink-0" />
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                        {divisionInfo.es_hijo
+                          ? `Dividido desde Corte ${divisionInfo.padre?.n_corte}`
+                          : `Lote con ${divisionInfo.hijos.length} división(es)`}
+                      </span>
+                    </div>
+                    {divisionInfo.es_hijo && divisionInfo.padre && (
+                      <div className="ml-6 flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Registro padre:</span>
+                        <Button variant="link" size="sm" className="h-5 px-0 text-xs text-blue-600"
+                          onClick={() => navigate(`/registros/editar/${divisionInfo.padre.id}`)}
+                          data-testid="link-padre"
+                        >
+                          Corte {divisionInfo.padre.n_corte} ({divisionInfo.padre.estado})
+                        </Button>
+                      </div>
+                    )}
+                    {divisionInfo.hijos.length > 0 && divisionInfo.hijos.map(h => {
+                      const totalHijo = (h.tallas || []).reduce((s, t) => s + (t.cantidad || 0), 0);
+                      return (
+                        <div key={h.id} className="ml-6 flex items-center gap-2">
+                          <Button variant="link" size="sm" className="h-5 px-0 text-xs text-blue-600"
+                            onClick={() => navigate(`/registros/editar/${h.id}`)}
+                          >
+                            Corte {h.n_corte}
+                          </Button>
+                          <Badge variant="outline" className="text-[10px]">{h.estado}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{totalHijo} prendas</span>
+                          <Button variant="ghost" size="sm" className="h-5 px-1 text-[10px] text-red-600 hover:text-red-700"
+                            onClick={() => handleReunificar(h.id)}
+                            title="Reunificar con este lote"
+                            data-testid={`btn-reunificar-${h.id}`}
+                          >
+                            Reunificar
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    {divisionInfo.hermanos.length > 0 && (
+                      <div className="ml-6 text-xs text-muted-foreground">
+                        Hermanos: {divisionInfo.hermanos.map(h => (
+                          <Button key={h.id} variant="link" size="sm" className="h-5 px-1 text-xs text-blue-600"
+                            onClick={() => navigate(`/registros/editar/${h.id}`)}
+                          >
+                            {h.n_corte}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Panel de Cierre de Producción */}
                 {esUltimaEtapa && (
                   <div className="rounded-lg border-2 border-green-500/40 bg-green-50 dark:bg-green-950/20 p-5 space-y-4" data-testid="cierre-panel">
@@ -1857,6 +1985,20 @@ export const RegistroForm = () => {
                 <Save className="h-4 w-4 mr-2" />
                 {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
               </Button>
+              
+              {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && (
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="lg"
+                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                  onClick={handleOpenDivision}
+                  data-testid="btn-dividir-lote"
+                >
+                  <Scissors className="h-4 w-4 mr-2" />
+                  Dividir Lote
+                </Button>
+              )}
               
               <Button 
                 type="button"
@@ -2574,6 +2716,68 @@ export const RegistroForm = () => {
               data-testid="btn-aceptar-sugerencia-mov"
             >
               Sí, crear movimiento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: División de Lote */}
+      <Dialog open={divisionDialogOpen} onOpenChange={setDivisionDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Dividir Lote - Corte {formData.n_corte}</DialogTitle>
+            <DialogDescription>
+              Asigna las cantidades que irán al nuevo lote. El registro actual se quedará con el resto.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-2 text-xs font-medium text-muted-foreground border-b pb-2">
+              <span>Talla</span>
+              <span className="text-center">Disponible</span>
+              <span className="text-center">Dividir</span>
+            </div>
+            {divisionTallas.map((t, idx) => (
+              <div key={t.talla_id} className="grid grid-cols-3 gap-2 items-center">
+                <span className="text-sm font-medium">{t.talla_nombre}</span>
+                <span className="text-sm text-center text-muted-foreground">{t.cantidad_disponible}</span>
+                <Input
+                  type="number"
+                  min="0"
+                  max={t.cantidad_disponible}
+                  value={t.cantidad_dividir}
+                  onChange={(e) => {
+                    const val = Math.min(Math.max(0, parseInt(e.target.value) || 0), t.cantidad_disponible);
+                    setDivisionTallas(prev => prev.map((dt, i) => i === idx ? { ...dt, cantidad_dividir: val } : dt));
+                  }}
+                  className="h-8 text-sm text-center"
+                  data-testid={`input-division-${t.talla_nombre}`}
+                />
+              </div>
+            ))}
+            <div className="border-t pt-2 flex justify-between text-sm">
+              <span className="font-medium">Total a dividir:</span>
+              <span className="font-bold text-blue-600">
+                {divisionTallas.reduce((s, t) => s + t.cantidad_dividir, 0)} prendas
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Queda en este lote:</span>
+              <span className="font-bold">
+                {divisionTallas.reduce((s, t) => s + (t.cantidad_disponible - t.cantidad_dividir), 0)} prendas
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDivisionDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleDividirLote}
+              disabled={divisionTallas.every(t => t.cantidad_dividir === 0)}
+              data-testid="btn-confirmar-division"
+            >
+              <Scissors className="h-4 w-4 mr-2" />
+              Confirmar División
             </Button>
           </DialogFooter>
         </DialogContent>

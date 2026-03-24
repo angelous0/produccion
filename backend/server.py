@@ -2624,9 +2624,11 @@ async def get_registros():
                 te.nombre as tela_nombre,
                 h.nombre as hilo_nombre,
                 he.nombre as hilo_especifico_nombre,
+                rp.n_corte as padre_n_corte,
                 (SELECT COUNT(*) FROM prod_incidencia i WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas,
                 (SELECT row_to_json(p.*) FROM prod_paralizacion p WHERE p.registro_id = r.id AND p.activa = TRUE LIMIT 1) as paralizacion_json,
-                (SELECT COUNT(*) FROM prod_movimientos_produccion mp WHERE mp.registro_id = r.id AND mp.fecha_esperada_movimiento < CURRENT_DATE) as movs_vencidos
+                (SELECT COUNT(*) FROM prod_movimientos_produccion mp WHERE mp.registro_id = r.id AND mp.fecha_esperada_movimiento < CURRENT_DATE) as movs_vencidos,
+                (SELECT COUNT(*) FROM prod_registros rh WHERE rh.dividido_desde_registro_id = r.id) as cantidad_divisiones
             FROM prod_registros r
             LEFT JOIN prod_modelos m ON r.modelo_id = m.id
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -2635,6 +2637,7 @@ async def get_registros():
             LEFT JOIN prod_telas te ON m.tela_id = te.id
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
             LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
+            LEFT JOIN prod_registros rp ON r.dividido_desde_registro_id = rp.id
             ORDER BY r.fecha_creacion DESC
         """)
         result = []
@@ -6277,6 +6280,204 @@ from routes.reportes import router as reportes_router
 from routes.integracion_finanzas import router as integracion_finanzas_router
 from routes.control_produccion import router as control_produccion_router
 
+
+# ==================== DIVISIÓN DE LOTE ====================
+
+class DivisionLoteRequest(BaseModel):
+    tallas_hijo: list  # [{talla_id, talla_nombre, cantidad}, ...]
+    estado_hijo: Optional[str] = None  # Si no se pasa, hereda del padre
+
+@api_router.post("/registros/{registro_id}/dividir")
+async def dividir_lote(registro_id: str, body: DivisionLoteRequest):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        padre = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not padre:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        tallas_padre = padre['tallas'] if isinstance(padre['tallas'], list) else json.loads(padre['tallas']) if padre['tallas'] else []
+        tallas_hijo_req = body.tallas_hijo
+        
+        # Validar que las cantidades del hijo no excedan las del padre
+        padre_map = {t['talla_id']: t for t in tallas_padre}
+        nuevas_tallas_padre = []
+        tallas_hijo_final = []
+        
+        for tp in tallas_padre:
+            hijo_t = next((h for h in tallas_hijo_req if h.get('talla_id') == tp['talla_id']), None)
+            cant_hijo = hijo_t.get('cantidad', 0) if hijo_t else 0
+            if cant_hijo < 0:
+                raise HTTPException(status_code=400, detail=f"Cantidad negativa para talla {tp.get('talla_nombre')}")
+            if cant_hijo > tp['cantidad']:
+                raise HTTPException(status_code=400, detail=f"Cantidad para talla {tp.get('talla_nombre')} ({cant_hijo}) excede disponible ({tp['cantidad']})")
+            nuevas_tallas_padre.append({**tp, 'cantidad': tp['cantidad'] - cant_hijo})
+            if cant_hijo > 0:
+                tallas_hijo_final.append({**tp, 'cantidad': cant_hijo})
+        
+        if not tallas_hijo_final:
+            raise HTTPException(status_code=400, detail="Debe asignar al menos una talla al nuevo lote")
+        
+        # Determinar número de división
+        max_div = await conn.fetchval(
+            "SELECT COALESCE(MAX(division_numero), 0) FROM prod_registros WHERE dividido_desde_registro_id = $1",
+            registro_id
+        )
+        # También considerar divisiones del padre original
+        padre_original_id = padre.get('dividido_desde_registro_id') or registro_id
+        if padre_original_id != registro_id:
+            max_div2 = await conn.fetchval(
+                "SELECT COALESCE(MAX(division_numero), 0) FROM prod_registros WHERE dividido_desde_registro_id = $1",
+                padre_original_id
+            )
+            max_div = max(max_div, max_div2)
+        
+        division_num = max_div + 1
+        n_corte_base = padre['n_corte'].split('-')[0]
+        n_corte_hijo = f"{n_corte_base}-{division_num}"
+        
+        import uuid
+        hijo_id = str(uuid.uuid4())
+        estado_hijo = body.estado_hijo or padre['estado']
+        
+        await conn.execute("""
+            INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, tallas, distribucion_colores,
+                fecha_creacion, hilo_especifico_id, empresa_id, pt_item_id, fecha_entrega_final,
+                dividido_desde_registro_id, division_numero)
+            VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, CURRENT_TIMESTAMP, $9, $10, $11, $12, $13, $14)
+        """,
+            hijo_id, n_corte_hijo, padre['modelo_id'], padre.get('curva'), estado_hijo,
+            padre.get('urgente', False),
+            json.dumps(tallas_hijo_final), json.dumps(padre['distribucion_colores'] if isinstance(padre['distribucion_colores'], list) else []),
+            padre.get('hilo_especifico_id'), padre.get('empresa_id'), padre.get('pt_item_id'),
+            padre.get('fecha_entrega_final'),
+            registro_id, division_num
+        )
+        
+        await conn.execute(
+            "UPDATE prod_registros SET tallas = $1::jsonb WHERE id = $2",
+            json.dumps(nuevas_tallas_padre), registro_id
+        )
+        
+        return {
+            "mensaje": f"Lote dividido exitosamente. Nuevo registro: {n_corte_hijo}",
+            "registro_hijo_id": hijo_id,
+            "n_corte_hijo": n_corte_hijo,
+            "tallas_padre": nuevas_tallas_padre,
+            "tallas_hijo": tallas_hijo_final,
+        }
+
+@api_router.get("/registros/{registro_id}/divisiones")
+async def get_divisiones_registro(registro_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        padre = await conn.fetchrow("SELECT id, n_corte, dividido_desde_registro_id FROM prod_registros WHERE id = $1", registro_id)
+        if not padre:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # Hijos directos
+        hijos = await conn.fetch(
+            "SELECT id, n_corte, estado, tallas, division_numero FROM prod_registros WHERE dividido_desde_registro_id = $1 ORDER BY division_numero",
+            registro_id
+        )
+        
+        # Si este registro es un hijo, obtener info del padre
+        padre_info = None
+        if padre['dividido_desde_registro_id']:
+            p = await conn.fetchrow(
+                "SELECT id, n_corte, estado FROM prod_registros WHERE id = $1",
+                padre['dividido_desde_registro_id']
+            )
+            if p:
+                padre_info = {"id": p['id'], "n_corte": p['n_corte'], "estado": p['estado']}
+        
+        # Hermanos (otros hijos del mismo padre)
+        hermanos = []
+        if padre['dividido_desde_registro_id']:
+            hermanos_rows = await conn.fetch(
+                "SELECT id, n_corte, estado FROM prod_registros WHERE dividido_desde_registro_id = $1 AND id != $2 ORDER BY division_numero",
+                padre['dividido_desde_registro_id'], registro_id
+            )
+            hermanos = [{"id": h['id'], "n_corte": h['n_corte'], "estado": h['estado']} for h in hermanos_rows]
+        
+        return {
+            "registro_id": registro_id,
+            "n_corte": padre['n_corte'],
+            "es_hijo": padre['dividido_desde_registro_id'] is not None,
+            "padre": padre_info,
+            "hijos": [
+                {
+                    "id": h['id'],
+                    "n_corte": h['n_corte'],
+                    "estado": h['estado'],
+                    "tallas": h['tallas'] if isinstance(h['tallas'], list) else json.loads(h['tallas']) if h['tallas'] else [],
+                    "division_numero": h['division_numero'],
+                }
+                for h in hijos
+            ],
+            "hermanos": hermanos,
+        }
+
+@api_router.post("/registros/{registro_id}/reunificar")
+async def reunificar_lote(registro_id: str):
+    """Reunifica un registro hijo con su padre. Solo si el hijo no tiene movimientos propios."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        hijo = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not hijo:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        if not hijo.get('dividido_desde_registro_id'):
+            raise HTTPException(status_code=400, detail="Este registro no es una división. No se puede reunificar.")
+        
+        padre_id = hijo['dividido_desde_registro_id']
+        
+        # Verificar que el hijo no tenga movimientos
+        mov_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_movimientos_produccion WHERE registro_id = $1", registro_id
+        )
+        if mov_count and mov_count > 0:
+            raise HTTPException(status_code=400, detail="Este lote ya tiene movimientos registrados. No se puede reunificar.")
+        
+        # Verificar que el hijo no tenga salidas de inventario
+        sal_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_inventario_salidas WHERE registro_id = $1", registro_id
+        )
+        if sal_count and sal_count > 0:
+            raise HTTPException(status_code=400, detail="Este lote ya tiene salidas de inventario. No se puede reunificar.")
+        
+        # Sumar tallas del hijo al padre
+        padre = await conn.fetchrow("SELECT tallas FROM prod_registros WHERE id = $1", padre_id)
+        tallas_padre = padre['tallas'] if isinstance(padre['tallas'], list) else json.loads(padre['tallas']) if padre['tallas'] else []
+        tallas_hijo = hijo['tallas'] if isinstance(hijo['tallas'], list) else json.loads(hijo['tallas']) if hijo['tallas'] else []
+        
+        padre_map = {t['talla_id']: t for t in tallas_padre}
+        for th in tallas_hijo:
+            tid = th['talla_id']
+            if tid in padre_map:
+                padre_map[tid]['cantidad'] = padre_map[tid]['cantidad'] + th['cantidad']
+            else:
+                padre_map[tid] = th
+        
+        nuevas_tallas = list(padre_map.values())
+        
+        await conn.execute(
+            "UPDATE prod_registros SET tallas = $1::jsonb WHERE id = $2",
+            json.dumps(nuevas_tallas), padre_id
+        )
+        
+        # Eliminar incidencias y paralizaciones del hijo
+        await conn.execute("DELETE FROM prod_incidencia WHERE registro_id = $1", registro_id)
+        await conn.execute("DELETE FROM prod_paralizacion WHERE registro_id = $1", registro_id)
+        
+        # Eliminar el registro hijo
+        await conn.execute("DELETE FROM prod_registros WHERE id = $1", registro_id)
+        
+        return {
+            "mensaje": f"Lote reunificado exitosamente con {padre['tallas']}",
+            "padre_id": padre_id,
+            "tallas_reunificadas": nuevas_tallas,
+        }
+
+
 # ==================== STARTUP/SHUTDOWN ====================
 
 @app.on_event("startup")
@@ -6284,10 +6485,12 @@ async def startup():
     await get_pool()
     await ensure_bom_tables()
     await ensure_fase2_tables()
-    # Eliminar columna materiales obsoleta
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("ALTER TABLE prod_modelos DROP COLUMN IF EXISTS materiales")
+        # Columnas para división de lote
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS dividido_desde_registro_id VARCHAR NULL")
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
 
 @app.on_event("shutdown")
 async def shutdown():

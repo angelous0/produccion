@@ -516,6 +516,12 @@ export const Registros = () => {
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold">{item.incidencias_abiertas}</span>
                           )}
                           {item.n_corte}
+                          {item.dividido_desde_registro_id && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600 ml-1">div</Badge>
+                          )}
+                          {item.cantidad_divisiones > 0 && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600 ml-1">{item.cantidad_divisiones} div</Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
