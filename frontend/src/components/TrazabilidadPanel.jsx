@@ -281,8 +281,8 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
   const openCierreDialog = (arreglo) => {
     setSelectedArreglo(arreglo);
     setCierreForm({
-      cantidad_resuelta: 0, cantidad_no_resuelta: 0,
-      resultado_final: 'BUENO', fecha_retorno: '', observaciones: '',
+      cantidad_resuelta: arreglo.cantidad_enviada, cantidad_no_resuelta: 0,
+      resultado_final: 'LIQUIDACION', fecha_retorno: todayStr, observaciones: '',
     });
     setCierreArregloDialogOpen(true);
   };
@@ -828,36 +828,56 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
           <DialogHeader>
             <DialogTitle>Cerrar Arreglo</DialogTitle>
             <DialogDescription>
-              Enviadas: {selectedArreglo?.cantidad_enviada} - Registra el resultado del arreglo.
+              Prendas enviadas: <span className="font-semibold">{selectedArreglo?.cantidad_enviada}</span>. Indica cuantas se resolvieron y el destino de las que no.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Resueltas</Label>
+                <Label className="text-xs">Resueltas (vuelven a produccion)</Label>
                 <Input type="number" min="0" value={cierreForm.cantidad_resuelta}
-                  onChange={e => setCierreForm(p => ({ ...p, cantidad_resuelta: parseInt(e.target.value) || 0 }))}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    setCierreForm(p => ({ ...p, cantidad_resuelta: val, cantidad_no_resuelta: Math.max(0, (selectedArreglo?.cantidad_enviada || 0) - val) }));
+                  }}
                   data-testid="input-cierre-resueltas" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">No Resueltas</Label>
+                <Label className="text-xs">No resueltas</Label>
                 <Input type="number" min="0" value={cierreForm.cantidad_no_resuelta}
-                  onChange={e => setCierreForm(p => ({ ...p, cantidad_no_resuelta: parseInt(e.target.value) || 0 }))}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    setCierreForm(p => ({ ...p, cantidad_no_resuelta: val, cantidad_resuelta: Math.max(0, (selectedArreglo?.cantidad_enviada || 0) - val) }));
+                  }}
                   data-testid="input-cierre-no-resueltas" />
               </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Resultado final</Label>
-              <Select value={cierreForm.resultado_final} onValueChange={v => setCierreForm(p => ({ ...p, resultado_final: v }))}>
-                <SelectTrigger data-testid="select-cierre-resultado"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="BUENO">Bueno (reintegrado)</SelectItem>
-                  <SelectItem value="LIQUIDACION">Liquidacion</SelectItem>
-                  <SelectItem value="SEGUNDA">Segunda</SelectItem>
-                  <SelectItem value="DESCARTE">Descarte</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+            {/* Balance visual */}
+            {selectedArreglo && (
+              <div className={`text-xs p-2 rounded border ${
+                (cierreForm.cantidad_resuelta + cierreForm.cantidad_no_resuelta) === selectedArreglo.cantidad_enviada
+                  ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-800 dark:text-green-400'
+                  : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-400'
+              }`}>
+                {cierreForm.cantidad_resuelta} resueltas + {cierreForm.cantidad_no_resuelta} no resueltas = {cierreForm.cantidad_resuelta + cierreForm.cantidad_no_resuelta} / {selectedArreglo.cantidad_enviada} enviadas
+              </div>
+            )}
+
+            {/* Destino de no resueltas - solo si hay */}
+            {cierreForm.cantidad_no_resuelta > 0 && (
+              <div className="space-y-1 p-3 rounded-lg border border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/10">
+                <Label className="text-xs font-semibold text-red-700 dark:text-red-400">Destino de las {cierreForm.cantidad_no_resuelta} no resueltas</Label>
+                <Select value={cierreForm.resultado_final} onValueChange={v => setCierreForm(p => ({ ...p, resultado_final: v }))}>
+                  <SelectTrigger data-testid="select-cierre-resultado"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="LIQUIDACION">Liquidacion</SelectItem>
+                    <SelectItem value="SEGUNDA">Segunda</SelectItem>
+                    <SelectItem value="DESCARTE">Descarte</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">Fecha retorno</Label>
               <Input type="date" value={cierreForm.fecha_retorno}
