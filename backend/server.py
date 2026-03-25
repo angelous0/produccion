@@ -583,7 +583,7 @@ class RegistroBase(BaseModel):
     urgente: bool = False
     hilo_especifico_id: Optional[str] = None
     pt_item_id: Optional[str] = None
-    empresa_id: Optional[int] = 6
+    empresa_id: Optional[int] = 8
 
 class RegistroCreate(RegistroBase):
     tallas: List[TallaCantidadItem] = []
@@ -4022,26 +4022,30 @@ async def get_categorias():
 async def get_inventario():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_inventario ORDER BY nombre ASC")
+        rows = await conn.fetch("""
+            SELECT i.*,
+                COALESCE(res.total_reservado, 0) as total_reservado,
+                COALESCE(val.valorizado, 0) as valorizado
+            FROM prod_inventario i
+            LEFT JOIN LATERAL (
+                SELECT SUM(rl.cantidad_reservada - rl.cantidad_liberada) as total_reservado
+                FROM prod_inventario_reservas_linea rl
+                JOIN prod_inventario_reservas r ON rl.reserva_id = r.id
+                WHERE rl.item_id = i.id AND r.estado = 'ACTIVA'
+            ) res ON true
+            LEFT JOIN LATERAL (
+                SELECT SUM(cantidad_disponible * costo_unitario) as valorizado
+                FROM prod_inventario_ingresos
+                WHERE item_id = i.id AND cantidad_disponible > 0
+            ) val ON true
+            ORDER BY i.nombre ASC
+        """)
         result = []
         for r in rows:
             d = row_to_dict(r)
-            # Calcular total reservado para este item
-            total_reservado = await conn.fetchval("""
-                SELECT COALESCE(SUM(rl.cantidad_reservada - rl.cantidad_liberada), 0)
-                FROM prod_inventario_reservas_linea rl
-                JOIN prod_inventario_reservas res ON rl.reserva_id = res.id
-                WHERE rl.item_id = $1 AND res.estado = 'ACTIVA'
-            """, d['id'])
-            d['total_reservado'] = float(total_reservado or 0)
-            d['stock_disponible'] = max(0, float(d['stock_actual']) - d['total_reservado'])
-            # Calcular valorizado desde ingresos disponibles
-            valorizado = await conn.fetchval("""
-                SELECT COALESCE(SUM(cantidad_disponible * costo_unitario), 0)
-                FROM prod_inventario_ingresos
-                WHERE item_id = $1 AND cantidad_disponible > 0
-            """, d['id'])
-            d['valorizado'] = float(valorizado or 0)
+            d['total_reservado'] = float(d.get('total_reservado') or 0)
+            d['stock_disponible'] = max(0, float(d.get('stock_actual', 0)) - d['total_reservado'])
+            d['valorizado'] = float(d.get('valorizado') or 0)
             result.append(d)
         return result
 
@@ -4191,21 +4195,27 @@ async def delete_item_inventario(item_id: str):
 async def get_ingresos():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM prod_inventario_ingresos ORDER BY fecha DESC")
+        rows = await conn.fetch("""
+            SELECT ing.*,
+                COALESCE(inv.nombre, '') as item_nombre,
+                COALESCE(inv.codigo, '') as item_codigo,
+                COALESCE(rol.cnt, 0) as rollos_count,
+                COALESCE(fac.qty_facturada, 0) as qty_facturada
+            FROM prod_inventario_ingresos ing
+            LEFT JOIN prod_inventario inv ON ing.item_id = inv.id
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) as cnt FROM prod_inventario_rollos WHERE ingreso_id = ing.id
+            ) rol ON true
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(SUM(cantidad_aplicada), 0) as qty_facturada
+                FROM finanzas2.cont_factura_ingreso_mp WHERE ingreso_id = ing.id
+            ) fac ON true
+            ORDER BY ing.fecha DESC
+        """)
         result = []
         for r in rows:
             d = row_to_dict(r)
-            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
-            d['item_nombre'] = item['nombre'] if item else ""
-            d['item_codigo'] = item['codigo'] if item else ""
-            rollos_count = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_rollos WHERE ingreso_id = $1", d['id'])
-            d['rollos_count'] = rollos_count
-            # Estado de facturación (lee desde finanzas2)
-            qty_facturada = float(await conn.fetchval("""
-                SELECT COALESCE(SUM(cantidad_aplicada), 0) 
-                FROM finanzas2.cont_factura_ingreso_mp 
-                WHERE ingreso_id = $1
-            """, d['id']) or 0)
+            qty_facturada = float(d.get('qty_facturada') or 0)
             qty_recibida = float(d.get('cantidad') or 0)
             d['qty_facturada'] = round(qty_facturada, 4)
             d['qty_pendiente_factura'] = round(max(0, qty_recibida - qty_facturada), 4)
@@ -4381,29 +4391,27 @@ async def delete_ingreso(ingreso_id: str):
 async def get_salidas(registro_id: str = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        if registro_id:
-            rows = await conn.fetch("SELECT * FROM prod_inventario_salidas WHERE registro_id = $1 ORDER BY fecha DESC", registro_id)
-        else:
-            rows = await conn.fetch("SELECT * FROM prod_inventario_salidas ORDER BY fecha DESC")
+        where = "WHERE s.registro_id = $1" if registro_id else ""
+        params = [registro_id] if registro_id else []
+        rows = await conn.fetch(f"""
+            SELECT s.*,
+                COALESCE(inv.nombre, '') as item_nombre,
+                COALESCE(inv.codigo, '') as item_codigo,
+                reg.n_corte as registro_n_corte,
+                rol.numero_rollo as rollo_numero,
+                tal.nombre as talla_nombre
+            FROM prod_inventario_salidas s
+            LEFT JOIN prod_inventario inv ON s.item_id = inv.id
+            LEFT JOIN prod_registros reg ON s.registro_id = reg.id
+            LEFT JOIN prod_inventario_rollos rol ON s.rollo_id = rol.id
+            LEFT JOIN prod_tallas_catalogo tal ON s.talla_id = tal.id
+            {where}
+            ORDER BY s.fecha DESC
+        """, *params)
         result = []
         for r in rows:
             d = row_to_dict(r)
             d['detalle_fifo'] = parse_jsonb(d.get('detalle_fifo'))
-            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", d.get('item_id'))
-            d['item_nombre'] = item['nombre'] if item else ""
-            d['item_codigo'] = item['codigo'] if item else ""
-            if d.get('registro_id'):
-                reg = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d['registro_id'])
-                d['registro_n_corte'] = reg['n_corte'] if reg else None
-            if d.get('rollo_id'):
-                rollo = await conn.fetchrow("SELECT numero_rollo FROM prod_inventario_rollos WHERE id = $1", d['rollo_id'])
-                d['rollo_numero'] = rollo['numero_rollo'] if rollo else None
-            # Fase 2: incluir talla_nombre
-            if d.get('talla_id'):
-                talla = await conn.fetchrow("SELECT nombre FROM prod_tallas_catalogo WHERE id = $1", d['talla_id'])
-                d['talla_nombre'] = talla['nombre'] if talla else None
-            else:
-                d['talla_nombre'] = None
             result.append(d)
         return result
 

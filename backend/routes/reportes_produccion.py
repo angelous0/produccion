@@ -48,7 +48,7 @@ def safe_int(v):
 
 @router.get("/dashboard")
 async def dashboard_kpis(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     fecha_desde: Optional[str] = None,
     fecha_hasta: Optional[str] = None,
     ruta_id: Optional[str] = None,
@@ -160,7 +160,7 @@ async def dashboard_kpis(
 
 @router.get("/en-proceso")
 async def produccion_en_proceso(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     estado: Optional[str] = None,
     ruta_id: Optional[str] = None,
     modelo_id: Optional[str] = None,
@@ -228,7 +228,7 @@ async def produccion_en_proceso(
 
 @router.get("/wip-etapa")
 async def wip_por_etapa(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
@@ -265,7 +265,7 @@ async def wip_por_etapa(
 
 @router.get("/atrasados")
 async def lotes_atrasados(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
@@ -415,7 +415,7 @@ async def trazabilidad_registro(
 
 @router.get("/cumplimiento-ruta")
 async def cumplimiento_ruta(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     ruta_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
@@ -526,7 +526,7 @@ async def cumplimiento_ruta(
 
 @router.get("/balance-terceros")
 async def balance_terceros(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     servicio_id: Optional[str] = None,
     persona_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
@@ -599,7 +599,7 @@ async def balance_terceros(
 
 @router.get("/lotes-fraccionados")
 async def lotes_fraccionados(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
@@ -654,7 +654,7 @@ async def lotes_fraccionados(
 
 @router.get("/filtros")
 async def get_filtros_reportes(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
@@ -679,7 +679,7 @@ async def get_filtros_reportes(
 
 @router.get("/matriz")
 async def matriz_produccion(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     ruta_id: Optional[str] = None,
     marca_id: Optional[str] = None,
     tipo_id: Optional[str] = None,

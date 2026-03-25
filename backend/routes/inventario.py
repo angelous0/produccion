@@ -32,7 +32,7 @@ class ItemBase(BaseModel):
 
 
 class ItemCreate(ItemBase):
-    empresa_id: int = 6
+    empresa_id: int = 8
 
 
 class ItemUpdate(BaseModel):
@@ -53,7 +53,7 @@ TIPOS_ITEM_VALIDOS = ['MP', 'AVIO', 'SERVICIO', 'PT']
 
 @router.get("/inventario")
 async def get_inventario(
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     tipo_item: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):

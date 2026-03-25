@@ -47,7 +47,7 @@ class RolloUpdate(BaseModel):
 async def get_rollos(
     item_id: Optional[str] = None,
     estado: Optional[str] = None,
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user)
 ):
     """Lista rollos con filtros"""

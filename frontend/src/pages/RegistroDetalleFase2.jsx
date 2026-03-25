@@ -1290,7 +1290,7 @@ const SalidasTab = ({ registroId }) => {
 
 
 // ==================== PESTAÑA COSTOS DE SERVICIO ====================
-const CostosTab = ({ registroId, empresaId = 6 }) => {
+const CostosTab = ({ registroId, empresaId = 8 }) => {
   const [costos, setCostos] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -1463,7 +1463,7 @@ const CostosTab = ({ registroId, empresaId = 6 }) => {
 
 
 // ==================== PESTAÑA CIERRE PRODUCCIÓN ====================
-const CierreTab = ({ registroId, registro, empresaId = 6, onCierreComplete }) => {
+const CierreTab = ({ registroId, registro, empresaId = 8, onCierreComplete }) => {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [procesando, setProcesando] = useState(false);

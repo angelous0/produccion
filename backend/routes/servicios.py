@@ -20,7 +20,7 @@ from helpers import row_to_dict
 # ==================== PYDANTIC MODELS ====================
 
 class ServicioOrdenCreate(BaseModel):
-    empresa_id: int = 6
+    empresa_id: int = 8
     orden_id: str
     servicio_id: Optional[str] = None
     persona_id: Optional[str] = None
@@ -92,7 +92,7 @@ async def actualizar_wip_servicio(conn, servicio_id: str, nuevo_costo: float, fe
 async def get_servicios_orden(
     orden_id: Optional[str] = None,
     estado: Optional[str] = None,
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user)
 ):
     """Lista servicios por orden con filtros"""

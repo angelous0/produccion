@@ -72,6 +72,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Bug Fix: Guias de Remision - URL mismatch, response parsing, campos incorrectos, filtros de fecha (2026-03-25)
 - [x] Mejora Matriz: Colores como popup en modal en vez de columna. Tabla agrupada por Color General con subtotales (2026-03-25)
 - [x] Migración MariaDB → PostgreSQL: 8 marcas, 25 tipos, 26 entalles, 28 telas, 1160 modelos, 1150 registros, 3418 movimientos, 79 personas, 17 servicios, 165 colores, 13 tallas, 613 historial (2026-03-25)
+- [x] Migración Inventario: 390 items, 505 ingresos, 272 salidas. Ajuste empresa_id=8 global (2026-03-25)
+- [x] Optimización N+1 queries: inventario, ingresos y salidas refactorizados a JOINs (2026-03-25)
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos

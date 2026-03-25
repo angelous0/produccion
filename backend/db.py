@@ -16,11 +16,12 @@ pool = None
 
 async def get_pool():
     global pool
-    if pool is None:
+    if pool is None or pool._closed:
         pool = await asyncpg.create_pool(
             DATABASE_URL,
             min_size=2,
             max_size=10,
+            command_timeout=30,
             server_settings={"search_path": "produccion,public"},
         )
     return pool

@@ -20,7 +20,7 @@ from helpers import row_to_dict
 # ==================== PYDANTIC MODELS ====================
 
 class ConsumoCreate(BaseModel):
-    empresa_id: int = 6
+    empresa_id: int = 8
     orden_id: str
     item_id: str
     rollo_id: Optional[str] = None
@@ -31,7 +31,7 @@ class ConsumoCreate(BaseModel):
 
 
 class ConsumoMultiRollo(BaseModel):
-    empresa_id: int = 6
+    empresa_id: int = 8
     orden_id: str
     item_id: str
     talla_id: Optional[str] = None
@@ -197,7 +197,7 @@ async def registrar_wip(conn, empresa_id: int, orden_id: str, origen_tipo: str,
 async def get_consumos(
     orden_id: Optional[str] = None,
     item_id: Optional[str] = None,
-    empresa_id: int = Query(6),
+    empresa_id: int = Query(8),
     current_user: dict = Depends(get_current_user)
 ):
     """Lista consumos de MP con filtros"""
