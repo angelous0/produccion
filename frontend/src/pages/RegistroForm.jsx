@@ -60,6 +60,8 @@ export const RegistroForm = () => {
     urgente: false,
     hilo_especifico_id: '',
     pt_item_id: '',
+    id_odoo: '',
+    observaciones: '',
   });
 
   // Datos del modelo seleccionado
@@ -248,6 +250,8 @@ export const RegistroForm = () => {
         urgente: registro.urgente,
         hilo_especifico_id: registro.hilo_especifico_id || '',
         pt_item_id: registro.pt_item_id || '',
+        id_odoo: registro.id_odoo || '',
+        observaciones: registro.observaciones || '',
       });
       
       setTallasSeleccionadas(registro.tallas || []);
@@ -1500,6 +1504,29 @@ export const RegistroForm = () => {
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                     Marcar como Urgente
                   </Label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="id_odoo">ID Odoo</Label>
+                    <Input
+                      id="id_odoo"
+                      value={formData.id_odoo}
+                      onChange={(e) => setFormData({ ...formData, id_odoo: e.target.value })}
+                      placeholder="ID del sistema Odoo"
+                      data-testid="input-id-odoo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="observaciones">Observaciones</Label>
+                    <Input
+                      id="observaciones"
+                      value={formData.observaciones}
+                      onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                      placeholder="Notas u observaciones"
+                      data-testid="input-observaciones"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -141,10 +141,14 @@ async def ensure_bom_tables():
         )
 
 
-    return pool
+    # Asegurar columnas nuevas en prod_registros
+    async with pool.acquire() as conn:
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS id_odoo VARCHAR(50)")
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS observaciones TEXT")
 
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
+    return pool
 async def ensure_fase2_tables():
     """Crea las tablas necesarias para Fase 2: Reservas + Requerimiento MP"""
     pool = await get_pool()
@@ -584,6 +588,8 @@ class RegistroBase(BaseModel):
     hilo_especifico_id: Optional[str] = None
     pt_item_id: Optional[str] = None
     empresa_id: Optional[int] = 8
+    id_odoo: Optional[str] = None
+    observaciones: Optional[str] = None
 
 class RegistroCreate(RegistroBase):
     tallas: List[TallaCantidadItem] = []
@@ -2748,11 +2754,11 @@ async def create_registro(input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
         dist_json = json.dumps([d.model_dump() for d in registro.distribucion_colores])
         await conn.execute(
-            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id) 
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
+            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id, id_odoo, observaciones) 
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)""",
             registro.id, registro.n_corte, registro.modelo_id, registro.curva, registro.estado, registro.urgente,
             registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None),
-            registro.pt_item_id, registro.empresa_id
+            registro.pt_item_id, registro.empresa_id, registro.id_odoo, registro.observaciones
         )
     return registro
 
@@ -2769,8 +2775,8 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in input.tallas])
         dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9 WHERE id=$10""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, registro_id
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11 WHERE id=$12""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, registro_id
         )
         
         # Sincronizar prod_registro_tallas con las cantidades del JSON
