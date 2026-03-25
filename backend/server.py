@@ -5108,36 +5108,82 @@ async def delete_ajuste(ajuste_id: str):
 # ==================== ENDPOINTS MOVIMIENTOS PRODUCCION ====================
 
 @api_router.get("/movimientos-produccion")
-async def get_movimientos(registro_id: str = None, servicio_id: str = None, persona_id: str = None):
+async def get_movimientos(
+    registro_id: str = None,
+    servicio_id: str = None,
+    persona_id: str = None,
+    fecha_desde: str = None,
+    fecha_hasta: str = None,
+    search: str = "",
+    limit: int = 50,
+    offset: int = 0,
+    all: str = "",
+):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        query = "SELECT * FROM prod_movimientos_produccion WHERE 1=1"
+        conditions = []
         params = []
+        param_idx = 1
+
         if registro_id:
+            conditions.append(f"mp.registro_id = ${param_idx}")
             params.append(registro_id)
-            query += f" AND registro_id = ${len(params)}"
+            param_idx += 1
         if servicio_id:
+            conditions.append(f"mp.servicio_id = ${param_idx}")
             params.append(servicio_id)
-            query += f" AND servicio_id = ${len(params)}"
+            param_idx += 1
         if persona_id:
+            conditions.append(f"mp.persona_id = ${param_idx}")
             params.append(persona_id)
-            query += f" AND persona_id = ${len(params)}"
-        query += " ORDER BY created_at DESC"
+            param_idx += 1
+        if fecha_desde:
+            conditions.append(f"mp.fecha_inicio >= ${param_idx}::date")
+            params.append(fecha_desde)
+            param_idx += 1
+        if fecha_hasta:
+            conditions.append(f"mp.fecha_inicio <= ${param_idx}::date")
+            params.append(fecha_hasta)
+            param_idx += 1
+        if search:
+            conditions.append(f"(r.n_corte ILIKE ${param_idx} OR s.nombre ILIKE ${param_idx} OR p.nombre ILIKE ${param_idx})")
+            params.append(f"%{search}%")
+            param_idx += 1
+
+        where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+        base_from = """
+            FROM prod_movimientos_produccion mp
+            LEFT JOIN prod_servicios_produccion s ON mp.servicio_id = s.id
+            LEFT JOIN prod_personas_produccion p ON mp.persona_id = p.id
+            LEFT JOIN prod_registros r ON mp.registro_id = r.id
+        """
+
+        # Count total
+        count_row = await conn.fetchrow(f"SELECT COUNT(*) as total {base_from} WHERE {where_clause}", *params)
+        total = count_row['total']
+
+        # Build query with JOINs (eliminates N+1)
+        query = f"""
+            SELECT mp.*,
+                s.nombre as servicio_nombre,
+                p.nombre as persona_nombre,
+                p.tipo_persona as persona_tipo,
+                p.unidad_interna_id as persona_unidad_interna_id,
+                r.n_corte as registro_n_corte
+            {base_from}
+            WHERE {where_clause}
+            ORDER BY mp.created_at DESC
+        """
+
+        if all != "true":
+            query += f" LIMIT ${param_idx} OFFSET ${param_idx + 1}"
+            params.extend([limit, offset])
+
         rows = await conn.fetch(query, *params)
         result = []
         for r in rows:
             d = row_to_dict(r)
-            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", d.get('servicio_id'))
-            per = await conn.fetchrow("SELECT nombre, tipo_persona, unidad_interna_id FROM prod_personas_produccion WHERE id = $1", d.get('persona_id'))
-            reg = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", d.get('registro_id'))
-            d['servicio_nombre'] = srv['nombre'] if srv else None
-            d['persona_nombre'] = per['nombre'] if per else None
-            d['persona_tipo'] = per['tipo_persona'] if per else None
-            if per and per['unidad_interna_id']:
-                ui = await conn.fetchrow("SELECT nombre FROM finanzas2.fin_unidad_interna WHERE id = $1", per['unidad_interna_id'])
-                d['unidad_interna_nombre'] = ui['nombre'] if ui else None
-            d['registro_n_corte'] = reg['n_corte'] if reg else None
-            # Convertir fechas a string
             if d.get('fecha_inicio'):
                 d['fecha_inicio'] = str(d['fecha_inicio'])
             if d.get('fecha_fin'):
@@ -5145,7 +5191,10 @@ async def get_movimientos(registro_id: str = None, servicio_id: str = None, pers
             if d.get('fecha_esperada_movimiento'):
                 d['fecha_esperada_movimiento'] = str(d['fecha_esperada_movimiento'])
             result.append(d)
-        return result
+
+        if all == "true":
+            return result
+        return {"items": result, "total": total, "limit": limit, "offset": offset}
 
 @api_router.post("/movimientos-produccion")
 async def create_movimiento(input: MovimientoCreate):

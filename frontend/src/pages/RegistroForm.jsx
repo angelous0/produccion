@@ -230,7 +230,7 @@ export const RegistroForm = () => {
   const fetchMovimientosProduccion = async () => {
     if (!id) return;
     try {
-      const response = await axios.get(`${API}/movimientos-produccion?registro_id=${id}`);
+      const response = await axios.get(`${API}/movimientos-produccion?registro_id=${id}&all=true`);
       setMovimientosProduccion(response.data);
     } catch (error) {
       console.error('Error fetching movimientos:', error);

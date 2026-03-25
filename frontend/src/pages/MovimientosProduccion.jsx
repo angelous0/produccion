@@ -30,7 +30,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Play, Pencil, Trash2, Calendar, Users, Cog, Filter, X, Plus, DollarSign } from 'lucide-react';
+import { Play, Pencil, Trash2, Calendar, Users, Cog, Filter, X, Plus, DollarSign, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { formatDate } from '../lib/dateUtils';
@@ -41,16 +41,19 @@ export const MovimientosProduccion = () => {
   const [movimientos, setMovimientos] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [personas, setPersonas] = useState([]);
-  const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [pageSize] = useState(50);
   const { saving, guard } = useSaving();
   
-  // Filtros
+  // Filtros (server-side)
   const [filtroServicio, setFiltroServicio] = useState('');
   const [filtroPersona, setFiltroPersona] = useState('');
   const [filtroRegistro, setFiltroRegistro] = useState('');
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
 
   // Dialog para crear nuevo
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -81,34 +84,61 @@ export const MovimientosProduccion = () => {
     observaciones: '',
   });
 
-  const fetchData = async () => {
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchMovimientos = async (append = false) => {
+    if (!append) setLoading(true);
     try {
-      const [movRes, servRes, persRes, regRes] = await Promise.all([
-        axios.get(`${API}/movimientos-produccion`),
-        axios.get(`${API}/servicios-produccion`),
-        axios.get(`${API}/personas-produccion`),
-        axios.get(`${API}/registros`),
-      ]);
-      setMovimientos(movRes.data);
-      setServicios(servRes.data);
-      setPersonas(persRes.data);
-      setRegistros(regRes.data);
+      const offset = append ? movimientos.length : 0;
+      const params = new URLSearchParams({ limit: pageSize, offset });
+      if (searchDebounced) params.set('search', searchDebounced);
+      if (filtroServicio) params.set('servicio_id', filtroServicio);
+      if (filtroPersona) params.set('persona_id', filtroPersona);
+      if (filtroFechaDesde) params.set('fecha_desde', filtroFechaDesde);
+      if (filtroFechaHasta) params.set('fecha_hasta', filtroFechaHasta);
+      const response = await axios.get(`${API}/movimientos-produccion?${params.toString()}`);
+      const data = response.data;
+      if (append) {
+        setMovimientos(prev => [...prev, ...data.items]);
+      } else {
+        setMovimientos(data.items);
+      }
+      setTotal(data.total);
     } catch (error) {
-      toast.error('Error al cargar datos');
+      toast.error('Error al cargar movimientos');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchCatalogos = async () => {
+    try {
+      const [servRes, persRes] = await Promise.all([
+        axios.get(`${API}/servicios-produccion`),
+        axios.get(`${API}/personas-produccion`),
+      ]);
+      setServicios(servRes.data);
+      setPersonas(persRes.data);
+    } catch (error) {
+      console.error('Error al cargar catálogos:', error);
+    }
+  };
+
   useEffect(() => {
-    fetchData();
+    fetchCatalogos();
   }, []);
 
-  const getRegistroLabel = (registroId) => {
-    const registro = registros.find(r => r.id === registroId);
-    if (!registro) return '-';
-    const modelo = registro.modelo_nombre || 'Sin modelo';
-    return `${modelo} - ${registro.n_corte}`;
+  // Reload when filters change
+  useEffect(() => {
+    fetchMovimientos(false);
+  }, [searchDebounced, filtroServicio, filtroPersona, filtroFechaDesde, filtroFechaHasta]);
+
+  const getRegistroLabel = (mov) => {
+    return mov.registro_n_corte || '-';
   };
 
   const handleOpenEdit = (movimiento) => {
@@ -184,7 +214,7 @@ export const MovimientosProduccion = () => {
       await axios.put(`${API}/movimientos-produccion/${editingMovimiento.id}`, formData);
       toast.success('Movimiento actualizado');
       setDialogOpen(false);
-      fetchData();
+      fetchMovimientos(false);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al actualizar');
     }
@@ -194,7 +224,7 @@ export const MovimientosProduccion = () => {
     try {
       await axios.delete(`${API}/movimientos-produccion/${id}`);
       toast.success('Movimiento eliminado');
-      fetchData();
+      fetchMovimientos(false);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al eliminar');
     }
@@ -248,7 +278,7 @@ export const MovimientosProduccion = () => {
       await axios.post(`${API}/movimientos-produccion`, createFormData);
       toast.success('Movimiento creado');
       setCreateDialogOpen(false);
-      fetchData();
+      fetchMovimientos(false);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al crear');
     }
@@ -257,27 +287,17 @@ export const MovimientosProduccion = () => {
   const limpiarFiltros = () => {
     setFiltroServicio('');
     setFiltroPersona('');
-    setFiltroRegistro('');
     setFiltroFechaDesde('');
     setFiltroFechaHasta('');
+    setSearchTerm('');
   };
 
-  // Aplicar filtros
-  const movimientosFiltrados = movimientos.filter(m => {
-    if (filtroServicio && m.servicio_id !== filtroServicio) return false;
-    if (filtroPersona && m.persona_id !== filtroPersona) return false;
-    if (filtroRegistro && m.registro_id !== filtroRegistro) return false;
-    if (filtroFechaDesde && m.fecha_inicio && m.fecha_inicio < filtroFechaDesde) return false;
-    if (filtroFechaHasta && m.fecha_inicio && m.fecha_inicio > filtroFechaHasta) return false;
-    return true;
-  });
-
   const getTotalCantidad = () => {
-    return movimientosFiltrados.reduce((sum, m) => sum + (m.cantidad_recibida || m.cantidad || 0), 0);
+    return movimientos.reduce((sum, m) => sum + (m.cantidad_recibida || m.cantidad || 0), 0);
   };
 
   const getTotalCosto = () => {
-    return movimientosFiltrados.reduce((sum, m) => sum + (m.costo_calculado || m.costo || 0), 0);
+    return movimientos.reduce((sum, m) => sum + (m.costo_calculado || m.costo || 0), 0);
   };
 
   const formatCurrency = (value) => {
@@ -287,7 +307,7 @@ export const MovimientosProduccion = () => {
     }).format(value || 0);
   };
 
-  const hayFiltrosActivos = filtroServicio || filtroPersona || filtroRegistro || filtroFechaDesde || filtroFechaHasta;
+  const hayFiltrosActivos = filtroServicio || filtroPersona || filtroFechaDesde || filtroFechaHasta || searchTerm;
 
   return (
     <div className="space-y-6" data-testid="movimientos-produccion-page">
@@ -324,20 +344,17 @@ export const MovimientosProduccion = () => {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs">Registro</Label>
-              <Select value={filtroRegistro} onValueChange={(val) => setFiltroRegistro(val === 'all' ? '' : val)}>
-                <SelectTrigger data-testid="filtro-registro">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {registros.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.modelo_nombre || 'Sin modelo'} - {r.n_corte}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Buscar</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Corte, servicio, persona..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                  data-testid="search-movimientos"
+                />
+              </div>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Servicio</Label>
@@ -393,8 +410,7 @@ export const MovimientosProduccion = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-lg">
-            {movimientosFiltrados.length} movimientos
-            {hayFiltrosActivos && ` (filtrados de ${movimientos.length})`}
+            {movimientos.length} de {total} movimientos
           </CardTitle>
           <div className="flex gap-3">
             <Badge variant="secondary" className="text-base px-3 py-1">
@@ -409,7 +425,7 @@ export const MovimientosProduccion = () => {
         <CardContent>
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">Cargando...</div>
-          ) : movimientosFiltrados.length === 0 ? (
+          ) : movimientos.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No hay movimientos registrados
             </div>
@@ -429,10 +445,10 @@ export const MovimientosProduccion = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {movimientosFiltrados.map((mov) => (
+                  {movimientos.map((mov) => (
                     <TableRow key={mov.id} data-testid={`movimiento-row-${mov.id}`}>
                       <TableCell>
-                        <span className="font-medium">{getRegistroLabel(mov.registro_id)}</span>
+                        <span className="font-medium">{getRegistroLabel(mov)}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -494,6 +510,19 @@ export const MovimientosProduccion = () => {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          {/* Cargar mas */}
+          {movimientos.length < total && !loading && (
+            <div className="flex justify-center py-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchMovimientos(true)}
+                data-testid="btn-cargar-mas-movimientos"
+              >
+                Cargar mas ({movimientos.length} de {total})
+              </Button>
             </div>
           )}
         </CardContent>
@@ -658,22 +687,14 @@ export const MovimientosProduccion = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Registro *</Label>
-              <Select
+              <Label>Registro ID *</Label>
+              <Input
                 value={createFormData.registro_id}
-                onValueChange={(value) => setCreateFormData({ ...createFormData, registro_id: value })}
-              >
-                <SelectTrigger data-testid="create-select-registro">
-                  <SelectValue placeholder="Seleccionar registro..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {registros.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.modelo_nombre || 'Sin modelo'} - {r.n_corte}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                onChange={(e) => setCreateFormData({ ...createFormData, registro_id: e.target.value })}
+                placeholder="ID del registro (ej: corte 100-2026)"
+                data-testid="create-input-registro"
+              />
+              <p className="text-xs text-muted-foreground">Ingresa el ID del registro de produccion. Puedes copiarlo desde la vista de Registros.</p>
             </div>
 
             <div className="space-y-2">
