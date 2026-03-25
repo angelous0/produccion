@@ -58,6 +58,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - DELETE /api/arreglos/{id}
 - GET /api/registros/{id}/resumen-cantidades
 - GET /api/registros/{id}/trazabilidad-completa
+- GET /api/guias-remision (listado con filtros)
+- GET /api/guias-remision/{id} (detalle enriquecido)
+- POST /api/guias-remision/from-movimiento/{id} (crear/actualizar desde movimiento)
+- DELETE /api/guias-remision/{id}
 
 ## Prioritized Backlog
 ### P0 (COMPLETADO)
@@ -65,6 +69,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Matriz Dinamica de Produccion (fusion, modal Excel, dias desde primer mov, dd-mm-yy)
 - [x] Trazabilidad Unificada Backend (tablas, CRUD fallados/arreglos, resumen, timeline)
 - [x] Trazabilidad Unificada Frontend (Balance del Lote, Tabs, Dialogs, Alertas)
+- [x] Bug Fix: Guias de Remision - URL mismatch, response parsing, campos incorrectos, filtros de fecha (2026-03-25)
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
@@ -93,7 +98,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 │   │   ├── trazabilidad.py (Fallados, Arreglos, Resumen, Timeline)
 │   │   └── ... (otros routers)
 │   ├── tests/
-│   │   └── test_trazabilidad.py (22 tests)
+│   │   ├── test_trazabilidad.py (22 tests)
+│   │   └── test_guias_remision.py (11 tests)
 │   └── server.py
 └── frontend/
     └── src/
