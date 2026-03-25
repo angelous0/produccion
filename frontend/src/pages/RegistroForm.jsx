@@ -962,16 +962,16 @@ export const RegistroForm = () => {
 
   const handleGenerarGuia = async (movimientoId) => {
     try {
-      const response = await axios.post(`${API}/guias-remision/desde-movimiento/${movimientoId}`);
-      const guia = response.data;
-      toast.success(`Guía ${guia.numero} lista para imprimir`);
+      const response = await axios.post(`${API}/guias-remision/from-movimiento/${movimientoId}`);
+      const guia = response.data.guia;
+      toast.success(`Guía ${guia.numero_guia} lista para imprimir`);
       
       // Abrir en nueva ventana para imprimir
       const printWindow = window.open('', '_blank');
       printWindow.document.write(`
         <html>
           <head>
-            <title>Guía de Remisión ${guia.numero}</title>
+            <title>Guía de Remisión ${guia.numero_guia}</title>
             <style>
               body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
               .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 30px; }
@@ -997,8 +997,8 @@ export const RegistroForm = () => {
           <body>
             <div class="header">
               <h1>GUÍA DE REMISIÓN</h1>
-              <div class="numero">${guia.numero}</div>
-              <div class="fecha">Fecha: ${guia.fecha_emision ? guia.fecha_emision.split('-').reverse().join('/') : ''}</div>
+              <div class="numero">${guia.numero_guia}</div>
+              <div class="fecha">Fecha: ${guia.fecha ? new Date(guia.fecha).toLocaleDateString('es-PE') : ''}</div>
             </div>
             
             <div class="info-grid">

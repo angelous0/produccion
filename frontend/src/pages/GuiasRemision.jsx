@@ -140,8 +140,8 @@ export const GuiasRemision = () => {
   const guiasFiltradas = guias.filter(g => {
     if (filtroRegistro && g.registro_id !== filtroRegistro) return false;
     if (filtroPersona && g.persona_id !== filtroPersona) return false;
-    if (filtroFechaDesde && g.fecha_emision < filtroFechaDesde) return false;
-    if (filtroFechaHasta && g.fecha_emision > filtroFechaHasta) return false;
+    if (filtroFechaDesde && g.fecha < filtroFechaDesde) return false;
+    if (filtroFechaHasta && g.fecha > filtroFechaHasta) return false;
     return true;
   });
 
@@ -367,8 +367,8 @@ export const GuiasRemision = () => {
               <div ref={printRef} className="border rounded-lg p-6 bg-white">
                 <div className="header text-center border-b-2 border-black pb-4 mb-6">
                   <h1 className="text-2xl font-bold">GUÍA DE REMISIÓN</h1>
-                  <p className="text-xl font-mono mt-2">{selectedGuia.numero}</p>
-                  <p className="text-muted-foreground">Fecha: {selectedGuia.fecha_emision}</p>
+                  <p className="text-xl font-mono mt-2">{selectedGuia.numero_guia}</p>
+                  <p className="text-muted-foreground">Fecha: {selectedGuia.fecha ? formatDate(selectedGuia.fecha) : '-'}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 mb-6">

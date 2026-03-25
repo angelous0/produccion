@@ -5239,7 +5239,20 @@ async def create_guia_from_movimiento(movimiento_id: str):
                 mov['servicio_id'], mov['persona_id'], mov['cantidad_enviada'], datetime.now(), guia_existente['id']
             )
             updated = await conn.fetchrow("SELECT * FROM prod_guias_remision WHERE id = $1", guia_existente['id'])
-            return {"message": "Guía actualizada", "guia": row_to_dict(updated), "updated": True}
+            updated_dict = row_to_dict(updated)
+            # Enriquecer con nombres
+            srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", updated_dict.get('servicio_id'))
+            per = await conn.fetchrow("SELECT nombre, telefono, direccion FROM prod_personas_produccion WHERE id = $1", updated_dict.get('persona_id'))
+            reg = await conn.fetchrow("SELECT n_corte, modelo_id FROM prod_registros WHERE id = $1", updated_dict.get('registro_id'))
+            updated_dict['servicio_nombre'] = srv['nombre'] if srv else None
+            updated_dict['persona_nombre'] = per['nombre'] if per else None
+            updated_dict['persona_telefono'] = per['telefono'] if per else None
+            updated_dict['persona_direccion'] = per['direccion'] if per else None
+            updated_dict['registro_n_corte'] = reg['n_corte'] if reg else None
+            if reg and reg['modelo_id']:
+                modelo = await conn.fetchrow("SELECT nombre FROM prod_modelos WHERE id = $1", reg['modelo_id'])
+                updated_dict['modelo_nombre'] = modelo['nombre'] if modelo else None
+            return {"message": "Guía actualizada", "guia": updated_dict, "updated": True}
         
         # Crear nueva guía
         guia_id = str(uuid.uuid4())
@@ -5260,7 +5273,20 @@ async def create_guia_from_movimiento(movimiento_id: str):
             mov['persona_id'], mov['cantidad_enviada'], "", datetime.now()
         )
         guia = await conn.fetchrow("SELECT * FROM prod_guias_remision WHERE id = $1", guia_id)
-        return {"message": "Guía creada", "guia": row_to_dict(guia), "updated": False}
+        guia_dict = row_to_dict(guia)
+        # Enriquecer con nombres
+        srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", guia_dict.get('servicio_id'))
+        per = await conn.fetchrow("SELECT nombre, telefono, direccion FROM prod_personas_produccion WHERE id = $1", guia_dict.get('persona_id'))
+        reg = await conn.fetchrow("SELECT n_corte, modelo_id FROM prod_registros WHERE id = $1", guia_dict.get('registro_id'))
+        guia_dict['servicio_nombre'] = srv['nombre'] if srv else None
+        guia_dict['persona_nombre'] = per['nombre'] if per else None
+        guia_dict['persona_telefono'] = per['telefono'] if per else None
+        guia_dict['persona_direccion'] = per['direccion'] if per else None
+        guia_dict['registro_n_corte'] = reg['n_corte'] if reg else None
+        if reg and reg['modelo_id']:
+            modelo = await conn.fetchrow("SELECT nombre FROM prod_modelos WHERE id = $1", reg['modelo_id'])
+            guia_dict['modelo_nombre'] = modelo['nombre'] if modelo else None
+        return {"message": "Guía creada", "guia": guia_dict, "updated": False}
 
 @api_router.delete("/guias-remision/{guia_id}")
 async def delete_guia_remision(guia_id: str):
