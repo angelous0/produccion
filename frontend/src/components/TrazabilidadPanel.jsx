@@ -142,16 +142,16 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
     setLoading(true);
     try {
       const hdrs = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const [balRes, tlRes, fRes, aRes] = await Promise.all([
+      const results = await Promise.allSettled([
         axios.get(`${API}/registros/${registroId}/resumen-cantidades`, { headers: hdrs }),
         axios.get(`${API}/registros/${registroId}/trazabilidad-completa`, { headers: hdrs }),
         axios.get(`${API}/fallados?registro_id=${registroId}`, { headers: hdrs }),
         axios.get(`${API}/arreglos?registro_id=${registroId}`, { headers: hdrs }),
       ]);
-      setBalance(balRes.data);
-      setTimeline(tlRes.data);
-      setFallados(fRes.data);
-      setArreglos(aRes.data);
+      if (results[0].status === 'fulfilled') setBalance(results[0].value.data);
+      if (results[1].status === 'fulfilled') setTimeline(results[1].value.data);
+      if (results[2].status === 'fulfilled') setFallados(results[2].value.data);
+      if (results[3].status === 'fulfilled') setArreglos(results[3].value.data);
     } catch (err) {
       console.error('Error fetching trazabilidad:', err);
     } finally {

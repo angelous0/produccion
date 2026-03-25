@@ -527,11 +527,11 @@ async def resumen_cantidades(
         if not reg:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
 
-        # Cantidad inicial
-        cantidad_inicial = safe_int(reg["cantidad_tallas"])
-        if cantidad_inicial == 0:
+        # Cantidad inicial: tallas actuales + prendas en hijos (para reflejar el total original)
+        cantidad_base = safe_int(reg["cantidad_tallas"])
+        if cantidad_base == 0:
             tallas_jsonb = parse_jsonb(reg["tallas"])
-            cantidad_inicial = sum(safe_int(t.get("cantidad", 0)) for t in tallas_jsonb)
+            cantidad_base = sum(safe_int(t.get("cantidad", 0)) for t in tallas_jsonb)
 
         # Merma / faltantes
         merma_total = await conn.fetchval(
@@ -598,6 +598,9 @@ async def resumen_cantidades(
             total_hijos_prendas += hp_int
             hijos_data.append({"id": h["id"], "n_corte": h["n_corte"], "estado": h["estado"], "prendas": hp_int})
 
+        # cantidad_inicial = tallas actuales + hijos divididos (= total original antes de dividir)
+        cantidad_inicial = cantidad_base + total_hijos_prendas
+
         # Alertas
         alertas = []
         if arreglos_vencidos > 0:
@@ -606,18 +609,14 @@ async def resumen_cantidades(
             alertas.append({"tipo": "MERMA", "mensaje": f"{safe_int(merma_total)} prendas extraviadas/faltantes"})
         if no_rep_pendiente > 0:
             alertas.append({"tipo": "PENDIENTE", "mensaje": f"{no_rep_pendiente} no reparables sin destino definido"})
-        if hijos_data and (cantidad_inicial != total_hijos_prendas + cantidad_inicial):
-            # Only alert if padre was split but quantities don't add up
-            pass
 
         # ---- Distribución que suma al total ----
-        # Fallados sin asignar = detectados - (en arreglo pendiente + en arreglo resuelto + liquidados directo)
         fallados_en_arreglo_pendiente = arreglos_pendientes
-        fallados_en_arreglo_resuelto_buenos = arreglos_resueltos  # volvieron a producción
+        fallados_en_arreglo_resuelto_buenos = arreglos_resueltos
         fallados_liquidados = total_liquidacion + total_segunda + total_descarte
         fallados_sin_asignar = fallados_detectados - sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows)
 
-        # En producción = inicial - mermas - fallados + reparados que volvieron
+        # En producción = inicial - mermas - fallados + reparados - divididos
         en_produccion = cantidad_inicial - safe_int(merma_total) - fallados_detectados + fallados_en_arreglo_resuelto_buenos - total_hijos_prendas
 
         return {

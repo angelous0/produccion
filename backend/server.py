@@ -3067,17 +3067,32 @@ async def validar_cambio_estado(registro_id: str, body: dict):
             movs_por_servicio[sid].append(dict(m))
         
         if nuevo_idx is not None:
+            # Si es un registro dividido, verificar movimientos del padre para etapas previas
+            es_division = bool(registro.get('dividido_desde_registro_id'))
+            movs_padre = {}
+            if es_division and registro['dividido_desde_registro_id']:
+                movs_padre_rows = await conn.fetch(
+                    "SELECT servicio_id, fecha_inicio, fecha_fin FROM prod_movimientos_produccion WHERE registro_id = $1",
+                    registro['dividido_desde_registro_id']
+                )
+                for m in movs_padre_rows:
+                    sid = m['servicio_id']
+                    if sid not in movs_padre:
+                        movs_padre[sid] = []
+                    movs_padre[sid].append(dict(m))
+            
             for et in etapas_sorted[:nuevo_idx]:
                 sid = et.get('servicio_id')
                 if not sid:
                     continue
                 es_obligatoria = et.get('obligatorio', True)
                 
-                if es_obligatoria and sid not in movs_por_servicio:
-                    # Etapa obligatoria sin movimiento -> bloquear
+                tiene_mov_propio = sid in movs_por_servicio
+                tiene_mov_padre = sid in movs_padre
+                
+                if es_obligatoria and not tiene_mov_propio and not tiene_mov_padre:
                     bloqueos.append(f"La etapa obligatoria '{et['nombre']}' no tiene movimiento registrado.")
-                elif sid in movs_por_servicio:
-                    # Tiene movimiento(s): verificar si alguno sigue abierto
+                elif tiene_mov_propio:
                     alguno_abierto = any(m.get('fecha_inicio') and not m.get('fecha_fin') for m in movs_por_servicio[sid])
                     if alguno_abierto:
                         if es_obligatoria:
