@@ -70,6 +70,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Trazabilidad Unificada Backend (tablas, CRUD fallados/arreglos, resumen, timeline)
 - [x] Trazabilidad Unificada Frontend (Balance del Lote, Tabs, Dialogs, Alertas)
 - [x] Bug Fix: Guias de Remision - URL mismatch, response parsing, campos incorrectos, filtros de fecha (2026-03-25)
+- [x] Mejora Matriz: Colores como popup en modal en vez de columna. Tabla agrupada por Color General con subtotales (2026-03-25)
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
