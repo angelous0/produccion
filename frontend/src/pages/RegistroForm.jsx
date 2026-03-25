@@ -1433,6 +1433,7 @@ export const RegistroForm = () => {
                   <div className="space-y-2">
                     <Label>Modelo *</Label>
                     <Select
+                      key={`modelo-${modelos.length}`}
                       value={formData.modelo_id}
                       onValueChange={handleModeloChange}
                     >
@@ -1452,6 +1453,7 @@ export const RegistroForm = () => {
                   <div className="space-y-2">
                     <Label>Hilo Específico</Label>
                     <Select
+                      key={`hilo-${hilosEspecificos.length}`}
                       value={formData.hilo_especifico_id || ""}
                       onValueChange={(value) => setFormData({ ...formData, hilo_especifico_id: value === "none" ? "" : value })}
                     >
