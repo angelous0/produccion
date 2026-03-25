@@ -284,7 +284,8 @@ export const RegistroForm = () => {
 
   useEffect(() => {
     fetchRelatedData();
-    fetchRegistro();
+    if (id) fetchRegistro();
+    else setLoadingData(false);
   }, [id]);
 
   useEffect(() => {
@@ -1171,6 +1172,7 @@ export const RegistroForm = () => {
                       </div>
                     </div>
                     <Select
+                      key={estados.length > 0 && formData.estado ? formData.estado : 'est-loading'}
                       value={formData.estado}
                       onValueChange={async (value) => {
                         if (usaRuta && id) {
@@ -1437,7 +1439,7 @@ export const RegistroForm = () => {
                   <div className="space-y-2">
                     <Label>Modelo *</Label>
                     <Select
-                      key={`modelo-${modelos.length}`}
+                      key={modelos.length > 0 && formData.modelo_id ? formData.modelo_id : 'mod-loading'}
                       value={formData.modelo_id}
                       onValueChange={handleModeloChange}
                     >
@@ -1457,7 +1459,7 @@ export const RegistroForm = () => {
                   <div className="space-y-2">
                     <Label>Hilo Específico</Label>
                     <Select
-                      key={`hilo-${hilosEspecificos.length}`}
+                      key={hilosEspecificos.length > 0 && formData.hilo_especifico_id ? formData.hilo_especifico_id : 'hilo-loading'}
                       value={formData.hilo_especifico_id || ""}
                       onValueChange={(value) => setFormData({ ...formData, hilo_especifico_id: value === "none" ? "" : value })}
                     >
