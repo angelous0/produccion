@@ -24,7 +24,7 @@ import {
 } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { getStatusClass } from '../lib/utils';
@@ -109,6 +109,11 @@ export const Registros = () => {
   const [paralizacionItem, setParalizacionItem] = useState(null);
   const [paralizaciones, setParalizaciones] = useState([]);
   const [paralizacionForm, setParalizacionForm] = useState({ motivo: '', comentario: '' });
+
+  // Búsqueda y filtros
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroOperativo, setFiltroOperativo] = useState('todos');
 
   const fetchItems = async () => {
     try {
@@ -452,6 +457,28 @@ export const Registros = () => {
     }
   });
 
+  // Obtener estados únicos de los items cargados
+  const estadosUnicos = [...new Set(items.map(i => i.estado).filter(Boolean))].sort();
+  const operativosUnicos = [...new Set(items.map(i => i.estado_operativo || 'NORMAL').filter(Boolean))].sort();
+
+  // Filtrar items
+  const filteredItems = items.filter(item => {
+    // Búsqueda por n_corte o modelo
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const matchCorte = (item.n_corte || '').toLowerCase().includes(term);
+      const matchModelo = (item.modelo_nombre || '').toLowerCase().includes(term);
+      if (!matchCorte && !matchModelo) return false;
+    }
+    // Filtro por estado
+    if (filtroEstado !== 'todos' && item.estado !== filtroEstado) return false;
+    // Filtro por operativo
+    if (filtroOperativo !== 'todos' && (item.estado_operativo || 'NORMAL') !== filtroOperativo) return false;
+    return true;
+  });
+
+  const hayFiltrosActivos = searchTerm || filtroEstado !== 'todos' || filtroOperativo !== 'todos';
+
   return (
     <div className="space-y-6" data-testid="registros-page">
       <div className="flex items-center justify-between">
@@ -466,6 +493,55 @@ export const Registros = () => {
             Nuevo Registro
           </Button>
         </div>
+      </div>
+
+      {/* Barra de búsqueda y filtros */}
+      <div className="flex flex-wrap items-center gap-3" data-testid="filtros-registros">
+        <div className="relative flex-1 min-w-[220px] max-w-[360px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por N° Corte o Modelo..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-8"
+            data-testid="input-search-registros"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+          <SelectTrigger className="w-[180px]" data-testid="select-filtro-estado">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            {estadosUnicos.map(e => (
+              <SelectItem key={e} value={e}>{e}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroOperativo} onValueChange={setFiltroOperativo}>
+          <SelectTrigger className="w-[170px]" data-testid="select-filtro-operativo">
+            <SelectValue placeholder="Operativo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="NORMAL">Normal</SelectItem>
+            <SelectItem value="EN_RIESGO">En Riesgo</SelectItem>
+            <SelectItem value="PARALIZADA">Paralizada</SelectItem>
+          </SelectContent>
+        </Select>
+        {hayFiltrosActivos && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFiltroEstado('todos'); setFiltroOperativo('todos'); }} data-testid="btn-limpiar-filtros">
+            <X className="h-4 w-4 mr-1" /> Limpiar
+          </Button>
+        )}
+        <span className="text-sm text-muted-foreground ml-auto" data-testid="count-registros">
+          {filteredItems.length} de {items.length} registros
+        </span>
       </div>
 
       <Card>
@@ -491,14 +567,14 @@ export const Registros = () => {
                       Cargando...
                     </TableCell>
                   </TableRow>
-                ) : items.length === 0 ? (
+                ) : filteredItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No hay registros
+                      {hayFiltrosActivos ? 'No hay registros que coincidan con los filtros' : 'No hay registros'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
+                  filteredItems.map((item) => (
                     <TableRow 
                       key={item.id} 
                       className={`data-table-row ${item.estado_operativo === 'PARALIZADA' ? 'bg-red-50 dark:bg-red-950/20' : item.estado_operativo === 'EN_RIESGO' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
