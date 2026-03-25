@@ -157,11 +157,11 @@ export const RegistroForm = () => {
   const fetchWithRetry = async (url, retries = 2) => {
     for (let i = 0; i <= retries; i++) {
       try {
-        const res = await axios.get(url);
+        const res = await axios.get(url, { timeout: 15000 });
         return res.data;
       } catch (e) {
         if (i === retries) return null;
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 800));
       }
     }
     return null;
@@ -303,12 +303,12 @@ export const RegistroForm = () => {
   };
 
   useEffect(() => {
-    const init = async () => {
-      await fetchRelatedData();
-      if (id) fetchRegistro();
-      else setLoadingData(false);
-    };
-    init();
+    fetchRelatedData();
+    if (id) {
+      fetchRegistro();
+    } else {
+      setLoadingData(false);
+    }
   }, [id]);
 
   useEffect(() => {
