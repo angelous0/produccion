@@ -2030,11 +2030,18 @@ async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
             # Enriquecer con nombre del servicio
             servicios_detalle = []
             for s in d['servicios']:
-                srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", s.get('servicio_id'))
+                # Handle both formats: string (just UUID) or dict {"servicio_id": ..., "tarifa": ...}
+                if isinstance(s, str):
+                    sid = s
+                    tarifa = 0
+                else:
+                    sid = s.get('servicio_id')
+                    tarifa = s.get('tarifa', 0)
+                srv = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", sid)
                 servicios_detalle.append({
-                    "servicio_id": s.get('servicio_id'),
+                    "servicio_id": sid,
                     "servicio_nombre": srv['nombre'] if srv else None,
-                    "tarifa": s.get('tarifa', 0)
+                    "tarifa": tarifa
                 })
             d['servicios_detalle'] = servicios_detalle
             # Enriquecer unidad interna
@@ -2042,7 +2049,7 @@ async def get_personas_produccion(servicio_id: str = None, activo: bool = None):
                 ui = await conn.fetchrow("SELECT nombre FROM finanzas2.fin_unidad_interna WHERE id = $1", d['unidad_interna_id'])
                 d['unidad_interna_nombre'] = ui['nombre'] if ui else None
             if servicio_id:
-                if any(s.get('servicio_id') == servicio_id for s in d['servicios']):
+                if any((s if isinstance(s, str) else s.get('servicio_id')) == servicio_id for s in d['servicios']):
                     result.append(d)
             else:
                 result.append(d)
@@ -4967,8 +4974,9 @@ async def create_movimiento(input: MovimientoCreate):
         if not tarifa:
             servicios = parse_jsonb(per['servicios'])
             for s in servicios:
-                if s.get('servicio_id') == input.servicio_id:
-                    tarifa = s.get('tarifa', 0)
+                sid = s if isinstance(s, str) else s.get('servicio_id')
+                if sid == input.servicio_id:
+                    tarifa = s.get('tarifa', 0) if isinstance(s, dict) else 0
                     break
         
         diferencia = input.cantidad_enviada - input.cantidad_recibida
@@ -5033,8 +5041,9 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
             per = await conn.fetchrow("SELECT servicios FROM prod_personas_produccion WHERE id = $1", input.persona_id)
             servicios = parse_jsonb(per['servicios']) if per else []
             for s in servicios:
-                if s.get('servicio_id') == input.servicio_id:
-                    tarifa = s.get('tarifa', 0)
+                sid = s if isinstance(s, str) else s.get('servicio_id')
+                if sid == input.servicio_id:
+                    tarifa = s.get('tarifa', 0) if isinstance(s, dict) else 0
                     break
         
         diferencia = input.cantidad_enviada - input.cantidad_recibida

@@ -22,6 +22,7 @@ async def get_pool():
             min_size=2,
             max_size=10,
             command_timeout=30,
+            max_inactive_connection_lifetime=60,
             server_settings={"search_path": "produccion,public"},
         )
     return pool
