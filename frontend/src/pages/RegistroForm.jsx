@@ -150,6 +150,8 @@ export const RegistroForm = () => {
   // Combobox modelo
   const [modeloPopoverOpen, setModeloPopoverOpen] = useState(false);
   const [modeloSearch, setModeloSearch] = useState('');
+  const [servicioPopoverOpen, setServicioPopoverOpen] = useState(false);
+  const [personaPopoverOpen, setPersonaPopoverOpen] = useState(false);
 
   // Salidas agrupadas: items expandidos
   const [salidasExpandidas, setSalidasExpandidas] = useState({});
@@ -2505,30 +2507,48 @@ export const RegistroForm = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Servicio *</Label>
-              <Select
-                value={movimientoFormData.servicio_id}
-                onValueChange={handleServicioChange}
-              >
-                <SelectTrigger data-testid="select-servicio-movimiento">
-                  <SelectValue placeholder="Seleccionar servicio..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(modeloSeleccionado?.servicios_ids?.length > 0
-                    ? serviciosProduccion.filter(s => modeloSeleccionado.servicios_ids.includes(s.id))
-                    : serviciosProduccion
-                  ).map((servicio) => (
-                    <SelectItem key={servicio.id} value={servicio.id}>
-                      {servicio.nombre}
-                    </SelectItem>
-                  ))}
-                  {modeloSeleccionado?.servicios_ids?.length > 0 && 
-                   serviciosProduccion.filter(s => modeloSeleccionado.servicios_ids.includes(s.id)).length === 0 && (
-                    <SelectItem value="none" disabled>
-                      No hay servicios configurados en el modelo
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover open={servicioPopoverOpen} onOpenChange={setServicioPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={servicioPopoverOpen}
+                    className="w-full justify-between font-normal"
+                    data-testid="select-servicio-movimiento"
+                  >
+                    {movimientoFormData.servicio_id
+                      ? (serviciosProduccion.find(s => s.id === movimientoFormData.servicio_id)?.nombre || 'Servicio seleccionado')
+                      : 'Seleccionar servicio...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar servicio..." />
+                    <CommandList>
+                      <CommandEmpty>No se encontro servicio</CommandEmpty>
+                      <CommandGroup>
+                        {(modeloSeleccionado?.servicios_ids?.length > 0
+                          ? serviciosProduccion.filter(s => modeloSeleccionado.servicios_ids.includes(s.id))
+                          : serviciosProduccion
+                        ).map((servicio) => (
+                          <CommandItem
+                            key={servicio.id}
+                            value={servicio.nombre}
+                            onSelect={() => {
+                              handleServicioChange(servicio.id);
+                              setServicioPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${movimientoFormData.servicio_id === servicio.id ? 'opacity-100' : 'opacity-0'}`} />
+                            {servicio.nombre}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {modeloSeleccionado?.servicios_ids?.length > 0 && (
                 <p className="text-xs text-muted-foreground">
                   Mostrando servicios configurados en el modelo
@@ -2538,39 +2558,57 @@ export const RegistroForm = () => {
 
             <div className="space-y-2">
               <Label>Persona *</Label>
-              <Select
-                value={movimientoFormData.persona_id}
-                onValueChange={handlePersonaChange}
-                disabled={!movimientoFormData.servicio_id}
-              >
-                <SelectTrigger data-testid="select-persona-movimiento">
-                  <SelectValue placeholder={movimientoFormData.servicio_id ? "Seleccionar persona..." : "Selecciona servicio primero"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {personasFiltradas.length === 0 ? (
-                    <SelectItem value="none" disabled>
-                      No hay personas asignadas a este servicio
-                    </SelectItem>
-                  ) : (
-                    personasFiltradas.map((persona) => {
-                      const tarifaPersona = getTarifaPersonaServicio(persona.id, movimientoFormData.servicio_id);
-                      return (
-                        <SelectItem key={persona.id} value={persona.id}>
-                          <span className="flex items-center gap-2">
-                            {persona.nombre}
-                            <span className={`text-[10px] px-1 rounded ${persona.tipo_persona === 'INTERNO' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
-                              {persona.tipo_persona === 'INTERNO' ? 'INT' : 'EXT'}
-                            </span>
-                            {tarifaPersona > 0 && (
-                              <span className="text-green-600">({formatCurrency(tarifaPersona)}/prenda)</span>
-                            )}
-                          </span>
-                        </SelectItem>
-                      );
-                    })
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover open={personaPopoverOpen} onOpenChange={setPersonaPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={personaPopoverOpen}
+                    className="w-full justify-between font-normal"
+                    disabled={!movimientoFormData.servicio_id}
+                    data-testid="select-persona-movimiento"
+                  >
+                    {movimientoFormData.persona_id
+                      ? (personasFiltradas.find(p => p.id === movimientoFormData.persona_id)?.nombre || 'Persona seleccionada')
+                      : (movimientoFormData.servicio_id ? 'Seleccionar persona...' : 'Selecciona servicio primero')}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar persona..." />
+                    <CommandList>
+                      <CommandEmpty>No se encontro persona</CommandEmpty>
+                      <CommandGroup>
+                        {personasFiltradas.map((persona) => {
+                          const tarifaPersona = getTarifaPersonaServicio(persona.id, movimientoFormData.servicio_id);
+                          return (
+                            <CommandItem
+                              key={persona.id}
+                              value={persona.nombre}
+                              onSelect={() => {
+                                handlePersonaChange(persona.id);
+                                setPersonaPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={`mr-2 h-4 w-4 ${movimientoFormData.persona_id === persona.id ? 'opacity-100' : 'opacity-0'}`} />
+                              <span className="flex items-center gap-2">
+                                {persona.nombre}
+                                <span className={`text-[10px] px-1 rounded ${persona.tipo_persona === 'INTERNO' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                  {persona.tipo_persona === 'INTERNO' ? 'INT' : 'EXT'}
+                                </span>
+                                {tarifaPersona > 0 && (
+                                  <span className="text-green-600 text-xs">({formatCurrency(tarifaPersona)}/prenda)</span>
+                                )}
+                              </span>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {movimientoFormData.servicio_id && personasFiltradas.length === 0 && (
                 <p className="text-xs text-orange-500">
                   No hay personas asignadas a este servicio. Asígnalas en Maestros → Personas.
