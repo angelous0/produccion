@@ -149,29 +149,27 @@ export const RegistroForm = () => {
 
   // Cargar datos relacionados
   const fetchRelatedData = async () => {
-    try {
-      const [modelosRes, estadosRes, tallasRes, coloresRes, inventarioRes, serviciosRes, personasRes, hilosEspRes] = await Promise.all([
-        axios.get(`${API}/modelos`),
-        axios.get(`${API}/estados`),
-        axios.get(`${API}/tallas-catalogo`),
-        axios.get(`${API}/colores-catalogo`),
-        axios.get(`${API}/inventario`),
-        axios.get(`${API}/servicios-produccion`),
-        axios.get(`${API}/personas-produccion?activo=true`),
-        axios.get(`${API}/hilos-especificos`),
-      ]);
-      setModelos(modelosRes.data);
-      setEstados(estadosRes.data.estados);
-      setEstadosGlobales(estadosRes.data.estados);
-      setTallasCatalogo(tallasRes.data);
-      setColoresCatalogo(coloresRes.data);
-      setItemsInventario(inventarioRes.data);
-      setServiciosProduccion(serviciosRes.data);
-      setPersonasProduccion(personasRes.data);
-      setHilosEspecificos(hilosEspRes.data);
-    } catch (error) {
-      toast.error('Error al cargar datos');
-    }
+    const results = await Promise.allSettled([
+      axios.get(`${API}/modelos`),
+      axios.get(`${API}/estados`),
+      axios.get(`${API}/tallas-catalogo`),
+      axios.get(`${API}/colores-catalogo`),
+      axios.get(`${API}/inventario`),
+      axios.get(`${API}/servicios-produccion`),
+      axios.get(`${API}/personas-produccion?activo=true`),
+      axios.get(`${API}/hilos-especificos`),
+    ]);
+    const get = (i) => results[i].status === 'fulfilled' ? results[i].value.data : null;
+    if (get(0)) setModelos(get(0));
+    if (get(1)?.estados) { setEstados(get(1).estados); setEstadosGlobales(get(1).estados); }
+    if (get(2)) setTallasCatalogo(get(2));
+    if (get(3)) setColoresCatalogo(get(3));
+    if (get(4)) setItemsInventario(get(4));
+    if (get(5)) setServiciosProduccion(get(5));
+    if (get(6)) setPersonasProduccion(get(6));
+    if (get(7)) setHilosEspecificos(get(7));
+    const failed = results.filter(r => r.status === 'rejected').length;
+    if (failed > 0) console.warn(`${failed} de 8 catálogos no cargaron`);
   };
 
   // Cargar estados dinámicos según el registro o modelo
@@ -258,17 +256,23 @@ export const RegistroForm = () => {
       setDistribucionColores(registro.distribucion_colores || []);
       
       // Buscar modelo seleccionado
-      const modelosRes = await axios.get(`${API}/modelos`);
-      const modelo = modelosRes.data.find(m => m.id === registro.modelo_id);
-      setModeloSeleccionado(modelo || null);
-      
-      // Auto-fill PT from modelo if registro doesn't have one
-      if (!registro.pt_item_id && modelo?.pt_item_id) {
-        setFormData(prev => ({ ...prev, pt_item_id: modelo.pt_item_id }));
+      try {
+        const modelosRes = await axios.get(`${API}/modelos`);
+        const modelo = modelosRes.data.find(m => m.id === registro.modelo_id);
+        setModeloSeleccionado(modelo || null);
+        if (!registro.pt_item_id && modelo?.pt_item_id) {
+          setFormData(prev => ({ ...prev, pt_item_id: modelo.pt_item_id }));
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar modelos para auto-fill');
       }
       
       // Cargar estados disponibles para este registro
-      await fetchEstadosDisponibles(id);
+      try {
+        await fetchEstadosDisponibles(id);
+      } catch (e) {
+        console.warn('No se pudo cargar estados disponibles');
+      }
       
     } catch (error) {
       toast.error('Error al cargar registro');
