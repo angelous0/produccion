@@ -258,6 +258,7 @@ export const RegistroForm = () => {
         pt_item_id: registro.pt_item_id || '',
         id_odoo: registro.id_odoo || '',
         observaciones: registro.observaciones || '',
+        skip_validacion_estado: registro.skip_validacion_estado || false,
       });
       
       setTallasSeleccionadas(registro.tallas || []);
@@ -1220,6 +1221,28 @@ export const RegistroForm = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {id && (
+                      <label className="flex items-center gap-2 cursor-pointer select-none ml-3" title="Desactiva las validaciones de movimientos para cambiar de estado libremente">
+                        <input
+                          type="checkbox"
+                          checked={formData.skip_validacion_estado || false}
+                          onChange={async (ev) => {
+                            const newVal = ev.target.checked;
+                            setFormData(prev => ({ ...prev, skip_validacion_estado: newVal }));
+                            try {
+                              await axios.put(`${API}/registros/${id}/skip-validacion`, { skip_validacion_estado: newVal });
+                              toast.success(newVal ? 'Validacion de estados desactivada' : 'Validacion de estados activada');
+                            } catch {
+                              toast.error('Error al cambiar configuracion');
+                              setFormData(prev => ({ ...prev, skip_validacion_estado: !newVal }));
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                          data-testid="toggle-skip-validacion"
+                        />
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">Sin restricciones</span>
+                      </label>
+                    )}
                   </div>
                   {estados.length > 1 && (
                     <div className="flex items-center gap-1 mt-3 overflow-x-auto pb-1">

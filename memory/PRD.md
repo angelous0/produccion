@@ -53,6 +53,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - POST /api/registros/{id}/validar-cambio-estado acepta {forzar: true} para saltar validaciones
   - Dialog en frontend "Cambio de Estado Bloqueado" con boton "Forzar Cambio" (destructive)
   - Util para registros migrados que ya tienen todos sus movimientos
+- **Skip Validacion por Registro** (2026-03-25):
+  - Campo persistente `skip_validacion_estado` en prod_registros (boolean)
+  - PUT /api/registros/{id}/skip-validacion para activar/desactivar
+  - Checkbox "Sin restricciones" visible junto al selector de estado en RegistroForm
+  - Cuando esta activo, el registro puede cambiar de estado libremente sin validar movimientos
+  - Ideal para registros migrados antiguos (ej: 228-2025) que no tienen movimientos en el sistema nuevo
 
 ## Key API Endpoints
 - GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)

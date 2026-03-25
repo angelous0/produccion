@@ -145,6 +145,7 @@ async def ensure_bom_tables():
     async with pool.acquire() as conn:
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS id_odoo VARCHAR(50)")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS observaciones TEXT")
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS skip_validacion_estado BOOLEAN DEFAULT FALSE")
 
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
@@ -2940,6 +2941,19 @@ async def create_registro(input: RegistroCreate):
         )
     return registro
 
+@api_router.put("/registros/{registro_id}/skip-validacion")
+async def toggle_skip_validacion(registro_id: str, body: dict):
+    """Activa o desactiva la validación de estados para un registro."""
+    skip = body.get("skip_validacion_estado", False)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE prod_registros SET skip_validacion_estado = $1 WHERE id = $2",
+            skip, registro_id
+        )
+        return {"ok": True, "skip_validacion_estado": skip}
+
+
 @api_router.put("/registros/{registro_id}")
 async def update_registro(registro_id: str, input: RegistroCreate):
     # Sanitizar FKs opcionales: string vacío → None
@@ -3211,8 +3225,8 @@ async def validar_cambio_estado(registro_id: str, body: dict):
         etapas_sorted = sorted(etapas, key=lambda e: e.get('orden', 0))
         nombres_ruta = [e['nombre'] for e in etapas_sorted]
         
-        # Si se fuerza el cambio, permitir sin validaciones
-        if forzar:
+        # Si se fuerza el cambio O el registro tiene skip_validacion_estado, permitir sin validaciones
+        if forzar or registro.get('skip_validacion_estado'):
             return {"permitido": True, "bloqueos": [], "forzado": True, "sugerencia_movimiento": None}
         
         bloqueos = []
