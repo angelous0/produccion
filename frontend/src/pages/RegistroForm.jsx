@@ -1290,7 +1290,7 @@ export const RegistroForm = () => {
                 </div>
 
                 {/* Banner de inconsistencias estado vs movimientos */}
-                {analisisEstado && analisisEstado.inconsistencias && analisisEstado.inconsistencias.length > 0 && (
+                {analisisEstado && analisisEstado.inconsistencias && analisisEstado.inconsistencias.length > 0 && !formData.skip_validacion_estado && (
                   <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-3 space-y-1" data-testid="inconsistencias-banner">
                     <div className="flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
