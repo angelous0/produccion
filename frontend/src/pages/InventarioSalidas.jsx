@@ -62,7 +62,7 @@ export const InventarioSalidas = () => {
     try {
       const [salidasRes, itemsRes, registrosRes] = await Promise.all([
         axios.get(`${API}/inventario-salidas`),
-        axios.get(`${API}/inventario`),
+        axios.get(`${API}/inventario?all=true`),
         axios.get(`${API}/registros`),
       ]);
       setSalidas(salidasRes.data);

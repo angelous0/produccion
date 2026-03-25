@@ -4238,13 +4238,33 @@ async def get_categorias():
     return {"categorias": CATEGORIAS_INVENTARIO}
 
 @api_router.get("/inventario")
-async def get_inventario():
+async def get_inventario(
+    limit: int = 50,
+    offset: int = 0,
+    search: str = "",
+    categoria: str = "",
+    stock_status: str = "",
+    all: str = "",
+):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
-            SELECT i.*,
-                COALESCE(res.total_reservado, 0) as total_reservado,
-                COALESCE(val.valorizado, 0) as valorizado
+        conditions = []
+        params = []
+        param_idx = 1
+
+        if search:
+            conditions.append(f"(i.nombre ILIKE ${param_idx} OR i.codigo ILIKE ${param_idx})")
+            params.append(f"%{search}%")
+            param_idx += 1
+
+        if categoria:
+            conditions.append(f"i.categoria = ${param_idx}")
+            params.append(categoria)
+            param_idx += 1
+
+        where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+        base_query = f"""
             FROM prod_inventario i
             LEFT JOIN LATERAL (
                 SELECT SUM(rl.cantidad_reservada - rl.cantidad_liberada) as total_reservado
@@ -4257,8 +4277,38 @@ async def get_inventario():
                 FROM prod_inventario_ingresos
                 WHERE item_id = i.id AND cantidad_disponible > 0
             ) val ON true
-            ORDER BY i.nombre ASC
-        """)
+            WHERE {where_clause}
+        """
+
+        # stock_status filter is applied post-query since it depends on computed fields
+        # But we can push it into SQL for efficiency
+        if stock_status == 'sin_stock':
+            base_query += " AND i.stock_actual <= 0"
+        elif stock_status == 'stock_bajo':
+            base_query += " AND i.stock_actual > 0 AND i.stock_actual <= i.stock_minimo"
+        elif stock_status == 'ok':
+            base_query += " AND i.stock_actual > i.stock_minimo"
+
+        # Count
+        count_row = await conn.fetchrow(f"SELECT COUNT(*) as total {base_query}", *params)
+        total = count_row['total']
+
+        select_fields = """
+            SELECT i.*,
+                COALESCE(res.total_reservado, 0) as total_reservado,
+                COALESCE(val.valorizado, 0) as valorizado
+        """
+
+        order_clause = " ORDER BY i.nombre ASC"
+
+        if all == "true":
+            rows = await conn.fetch(f"{select_fields} {base_query} {order_clause}", *params)
+        else:
+            rows = await conn.fetch(
+                f"{select_fields} {base_query} {order_clause} LIMIT ${param_idx} OFFSET ${param_idx + 1}",
+                *params, limit, offset
+            )
+
         result = []
         for r in rows:
             d = row_to_dict(r)
@@ -4266,7 +4316,20 @@ async def get_inventario():
             d['stock_disponible'] = max(0, float(d.get('stock_actual', 0)) - d['total_reservado'])
             d['valorizado'] = float(d.get('valorizado') or 0)
             result.append(d)
-        return result
+
+        if all == "true":
+            return result
+        return {"items": result, "total": total, "limit": limit, "offset": offset}
+
+@api_router.get("/inventario-filtros")
+async def get_inventario_filtros():
+    """Retorna categorias y unidades únicas para filtros."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        cats = await conn.fetch("SELECT DISTINCT categoria FROM prod_inventario WHERE categoria IS NOT NULL ORDER BY categoria")
+        return {
+            "categorias": [r['categoria'] for r in cats],
+        }
 
 @api_router.get("/inventario/{item_id}")
 async def get_item_inventario(item_id: str):

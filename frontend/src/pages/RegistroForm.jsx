@@ -175,7 +175,7 @@ export const RegistroForm = () => {
     axios.get(`${API}/estados`).then(r => { setEstados(r.data.estados); setEstadosGlobales(r.data.estados); }).catch(() => {});
     axios.get(`${API}/tallas-catalogo`).then(r => setTallasCatalogo(r.data)).catch(() => {});
     axios.get(`${API}/colores-catalogo`).then(r => setColoresCatalogo(r.data)).catch(() => {});
-    axios.get(`${API}/inventario`).then(r => setItemsInventario(r.data)).catch(() => {});
+    axios.get(`${API}/inventario?all=true`).then(r => setItemsInventario(r.data)).catch(() => {});
     axios.get(`${API}/servicios-produccion`).then(r => setServiciosProduccion(r.data)).catch(() => {});
     axios.get(`${API}/personas-produccion?activo=true`).then(r => setPersonasProduccion(r.data)).catch(() => {});
   };
@@ -431,7 +431,7 @@ export const RegistroForm = () => {
         setModelos(modelosRes.data);
         setModeloSeleccionado(modelosRes.data.find(m => m.id === modeloId) || null);
         // Refresh items inventario for PT selector
-        const itemsRes = await axios.get(`${API}/inventario`);
+        const itemsRes = await axios.get(`${API}/inventario?all=true`);
         setItemsInventario(itemsRes.data);
         toast.success(`PT creado automáticamente: ${res.data.pt_item_nombre}`);
       } catch (err) {
@@ -710,7 +710,7 @@ export const RegistroForm = () => {
       toast.success('Salida registrada');
       setSalidaDialogOpen(false);
       fetchSalidasRegistro();
-      const inventarioRes = await axios.get(`${API}/inventario`);
+      const inventarioRes = await axios.get(`${API}/inventario?all=true`);
       setItemsInventario(inventarioRes.data);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al crear salida');
@@ -723,7 +723,7 @@ export const RegistroForm = () => {
       toast.success('Salida eliminada');
       fetchSalidasRegistro();
       // Refrescar inventario
-      const inventarioRes = await axios.get(`${API}/inventario`);
+      const inventarioRes = await axios.get(`${API}/inventario?all=true`);
       setItemsInventario(inventarioRes.data);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al eliminar salida');
@@ -2474,7 +2474,7 @@ export const RegistroForm = () => {
         registroId={id}
         onSuccess={() => {
           fetchSalidasRegistro();
-          axios.get(`${API}/inventario`).then(res => setItemsInventario(res.data));
+          axios.get(`${API}/inventario?all=true`).then(res => setItemsInventario(res.data));
         }}
       />
 

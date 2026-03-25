@@ -50,10 +50,16 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Combobox buscable para Modelo en RegistroForm
   - Vista tipo Excel para Modelos con buscadores, metricas de registros y navegacion cruzada
 - **Forzar Cambio de Estado** (2026-03-25):
+- **Skip Validacion por Registro** (2026-03-25):
   - POST /api/registros/{id}/validar-cambio-estado acepta {forzar: true} para saltar validaciones
   - Dialog en frontend "Cambio de Estado Bloqueado" con boton "Forzar Cambio" (destructive)
   - Util para registros migrados que ya tienen todos sus movimientos
-- **Skip Validacion por Registro** (2026-03-25):
+- **Paginación Server-Side en Inventario** (2026-03-25):
+  - GET /api/inventario paginado (limit/offset/search/categoria/stock_status; o all=true)
+  - GET /api/inventario-filtros para categorias desde la BD
+  - Buscador por nombre y codigo
+  - Filtros por categoria (9 categorias reales) y estado de stock (OK, Stock bajo, Sin stock)
+  - 392 items → carga 50/pagina instantaneamente
   - Campo persistente `skip_validacion_estado` en prod_registros (boolean)
   - PUT /api/registros/{id}/skip-validacion para activar/desactivar
   - Checkbox "Sin restricciones" visible junto al selector de estado en RegistroForm
