@@ -2094,10 +2094,97 @@ async def delete_persona_produccion(persona_id: str):
 # ==================== ENDPOINTS MODELOS ====================
 
 @api_router.get("/modelos")
-async def get_modelos():
+async def get_modelos(
+    limit: int = 50,
+    offset: int = 0,
+    search: str = "",
+    marca: str = "",
+    tipo: str = "",
+    entalle: str = "",
+    tela: str = "",
+    all: str = "",
+):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
+        # If all=true, return all modelos without pagination (for dropdowns/selects)
+        if all == "true":
+            rows = await conn.fetch("""
+                SELECT m.*,
+                    ma.nombre as marca_nombre,
+                    t.nombre as tipo_nombre,
+                    e.nombre as entalle_nombre,
+                    te.nombre as tela_nombre,
+                    h.nombre as hilo_nombre,
+                    rp.nombre as ruta_nombre,
+                    inv.nombre as pt_item_nombre,
+                    inv.codigo as pt_item_codigo,
+                    COALESCE(reg_count.total, 0) as registros_count
+                FROM prod_modelos m
+                LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+                LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+                LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+                LEFT JOIN prod_telas te ON m.tela_id = te.id
+                LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+                LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
+                LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
+                LEFT JOIN LATERAL (
+                    SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
+                ) reg_count ON true
+                ORDER BY m.created_at DESC
+            """)
+            result = []
+            for r in rows:
+                d = row_to_dict(r)
+                d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
+                result.append(d)
+            return result
+
+        # Build WHERE clause dynamically for paginated query
+        conditions = []
+        params = []
+        param_idx = 1
+
+        if search:
+            conditions.append(f"(m.nombre ILIKE ${param_idx} OR ma.nombre ILIKE ${param_idx} OR t.nombre ILIKE ${param_idx} OR e.nombre ILIKE ${param_idx} OR te.nombre ILIKE ${param_idx})")
+            params.append(f"%{search}%")
+            param_idx += 1
+
+        if marca:
+            conditions.append(f"ma.nombre = ${param_idx}")
+            params.append(marca)
+            param_idx += 1
+
+        if tipo:
+            conditions.append(f"t.nombre = ${param_idx}")
+            params.append(tipo)
+            param_idx += 1
+
+        if entalle:
+            conditions.append(f"e.nombre = ${param_idx}")
+            params.append(entalle)
+            param_idx += 1
+
+        if tela:
+            conditions.append(f"te.nombre = ${param_idx}")
+            params.append(tela)
+            param_idx += 1
+
+        where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+        # Count total
+        count_row = await conn.fetchrow(f"""
+            SELECT COUNT(*) as total
+            FROM prod_modelos m
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+            LEFT JOIN prod_telas te ON m.tela_id = te.id
+            WHERE {where_clause}
+        """, *params)
+        total = count_row['total']
+
+        # Get paginated data
+        rows = await conn.fetch(f"""
             SELECT m.*,
                 ma.nombre as marca_nombre,
                 t.nombre as tipo_nombre,
@@ -2119,14 +2206,33 @@ async def get_modelos():
             LEFT JOIN LATERAL (
                 SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
             ) reg_count ON true
+            WHERE {where_clause}
             ORDER BY m.created_at DESC
-        """)
+            LIMIT ${param_idx} OFFSET ${param_idx + 1}
+        """, *params, limit, offset)
         result = []
         for r in rows:
             d = row_to_dict(r)
             d['servicios_ids'] = parse_jsonb(d.get('servicios_ids'))
             result.append(d)
-        return result
+        return {"items": result, "total": total, "limit": limit, "offset": offset}
+
+@api_router.get("/modelos-filtros")
+async def get_modelos_filtros():
+    """Retorna valores únicos de marca, tipo, entalle y tela para filtros de modelos."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        marcas = await conn.fetch("SELECT DISTINCT ma.nombre FROM prod_modelos m JOIN prod_marcas ma ON m.marca_id = ma.id WHERE ma.nombre IS NOT NULL ORDER BY ma.nombre")
+        tipos = await conn.fetch("SELECT DISTINCT t.nombre FROM prod_modelos m JOIN prod_tipos t ON m.tipo_id = t.id WHERE t.nombre IS NOT NULL ORDER BY t.nombre")
+        entalles = await conn.fetch("SELECT DISTINCT e.nombre FROM prod_modelos m JOIN prod_entalles e ON m.entalle_id = e.id WHERE e.nombre IS NOT NULL ORDER BY e.nombre")
+        telas = await conn.fetch("SELECT DISTINCT te.nombre FROM prod_modelos m JOIN prod_telas te ON m.tela_id = te.id WHERE te.nombre IS NOT NULL ORDER BY te.nombre")
+        return {
+            "marcas": [r['nombre'] for r in marcas],
+            "tipos": [r['nombre'] for r in tipos],
+            "entalles": [r['nombre'] for r in entalles],
+            "telas": [r['nombre'] for r in telas],
+        }
+
 
 @api_router.get("/modelos/{modelo_id}")
 async def get_modelo_detalle(modelo_id: str):
@@ -3078,8 +3184,10 @@ async def analisis_estado_registro(registro_id: str):
 
 @api_router.post("/registros/{registro_id}/validar-cambio-estado")
 async def validar_cambio_estado(registro_id: str, body: dict):
-    """Valida si un cambio de estado es permitido. Retorna bloqueos si los hay."""
+    """Valida si un cambio de estado es permitido. Retorna bloqueos si los hay.
+    Si body incluye forzar=true, se saltan las validaciones de movimientos."""
     nuevo_estado = body.get("nuevo_estado")
+    forzar = body.get("forzar", False)
     if not nuevo_estado:
         raise HTTPException(status_code=400, detail="nuevo_estado requerido")
     
@@ -3102,6 +3210,10 @@ async def validar_cambio_estado(registro_id: str, body: dict):
         etapas = ruta['etapas'] if isinstance(ruta['etapas'], list) else json.loads(ruta['etapas'])
         etapas_sorted = sorted(etapas, key=lambda e: e.get('orden', 0))
         nombres_ruta = [e['nombre'] for e in etapas_sorted]
+        
+        # Si se fuerza el cambio, permitir sin validaciones
+        if forzar:
+            return {"permitido": True, "bloqueos": [], "forzado": True, "sugerencia_movimiento": None}
         
         bloqueos = []
         

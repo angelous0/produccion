@@ -266,7 +266,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
     
     const loadEtapas = async () => {
       try {
-        const modRes = await axios.get(`${API}/modelos`);
+        const modRes = await axios.get(`${API}/modelos?all=true`);
         const modelo = (modRes.data || []).find(m => m.id === modeloId);
         if (modelo?.ruta_produccion_id) {
           const rutaRes = await axios.get(`${API}/rutas-produccion/${modelo.ruta_produccion_id}`);

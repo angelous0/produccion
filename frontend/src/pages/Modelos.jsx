@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useSaving } from '../hooks/useSaving';
@@ -19,7 +19,7 @@ import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ModelosTallasTab, ModelosBOMTab } from './ModelosBOM';
-import { Plus, Pencil, Trash2, Route, Wrench, Search, X, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, Route, Search, X, ExternalLink, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -28,6 +28,8 @@ export const Modelos = () => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [pageSize] = useState(50);
   const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -36,7 +38,7 @@ export const Modelos = () => {
     tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
   });
 
-  // Datos para los selects
+  // Datos para los selects del dialog
   const [marcas, setMarcas] = useState([]);
   const [tipos, setTipos] = useState([]);
   const [entalles, setEntalles] = useState([]);
@@ -46,22 +48,53 @@ export const Modelos = () => {
   const [servicios, setServicios] = useState([]);
   const [itemsPT, setItemsPT] = useState([]);
 
-  // Búsqueda y filtros
+  // Filtros server-side
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
   const [filtroMarca, setFiltroMarca] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroEntalle, setFiltroEntalle] = useState('todos');
   const [filtroTela, setFiltroTela] = useState('todos');
 
-  const fetchItems = async () => {
+  // Opciones de filtro desde el servidor
+  const [filtroOpciones, setFiltroOpciones] = useState({ marcas: [], tipos: [], entalles: [], telas: [] });
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchItems = useCallback(async (append = false) => {
+    if (!append) setLoading(true);
     try {
-      const response = await axios.get(`${API}/modelos`);
-      setItems(response.data);
+      const offset = append ? items.length : 0;
+      const params = new URLSearchParams({ limit: pageSize, offset });
+      if (searchDebounced) params.set('search', searchDebounced);
+      if (filtroMarca !== 'todos') params.set('marca', filtroMarca);
+      if (filtroTipo !== 'todos') params.set('tipo', filtroTipo);
+      if (filtroEntalle !== 'todos') params.set('entalle', filtroEntalle);
+      if (filtroTela !== 'todos') params.set('tela', filtroTela);
+      const response = await axios.get(`${API}/modelos?${params.toString()}`);
+      const data = response.data;
+      if (append) {
+        setItems(prev => [...prev, ...data.items]);
+      } else {
+        setItems(data.items);
+      }
+      setTotal(data.total);
     } catch (error) {
       toast.error('Error al cargar modelos');
     } finally {
       setLoading(false);
     }
+  }, [searchDebounced, filtroMarca, filtroTipo, filtroEntalle, filtroTela, pageSize, items.length]);
+
+  const fetchFiltros = async () => {
+    try {
+      const res = await axios.get(`${API}/modelos-filtros`);
+      setFiltroOpciones(res.data);
+    } catch (e) {}
   };
 
   const fetchRelatedData = async () => {
@@ -90,32 +123,13 @@ export const Modelos = () => {
   };
 
   useEffect(() => {
-    fetchItems();
-    fetchRelatedData();
+    fetchFiltros();
   }, []);
 
-  // Valores únicos para filtros (derivados de los datos cargados)
-  const marcasUnicas = useMemo(() => [...new Set(items.map(i => i.marca_nombre).filter(Boolean))].sort(), [items]);
-  const tiposUnicos = useMemo(() => [...new Set(items.map(i => i.tipo_nombre).filter(Boolean))].sort(), [items]);
-  const entallesUnicos = useMemo(() => [...new Set(items.map(i => i.entalle_nombre).filter(Boolean))].sort(), [items]);
-  const telasUnicas = useMemo(() => [...new Set(items.map(i => i.tela_nombre).filter(Boolean))].sort(), [items]);
-
-  // Filtrado
-  const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        const match = [item.nombre, item.marca_nombre, item.tipo_nombre, item.entalle_nombre, item.tela_nombre]
-          .some(f => (f || '').toLowerCase().includes(term));
-        if (!match) return false;
-      }
-      if (filtroMarca !== 'todos' && item.marca_nombre !== filtroMarca) return false;
-      if (filtroTipo !== 'todos' && item.tipo_nombre !== filtroTipo) return false;
-      if (filtroEntalle !== 'todos' && item.entalle_nombre !== filtroEntalle) return false;
-      if (filtroTela !== 'todos' && item.tela_nombre !== filtroTela) return false;
-      return true;
-    });
-  }, [items, searchTerm, filtroMarca, filtroTipo, filtroEntalle, filtroTela]);
+  // Reload when filters change
+  useEffect(() => {
+    fetchItems(false);
+  }, [searchDebounced, filtroMarca, filtroTipo, filtroEntalle, filtroTela]);
 
   const hayFiltrosActivos = searchTerm || filtroMarca !== 'todos' || filtroTipo !== 'todos' || filtroEntalle !== 'todos' || filtroTela !== 'todos';
 
@@ -141,7 +155,7 @@ export const Modelos = () => {
       setDialogOpen(false);
       setEditingItem(null);
       resetForm();
-      fetchItems();
+      fetchItems(false);
     } catch (error) {
       toast.error('Error al guardar modelo');
     }
@@ -162,6 +176,7 @@ export const Modelos = () => {
       ruta_produccion_id: item.ruta_produccion_id || '', servicios_ids: item.servicios_ids || [],
       pt_item_id: item.pt_item_id || '',
     });
+    fetchRelatedData();
     setDialogOpen(true);
   };
 
@@ -169,7 +184,7 @@ export const Modelos = () => {
     try {
       await axios.delete(`${API}/modelos/${id}`);
       toast.success('Modelo eliminado');
-      fetchItems();
+      fetchItems(false);
     } catch (error) {
       toast.error('Error al eliminar modelo');
     }
@@ -178,6 +193,7 @@ export const Modelos = () => {
   const handleNew = () => {
     setEditingItem(null);
     resetForm();
+    fetchRelatedData();
     setDialogOpen(true);
   };
 
@@ -204,7 +220,6 @@ export const Modelos = () => {
     }
   };
 
-  // Navegar a registros filtrados por modelo
   const handleVerRegistros = (modeloId) => {
     navigate(`/registros?modelo=${modeloId}`);
   };
@@ -214,7 +229,7 @@ export const Modelos = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Modelos</h2>
-          <p className="text-muted-foreground">Gestión de modelos con BOM y rutas</p>
+          <p className="text-muted-foreground">Gestion de modelos con BOM y rutas</p>
         </div>
         <Button onClick={handleNew} data-testid="btn-nuevo-modelo">
           <Plus className="h-4 w-4 mr-2" />
@@ -222,7 +237,7 @@ export const Modelos = () => {
         </Button>
       </div>
 
-      {/* Barra de búsqueda y filtros */}
+      {/* Barra de busqueda y filtros */}
       <div className="flex flex-wrap items-center gap-2" data-testid="filtros-modelos">
         <div className="relative flex-1 min-w-[220px] max-w-[320px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -245,7 +260,7 @@ export const Modelos = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas marcas</SelectItem>
-            {marcasUnicas.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            {filtroOpciones.marcas.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroTipo} onValueChange={setFiltroTipo}>
@@ -254,7 +269,7 @@ export const Modelos = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos tipos</SelectItem>
-            {tiposUnicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            {filtroOpciones.tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroEntalle} onValueChange={setFiltroEntalle}>
@@ -263,7 +278,7 @@ export const Modelos = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos entalles</SelectItem>
-            {entallesUnicos.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+            {filtroOpciones.entalles.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filtroTela} onValueChange={setFiltroTela}>
@@ -272,7 +287,7 @@ export const Modelos = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todas telas</SelectItem>
-            {telasUnicas.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+            {filtroOpciones.telas.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
         {hayFiltrosActivos && (
@@ -281,7 +296,7 @@ export const Modelos = () => {
           </Button>
         )}
         <span className="text-sm text-muted-foreground ml-auto" data-testid="count-modelos">
-          {filteredItems.length} de {items.length}
+          {items.length} de {total}
         </span>
       </div>
 
@@ -308,14 +323,14 @@ export const Modelos = () => {
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">Cargando...</TableCell>
                   </TableRow>
-                ) : filteredItems.length === 0 ? (
+                ) : items.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay modelos que coincidan con los filtros' : 'No hay modelos registrados'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredItems.map((item) => (
+                  items.map((item) => (
                     <TableRow key={item.id} className="data-table-row" data-testid={`modelo-row-${item.id}`}>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
                       <TableCell className="text-sm">{item.marca_nombre || '-'}</TableCell>
@@ -365,10 +380,24 @@ export const Modelos = () => {
               </TableBody>
             </Table>
           </div>
+          {/* Cargar mas */}
+          {items.length < total && !loading && (
+            <div className="flex justify-center py-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchItems(true)}
+                data-testid="btn-cargar-mas-modelos"
+              >
+                <ChevronDown className="h-4 w-4 mr-2" />
+                Cargar mas ({items.length} de {total})
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Dialog de edición/creación */}
+      {/* Dialog de edicion/creacion */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -381,7 +410,7 @@ export const Modelos = () => {
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger value="tallas">Tallas</TabsTrigger>
                 <TabsTrigger value="bom">BOM / Receta</TabsTrigger>
-                <TabsTrigger value="produccion">Producción</TabsTrigger>
+                <TabsTrigger value="produccion">Produccion</TabsTrigger>
               </TabsList>
 
               <TabsContent value="general" className="space-y-4 mt-4">
@@ -438,7 +467,7 @@ export const Modelos = () => {
 
               <TabsContent value="produccion" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Ruta de Producción</Label>
+                  <Label>Ruta de Produccion</Label>
                   <p className="text-xs text-muted-foreground">Define la secuencia de estados para los registros de este modelo</p>
                   <Select value={formData.ruta_produccion_id} onValueChange={(value) => setFormData({ ...formData, ruta_produccion_id: value === 'none' ? '' : value })}>
                     <SelectTrigger data-testid="select-ruta"><SelectValue placeholder="Seleccionar ruta..." /></SelectTrigger>
@@ -450,7 +479,7 @@ export const Modelos = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Servicios Requeridos</Label>
-                  <p className="text-xs text-muted-foreground">Servicios que se usarán para este modelo (sin asignar persona aún)</p>
+                  <p className="text-xs text-muted-foreground">Servicios que se usaran para este modelo (sin asignar persona aun)</p>
                   <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
                     {servicios.map((srv) => (
                       <label key={srv.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
@@ -462,8 +491,8 @@ export const Modelos = () => {
                   </div>
                 </div>
                 <div className="space-y-2 border-t pt-4">
-                  <Label>Artículo PT (Producto Terminado)</Label>
-                  <p className="text-xs text-muted-foreground">Item de inventario valorizado que se creará al cerrar la producción</p>
+                  <Label>Articulo PT (Producto Terminado)</Label>
+                  <p className="text-xs text-muted-foreground">Item de inventario valorizado que se creara al cerrar la produccion</p>
                   <div className="flex gap-2">
                     <Select value={formData.pt_item_id || 'none'} onValueChange={(value) => setFormData({ ...formData, pt_item_id: value === 'none' ? '' : value })}>
                       <SelectTrigger data-testid="select-pt-item" className="flex-1"><SelectValue placeholder="Seleccionar PT..." /></SelectTrigger>
@@ -472,7 +501,7 @@ export const Modelos = () => {
                         {itemsPT.map((pt) => <SelectItem key={pt.id} value={pt.id}>{pt.codigo} - {pt.nombre}</SelectItem>)}
                       </SelectContent>
                     </Select>
-                    <Button type="button" variant="outline" size="sm" onClick={handleCrearPT} data-testid="btn-crear-pt" title="Crear PT automático con el nombre del modelo">
+                    <Button type="button" variant="outline" size="sm" onClick={handleCrearPT} data-testid="btn-crear-pt" title="Crear PT automatico con el nombre del modelo">
                       <Plus className="h-4 w-4 mr-1" /> Crear PT
                     </Button>
                   </div>

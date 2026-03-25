@@ -123,6 +123,7 @@ export const RegistroForm = () => {
   const [analisisEstado, setAnalisisEstado] = useState(null);
   const [sugerenciaEstadoDialog, setSugerenciaEstadoDialog] = useState(null); // {tipo, mensaje, estadoSugerido}
   const [sugerenciaMovDialog, setSugerenciaMovDialog] = useState(null); // {servicio_id, servicio_nombre, etapa_nombre}
+  const [forzarEstadoDialog, setForzarEstadoDialog] = useState(null); // {nuevo_estado, bloqueos}
   const [etapasCompletas, setEtapasCompletas] = useState([]);
 
   // División de lote
@@ -169,7 +170,7 @@ export const RegistroForm = () => {
 
   const fetchRelatedData = () => {
     // Cada catálogo se carga y setea independientemente
-    fetchWithRetry(`${API}/modelos`).then(d => { if (d) setModelos(d); });
+    fetchWithRetry(`${API}/modelos?all=true`).then(d => { if (d) setModelos(d); });
     fetchWithRetry(`${API}/hilos-especificos`).then(d => { if (d) setHilosEspecificos(d); });
     axios.get(`${API}/estados`).then(r => { setEstados(r.data.estados); setEstadosGlobales(r.data.estados); }).catch(() => {});
     axios.get(`${API}/tallas-catalogo`).then(r => setTallasCatalogo(r.data)).catch(() => {});
@@ -264,7 +265,7 @@ export const RegistroForm = () => {
       
       // Buscar modelo seleccionado
       try {
-        const modelosRes = await axios.get(`${API}/modelos`);
+        const modelosRes = await axios.get(`${API}/modelos?all=true`);
         const modelo = modelosRes.data.find(m => m.id === registro.modelo_id);
         setModeloSeleccionado(modelo || null);
         if (!registro.pt_item_id && modelo?.pt_item_id) {
@@ -425,7 +426,7 @@ export const RegistroForm = () => {
         });
         setFormData(prev => ({ ...prev, pt_item_id: res.data.pt_item_id }));
         // Refresh modelos to get updated pt_item_id
-        const modelosRes = await axios.get(`${API}/modelos`);
+        const modelosRes = await axios.get(`${API}/modelos?all=true`);
         setModelos(modelosRes.data);
         setModeloSeleccionado(modelosRes.data.find(m => m.id === modeloId) || null);
         // Refresh items inventario for PT selector
@@ -1190,7 +1191,7 @@ export const RegistroForm = () => {
                             const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: value });
                             const data = resp.data;
                             if (!data.permitido) {
-                              toast.error(data.bloqueos.join(' '));
+                              setForzarEstadoDialog({ nuevo_estado: value, bloqueos: data.bloqueos });
                               return;
                             }
                             await autoGuardarEstado(value);
@@ -1241,7 +1242,7 @@ export const RegistroForm = () => {
                                     const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: e });
                                     const data = resp.data;
                                     if (!data.permitido) {
-                                      toast.error(data.bloqueos.join(' '));
+                                      setForzarEstadoDialog({ nuevo_estado: e, bloqueos: data.bloqueos });
                                       return;
                                     }
                                     await autoGuardarEstado(e);
@@ -2822,6 +2823,48 @@ export const RegistroForm = () => {
       </Dialog>
 
       {/* Dialog: División de Lote */}
+      {/* Dialog: Forzar cambio de estado */}
+      <Dialog open={!!forzarEstadoDialog} onOpenChange={() => setForzarEstadoDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cambio de Estado Bloqueado</DialogTitle>
+            <DialogDescription>
+              No se puede cambiar al estado "{forzarEstadoDialog?.nuevo_estado}" por las siguientes razones:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 my-2">
+            {(forzarEstadoDialog?.bloqueos || []).map((b, i) => (
+              <p key={i} className="text-sm text-red-600 flex items-start gap-2">
+                <span className="mt-0.5 shrink-0">&#x26A0;</span>
+                {b}
+              </p>
+            ))}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setForzarEstadoDialog(null)} data-testid="btn-cancelar-forzar-estado">
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              data-testid="btn-forzar-cambio-estado"
+              onClick={async () => {
+                const nuevoEstado = forzarEstadoDialog.nuevo_estado;
+                setForzarEstadoDialog(null);
+                try {
+                  await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: nuevoEstado, forzar: true });
+                  await autoGuardarEstado(nuevoEstado);
+                  toast.success(`Estado forzado a "${nuevoEstado}"`);
+                } catch {
+                  await autoGuardarEstado(nuevoEstado);
+                }
+              }}
+            >
+              Forzar Cambio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={divisionDialogOpen} onOpenChange={setDivisionDialogOpen}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
