@@ -1111,14 +1111,17 @@ export const RegistroForm = () => {
         await axios.put(`${API}/registros/${id}`, payload);
         if (!silentMode) toast.success('Registro actualizado');
       } else {
-        await axios.post(`${API}/registros`, payload);
+        const res = await axios.post(`${API}/registros`, payload);
+        if (silentMode && res.data?.id) {
+          navigate(`/registros/editar/${res.data.id}`, { replace: true });
+        }
         if (!silentMode) toast.success('Registro creado');
       }
       
       if (!silentMode) navigate('/registros');
     } catch (error) {
       toast.error('Error al guardar registro');
-      throw error; // Re-throw for cierre flow
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -1149,14 +1152,26 @@ export const RegistroForm = () => {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h2 className="text-2xl font-bold tracking-tight">
             {isEditing ? 'Editar Registro' : 'Nuevo Registro'}
           </h2>
           <p className="text-muted-foreground">
-            {isEditing ? `Editando registro ${formData.n_corte}` : 'Crear un nuevo registro de producción'}
+            {isEditing ? `Editando registro ${formData.n_corte}` : 'Crear un nuevo registro de produccion'}
           </p>
         </div>
+        <Button
+          type="button"
+          size="sm"
+          disabled={loading}
+          onClick={async () => {
+            await handleSubmit(null, true);
+            toast.success('Guardado');
+          }}
+          data-testid="btn-guardar-rapido"
+        >
+          {loading ? 'Guardando...' : 'Guardar'}
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit}>
