@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Settings2, ChevronRight,
   ExternalLink, Eye, EyeOff, MoveLeft, MoveRight,
-  Merge, X,
+  Merge, X, Palette,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -61,88 +61,196 @@ const FilterSelect = ({ label, value, onChange, options, testId }) => (
   </div>
 );
 
-// ── DetalleModal (tabla tipo Excel) ────────────────────────────
-const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => (
-  <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-    <DialogContent className="max-w-[98vw] w-[98vw] max-h-[90vh] overflow-hidden p-0" data-testid="detalle-modal">
-      <DialogHeader className="px-4 pt-4 pb-2">
-        <DialogTitle className="text-base">{titulo}</DialogTitle>
-        <p className="text-xs text-muted-foreground">{(registros || []).length} registros</p>
-      </DialogHeader>
-      <div className="overflow-auto max-h-[calc(90vh-80px)] px-1 pb-2">
-        <table className="w-full text-xs border-collapse min-w-[900px]">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-muted/80 backdrop-blur">
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Corte</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Estado</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Modelo</th>
-              <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Prendas</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Curva</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Hilo Esp.</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Colores</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Ruta</th>
-              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Entrega</th>
-              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Inicio Prod.</th>
-              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Días</th>
-              <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Últ. Mov</th>
-              <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Dif.</th>
-              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Info</th>
-              <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Acción</th>
+// ── Tabla de colores agregada ──────────────────────────────────
+const ColoresTable = ({ registros }) => {
+  const coloresData = useMemo(() => {
+    const map = {}; // color -> { color_general, cantidad, registros: Set }
+    (registros || []).forEach(reg => {
+      (reg.colores || []).forEach(c => {
+        const key = c.color;
+        if (!key) return;
+        if (!map[key]) map[key] = { color: key, color_general: c.color_general || '', cantidad: 0, regs: new Set() };
+        map[key].cantidad += c.cantidad || 0;
+        map[key].regs.add(reg.id);
+      });
+    });
+    // Convertir a array y agrupar por color_general
+    const arr = Object.values(map).map(v => ({ ...v, registros: v.regs.size }));
+    arr.sort((a, b) => (a.color_general || '').localeCompare(b.color_general || '') || a.color.localeCompare(b.color));
+    return arr;
+  }, [registros]);
+
+  // Agrupar por color_general para mostrar subtotales
+  const grupos = useMemo(() => {
+    const g = {};
+    coloresData.forEach(c => {
+      const cg = c.color_general || 'Sin grupo';
+      if (!g[cg]) g[cg] = { colores: [], totalCantidad: 0, totalRegistros: new Set() };
+      g[cg].colores.push(c);
+      g[cg].totalCantidad += c.cantidad;
+      // Unir registros de los sub-colores del grupo
+    });
+    // Recalcular registros unicos por grupo
+    (registros || []).forEach(reg => {
+      const regGenerales = new Set();
+      (reg.colores || []).forEach(c => regGenerales.add(c.color_general || 'Sin grupo'));
+      regGenerales.forEach(cg => { if (g[cg]) g[cg].totalRegistros.add(reg.id); });
+    });
+    return Object.entries(g).map(([nombre, v]) => ({ nombre, ...v, totalRegistros: v.totalRegistros.size }));
+  }, [coloresData, registros]);
+
+  const grandTotal = coloresData.reduce((s, c) => s + c.cantidad, 0);
+
+  if (coloresData.length === 0) return <div className="p-6 text-center text-muted-foreground text-sm">Sin colores registrados</div>;
+
+  return (
+    <table className="w-full text-xs border-collapse">
+      <thead className="sticky top-0 z-10">
+        <tr className="bg-muted/80 backdrop-blur">
+          <th className="text-left p-2.5 font-semibold border-b min-w-[140px]">Color General</th>
+          <th className="text-left p-2.5 font-semibold border-b min-w-[160px]">Color</th>
+          <th className="text-center p-2.5 font-semibold border-b min-w-[100px]">Registros</th>
+          <th className="text-right p-2.5 font-semibold border-b min-w-[120px]">Cantidad Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {grupos.map((grupo) => (
+          <Fragment key={grupo.nombre}>
+            {/* Fila de grupo */}
+            <tr className="bg-muted/30 border-b">
+              <td className="p-2.5 font-semibold" colSpan={2}>
+                <div className="flex items-center gap-2">
+                  <Palette className="h-3.5 w-3.5 text-primary" />
+                  {grupo.nombre}
+                </div>
+              </td>
+              <td className="p-2.5 text-center font-semibold">{grupo.totalRegistros}</td>
+              <td className="p-2.5 text-right font-mono font-semibold">{grupo.totalCantidad.toLocaleString()}</td>
             </tr>
-          </thead>
-          <tbody>
-            {(registros || []).map(d => (
-              <tr key={d.id} className="border-b hover:bg-muted/30 transition-colors" data-testid={`modal-reg-${d.n_corte}`}>
-                <td className="p-2 font-mono font-semibold whitespace-nowrap">{d.n_corte}</td>
-                <td className="p-2"><Badge variant="outline" className="text-[10px] px-1">{d.estado}</Badge></td>
-                <td className="p-2 whitespace-nowrap">{d.modelo}</td>
-                <td className="p-2 text-right font-mono">{d.prendas.toLocaleString()}</td>
-                <td className="p-2 font-mono text-muted-foreground whitespace-nowrap">{d.curva || '-'}</td>
-                <td className="p-2 whitespace-nowrap">{d.hilo_especifico || '-'}</td>
-                <td className="p-2">
-                  {d.colores_resumen ? (
-                    <span className="text-[10px] leading-tight" title={d.colores_resumen}>{d.colores_resumen}</span>
-                  ) : '-'}
-                </td>
-                <td className="p-2 text-muted-foreground whitespace-nowrap">{d.ruta || '-'}</td>
-                <td className={`p-2 text-center font-mono whitespace-nowrap ${isOverdue(d.fecha_entrega) ? 'text-destructive font-semibold' : ''}`}>
-                  {fmtDate(d.fecha_entrega)}
-                </td>
-                <td className="p-2 text-center font-mono whitespace-nowrap">{fmtDate(d.fecha_inicio_prod)}</td>
-                <td className="p-2 text-center font-mono">{d.dias_proceso > 0 ? `${d.dias_proceso}d` : '-'}</td>
-                <td className="p-2 whitespace-nowrap">
-                  {d.ult_mov_servicio ? (
-                    <span>{d.ult_mov_servicio} <span className="text-muted-foreground">({fmtDate(d.ult_mov_fecha)})</span></span>
-                  ) : '-'}
-                </td>
-                <td className="p-2 text-right font-mono">
-                  {d.diferencia_acumulada > 0 ? <span className="text-destructive">{d.diferencia_acumulada}</span> : '-'}
-                </td>
-                <td className="p-2 text-center whitespace-nowrap">
-                  {d.urgente && <Badge variant="destructive" className="text-[9px] px-1 mr-0.5">URG</Badge>}
-                  {d.es_hijo && <Badge variant="secondary" className="text-[9px] px-1">DIV</Badge>}
-                </td>
-                <td className="p-2 text-center whitespace-nowrap">
-                  <div className="flex justify-center gap-0.5">
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => { onClose(); navigate(`/reportes/trazabilidad/${d.id}`); }}>
-                      Traza
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { onClose(); navigate(`/registros/editar/${d.id}`); }}>
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </td>
+            {/* Filas de colores individuales */}
+            {grupo.colores.map(c => (
+              <tr key={c.color} className="border-b hover:bg-muted/10">
+                <td className="p-2.5 pl-8 text-muted-foreground">↳</td>
+                <td className="p-2.5">{c.color}</td>
+                <td className="p-2.5 text-center font-mono">{c.registros}</td>
+                <td className="p-2.5 text-right font-mono">{c.cantidad.toLocaleString()}</td>
               </tr>
             ))}
-            {(!registros || registros.length === 0) && (
-              <tr><td colSpan={15} className="p-6 text-center text-muted-foreground">Sin registros</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </DialogContent>
-  </Dialog>
-);
+          </Fragment>
+        ))}
+      </tbody>
+      <tfoot>
+        <tr className="bg-muted/40 font-semibold border-t-2">
+          <td className="p-2.5" colSpan={2}>TOTAL</td>
+          <td className="p-2.5 text-center font-mono">{(registros || []).filter(r => r.colores?.length > 0).length}</td>
+          <td className="p-2.5 text-right font-mono">{grandTotal.toLocaleString()}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+};
+
+// ── DetalleModal (tabla tipo Excel) ────────────────────────────
+const DetalleModal = ({ open, onClose, registros, titulo, navigate }) => {
+  const [vista, setVista] = useState('registros');
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) { onClose(); setVista('registros'); } }}>
+      <DialogContent className="max-w-[98vw] w-[98vw] max-h-[90vh] overflow-hidden p-0" data-testid="detalle-modal">
+        <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogTitle className="text-base">{titulo}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">{(registros || []).length} registros</p>
+            <div className="flex bg-muted rounded-lg p-0.5">
+              <button
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${vista === 'registros' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setVista('registros')}
+                data-testid="vista-registros"
+              >Registros</button>
+              <button
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${vista === 'colores' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                onClick={() => setVista('colores')}
+                data-testid="vista-colores"
+              >
+                <Palette className="h-3 w-3" />
+                Colores
+              </button>
+            </div>
+          </div>
+        </DialogHeader>
+        <div className="overflow-auto max-h-[calc(90vh-100px)] px-1 pb-2">
+          {vista === 'colores' ? (
+            <ColoresTable registros={registros} />
+          ) : (
+            <table className="w-full text-xs border-collapse min-w-[900px]">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-muted/80 backdrop-blur">
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Corte</th>
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Estado</th>
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Modelo</th>
+                  <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Prendas</th>
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Curva</th>
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Hilo Esp.</th>
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Ruta</th>
+                  <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Entrega</th>
+                  <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Inicio Prod.</th>
+                  <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Días</th>
+                  <th className="text-left p-2 font-semibold border-b whitespace-nowrap">Últ. Mov</th>
+                  <th className="text-right p-2 font-semibold border-b whitespace-nowrap">Dif.</th>
+                  <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Info</th>
+                  <th className="text-center p-2 font-semibold border-b whitespace-nowrap">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(registros || []).map(d => (
+                  <tr key={d.id} className="border-b hover:bg-muted/30 transition-colors" data-testid={`modal-reg-${d.n_corte}`}>
+                    <td className="p-2 font-mono font-semibold whitespace-nowrap">{d.n_corte}</td>
+                    <td className="p-2"><Badge variant="outline" className="text-[10px] px-1">{d.estado}</Badge></td>
+                    <td className="p-2 whitespace-nowrap">{d.modelo}</td>
+                    <td className="p-2 text-right font-mono">{d.prendas.toLocaleString()}</td>
+                    <td className="p-2 font-mono text-muted-foreground whitespace-nowrap">{d.curva || '-'}</td>
+                    <td className="p-2 whitespace-nowrap">{d.hilo_especifico || '-'}</td>
+                    <td className="p-2 text-muted-foreground whitespace-nowrap">{d.ruta || '-'}</td>
+                    <td className={`p-2 text-center font-mono whitespace-nowrap ${isOverdue(d.fecha_entrega) ? 'text-destructive font-semibold' : ''}`}>
+                      {fmtDate(d.fecha_entrega)}
+                    </td>
+                    <td className="p-2 text-center font-mono whitespace-nowrap">{fmtDate(d.fecha_inicio_prod)}</td>
+                    <td className="p-2 text-center font-mono">{d.dias_proceso > 0 ? `${d.dias_proceso}d` : '-'}</td>
+                    <td className="p-2 whitespace-nowrap">
+                      {d.ult_mov_servicio ? (
+                        <span>{d.ult_mov_servicio} <span className="text-muted-foreground">({fmtDate(d.ult_mov_fecha)})</span></span>
+                      ) : '-'}
+                    </td>
+                    <td className="p-2 text-right font-mono">
+                      {d.diferencia_acumulada > 0 ? <span className="text-destructive">{d.diferencia_acumulada}</span> : '-'}
+                    </td>
+                    <td className="p-2 text-center whitespace-nowrap">
+                      {d.urgente && <Badge variant="destructive" className="text-[9px] px-1 mr-0.5">URG</Badge>}
+                      {d.es_hijo && <Badge variant="secondary" className="text-[9px] px-1">DIV</Badge>}
+                    </td>
+                    <td className="p-2 text-center whitespace-nowrap">
+                      <div className="flex justify-center gap-0.5">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => { onClose(); navigate(`/reportes/trazabilidad/${d.id}`); }}>
+                          Traza
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { onClose(); navigate(`/registros/editar/${d.id}`); }}>
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {(!registros || registros.length === 0) && (
+                  <tr><td colSpan={14} className="p-6 text-center text-muted-foreground">Sin registros</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 // ── Componente principal ──────────────────────────────────────
 export const MatrizProduccion = () => {
@@ -487,7 +595,6 @@ export const MatrizProduccion = () => {
                   <tr className="bg-muted/60">
                     <th className="text-left p-2.5 font-semibold sticky left-0 bg-muted/60 z-10 min-w-[280px] border-r">Item</th>
                     <th className="text-left p-2.5 font-semibold sticky left-[280px] bg-muted/60 z-10 min-w-[90px] border-r">Hilo</th>
-                    <th className="text-left p-2.5 font-medium min-w-[120px] border-r">Colores</th>
                     {effectiveCols.map(col => (
                       <th key={col} className="text-center p-2.5 font-medium min-w-[70px] border-r whitespace-nowrap">
                         <div>{col}</div>
@@ -515,11 +622,6 @@ export const MatrizProduccion = () => {
                           </button>
                         </td>
                         <td className="p-2.5 sticky left-[280px] bg-background z-10 border-r text-muted-foreground">{fila.hilo}</td>
-                        <td className="p-2.5 border-r">
-                          {fila.colores_resumen ? (
-                            <span className="text-[10px] text-muted-foreground leading-tight line-clamp-2" title={fila.colores_resumen}>{fila.colores_resumen}</span>
-                          ) : <span className="text-muted-foreground/40">-</span>}
-                        </td>
                         {effectiveCols.map(col => {
                           const val = cellVal(fila.celdas, col);
                           return (
@@ -553,7 +655,7 @@ export const MatrizProduccion = () => {
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/40 font-semibold border-t-2">
-                    <td className="p-2.5 sticky left-0 bg-muted/40 z-10 border-r" colSpan={3}>TOTALES</td>
+                    <td className="p-2.5 sticky left-0 bg-muted/40 z-10 border-r" colSpan={2}>TOTALES</td>
                     {effectiveCols.map(col => {
                       const val = colTotal(col);
                       return (

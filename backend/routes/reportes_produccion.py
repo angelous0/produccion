@@ -863,6 +863,17 @@ async def matriz_produccion(
             tallas = parse_jsonb(row["tallas_jsonb"])
             return sum(safe_int(t.get("cantidad", 0)) for t in tallas)
 
+        # ── 3b. Cargar mapeo color_id -> color_general_nombre ──────
+        color_gen_map = {}  # color_id -> color_general_nombre
+        cat_rows = await conn.fetch("""
+            SELECT cc.id as color_id, cc.nombre as color_nombre, COALESCE(cg.nombre, '') as color_general_nombre
+            FROM prod_colores_catalogo cc
+            LEFT JOIN prod_colores_generales cg ON cc.color_general_id = cg.id
+        """)
+        for cr in cat_rows:
+            color_gen_map[cr["color_id"]] = cr["color_general_nombre"]
+            color_gen_map[cr["color_nombre"]] = cr["color_general_nombre"]
+
         # ── 4. Agrupar en memoria ─────────────────────────────────
         # Clave de agrupación: (marca, tipo, entalle, tela, hilo)
         groups = {}   # key -> {celdas, detalle, meta}
@@ -905,13 +916,16 @@ async def matriz_produccion(
 
             # Colores: agregar desde distribucion_colores (JSONB por talla)
             dist_colores = parse_jsonb(r["dist_colores_raw"])
-            colores_map = {}  # color_nombre -> cantidad total
+            colores_map = {}  # color_nombre -> {cantidad, color_general}
             for talla_entry in dist_colores:
                 for c in (talla_entry.get("colores") or []):
                     cn = c.get("color_nombre", "")
                     if cn:
-                        colores_map[cn] = colores_map.get(cn, 0) + safe_int(c.get("cantidad", 0))
-            colores_lista = [{"color": k, "cantidad": v} for k, v in colores_map.items()]
+                        if cn not in colores_map:
+                            cg = color_gen_map.get(c.get("color_id", ""), "") or color_gen_map.get(cn, "")
+                            colores_map[cn] = {"cantidad": 0, "color_general": cg}
+                        colores_map[cn]["cantidad"] += safe_int(c.get("cantidad", 0))
+            colores_lista = [{"color": k, "color_general": v["color_general"], "cantidad": v["cantidad"]} for k, v in colores_map.items()]
             colores_resumen = ", ".join(colores_map.keys()) if colores_map else ""
 
             g["detalle"].append({
@@ -938,15 +952,18 @@ async def matriz_produccion(
             })
 
             # Acumular colores a nivel de grupo
-            for cn, cant in colores_map.items():
-                g["colores_grupo"][cn] = g["colores_grupo"].get(cn, 0) + cant
+            for cn, info in colores_map.items():
+                if cn not in g["colores_grupo"]:
+                    g["colores_grupo"][cn] = {"cantidad": 0, "color_general": info["color_general"], "registros": 0}
+                g["colores_grupo"][cn]["cantidad"] += info["cantidad"]
+                g["colores_grupo"][cn]["registros"] += 1
 
         # ── 5. Construir respuesta ────────────────────────────────
         filas = list(groups.values())
         # Convertir colores_grupo dict a lista legible
         for f in filas:
             cg = f.pop("colores_grupo", {})
-            f["colores"] = [{"color": k, "cantidad": v} for k, v in cg.items()]
+            f["colores"] = [{"color": k, "color_general": v["color_general"], "cantidad": v["cantidad"], "registros": v["registros"]} for k, v in cg.items()]
             f["colores_resumen"] = ", ".join(cg.keys()) if cg else ""
 
         # Totales por columna
