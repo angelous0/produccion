@@ -33,13 +33,15 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight, Check, ChevronsUpDown, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { MultiSelectColors } from '../components/MultiSelectColors';
 import { Textarea } from '../components/ui/textarea';
 import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -143,6 +145,10 @@ export const RegistroForm = () => {
 
   // Hilos específicos disponibles
   const [hilosEspecificos, setHilosEspecificos] = useState([]);
+
+  // Combobox modelo
+  const [modeloPopoverOpen, setModeloPopoverOpen] = useState(false);
+  const [modeloSearch, setModeloSearch] = useState('');
 
   // Salidas agrupadas: items expandidos
   const [salidasExpandidas, setSalidasExpandidas] = useState({});
@@ -1438,22 +1444,60 @@ export const RegistroForm = () => {
 
                   <div className="space-y-2">
                     <Label>Modelo *</Label>
-                    <Select
-                      key={modelos.length > 0 && formData.modelo_id ? formData.modelo_id : 'mod-loading'}
-                      value={formData.modelo_id}
-                      onValueChange={handleModeloChange}
-                    >
-                      <SelectTrigger data-testid="select-modelo">
-                        <SelectValue placeholder="Seleccionar modelo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {modelos.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={modeloPopoverOpen} onOpenChange={(open) => { setModeloPopoverOpen(open); if (!open) setModeloSearch(''); }}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={modeloPopoverOpen}
+                          className="w-full justify-between font-normal"
+                          data-testid="select-modelo"
+                        >
+                          {formData.modelo_id
+                            ? modelos.find(m => m.id === formData.modelo_id)?.nombre || 'Seleccionar modelo'
+                            : 'Seleccionar modelo'}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput placeholder="Buscar modelo..." value={modeloSearch} onValueChange={setModeloSearch} />
+                          <CommandList>
+                            {(() => {
+                              const term = modeloSearch.toLowerCase();
+                              const filtered = term
+                                ? modelos.filter(m => m.nombre.toLowerCase().includes(term))
+                                : modelos;
+                              const limited = filtered.slice(0, 50);
+                              if (limited.length === 0) return <CommandEmpty>No se encontró modelo.</CommandEmpty>;
+                              return (
+                                <CommandGroup>
+                                  {limited.map((m) => (
+                                    <CommandItem
+                                      key={m.id}
+                                      value={m.id}
+                                      onSelect={() => {
+                                        handleModeloChange(m.id);
+                                        setModeloPopoverOpen(false);
+                                        setModeloSearch('');
+                                      }}
+                                    >
+                                      <Check className={`mr-2 h-4 w-4 ${formData.modelo_id === m.id ? 'opacity-100' : 'opacity-0'}`} />
+                                      {m.nombre}
+                                    </CommandItem>
+                                  ))}
+                                  {filtered.length > 50 && (
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">
+                                      +{filtered.length - 50} más. Escribe para filtrar...
+                                    </div>
+                                  )}
+                                </CommandGroup>
+                              );
+                            })()}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-2">
