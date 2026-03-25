@@ -153,7 +153,7 @@ export const RegistroForm = () => {
   // Salidas agrupadas: items expandidos
   const [salidasExpandidas, setSalidasExpandidas] = useState({});
 
-  // Cargar datos relacionados con reintentos para catálogos críticos
+  // Cargar datos relacionados - cada catálogo se carga independientemente
   const fetchWithRetry = async (url, retries = 2) => {
     for (let i = 0; i <= retries; i++) {
       try {
@@ -167,29 +167,16 @@ export const RegistroForm = () => {
     return null;
   };
 
-  const fetchRelatedData = async () => {
-    // Cargar catálogos críticos (modelos, hilos) con reintentos, el resto en paralelo
-    const [modelosData, hilosData, rest] = await Promise.all([
-      fetchWithRetry(`${API}/modelos`),
-      fetchWithRetry(`${API}/hilos-especificos`),
-      Promise.allSettled([
-        axios.get(`${API}/estados`),
-        axios.get(`${API}/tallas-catalogo`),
-        axios.get(`${API}/colores-catalogo`),
-        axios.get(`${API}/inventario`),
-        axios.get(`${API}/servicios-produccion`),
-        axios.get(`${API}/personas-produccion?activo=true`),
-      ]),
-    ]);
-    if (modelosData) setModelos(modelosData);
-    if (hilosData) setHilosEspecificos(hilosData);
-    const get = (i) => rest[i].status === 'fulfilled' ? rest[i].value.data : null;
-    if (get(0)?.estados) { setEstados(get(0).estados); setEstadosGlobales(get(0).estados); }
-    if (get(1)) setTallasCatalogo(get(1));
-    if (get(2)) setColoresCatalogo(get(2));
-    if (get(3)) setItemsInventario(get(3));
-    if (get(4)) setServiciosProduccion(get(4));
-    if (get(5)) setPersonasProduccion(get(5));
+  const fetchRelatedData = () => {
+    // Cada catálogo se carga y setea independientemente
+    fetchWithRetry(`${API}/modelos`).then(d => { if (d) setModelos(d); });
+    fetchWithRetry(`${API}/hilos-especificos`).then(d => { if (d) setHilosEspecificos(d); });
+    axios.get(`${API}/estados`).then(r => { setEstados(r.data.estados); setEstadosGlobales(r.data.estados); }).catch(() => {});
+    axios.get(`${API}/tallas-catalogo`).then(r => setTallasCatalogo(r.data)).catch(() => {});
+    axios.get(`${API}/colores-catalogo`).then(r => setColoresCatalogo(r.data)).catch(() => {});
+    axios.get(`${API}/inventario`).then(r => setItemsInventario(r.data)).catch(() => {});
+    axios.get(`${API}/servicios-produccion`).then(r => setServiciosProduccion(r.data)).catch(() => {});
+    axios.get(`${API}/personas-produccion?activo=true`).then(r => setPersonasProduccion(r.data)).catch(() => {});
   };
 
   // Cargar estados dinámicos según el registro o modelo
@@ -1470,9 +1457,12 @@ export const RegistroForm = () => {
                           className="w-full justify-between font-normal"
                           data-testid="select-modelo"
                         >
-                          {formData.modelo_id
-                            ? modelos.find(m => m.id === formData.modelo_id)?.nombre || 'Seleccionar modelo'
-                            : 'Seleccionar modelo'}
+                          {modelos.length === 0
+                            ? <span className="flex items-center gap-2 text-muted-foreground"><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Cargando modelos...</span>
+                            : (formData.modelo_id
+                              ? modelos.find(m => m.id === formData.modelo_id)?.nombre || 'Seleccionar modelo'
+                              : 'Seleccionar modelo')
+                          }
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
@@ -1480,7 +1470,9 @@ export const RegistroForm = () => {
                         <Command shouldFilter={false}>
                           <CommandInput placeholder="Buscar modelo..." value={modeloSearch} onValueChange={setModeloSearch} />
                           <CommandList>
-                            {(() => {
+                            {modelos.length === 0 ? (
+                              <div className="py-6 text-center text-sm text-muted-foreground">Cargando modelos...</div>
+                            ) : (() => {
                               const term = modeloSearch.toLowerCase();
                               const filtered = term
                                 ? modelos.filter(m => m.nombre.toLowerCase().includes(term))
