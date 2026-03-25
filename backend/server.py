@@ -2106,7 +2106,8 @@ async def get_modelos():
                 h.nombre as hilo_nombre,
                 rp.nombre as ruta_nombre,
                 inv.nombre as pt_item_nombre,
-                inv.codigo as pt_item_codigo
+                inv.codigo as pt_item_codigo,
+                COALESCE(reg_count.total, 0) as registros_count
             FROM prod_modelos m
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
             LEFT JOIN prod_tipos t ON m.tipo_id = t.id
@@ -2115,6 +2116,9 @@ async def get_modelos():
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
             LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
             LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
+            ) reg_count ON true
             ORDER BY m.created_at DESC
         """)
         result = []

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
@@ -80,6 +80,7 @@ const getFechaEntregaBadge = (fecha, estado) => {
 
 export const Registros = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const { saving, guard } = useSaving();
@@ -114,6 +115,8 @@ export const Registros = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroOperativo, setFiltroOperativo] = useState('todos');
+  const [filtroModeloId, setFiltroModeloId] = useState(searchParams.get('modelo') || '');
+  const [filtroModeloNombre, setFiltroModeloNombre] = useState('');
 
   const fetchItems = async () => {
     try {
@@ -463,6 +466,8 @@ export const Registros = () => {
 
   // Filtrar items
   const filteredItems = items.filter(item => {
+    // Filtro por modelo (desde URL query param)
+    if (filtroModeloId && item.modelo_id !== filtroModeloId) return false;
     // Búsqueda por n_corte o modelo
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -477,7 +482,10 @@ export const Registros = () => {
     return true;
   });
 
-  const hayFiltrosActivos = searchTerm || filtroEstado !== 'todos' || filtroOperativo !== 'todos';
+  // Detectar nombre del modelo filtrado
+  const modeloFiltrado = filtroModeloId ? items.find(i => i.modelo_id === filtroModeloId)?.modelo_nombre : null;
+
+  const hayFiltrosActivos = searchTerm || filtroEstado !== 'todos' || filtroOperativo !== 'todos' || filtroModeloId;
 
   return (
     <div className="space-y-6" data-testid="registros-page">
@@ -535,9 +543,17 @@ export const Registros = () => {
           </SelectContent>
         </Select>
         {hayFiltrosActivos && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFiltroEstado('todos'); setFiltroOperativo('todos'); }} data-testid="btn-limpiar-filtros">
+          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFiltroEstado('todos'); setFiltroOperativo('todos'); setFiltroModeloId(''); setSearchParams({}); }} data-testid="btn-limpiar-filtros">
             <X className="h-4 w-4 mr-1" /> Limpiar
           </Button>
+        )}
+        {modeloFiltrado && (
+          <Badge variant="secondary" className="gap-1">
+            Modelo: {modeloFiltrado}
+            <button onClick={() => { setFiltroModeloId(''); setSearchParams({}); }} className="ml-1 hover:text-foreground">
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
         )}
         <span className="text-sm text-muted-foreground ml-auto" data-testid="count-registros">
           {filteredItems.length} de {items.length} registros
