@@ -24,7 +24,7 @@ import {
 } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User, Search, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User, Search, X, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { getStatusClass } from '../lib/utils';
@@ -113,20 +113,58 @@ export const Registros = () => {
 
   // Búsqueda y filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const [estadosExcluidos, setEstadosExcluidos] = useState(['Tienda']);
+  const [estadosIncluidos, setEstadosIncluidos] = useState([]);
+  const [modoFiltro, setModoFiltro] = useState('excluir'); // 'incluir' o 'excluir'
   const [filtroOperativo, setFiltroOperativo] = useState('todos');
   const [filtroModeloId, setFiltroModeloId] = useState(searchParams.get('modelo') || '');
-  const [filtroModeloNombre, setFiltroModeloNombre] = useState('');
+  const [estadosDisponibles, setEstadosDisponibles] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [pageSize] = useState(50);
+  const [estadoDropdownOpen, setEstadoDropdownOpen] = useState(false);
 
-  const fetchItems = async () => {
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const fetchItems = async (append = false) => {
+    if (!append) setLoading(true);
     try {
-      const response = await axios.get(`${API}/registros`);
-      setItems(response.data);
+      const offset = append ? items.length : 0;
+      const params = new URLSearchParams({ limit: pageSize, offset });
+      if (searchDebounced) params.set('search', searchDebounced);
+      if (modoFiltro === 'incluir' && estadosIncluidos.length > 0) {
+        params.set('estados', estadosIncluidos.join(','));
+        params.set('excluir_estados', '');
+      } else if (modoFiltro === 'excluir' && estadosExcluidos.length > 0) {
+        params.set('excluir_estados', estadosExcluidos.join(','));
+      } else {
+        params.set('excluir_estados', '');
+      }
+      if (filtroModeloId) params.set('modelo_id', filtroModeloId);
+      const response = await axios.get(`${API}/registros?${params.toString()}`);
+      const data = response.data;
+      if (append) {
+        setItems(prev => [...prev, ...data.items]);
+      } else {
+        setItems(data.items);
+      }
+      setTotal(data.total);
     } catch (error) {
       toast.error('Error al cargar registros');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchEstados = async () => {
+    try {
+      const response = await axios.get(`${API}/registros-estados`);
+      setEstadosDisponibles(response.data);
+    } catch (e) {}
   };
 
   const fetchColores = async () => {
@@ -139,9 +177,14 @@ export const Registros = () => {
   };
 
   useEffect(() => {
-    fetchItems();
+    fetchEstados();
     fetchColores();
   }, []);
+
+  // Reload when filters change
+  useEffect(() => {
+    fetchItems(false);
+  }, [searchDebounced, estadosExcluidos, estadosIncluidos, modoFiltro, filtroOperativo, filtroModeloId]);
 
   // ========== LÓGICA DE COLORES ==========
 
@@ -460,35 +503,36 @@ export const Registros = () => {
     }
   });
 
-  // Obtener estados únicos de los items cargados
-  const estadosUnicos = [...new Set(items.map(i => i.estado).filter(Boolean))].sort();
-  const operativosUnicos = [...new Set(items.map(i => i.estado_operativo || 'NORMAL').filter(Boolean))].sort();
-
-  // Filtrar items
-  const filteredItems = items.filter(item => {
-    // Filtro por modelo (desde URL query param)
-    if (filtroModeloId && item.modelo_id !== filtroModeloId) return false;
-    // Búsqueda por n_corte o modelo
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      const matchCorte = (item.n_corte || '').toLowerCase().includes(term);
-      const matchModelo = (item.modelo_nombre || '').toLowerCase().includes(term);
-      if (!matchCorte && !matchModelo) return false;
-    }
-    // Filtro por estado
-    if (filtroEstado !== 'todos' && item.estado !== filtroEstado) return false;
-    // Filtro por operativo
-    if (filtroOperativo !== 'todos' && (item.estado_operativo || 'NORMAL') !== filtroOperativo) return false;
-    return true;
-  });
-
   // Detectar nombre del modelo filtrado
   const modeloFiltrado = filtroModeloId ? items.find(i => i.modelo_id === filtroModeloId)?.modelo_nombre : null;
 
-  const hayFiltrosActivos = searchTerm || filtroEstado !== 'todos' || filtroOperativo !== 'todos' || filtroModeloId;
+  const hayFiltrosActivos = searchTerm || (modoFiltro === 'excluir' ? estadosExcluidos.length > 0 : estadosIncluidos.length > 0) || filtroOperativo !== 'todos' || filtroModeloId;
+
+  const toggleEstado = (estado) => {
+    if (modoFiltro === 'excluir') {
+      setEstadosExcluidos(prev => prev.includes(estado) ? prev.filter(e => e !== estado) : [...prev, estado]);
+    } else {
+      setEstadosIncluidos(prev => prev.includes(estado) ? prev.filter(e => e !== estado) : [...prev, estado]);
+    }
+  };
+
+  const limpiarFiltros = () => {
+    setSearchTerm('');
+    setEstadosExcluidos(['Tienda']);
+    setEstadosIncluidos([]);
+    setModoFiltro('excluir');
+    setFiltroOperativo('todos');
+    setFiltroModeloId('');
+    setSearchParams({});
+  };
+
+  // Filtro operativo client-side (ya que no se envía al server)
+  const displayItems = filtroOperativo === 'todos'
+    ? items
+    : items.filter(i => (i.estado_operativo || 'NORMAL') === filtroOperativo);
 
   return (
-    <div className="space-y-6" data-testid="registros-page">
+    <div className="space-y-4" data-testid="registros-page">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Registros de Producción</h2>
@@ -504,11 +548,11 @@ export const Registros = () => {
       </div>
 
       {/* Barra de búsqueda y filtros */}
-      <div className="flex flex-wrap items-center gap-3" data-testid="filtros-registros">
-        <div className="relative flex-1 min-w-[220px] max-w-[360px]">
+      <div className="flex flex-wrap items-center gap-2" data-testid="filtros-registros">
+        <div className="relative flex-1 min-w-[220px] max-w-[320px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por N° Corte o Modelo..."
+            placeholder="Buscar N° Corte o Modelo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 pr-8"
@@ -520,19 +564,64 @@ export const Registros = () => {
             </button>
           )}
         </div>
-        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
-          <SelectTrigger className="w-[180px]" data-testid="select-filtro-estado">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos los estados</SelectItem>
-            {estadosUnicos.map(e => (
-              <SelectItem key={e} value={e}>{e}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        {/* Multi-select estados con modo incluir/excluir */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1"
+            onClick={() => setEstadoDropdownOpen(!estadoDropdownOpen)}
+            data-testid="btn-filtro-estados"
+          >
+            <Filter className="h-3.5 w-3.5" />
+            Estados
+            {(modoFiltro === 'excluir' ? estadosExcluidos.length : estadosIncluidos.length) > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1 text-xs">
+                {modoFiltro === 'excluir' ? `-${estadosExcluidos.length}` : `${estadosIncluidos.length}`}
+              </Badge>
+            )}
+          </Button>
+          {estadoDropdownOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-md p-2 w-[260px] max-h-[300px] overflow-y-auto">
+              <div className="flex gap-1 mb-2 border-b pb-2">
+                <Button
+                  variant={modoFiltro === 'excluir' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs flex-1"
+                  onClick={() => { setModoFiltro('excluir'); setEstadosIncluidos([]); }}
+                >
+                  Excluir
+                </Button>
+                <Button
+                  variant={modoFiltro === 'incluir' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 text-xs flex-1"
+                  onClick={() => { setModoFiltro('incluir'); setEstadosExcluidos([]); }}
+                >
+                  Solo mostrar
+                </Button>
+              </div>
+              {estadosDisponibles.map(e => {
+                const selected = modoFiltro === 'excluir' ? estadosExcluidos.includes(e) : estadosIncluidos.includes(e);
+                return (
+                  <label key={e} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-muted cursor-pointer text-sm">
+                    <input type="checkbox" checked={selected} onChange={() => toggleEstado(e)} className="rounded" />
+                    <span className={modoFiltro === 'excluir' && selected ? 'line-through text-muted-foreground' : ''}>{e}</span>
+                  </label>
+                );
+              })}
+              <div className="border-t mt-2 pt-2 flex justify-end">
+                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEstadoDropdownOpen(false)}>
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <Select value={filtroOperativo} onValueChange={setFiltroOperativo}>
-          <SelectTrigger className="w-[170px]" data-testid="select-filtro-operativo">
+          <SelectTrigger className="w-[140px] h-9" data-testid="select-filtro-operativo">
             <SelectValue placeholder="Operativo" />
           </SelectTrigger>
           <SelectContent>
@@ -542,11 +631,7 @@ export const Registros = () => {
             <SelectItem value="PARALIZADA">Paralizada</SelectItem>
           </SelectContent>
         </Select>
-        {hayFiltrosActivos && (
-          <Button variant="ghost" size="sm" onClick={() => { setSearchTerm(''); setFiltroEstado('todos'); setFiltroOperativo('todos'); setFiltroModeloId(''); setSearchParams({}); }} data-testid="btn-limpiar-filtros">
-            <X className="h-4 w-4 mr-1" /> Limpiar
-          </Button>
-        )}
+
         {modeloFiltrado && (
           <Badge variant="secondary" className="gap-1">
             Modelo: {modeloFiltrado}
@@ -555,8 +640,14 @@ export const Registros = () => {
             </button>
           </Badge>
         )}
+
+        {hayFiltrosActivos && (
+          <Button variant="ghost" size="sm" className="h-9" onClick={limpiarFiltros} data-testid="btn-limpiar-filtros">
+            <X className="h-4 w-4 mr-1" /> Limpiar
+          </Button>
+        )}
         <span className="text-sm text-muted-foreground ml-auto" data-testid="count-registros">
-          {filteredItems.length} de {items.length} registros
+          {displayItems.length} de {total} registros
         </span>
       </div>
 
@@ -583,14 +674,14 @@ export const Registros = () => {
                       Cargando...
                     </TableCell>
                   </TableRow>
-                ) : filteredItems.length === 0 ? (
+                ) : displayItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay registros que coincidan con los filtros' : 'No hay registros'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredItems.map((item) => (
+                  displayItems.map((item) => (
                     <TableRow 
                       key={item.id} 
                       className={`data-table-row ${item.estado_operativo === 'PARALIZADA' ? 'bg-red-50 dark:bg-red-950/20' : item.estado_operativo === 'EN_RIESGO' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
@@ -667,6 +758,15 @@ export const Registros = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Botón cargar más */}
+      {items.length < total && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={() => fetchItems(true)} disabled={loading} data-testid="btn-cargar-mas">
+            {loading ? 'Cargando...' : `Cargar más (${items.length} de ${total})`}
+          </Button>
+        </div>
+      )}
 
       {/* Dialog para distribuir colores */}
       <Dialog open={coloresDialogOpen} onOpenChange={setColoresDialogOpen}>

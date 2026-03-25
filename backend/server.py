@@ -2628,11 +2628,61 @@ async def get_estados():
     return {"estados": ESTADOS_PRODUCCION}
 
 @api_router.get("/registros")
-async def get_registros():
+async def get_registros(
+    limit: int = 50,
+    offset: int = 0,
+    search: str = "",
+    estados: str = "",
+    excluir_estados: str = "Tienda",
+    modelo_id: str = "",
+    operativo: str = "",
+):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Single query with JOINs to avoid N+1
-        rows = await conn.fetch("""
+        # Build WHERE clause dynamically
+        conditions = []
+        params = []
+        param_idx = 1
+
+        if search:
+            conditions.append(f"(r.n_corte ILIKE ${param_idx} OR m.nombre ILIKE ${param_idx})")
+            params.append(f"%{search}%")
+            param_idx += 1
+
+        if estados:
+            estado_list = [e.strip() for e in estados.split(",") if e.strip()]
+            if estado_list:
+                placeholders = ", ".join(f"${param_idx + i}" for i in range(len(estado_list)))
+                conditions.append(f"r.estado IN ({placeholders})")
+                params.extend(estado_list)
+                param_idx += len(estado_list)
+
+        if excluir_estados:
+            excl_list = [e.strip() for e in excluir_estados.split(",") if e.strip()]
+            if excl_list:
+                placeholders = ", ".join(f"${param_idx + i}" for i in range(len(excl_list)))
+                conditions.append(f"(r.estado NOT IN ({placeholders}) OR r.estado IS NULL)")
+                params.extend(excl_list)
+                param_idx += len(excl_list)
+
+        if modelo_id:
+            conditions.append(f"r.modelo_id = ${param_idx}")
+            params.append(modelo_id)
+            param_idx += 1
+
+        where_clause = " AND ".join(conditions) if conditions else "TRUE"
+
+        # Count total
+        count_row = await conn.fetchrow(f"""
+            SELECT COUNT(*) as total
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            WHERE {where_clause}
+        """, *params)
+        total = count_row['total']
+
+        # Get paginated data
+        rows = await conn.fetch(f"""
             SELECT r.*,
                 m.nombre as modelo_nombre,
                 ma.nombre as marca_nombre,
@@ -2655,8 +2705,11 @@ async def get_registros():
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
             LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
             LEFT JOIN prod_registros rp ON r.dividido_desde_registro_id = rp.id
+            WHERE {where_clause}
             ORDER BY r.fecha_creacion DESC
-        """)
+            LIMIT ${param_idx} OFFSET ${param_idx + 1}
+        """, *params, limit, offset)
+
         result = []
         from datetime import date as date_type
         for r in rows:
@@ -2687,7 +2740,15 @@ async def get_registros():
                 else:
                     d['estado_operativo'] = 'NORMAL'
             result.append(d)
-        return result
+        return {"items": result, "total": total, "limit": limit, "offset": offset}
+
+# Endpoint para obtener estados únicos (para filtros)
+@api_router.get("/registros-estados")
+async def get_registros_estados():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT DISTINCT estado FROM prod_registros WHERE estado IS NOT NULL AND estado != '' ORDER BY estado")
+        return [r['estado'] for r in rows]
 
 @api_router.get("/registros/{registro_id}")
 async def get_registro(registro_id: str):
