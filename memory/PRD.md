@@ -36,44 +36,51 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Dialogs para registrar fallados, crear arreglos y cerrar arreglos
   - Alertas visuales para vencidos, mermas y pendientes
   - Relacion padre-hijo visible en el balance
+- **Migracion MariaDB -> PostgreSQL** (2026-03-25):
+  - 8 marcas, 25 tipos, 26 entalles, 28 telas, 1160 modelos, 1150 registros, 3418 movimientos, 79 personas, 17 servicios, 165 colores, 13 tallas, 613 historial
+  - Inventario: 390 items, 505 ingresos, 272 salidas
+- **Optimizacion Performance** (2026-03-25):
+  - Paginacion server-side en Registros (174 items, limit/offset/search/estados)
+  - Paginacion server-side en Modelos (1161 items, limit/offset/search/marca/tipo/entalle/tela)
+  - Paginacion server-side en Movimientos de Produccion (3422 items, limit/offset/search/servicio/persona/fecha)
+  - Eliminacion de N+1 queries en movimientos (3-4 queries por item -> JOINs)
+  - Endpoint GET /api/modelos-filtros para opciones de filtro
+  - Endpoint GET /api/registros-estados para estados unicos
+  - Carga independiente de catalogos (Promise.allSettled) para resiliencia contra BD lenta
+  - Combobox buscable para Modelo en RegistroForm
+  - Vista tipo Excel para Modelos con buscadores, metricas de registros y navegacion cruzada
+- **Forzar Cambio de Estado** (2026-03-25):
+  - POST /api/registros/{id}/validar-cambio-estado acepta {forzar: true} para saltar validaciones
+  - Dialog en frontend "Cambio de Estado Bloqueado" con boton "Forzar Cambio" (destructive)
+  - Util para registros migrados que ya tienen todos sus movimientos
 
 ## Key API Endpoints
+- GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)
+- GET /api/registros-estados
+- GET /api/registros/{id}
+- POST /api/registros/{id}/validar-cambio-estado (con opcion forzar: true)
+- GET /api/modelos (paginado: limit, offset, search, marca, tipo, entalle, tela; o all=true)
+- GET /api/modelos-filtros
+- GET /api/movimientos-produccion (paginado: limit, offset, search, servicio_id, persona_id, fecha_desde, fecha_hasta; o all=true)
 - GET /api/reportes-produccion/dashboard
-- GET /api/reportes-produccion/en-proceso
-- GET /api/reportes-produccion/wip-etapa
-- GET /api/reportes-produccion/atrasados
-- GET /api/reportes-produccion/trazabilidad/{id}
-- GET /api/reportes-produccion/cumplimiento-ruta
-- GET /api/reportes-produccion/balance-terceros
-- GET /api/reportes-produccion/lotes-fraccionados
-- GET /api/reportes-produccion/filtros
 - GET /api/reportes-produccion/matriz
-- GET /api/fallados
-- POST /api/fallados
-- PUT /api/fallados/{id}
-- DELETE /api/fallados/{id}
-- GET /api/arreglos
-- POST /api/arreglos
-- PUT /api/arreglos/{id}/cerrar
-- DELETE /api/arreglos/{id}
+- GET /api/fallados / POST / PUT / DELETE
+- GET /api/arreglos / POST / PUT / DELETE
 - GET /api/registros/{id}/resumen-cantidades
 - GET /api/registros/{id}/trazabilidad-completa
 - GET /api/guias-remision (listado con filtros)
-- GET /api/guias-remision/{id} (detalle enriquecido)
-- POST /api/guias-remision/from-movimiento/{id} (crear/actualizar desde movimiento)
-- DELETE /api/guias-remision/{id}
 
 ## Prioritized Backlog
 ### P0 (COMPLETADO)
 - [x] Modulo Reportes P0 (8 reportes + filtros)
 - [x] Matriz Dinamica de Produccion (fusion, modal Excel, dias desde primer mov, dd-mm-yy)
-- [x] Trazabilidad Unificada Backend (tablas, CRUD fallados/arreglos, resumen, timeline)
-- [x] Trazabilidad Unificada Frontend (Balance del Lote, Tabs, Dialogs, Alertas)
-- [x] Bug Fix: Guias de Remision - URL mismatch, response parsing, campos incorrectos, filtros de fecha (2026-03-25)
-- [x] Mejora Matriz: Colores como popup en modal en vez de columna. Tabla agrupada por Color General con subtotales (2026-03-25)
-- [x] Migración MariaDB → PostgreSQL: 8 marcas, 25 tipos, 26 entalles, 28 telas, 1160 modelos, 1150 registros, 3418 movimientos, 79 personas, 17 servicios, 165 colores, 13 tallas, 613 historial (2026-03-25)
-- [x] Migración Inventario: 390 items, 505 ingresos, 272 salidas. Ajuste empresa_id=8 global (2026-03-25)
-- [x] Optimización N+1 queries: inventario, ingresos y salidas refactorizados a JOINs (2026-03-25)
+- [x] Trazabilidad Unificada Backend + Frontend
+- [x] Migracion MariaDB -> PostgreSQL completa
+- [x] Optimizacion N+1 queries
+- [x] Paginacion server-side: Registros, Modelos, Movimientos
+- [x] Forzar cambio de estado para registros migrados
+- [x] Combobox buscable + Carga resiliente de catalogos
+- [x] Vista tipo Excel para Modelos
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
@@ -87,8 +94,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 ### P3
 - [ ] Permisos granulares con usePermissions
 - [ ] Exportacion Excel/PDF
-- [ ] Refactorizar RegistroForm.jsx (~2800 lineas)
-- [ ] Migrar server.py a routers modulares
+- [ ] Refactorizar RegistroForm.jsx (~2900 lineas)
+- [ ] Migrar server.py a routers modulares (~6800 lineas)
 
 ## Key Credentials
 - Usuario: eduard / eduard123
@@ -100,16 +107,22 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 │   ├── routes/
 │   │   ├── reportes_produccion.py
 │   │   ├── trazabilidad.py (Fallados, Arreglos, Resumen, Timeline)
-│   │   └── ... (otros routers)
+│   │   └── inventario.py
 │   ├── tests/
-│   │   ├── test_trazabilidad.py (22 tests)
-│   │   └── test_guias_remision.py (11 tests)
-│   └── server.py
+│   │   ├── test_trazabilidad.py
+│   │   ├── test_guias_remision.py
+│   │   ├── test_matriz_colores.py
+│   │   ├── test_pagination_force_state.py
+│   │   └── test_movimientos_produccion.py
+│   └── server.py (~6800 lines - needs modularization)
 └── frontend/
     └── src/
         ├── components/
-        │   └── TrazabilidadPanel.jsx (Balance, Tabs, Dialogs)
+        │   └── TrazabilidadPanel.jsx
         └── pages/
             ├── MatrizProduccion.jsx
-            └── RegistroForm.jsx (integra TrazabilidadPanel)
+            ├── Modelos.jsx (paginacion server-side)
+            ├── Registros.jsx (paginacion server-side)
+            ├── MovimientosProduccion.jsx (paginacion server-side)
+            └── RegistroForm.jsx (~2900 lines - needs refactoring)
 ```
