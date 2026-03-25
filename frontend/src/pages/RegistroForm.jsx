@@ -153,29 +153,43 @@ export const RegistroForm = () => {
   // Salidas agrupadas: items expandidos
   const [salidasExpandidas, setSalidasExpandidas] = useState({});
 
-  // Cargar datos relacionados
+  // Cargar datos relacionados con reintentos para catálogos críticos
+  const fetchWithRetry = async (url, retries = 2) => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const res = await axios.get(url);
+        return res.data;
+      } catch (e) {
+        if (i === retries) return null;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    return null;
+  };
+
   const fetchRelatedData = async () => {
-    const results = await Promise.allSettled([
-      axios.get(`${API}/modelos`),
-      axios.get(`${API}/estados`),
-      axios.get(`${API}/tallas-catalogo`),
-      axios.get(`${API}/colores-catalogo`),
-      axios.get(`${API}/inventario`),
-      axios.get(`${API}/servicios-produccion`),
-      axios.get(`${API}/personas-produccion?activo=true`),
-      axios.get(`${API}/hilos-especificos`),
+    // Cargar catálogos críticos (modelos, hilos) con reintentos, el resto en paralelo
+    const [modelosData, hilosData, rest] = await Promise.all([
+      fetchWithRetry(`${API}/modelos`),
+      fetchWithRetry(`${API}/hilos-especificos`),
+      Promise.allSettled([
+        axios.get(`${API}/estados`),
+        axios.get(`${API}/tallas-catalogo`),
+        axios.get(`${API}/colores-catalogo`),
+        axios.get(`${API}/inventario`),
+        axios.get(`${API}/servicios-produccion`),
+        axios.get(`${API}/personas-produccion?activo=true`),
+      ]),
     ]);
-    const get = (i) => results[i].status === 'fulfilled' ? results[i].value.data : null;
-    if (get(0)) setModelos(get(0));
-    if (get(1)?.estados) { setEstados(get(1).estados); setEstadosGlobales(get(1).estados); }
-    if (get(2)) setTallasCatalogo(get(2));
-    if (get(3)) setColoresCatalogo(get(3));
-    if (get(4)) setItemsInventario(get(4));
-    if (get(5)) setServiciosProduccion(get(5));
-    if (get(6)) setPersonasProduccion(get(6));
-    if (get(7)) setHilosEspecificos(get(7));
-    const failed = results.filter(r => r.status === 'rejected').length;
-    if (failed > 0) console.warn(`${failed} de 8 catálogos no cargaron`);
+    if (modelosData) setModelos(modelosData);
+    if (hilosData) setHilosEspecificos(hilosData);
+    const get = (i) => rest[i].status === 'fulfilled' ? rest[i].value.data : null;
+    if (get(0)?.estados) { setEstados(get(0).estados); setEstadosGlobales(get(0).estados); }
+    if (get(1)) setTallasCatalogo(get(1));
+    if (get(2)) setColoresCatalogo(get(2));
+    if (get(3)) setItemsInventario(get(3));
+    if (get(4)) setServiciosProduccion(get(4));
+    if (get(5)) setPersonasProduccion(get(5));
   };
 
   // Cargar estados dinámicos según el registro o modelo
@@ -289,9 +303,12 @@ export const RegistroForm = () => {
   };
 
   useEffect(() => {
-    fetchRelatedData();
-    if (id) fetchRegistro();
-    else setLoadingData(false);
+    const init = async () => {
+      await fetchRelatedData();
+      if (id) fetchRegistro();
+      else setLoadingData(false);
+    };
+    init();
   }, [id]);
 
   useEffect(() => {
