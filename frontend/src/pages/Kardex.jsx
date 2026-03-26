@@ -49,8 +49,9 @@ export const Kardex = () => {
 
   const fetchItems = async () => {
     try {
-      const response = await axios.get(`${API}/inventario`);
-      setItems(response.data);
+      const response = await axios.get(`${API}/inventario?all=true`);
+      const data = Array.isArray(response.data) ? response.data : response.data.items || [];
+      setItems(data);
     } catch (error) {
       toast.error('Error al cargar items');
     } finally {

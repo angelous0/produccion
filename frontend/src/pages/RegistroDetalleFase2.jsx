@@ -565,11 +565,12 @@ const SalidasTab = ({ registroId }) => {
       const [reqRes, salRes, invRes] = await Promise.all([
         axios.get(`${API}/registros/${registroId}/requerimiento`).catch(() => ({ data: { lineas: [] } })),
         axios.get(`${API}/inventario-salidas?registro_id=${registroId}`).catch(() => ({ data: [] })),
-        axios.get(`${API}/inventario`).catch(() => ({ data: [] })),
+        axios.get(`${API}/inventario?all=true`).catch(() => ({ data: [] })),
       ]);
       setRequerimiento(reqRes.data);
       setSalidas(salRes.data);
-      setInventario(invRes.data);
+      const invData = Array.isArray(invRes.data) ? invRes.data : invRes.data.items || [];
+      setInventario(invData);
       
       // Cargar rollos para items que lo necesitan
       const itemsConRollos = (reqRes.data.lineas || []).filter(l => l.control_por_rollos && l.pendiente_consumir > 0);

@@ -42,11 +42,12 @@ export const InventarioRollos = () => {
       
       const [rollosRes, itemsRes] = await Promise.all([
         axios.get(`${API}/inventario-rollos?${params.toString()}`),
-        axios.get(`${API}/inventario`),
+        axios.get(`${API}/inventario?all=true`),
       ]);
       setRollos(rollosRes.data);
       // Solo items con control por rollos
-      setItems(itemsRes.data.filter(i => i.control_por_rollos));
+      const itemsData = Array.isArray(itemsRes.data) ? itemsRes.data : itemsRes.data.items || [];
+      setItems(itemsData.filter(i => i.control_por_rollos));
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {

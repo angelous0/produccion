@@ -281,7 +281,10 @@ export const ModelosBOMTab = ({ modeloId }) => {
 
     Promise.all([
       fetchCabeceras(),
-      axios.get(`${API}/inventario`).then(r => r.data).catch(() => []),
+      axios.get(`${API}/inventario?all=true`).then(r => {
+        const d = r.data;
+        return Array.isArray(d) ? d : d.items || [];
+      }).catch(() => []),
       axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`).then(r => r.data).catch(() => []),
       loadEtapas(),
       axios.get(`${API}/servicios-produccion`).then(r => r.data).catch(() => []),
