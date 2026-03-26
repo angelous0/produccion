@@ -48,6 +48,7 @@ import { ReporteBalanceTerceros } from "./pages/ReporteBalanceTerceros";
 import { ReporteLotesFraccionados } from "./pages/ReporteLotesFraccionados";
 import { MatrizProduccion } from "./pages/MatrizProduccion";
 import TrazabilidadReporte from "./pages/TrazabilidadReporte";
+import { ReporteStockBajo } from "./pages/ReporteStockBajo";
 import { Loader2 } from "lucide-react";
 
 // Componente de ruta protegida
@@ -128,6 +129,7 @@ function AppRoutes() {
         <Route path="inventario/rollos" element={<InventarioRollos />} />
         <Route path="inventario/movimientos" element={<ReporteMovimientos />} />
         <Route path="inventario/kardex" element={<Kardex />} />
+        <Route path="inventario/alertas-stock" element={<ReporteStockBajo />} />
         <Route path="maestros/servicios" element={<ServiciosProduccion />} />
         <Route path="maestros/personas" element={<PersonasProduccion />} />
         <Route path="maestros/rutas" element={<RutasProduccion />} />

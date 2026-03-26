@@ -265,6 +265,12 @@ async def ensure_fase2_tables():
             "ALTER TABLE prod_inventario_salidas ADD COLUMN IF NOT EXISTS talla_id VARCHAR NULL"
         )
 
+        # 6) Agregar ignorar_alerta_stock a prod_inventario si no existe
+        await conn.execute(
+            "ALTER TABLE prod_inventario ADD COLUMN IF NOT EXISTS ignorar_alerta_stock BOOLEAN DEFAULT FALSE"
+        )
+
+
 
 app = FastAPI()
 
@@ -4382,6 +4388,84 @@ async def get_inventario_filtros():
             "categorias": [r['categoria'] for r in cats],
         }
 
+
+@api_router.get("/inventario/alertas-stock")
+async def get_alertas_stock(
+    modo: str = "fisico",
+    incluir_ignorados: str = "false",
+):
+    """Retorna items con stock bajo o sin stock.
+    modo: 'fisico' (stock_actual) o 'disponible' (stock_actual - reservado)
+    Solo items con stock_minimo > 0 configurado.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        ignorar_filter = "" if incluir_ignorados == "true" else "AND COALESCE(i.ignorar_alerta_stock, false) = false"
+        
+        rows = await conn.fetch(f"""
+            SELECT i.id, i.codigo, i.nombre, i.categoria, i.unidad_medida,
+                   i.stock_actual, i.stock_minimo, i.tipo_item,
+                   COALESCE(i.ignorar_alerta_stock, false) as ignorar_alerta_stock,
+                   COALESCE((
+                       SELECT SUM(rl.cantidad_reservada - rl.cantidad_liberada)
+                       FROM prod_inventario_reservas_linea rl
+                       JOIN prod_inventario_reservas r ON rl.reserva_id = r.id
+                       WHERE rl.item_id = i.id AND r.estado = 'ACTIVA'
+                   ), 0) as total_reservado
+            FROM prod_inventario i
+            WHERE i.stock_minimo > 0
+              {ignorar_filter}
+            ORDER BY i.stock_actual ASC, i.nombre ASC
+        """)
+        
+        result = []
+        for r in rows:
+            d = row_to_dict(r)
+            stock_actual = float(d.get('stock_actual') or 0)
+            total_reservado = float(d.get('total_reservado') or 0)
+            stock_disponible = max(0, stock_actual - total_reservado)
+            stock_minimo = int(d.get('stock_minimo') or 0)
+            
+            # Determinar el stock de referencia según modo
+            stock_ref = stock_disponible if modo == "disponible" else stock_actual
+            
+            if stock_ref <= stock_minimo:
+                d['stock_actual'] = stock_actual
+                d['total_reservado'] = total_reservado
+                d['stock_disponible'] = stock_disponible
+                d['faltante'] = max(0, stock_minimo - stock_ref)
+                d['estado_stock'] = 'SIN_STOCK' if stock_actual <= 0 else 'STOCK_BAJO'
+                result.append(d)
+        
+        sin_stock = sum(1 for i in result if i['estado_stock'] == 'SIN_STOCK')
+        stock_bajo = sum(1 for i in result if i['estado_stock'] == 'STOCK_BAJO')
+        
+        return {
+            "items": result,
+            "total": len(result),
+            "sin_stock": sin_stock,
+            "stock_bajo": stock_bajo,
+            "modo": modo,
+        }
+
+
+@api_router.put("/inventario/{item_id}/ignorar-alerta")
+async def toggle_ignorar_alerta(item_id: str):
+    """Activa/desactiva ignorar alertas de stock para un item."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        item = await conn.fetchrow("SELECT id, ignorar_alerta_stock FROM prod_inventario WHERE id = $1", item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Item no encontrado")
+        
+        nuevo_valor = not (item['ignorar_alerta_stock'] or False)
+        await conn.execute(
+            "UPDATE prod_inventario SET ignorar_alerta_stock = $1 WHERE id = $2",
+            nuevo_valor, item_id
+        )
+        return {"id": item_id, "ignorar_alerta_stock": nuevo_valor}
+
+
 @api_router.get("/inventario/{item_id}")
 async def get_item_inventario(item_id: str):
     pool = await get_pool()
@@ -5708,6 +5792,21 @@ async def get_stats():
         salidas = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_salidas")
         ajustes = await conn.fetchval("SELECT COUNT(*) FROM prod_inventario_ajustes")
         
+        # Alertas de stock: items con stock_minimo > 0 y stock por debajo
+        stock_bajo_count = await conn.fetchval("""
+            SELECT COUNT(*) FROM prod_inventario 
+            WHERE stock_minimo > 0 
+              AND stock_actual > 0 
+              AND stock_actual <= stock_minimo 
+              AND COALESCE(ignorar_alerta_stock, false) = false
+        """)
+        sin_stock_count = await conn.fetchval("""
+            SELECT COUNT(*) FROM prod_inventario 
+            WHERE stock_minimo > 0 
+              AND stock_actual <= 0 
+              AND COALESCE(ignorar_alerta_stock, false) = false
+        """)
+        
         estados_count = {}
         for estado in ESTADOS_PRODUCCION:
             count = await conn.fetchval("SELECT COUNT(*) FROM prod_registros WHERE estado = $1", estado)
@@ -5718,7 +5817,10 @@ async def get_stats():
             "modelos": modelos, "registros": registros, "registros_urgentes": registros_urgentes,
             "tallas": tallas, "colores": colores, "inventario": inventario,
             "ingresos_count": ingresos, "salidas_count": salidas, "ajustes_count": ajustes,
-            "estados_count": estados_count
+            "estados_count": estados_count,
+            "stock_bajo": stock_bajo_count or 0,
+            "sin_stock": sin_stock_count or 0,
+            "alertas_stock_total": (stock_bajo_count or 0) + (sin_stock_count or 0),
         }
 
 @api_router.get("/stats/charts")

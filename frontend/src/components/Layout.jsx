@@ -65,6 +65,7 @@ import {
   GitBranch,
   TrendingUp,
   Grid3X3,
+  PackageX,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -95,6 +96,7 @@ const inventarioItems = [
   { to: '/inventario/rollos', icon: Layers, label: 'Rollos' },
   { to: '/inventario/movimientos', icon: FileText, label: 'Movimientos' },
   { to: '/inventario/kardex', icon: BookOpen, label: 'Kardex' },
+  { to: '/inventario/alertas-stock', icon: PackageX, label: 'Alertas Stock' },
 ];
 
 const maestrosItems = [

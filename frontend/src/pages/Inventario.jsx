@@ -17,11 +17,12 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, Search, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, Search, X, PackageX } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportButton } from '../components/ExportButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { NumericInput } from '../components/ui/numeric-input';
+import { useNavigate } from 'react-router-dom';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -45,6 +46,8 @@ export const Inventario = () => {
   const [expandedItemId, setExpandedItemId] = useState(null);
   const [reservasDetalle, setReservasDetalle] = useState(null);
   const [loadingReservas, setLoadingReservas] = useState(false);
+  const [alertasStock, setAlertasStock] = useState(null);
+  const navigate = useNavigate();
 
   // Filtros server-side
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,8 +94,12 @@ export const Inventario = () => {
 
   const fetchFiltros = async () => {
     try {
-      const res = await axios.get(`${API}/inventario-filtros`);
-      setCategoriasOpciones(res.data.categorias);
+      const [filtrosRes, alertasRes] = await Promise.allSettled([
+        axios.get(`${API}/inventario-filtros`),
+        axios.get(`${API}/inventario/alertas-stock`),
+      ]);
+      if (filtrosRes.status === 'fulfilled') setCategoriasOpciones(filtrosRes.value.data.categorias);
+      if (alertasRes.status === 'fulfilled') setAlertasStock(alertasRes.value.data);
     } catch (e) {}
   };
 
@@ -270,6 +277,32 @@ export const Inventario = () => {
           {items.length} de {total}
         </span>
       </div>
+
+      {/* Banner de alertas de stock */}
+      {alertasStock && alertasStock.total > 0 && (
+        <Card className="border-red-500/40 bg-red-500/5 cursor-pointer hover:bg-red-500/10 transition-colors"
+          onClick={() => navigate('/inventario/alertas-stock')}
+          data-testid="banner-alertas-stock"
+        >
+          <CardContent className="py-2.5 px-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PackageX className="h-4 w-4 text-red-500 shrink-0" />
+                <span className="text-sm font-medium">
+                  {alertasStock.total} item{alertasStock.total !== 1 ? 's' : ''} con stock bajo o agotado
+                </span>
+                {alertasStock.sin_stock > 0 && (
+                  <Badge variant="destructive" className="text-xs">{alertasStock.sin_stock} sin stock</Badge>
+                )}
+                {alertasStock.stock_bajo > 0 && (
+                  <Badge className="bg-yellow-500 text-xs">{alertasStock.stock_bajo} bajo</Badge>
+                )}
+              </div>
+              <span className="text-xs text-primary font-medium">Ver reporte →</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabla */}
       <Card>

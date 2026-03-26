@@ -20,10 +20,12 @@ import {
   Droplets,
   TrendingUp,
   Package,
+  PackageX,
   Users,
   Activity
 } from 'lucide-react';
 import { getStatusClass } from '../lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -67,6 +69,7 @@ export const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [chartData, setChartData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -140,6 +143,35 @@ export const Dashboard = () => {
           description="Items en stock"
         />
       </div>
+
+      {/* Alerta de Stock Bajo */}
+      {stats?.alertas_stock_total > 0 && (
+        <Card className="border-red-500/40 bg-red-500/5 cursor-pointer hover:bg-red-500/10 transition-colors"
+          onClick={() => navigate('/inventario/alertas-stock')}
+          data-testid="dashboard-alerta-stock"
+        >
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-red-500/15 flex items-center justify-center">
+                  <PackageX className="h-5 w-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">
+                    {stats.alertas_stock_total} item{stats.alertas_stock_total !== 1 ? 's' : ''} de materia prima requiere{stats.alertas_stock_total === 1 ? '' : 'n'} atencion
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats.sin_stock > 0 && <span className="text-red-500 font-medium">{stats.sin_stock} sin stock</span>}
+                    {stats.sin_stock > 0 && stats.stock_bajo > 0 && ' · '}
+                    {stats.stock_bajo > 0 && <span className="text-yellow-600 font-medium">{stats.stock_bajo} con stock bajo</span>}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="destructive" className="shrink-0">Ver reporte</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Gráficos principales */}
       <div className="grid gap-4 md:grid-cols-2">
