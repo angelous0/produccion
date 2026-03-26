@@ -118,6 +118,7 @@ export const Registros = () => {
   const [estadosIncluidos, setEstadosIncluidos] = useState([]);
   const [modoFiltro, setModoFiltro] = useState('excluir'); // 'incluir' o 'excluir'
   const [filtroOperativo, setFiltroOperativo] = useState('todos');
+  const [filtroUrgente, setFiltroUrgente] = useState(false);
   const [filtroModeloId, setFiltroModeloId] = useState(searchParams.get('modelo') || '');
   const [estadosDisponibles, setEstadosDisponibles] = useState([]);
   const [total, setTotal] = useState(0);
@@ -506,7 +507,7 @@ export const Registros = () => {
   // Detectar nombre del modelo filtrado
   const modeloFiltrado = filtroModeloId ? items.find(i => i.modelo_id === filtroModeloId)?.modelo_nombre : null;
 
-  const hayFiltrosActivos = searchTerm || (modoFiltro === 'excluir' ? estadosExcluidos.length > 0 : estadosIncluidos.length > 0) || filtroOperativo !== 'todos' || filtroModeloId;
+  const hayFiltrosActivos = searchTerm || (modoFiltro === 'excluir' ? estadosExcluidos.length > 0 : estadosIncluidos.length > 0) || filtroOperativo !== 'todos' || filtroModeloId || filtroUrgente;
 
   const toggleEstado = (estado) => {
     if (modoFiltro === 'excluir') {
@@ -522,14 +523,17 @@ export const Registros = () => {
     setEstadosIncluidos([]);
     setModoFiltro('excluir');
     setFiltroOperativo('todos');
+    setFiltroUrgente(false);
     setFiltroModeloId('');
     setSearchParams({});
   };
 
   // Filtro operativo client-side (ya que no se envía al server)
-  const displayItems = filtroOperativo === 'todos'
-    ? items
-    : items.filter(i => (i.estado_operativo || 'NORMAL') === filtroOperativo);
+  const displayItems = items.filter(i => {
+    if (filtroOperativo !== 'todos' && (i.estado_operativo || 'NORMAL') !== filtroOperativo) return false;
+    if (filtroUrgente && !i.urgente) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-4" data-testid="registros-page">
@@ -632,6 +636,17 @@ export const Registros = () => {
           </SelectContent>
         </Select>
 
+        <Button
+          variant={filtroUrgente ? "default" : "outline"}
+          size="sm"
+          className={`h-9 ${filtroUrgente ? 'bg-rose-600 hover:bg-rose-700' : ''}`}
+          onClick={() => setFiltroUrgente(!filtroUrgente)}
+          data-testid="filtro-urgente"
+        >
+          <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+          Urgentes
+        </Button>
+
         {modeloFiltrado && (
           <Badge variant="secondary" className="gap-1">
             Modelo: {modeloFiltrado}
@@ -691,7 +706,7 @@ export const Registros = () => {
                   displayItems.map((item) => (
                     <TableRow 
                       key={item.id} 
-                      className={`data-table-row ${item.estado_operativo === 'PARALIZADA' ? 'bg-red-50 dark:bg-red-950/20' : item.estado_operativo === 'EN_RIESGO' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
+                      className={`data-table-row ${item.urgente ? 'bg-rose-50 dark:bg-rose-950/30 border-l-4 border-l-rose-500' : item.estado_operativo === 'PARALIZADA' ? 'bg-red-50 dark:bg-red-950/20' : item.estado_operativo === 'EN_RIESGO' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
                       data-testid={`registro-row-${item.id}`}
                     >
                       <TableCell className="font-mono font-medium whitespace-nowrap">
