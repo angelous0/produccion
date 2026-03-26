@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ModelosTallasTab, ModelosBOMTab } from './ModelosBOM';
 import { Plus, Pencil, Trash2, Route, Search, X, ExternalLink, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { SearchableSelect } from '../components/SearchableSelect';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -421,38 +422,58 @@ export const Modelos = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Marca</Label>
-                    <Select value={formData.marca_id} onValueChange={(value) => setFormData({ ...formData, marca_id: value })}>
-                      <SelectTrigger data-testid="select-marca"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                      <SelectContent>{marcas.map((m) => <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={formData.marca_id}
+                      onValueChange={(value) => setFormData({ ...formData, marca_id: value })}
+                      options={marcas}
+                      placeholder="Buscar marca..."
+                      searchPlaceholder="Buscar marca..."
+                      testId="select-marca"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Tipo</Label>
-                    <Select value={formData.tipo_id} onValueChange={(value) => setFormData({ ...formData, tipo_id: value })}>
-                      <SelectTrigger data-testid="select-tipo"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                      <SelectContent>{tipos.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={formData.tipo_id}
+                      onValueChange={(value) => setFormData({ ...formData, tipo_id: value })}
+                      options={tipos}
+                      placeholder="Buscar tipo..."
+                      searchPlaceholder="Buscar tipo..."
+                      testId="select-tipo"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Entalle</Label>
-                    <Select value={formData.entalle_id} onValueChange={(value) => setFormData({ ...formData, entalle_id: value })}>
-                      <SelectTrigger data-testid="select-entalle"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                      <SelectContent>{entalles.map((e) => <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={formData.entalle_id}
+                      onValueChange={(value) => setFormData({ ...formData, entalle_id: value })}
+                      options={entalles}
+                      placeholder="Buscar entalle..."
+                      searchPlaceholder="Buscar entalle..."
+                      testId="select-entalle"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Tela</Label>
-                    <Select value={formData.tela_id} onValueChange={(value) => setFormData({ ...formData, tela_id: value })}>
-                      <SelectTrigger data-testid="select-tela"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                      <SelectContent>{telas.map((t) => <SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={formData.tela_id}
+                      onValueChange={(value) => setFormData({ ...formData, tela_id: value })}
+                      options={telas}
+                      placeholder="Buscar tela..."
+                      searchPlaceholder="Buscar tela..."
+                      testId="select-tela"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Hilo</Label>
-                    <Select value={formData.hilo_id} onValueChange={(value) => setFormData({ ...formData, hilo_id: value })}>
-                      <SelectTrigger data-testid="select-hilo"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                      <SelectContent>{hilos.map((h) => <SelectItem key={h.id} value={h.id}>{h.nombre}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={formData.hilo_id}
+                      onValueChange={(value) => setFormData({ ...formData, hilo_id: value })}
+                      options={hilos}
+                      placeholder="Buscar hilo..."
+                      searchPlaceholder="Buscar hilo..."
+                      testId="select-hilo"
+                    />
                   </div>
                 </div>
               </TabsContent>
