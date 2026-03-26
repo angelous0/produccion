@@ -17,7 +17,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, Search, X, PackageX } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, Search, X, PackageX, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportButton } from '../components/ExportButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
@@ -421,6 +421,9 @@ export const Inventario = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/inventario/kardex?item=${item.id}`)} title="Ver Kardex" data-testid={`kardex-item-${item.id}`}>
+                              <BookOpen className="h-3.5 w-3.5 text-primary" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenDialog(item)} data-testid={`edit-item-${item.id}`}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>

@@ -1,51 +1,41 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
+  Popover, PopoverContent, PopoverTrigger,
+} from '../components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '../components/ui/command';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
 import { 
-  BookOpen, 
-  Package,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  RefreshCw,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  FileSpreadsheet,
-  FileText,
-  Loader2
+  BookOpen, Package, ArrowDownCircle, ArrowUpCircle, RefreshCw,
+  TrendingUp, TrendingDown, Minus, FileSpreadsheet, FileText,
+  Loader2, ChevronsUpDown, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/dateUtils';
+import { cn } from '../lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const Kardex = () => {
+  const [searchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [selectedItemId, setSelectedItemId] = useState('');
   const [kardexData, setKardexData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingItems, setLoadingItems] = useState(true);
+  const [itemPopoverOpen, setItemPopoverOpen] = useState(false);
 
   const fetchItems = async () => {
     try {
@@ -80,6 +70,15 @@ export const Kardex = () => {
   useEffect(() => {
     fetchItems();
   }, []);
+
+  // Pre-seleccionar item desde query param (?item=id)
+  useEffect(() => {
+    const itemParam = searchParams.get('item');
+    if (itemParam && items.length > 0 && !selectedItemId) {
+      const found = items.find(i => i.id === itemParam);
+      if (found) setSelectedItemId(itemParam);
+    }
+  }, [searchParams, items, selectedItemId]);
 
   useEffect(() => {
     if (selectedItemId) {
@@ -156,26 +155,57 @@ export const Kardex = () => {
           <CardTitle className="text-base">Seleccionar Item</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="max-w-md">
+          <div className="max-w-lg">
             <Label className="mb-2 block">Item de Inventario</Label>
-            <Select 
-              value={selectedItemId} 
-              onValueChange={setSelectedItemId}
-              disabled={loadingItems}
-            >
-              <SelectTrigger data-testid="select-item-kardex">
-                <SelectValue placeholder={loadingItems ? "Cargando..." : "Seleccionar item..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {items.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    <span className="font-mono mr-2">{item.codigo}</span>
-                    {item.nombre}
-                    <span className="ml-2 text-muted-foreground">(Stock: {item.stock_actual})</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={itemPopoverOpen} onOpenChange={setItemPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal"
+                  disabled={loadingItems}
+                  data-testid="combobox-item-kardex"
+                >
+                  {loadingItems ? (
+                    <span className="text-muted-foreground flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Cargando items...</span>
+                  ) : selectedItemId ? (
+                    <span className="truncate">
+                      <span className="font-mono mr-2">{items.find(i => i.id === selectedItemId)?.codigo}</span>
+                      {items.find(i => i.id === selectedItemId)?.nombre}
+                      <span className="ml-2 text-muted-foreground text-xs">(Stock: {items.find(i => i.id === selectedItemId)?.stock_actual})</span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">Buscar item...</span>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[500px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar por nombre o codigo..." data-testid="search-item-kardex" />
+                  <CommandList>
+                    <CommandEmpty>Sin resultados</CommandEmpty>
+                    <CommandGroup className="max-h-[280px] overflow-auto">
+                      {items.map((item) => (
+                        <CommandItem
+                          key={item.id}
+                          value={`${item.codigo} ${item.nombre}`}
+                          onSelect={() => {
+                            setSelectedItemId(item.id);
+                            setItemPopoverOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", selectedItemId === item.id ? "opacity-100" : "opacity-0")} />
+                          <span className="font-mono text-xs mr-2 text-muted-foreground">{item.codigo}</span>
+                          <span className="truncate flex-1">{item.nombre}</span>
+                          <span className="text-xs text-muted-foreground ml-2">Stock: {item.stock_actual}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
       </Card>
