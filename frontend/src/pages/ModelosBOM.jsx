@@ -526,11 +526,11 @@ export const ModelosBOMTab = ({ modeloId }) => {
                   </SelectContent>
                 </Select>
               )}
-              <Button size="sm" variant="outline" onClick={crearBom} disabled={creando} data-testid="btn-crear-bom">
+              <Button type="button" size="sm" variant="outline" onClick={crearBom} disabled={creando} data-testid="btn-crear-bom">
                 <Plus className="h-4 w-4 mr-1" /> {creando ? 'Creando...' : 'Nuevo BOM'}
               </Button>
               {activeBomId && (
-                <Button size="sm" variant="outline" onClick={duplicarBom} disabled={creando} data-testid="btn-duplicar-bom">
+                <Button type="button" size="sm" variant="outline" onClick={duplicarBom} disabled={creando} data-testid="btn-duplicar-bom">
                   <Copy className="h-4 w-4 mr-1" /> Duplicar
                 </Button>
               )}
@@ -553,21 +553,21 @@ export const ModelosBOMTab = ({ modeloId }) => {
               </div>
               <div className="flex items-center gap-2">
                 {estado === 'BORRADOR' && (
-                  <Button size="sm" onClick={() => cambiarEstado('APROBADO')} disabled={savingEstado} data-testid="btn-aprobar-bom">
+                  <Button type="button" size="sm" onClick={() => cambiarEstado('APROBADO')} disabled={savingEstado} data-testid="btn-aprobar-bom">
                     Aprobar
                   </Button>
                 )}
                 {estado === 'APROBADO' && (
-                  <Button size="sm" variant="outline" onClick={() => cambiarEstado('INACTIVO')} disabled={savingEstado} data-testid="btn-inactivar-bom">
+                  <Button type="button" size="sm" variant="outline" onClick={() => cambiarEstado('INACTIVO')} disabled={savingEstado} data-testid="btn-inactivar-bom">
                     Inactivar
                   </Button>
                 )}
                 {estado === 'INACTIVO' && (
-                  <Button size="sm" variant="outline" onClick={() => cambiarEstado('BORRADOR')} disabled={savingEstado}>
+                  <Button type="button" size="sm" variant="outline" onClick={() => cambiarEstado('BORRADOR')} disabled={savingEstado}>
                     Reactivar
                   </Button>
                 )}
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={eliminarBom} disabled={creando} data-testid="btn-eliminar-bom">
+                <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={eliminarBom} disabled={creando} data-testid="btn-eliminar-bom">
                   Eliminar
                 </Button>
               </div>
@@ -730,17 +730,17 @@ export const ModelosBOMTab = ({ modeloId }) => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-0.5">
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                            <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0"
                               disabled={idx === 0}
                               onClick={() => moveLinea(l.id, -1)} title="Subir">
                               <ChevronUp className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0"
+                            <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0"
                               disabled={idx === lineas.length - 1}
                               onClick={() => moveLinea(l.id, 1)} title="Bajar">
                               <ChevronDown className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="text-destructive h-7 px-2"
+                            <Button type="button" size="sm" variant="ghost" className="text-destructive h-7 px-2"
                               onClick={() => deleteLinea(l.id)} data-testid={`bom-delete-${l.id}`}>
                               Borrar
                             </Button>
