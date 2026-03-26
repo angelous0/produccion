@@ -1,8 +1,13 @@
 # Database connection pool management
 import asyncpg
+import asyncio
 import os
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -22,10 +27,37 @@ async def get_pool():
             min_size=2,
             max_size=10,
             command_timeout=30,
-            max_inactive_connection_lifetime=60,
+            max_inactive_connection_lifetime=30,
             server_settings={"search_path": "produccion,public"},
         )
     return pool
+
+@asynccontextmanager
+async def safe_acquire(max_retries=2):
+    """Adquiere una conexión con reintentos automáticos ante desconexiones de BD remota."""
+    global pool
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            p = await get_pool()
+            async with p.acquire() as conn:
+                yield conn
+                return
+        except (asyncpg.exceptions.ConnectionDoesNotExistError,
+                asyncpg.exceptions.InterfaceError,
+                OSError) as e:
+            last_error = e
+            logger.warning(f"Conexión BD perdida (intento {attempt+1}/{max_retries+1}): {e}")
+            # Forzar recreación del pool
+            try:
+                if pool and not pool._closed:
+                    await pool.close()
+            except Exception:
+                pass
+            pool = None
+            if attempt < max_retries:
+                await asyncio.sleep(0.5 * (attempt + 1))
+    raise last_error
 
 async def close_pool():
     global pool

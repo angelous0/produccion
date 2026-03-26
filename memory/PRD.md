@@ -72,6 +72,23 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Checkbox "Sin restricciones" visible junto al selector de estado en RegistroForm
   - Cuando esta activo, el registro puede cambiar de estado libremente sin validar movimientos
   - Ideal para registros migrados antiguos (ej: 228-2025) que no tienen movimientos en el sistema nuevo
+- **Incidencias Unificadas con Paralizaciones** (2026-03-26):
+  - Incidencias y Paralizaciones fusionadas en una sola entidad con check "Paraliza produccion"
+  - Catalogo administrable de motivos (prod_motivos_incidencia) con CRUD inline
+  - Seccion de Incidencias reubicada dentro de RegistroForm
+  - Lista de Registros simplificada: de 7 a 4 botones de acción
+- **Tabla Registros Estilo Excel** (2026-03-26):
+  - 15 columnas configuradas (N Corte, Fecha, Modelo, Marca, Tipo, Entalle, Tela, Color, Talla, Cantidad, Estado, etc.)
+  - Filtro y resaltado visual de filas Urgentes
+  - Combobox buscable para Servicio y Persona en modal de movimientos
+- **QA General y Correcciones** (2026-03-26):
+  - Corregidos crasheos en InventarioSalidas, GuiasRemision, CalidadMerma por cambio a paginacion
+  - 14/14 paginas principales verificadas y funcionando
+  - Backend 96% tests pasados (26/27)
+- **Resiliencia de Conexión BD Remota** (2026-03-26):
+  - Exception handlers globales para ConnectionDoesNotExistError e InterfaceError
+  - Auto-recreacion del pool de conexiones ante desconexiones
+  - Respuesta 503 amigable en lugar de error 500 genérico
 
 ## Key API Endpoints
 - GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)
@@ -123,7 +140,9 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 ```
 /app
 ├── backend/
+│   ├── db.py (Pool de conexiones con reintentos automáticos)
 │   ├── routes/
+│   │   ├── control_produccion.py (CRUD incidencias y motivos)
 │   │   ├── reportes_produccion.py
 │   │   ├── trazabilidad.py (Fallados, Arreglos, Resumen, Timeline)
 │   │   └── inventario.py
@@ -132,8 +151,9 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 │   │   ├── test_guias_remision.py
 │   │   ├── test_matriz_colores.py
 │   │   ├── test_pagination_force_state.py
-│   │   └── test_movimientos_produccion.py
-│   └── server.py (~6800 lines - needs modularization)
+│   │   ├── test_movimientos_produccion.py
+│   │   └── test_comprehensive_general.py
+│   └── server.py (~6900 lines - needs modularization)
 └── frontend/
     └── src/
         ├── components/
@@ -141,7 +161,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
         └── pages/
             ├── MatrizProduccion.jsx
             ├── Modelos.jsx (paginacion server-side)
-            ├── Registros.jsx (paginacion server-side)
+            ├── Registros.jsx (paginacion server-side, 15 columnas)
             ├── MovimientosProduccion.jsx (paginacion server-side)
-            └── RegistroForm.jsx (~2900 lines - needs refactoring)
+            ├── InventarioSalidas.jsx (corregido paginacion)
+            ├── GuiasRemision.jsx (corregido paginacion)
+            ├── CalidadMerma.jsx (corregido paginacion)
+            └── RegistroForm.jsx (~3000 lines - needs refactoring)
 ```

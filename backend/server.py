@@ -1,6 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import asyncpg
@@ -23,7 +23,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # PostgreSQL connection - Use shared pool from db.py
-from db import get_pool, close_pool
+from db import get_pool, close_pool, safe_acquire
 
 # JWT Configuration
 SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'tu-clave-secreta-muy-segura-cambiar-en-produccion-2024')
@@ -267,6 +267,34 @@ async def ensure_fase2_tables():
 
 
 app = FastAPI()
+
+# Handler global para desconexiones de BD remota
+@app.exception_handler(asyncpg.exceptions.ConnectionDoesNotExistError)
+async def db_connection_error_handler(request, exc):
+    import logging
+    logging.warning(f"BD remota desconectada en {request.url.path}: {exc}")
+    import db as _db
+    try:
+        if _db.pool and not _db.pool._closed:
+            await _db.pool.close()
+    except Exception:
+        pass
+    _db.pool = None
+    return JSONResponse(status_code=503, content={"detail": "Conexión con la base de datos perdida. Intente de nuevo."})
+
+@app.exception_handler(asyncpg.exceptions.InterfaceError)
+async def db_interface_error_handler(request, exc):
+    import logging
+    logging.warning(f"Error interfaz BD en {request.url.path}: {exc}")
+    import db as _db
+    try:
+        if _db.pool and not _db.pool._closed:
+            await _db.pool.close()
+    except Exception:
+        pass
+    _db.pool = None
+    return JSONResponse(status_code=503, content={"detail": "Error de conexión con la base de datos. Intente de nuevo."})
+
 api_router = APIRouter(prefix="/api")
 
 # ==================== AUTENTICACIÓN ====================
