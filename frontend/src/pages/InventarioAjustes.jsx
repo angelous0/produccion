@@ -94,10 +94,11 @@ export const InventarioAjustes = () => {
     try {
       const [ajustesRes, itemsRes] = await Promise.all([
         axios.get(`${API}/inventario-ajustes`),
-        axios.get(`${API}/inventario`),
+        axios.get(`${API}/inventario?all=true`),
       ]);
       setAjustes(ajustesRes.data);
-      setItems(itemsRes.data);
+      const itemsData = Array.isArray(itemsRes.data) ? itemsRes.data : itemsRes.data.items || [];
+      setItems(itemsData);
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
