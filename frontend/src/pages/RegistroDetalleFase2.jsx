@@ -508,15 +508,57 @@ const ReservasTab = ({ registroId }) => {
             {reservas.map(r => (
               <Card key={r.id}>
                 <CardContent className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
                       <Badge variant={r.estado === 'ACTIVA' ? 'default' : 'secondary'}>{r.estado}</Badge>
-                      <span className="ml-2 text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         {new Date(r.fecha).toLocaleString()}
                       </span>
+                      <span className="text-xs text-muted-foreground">({r.lineas?.length || 0} líneas)</span>
                     </div>
-                    <span className="text-sm">{r.lineas?.length || 0} líneas</span>
+                    {r.estado === 'ACTIVA' && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs"
+                        onClick={async () => {
+                          if (!window.confirm('¿Anular esta reserva? El stock reservado será liberado.')) return;
+                          try {
+                            await axios.delete(`${API}/reservas/${r.id}`);
+                            toast.success('Reserva anulada');
+                            fetchReservas();
+                          } catch (err) {
+                            toast.error(err.response?.data?.detail || 'Error al anular reserva');
+                          }
+                        }}
+                        data-testid={`btn-anular-reserva-${r.id}`}
+                      >
+                        Anular Reserva
+                      </Button>
+                    )}
                   </div>
+                  {/* Detalle de líneas */}
+                  {r.lineas && r.lineas.length > 0 && (
+                    <div className="text-xs space-y-1 border-t pt-2">
+                      {r.lineas.map((l, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-muted-foreground">
+                          <span>
+                            <span className="font-mono">{l.item_codigo}</span> — {l.item_nombre}
+                            {l.talla_nombre && <span className="ml-1">({l.talla_nombre})</span>}
+                          </span>
+                          <span className="font-mono">
+                            {r.estado === 'ACTIVA' ? (
+                              <span className="text-green-600">{l.cantidad_activa}</span>
+                            ) : (
+                              <span className="line-through">{l.cantidad_reservada}</span>
+                            )}
+                            {' '}{l.item_unidad}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

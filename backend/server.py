@@ -3851,6 +3851,58 @@ async def get_reservas_registro(registro_id: str):
         return {"registro_id": registro_id, "reservas": result}
 
 
+@api_router.delete("/reservas/{reserva_id}")
+async def anular_reserva(reserva_id: str):
+    """Anula una reserva completa, liberando todo el stock reservado."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        reserva = await conn.fetchrow("SELECT * FROM prod_inventario_reservas WHERE id = $1", reserva_id)
+        if not reserva:
+            raise HTTPException(status_code=404, detail="Reserva no encontrada")
+        if reserva['estado'] != 'ACTIVA':
+            raise HTTPException(status_code=400, detail=f"La reserva ya está {reserva['estado']}")
+        
+        registro_id = reserva['registro_id']
+        
+        # Obtener líneas activas de la reserva
+        lineas = await conn.fetch("""
+            SELECT * FROM prod_inventario_reservas_linea WHERE reserva_id = $1
+        """, reserva_id)
+        
+        # Liberar cada línea y actualizar requerimiento
+        for lin in lineas:
+            cantidad_activa = float(lin['cantidad_reservada']) - float(lin['cantidad_liberada'])
+            if cantidad_activa > 0:
+                # Marcar como liberada
+                await conn.execute("""
+                    UPDATE prod_inventario_reservas_linea
+                    SET cantidad_liberada = cantidad_reservada, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $1
+                """, lin['id'])
+                
+                # Devolver al requerimiento
+                if lin['talla_id']:
+                    await conn.execute("""
+                        UPDATE prod_registro_requerimiento_mp
+                        SET cantidad_reservada = GREATEST(0, cantidad_reservada - $1), updated_at = CURRENT_TIMESTAMP
+                        WHERE registro_id = $2 AND item_id = $3 AND talla_id = $4
+                    """, cantidad_activa, registro_id, lin['item_id'], lin['talla_id'])
+                else:
+                    await conn.execute("""
+                        UPDATE prod_registro_requerimiento_mp
+                        SET cantidad_reservada = GREATEST(0, cantidad_reservada - $1), updated_at = CURRENT_TIMESTAMP
+                        WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
+                    """, cantidad_activa, registro_id, lin['item_id'])
+        
+        # Marcar reserva como anulada
+        await conn.execute("""
+            UPDATE prod_inventario_reservas SET estado = 'ANULADA', updated_at = CURRENT_TIMESTAMP WHERE id = $1
+        """, reserva_id)
+        
+        return {"message": "Reserva anulada", "reserva_id": reserva_id, "lineas_liberadas": len(lineas)}
+
+
+
 @api_router.post("/registros/{registro_id}/liberar-reservas")
 async def liberar_reservas(registro_id: str, input: LiberarReservaInput):
     """Libera parcial o totalmente reservas de un registro"""
