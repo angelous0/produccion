@@ -63,11 +63,13 @@ export const InventarioSalidas = () => {
       const [salidasRes, itemsRes, registrosRes] = await Promise.all([
         axios.get(`${API}/inventario-salidas`),
         axios.get(`${API}/inventario?all=true`),
-        axios.get(`${API}/registros`),
+        axios.get(`${API}/registros?all=true`),
       ]);
       setSalidas(salidasRes.data);
       setItems(itemsRes.data);
-      setRegistros(registrosRes.data);
+      // Handle both paginated response {items: []} and plain array
+      const registrosData = registrosRes.data;
+      setRegistros(Array.isArray(registrosData) ? registrosData : (registrosData.items || []));
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {

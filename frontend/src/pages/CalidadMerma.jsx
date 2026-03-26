@@ -44,12 +44,14 @@ export const CalidadMerma = () => {
     try {
       const [mermasRes, registrosRes, serviciosRes, personasRes] = await Promise.all([
         axios.get(`${API}/mermas`),
-        axios.get(`${API}/registros`),
+        axios.get(`${API}/registros?all=true`),
         axios.get(`${API}/servicios-produccion`),
         axios.get(`${API}/personas-produccion`),
       ]);
       setMermas(mermasRes.data);
-      setRegistros(registrosRes.data);
+      // Handle both paginated response {items: []} and plain array
+      const registrosData = registrosRes.data;
+      setRegistros(Array.isArray(registrosData) ? registrosData : (registrosData.items || []));
       setServicios(serviciosRes.data);
       setPersonas(personasRes.data);
     } catch (error) {

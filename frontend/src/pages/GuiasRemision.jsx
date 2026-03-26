@@ -54,11 +54,13 @@ export const GuiasRemision = () => {
     try {
       const [guiasRes, registrosRes, personasRes] = await Promise.all([
         axios.get(`${API}/guias-remision`),
-        axios.get(`${API}/registros`),
+        axios.get(`${API}/registros?all=true`),
         axios.get(`${API}/personas-produccion`),
       ]);
       setGuias(guiasRes.data);
-      setRegistros(registrosRes.data);
+      // Handle both paginated response {items: []} and plain array
+      const registrosData = registrosRes.data;
+      setRegistros(Array.isArray(registrosData) ? registrosData : (registrosData.items || []));
       setPersonas(personasRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
