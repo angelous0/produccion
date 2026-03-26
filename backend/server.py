@@ -3757,9 +3757,9 @@ async def crear_reserva(registro_id: str, input: ReservaCreateInput):
         # Crear cabecera de reserva
         reserva_id = str(uuid.uuid4())
         await conn.execute("""
-            INSERT INTO prod_inventario_reservas (id, registro_id, estado)
-            VALUES ($1, $2, 'ACTIVA')
-        """, reserva_id, registro_id)
+            INSERT INTO prod_inventario_reservas (id, registro_id, estado, empresa_id)
+            VALUES ($1, $2, 'ACTIVA', $3)
+        """, reserva_id, registro_id, registro['empresa_id'])
         
         # Crear líneas y actualizar requerimiento
         lineas_creadas = []
@@ -3767,9 +3767,9 @@ async def crear_reserva(registro_id: str, input: ReservaCreateInput):
             linea_id = str(uuid.uuid4())
             await conn.execute("""
                 INSERT INTO prod_inventario_reservas_linea
-                (id, reserva_id, item_id, talla_id, cantidad_reservada, cantidad_liberada)
-                VALUES ($1, $2, $3, $4, $5, 0)
-            """, linea_id, reserva_id, linea.item_id, linea.talla_id, linea.cantidad)
+                (id, reserva_id, item_id, talla_id, cantidad_reservada, cantidad_liberada, empresa_id)
+                VALUES ($1, $2, $3, $4, $5, 0, $6)
+            """, linea_id, reserva_id, linea.item_id, linea.talla_id, linea.cantidad, registro['empresa_id'])
             
             # Actualizar cantidad_reservada en requerimiento
             if linea.talla_id:
