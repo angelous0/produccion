@@ -2125,6 +2125,7 @@ export const RegistroForm = () => {
                       )}
                     </CardTitle>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => {
@@ -2176,11 +2177,11 @@ export const RegistroForm = () => {
                           </div>
                           <div className="flex gap-1 shrink-0">
                             {inc.estado === 'ABIERTA' && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResolverIncidencia(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResolverIncidencia(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
                                 <Check className="h-4 w-4 text-green-600" />
                               </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEliminarIncidencia(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEliminarIncidencia(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </div>
@@ -3113,7 +3114,7 @@ export const RegistroForm = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIncidenciaDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCrearIncidencia} data-testid="btn-guardar-incidencia">Registrar Incidencia</Button>
+            <Button type="button" onClick={handleCrearIncidencia} data-testid="btn-guardar-incidencia">Registrar Incidencia</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
