@@ -523,11 +523,10 @@ const ReservasTab = ({ registroId }) => {
                         size="sm"
                         className="text-destructive border-destructive/30 hover:bg-destructive/10 h-7 text-xs"
                         onClick={async () => {
-                          if (!window.confirm('¿Anular esta reserva? El stock reservado será liberado.')) return;
                           try {
                             await axios.delete(`${API}/reservas/${r.id}`);
                             toast.success('Reserva anulada');
-                            fetchReservas();
+                            fetchData();
                           } catch (err) {
                             toast.error(err.response?.data?.detail || 'Error al anular reserva');
                           }

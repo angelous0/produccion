@@ -920,7 +920,7 @@ export const Registros = () => {
 
       {/* Dialog para ver detalle */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Detalle del Registro</DialogTitle>
             <DialogDescription>
