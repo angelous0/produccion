@@ -153,6 +153,13 @@ export const RegistroForm = () => {
   const [servicioPopoverOpen, setServicioPopoverOpen] = useState(false);
   const [personaPopoverOpen, setPersonaPopoverOpen] = useState(false);
 
+  // Incidencias
+  const [incidencias, setIncidencias] = useState([]);
+  const [motivosIncidencia, setMotivosIncidencia] = useState([]);
+  const [incidenciaDialogOpen, setIncidenciaDialogOpen] = useState(false);
+  const [incidenciaForm, setIncidenciaForm] = useState({ motivo_id: '', comentario: '', paraliza: false });
+  const [nuevoMotivoNombre, setNuevoMotivoNombre] = useState('');
+
   // Salidas agrupadas: items expandidos
   const [salidasExpandidas, setSalidasExpandidas] = useState({});
 
@@ -239,6 +246,74 @@ export const RegistroForm = () => {
     }
   };
 
+  const fetchIncidencias = async () => {
+    if (!id) return;
+    try {
+      const res = await axios.get(`${API}/incidencias/${id}`);
+      setIncidencias(res.data);
+    } catch (e) { console.error('Error fetching incidencias:', e); }
+  };
+
+  const fetchMotivosIncidencia = async () => {
+    try {
+      const res = await axios.get(`${API}/motivos-incidencia`);
+      setMotivosIncidencia(res.data);
+    } catch (e) {}
+  };
+
+  const handleCrearIncidencia = async () => {
+    if (!incidenciaForm.motivo_id) { toast.error('Selecciona un motivo'); return; }
+    try {
+      await axios.post(`${API}/incidencias`, {
+        registro_id: id,
+        motivo_id: incidenciaForm.motivo_id,
+        comentario: incidenciaForm.comentario,
+        paraliza: incidenciaForm.paraliza,
+        usuario: 'eduard',
+      });
+      toast.success('Incidencia registrada');
+      setIncidenciaDialogOpen(false);
+      setIncidenciaForm({ motivo_id: '', comentario: '', paraliza: false });
+      fetchIncidencias();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear incidencia');
+    }
+  };
+
+  const handleResolverIncidencia = async (incId) => {
+    try {
+      await axios.put(`${API}/incidencias/${incId}`, { estado: 'RESUELTA' });
+      toast.success('Incidencia resuelta');
+      fetchIncidencias();
+    } catch (error) {
+      toast.error('Error al resolver incidencia');
+    }
+  };
+
+  const handleEliminarIncidencia = async (incId) => {
+    try {
+      await axios.delete(`${API}/incidencias/${incId}`);
+      toast.success('Incidencia eliminada');
+      fetchIncidencias();
+    } catch (error) {
+      toast.error('Error al eliminar incidencia');
+    }
+  };
+
+  const handleCrearMotivo = async () => {
+    if (!nuevoMotivoNombre.trim()) return;
+    try {
+      const res = await axios.post(`${API}/motivos-incidencia`, { nombre: nuevoMotivoNombre.trim() });
+      setMotivosIncidencia(prev => [...prev, res.data].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setIncidenciaForm(prev => ({ ...prev, motivo_id: res.data.id }));
+      setNuevoMotivoNombre('');
+      toast.success(`Motivo "${res.data.nombre}" creado`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al crear motivo');
+    }
+  };
+
+
   // Cargar registro existente si es edición
   const fetchRegistro = async () => {
     if (!id) {
@@ -307,6 +382,8 @@ export const RegistroForm = () => {
       fetchSalidasRegistro();
       fetchMovimientosProduccion();
       fetchDivisionInfo();
+      fetchIncidencias();
+      fetchMotivosIncidencia();
     }
   }, [id]);
 
@@ -2035,6 +2112,87 @@ export const RegistroForm = () => {
               </Card>
             )}
 
+            {/* Incidencias (solo en modo edición) */}
+            {isEditing && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Incidencias
+                      {incidencias.filter(i => i.estado === 'ABIERTA').length > 0 && (
+                        <Badge variant="destructive" className="ml-1">{incidencias.filter(i => i.estado === 'ABIERTA').length} abiertas</Badge>
+                      )}
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setIncidenciaForm({ motivo_id: '', comentario: '', paraliza: false });
+                        setIncidenciaDialogOpen(true);
+                      }}
+                      data-testid="btn-nueva-incidencia"
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Nueva
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {incidencias.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">Sin incidencias registradas</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {incidencias.map((inc) => (
+                        <div key={inc.id} className={`flex items-start gap-3 p-3 rounded-lg border ${inc.estado === 'ABIERTA' ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' : 'bg-muted/30 border-border'}`} data-testid={`incidencia-${inc.id}`}>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant={inc.estado === 'ABIERTA' ? 'destructive' : 'secondary'} className="text-xs">
+                                {inc.estado}
+                              </Badge>
+                              <span className="font-medium text-sm">{inc.motivo_nombre || inc.tipo}</span>
+                              {inc.paraliza && (
+                                <Badge variant="outline" className="text-xs border-red-300 text-red-600">
+                                  Paraliza
+                                </Badge>
+                              )}
+                              {inc.paralizacion_activa && (
+                                <Badge className="bg-red-600 text-xs">En pausa</Badge>
+                              )}
+                              {inc.paralizacion_fin && !inc.paralizacion_activa && inc.paraliza && (
+                                <Badge variant="outline" className="text-xs text-green-600 border-green-300">Reanudada</Badge>
+                              )}
+                            </div>
+                            {inc.comentario && <p className="text-xs text-muted-foreground mt-1">{inc.comentario}</p>}
+                            {inc.movimiento_servicio && <p className="text-xs text-muted-foreground">Mov: {inc.movimiento_servicio}</p>}
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {inc.fecha_hora ? new Date(inc.fecha_hora).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
+                              {inc.paraliza && inc.paralizacion_inicio && (
+                                <span className="ml-2">
+                                  Paralizada: {new Date(inc.paralizacion_inicio).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                                  {inc.paralizacion_fin ? ` → ${new Date(inc.paralizacion_fin).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : ' (activa)'}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex gap-1 shrink-0">
+                            {inc.estado === 'ABIERTA' && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResolverIncidencia(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEliminarIncidencia(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+
             {/* Trazabilidad Unificada (solo en modo edición) */}
             {isEditing && (
               <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
@@ -2899,6 +3057,68 @@ export const RegistroForm = () => {
       </Dialog>
 
       {/* Dialog: División de Lote */}
+      {/* Dialog: Nueva Incidencia */}
+      <Dialog open={incidenciaDialogOpen} onOpenChange={setIncidenciaDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nueva Incidencia</DialogTitle>
+            <DialogDescription>Registra un evento que afecta la produccion de este registro</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Motivo *</Label>
+              <Select value={incidenciaForm.motivo_id} onValueChange={(v) => setIncidenciaForm(prev => ({ ...prev, motivo_id: v }))}>
+                <SelectTrigger data-testid="select-motivo-incidencia"><SelectValue placeholder="Seleccionar motivo..." /></SelectTrigger>
+                <SelectContent>
+                  {motivosIncidencia.map(m => <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {/* Crear motivo inline */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nuevo motivo..."
+                  value={nuevoMotivoNombre}
+                  onChange={(e) => setNuevoMotivoNombre(e.target.value)}
+                  className="text-sm"
+                  data-testid="input-nuevo-motivo"
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCrearMotivo(); } }}
+                />
+                <Button type="button" variant="outline" size="sm" onClick={handleCrearMotivo} disabled={!nuevoMotivoNombre.trim()} data-testid="btn-crear-motivo">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Comentario</Label>
+              <Textarea
+                value={incidenciaForm.comentario}
+                onChange={(e) => setIncidenciaForm(prev => ({ ...prev, comentario: e.target.value }))}
+                placeholder="Descripcion del problema..."
+                rows={2}
+                data-testid="input-comentario-incidencia"
+              />
+            </div>
+            <div className="flex items-center space-x-2 p-3 border rounded-lg bg-red-50 dark:bg-red-950/20">
+              <Checkbox
+                id="paraliza-check"
+                checked={incidenciaForm.paraliza}
+                onCheckedChange={(checked) => setIncidenciaForm(prev => ({ ...prev, paraliza: checked }))}
+                data-testid="checkbox-paraliza"
+              />
+              <div>
+                <Label htmlFor="paraliza-check" className="cursor-pointer font-medium">Paraliza produccion</Label>
+                <p className="text-xs text-muted-foreground">Detiene la produccion hasta que se resuelva esta incidencia</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIncidenciaDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCrearIncidencia} data-testid="btn-guardar-incidencia">Registrar Incidencia</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Dialog: Forzar cambio de estado */}
       <Dialog open={!!forzarEstadoDialog} onOpenChange={() => setForzarEstadoDialog(null)}>
         <DialogContent className="max-w-md">

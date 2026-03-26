@@ -50,6 +50,13 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Combobox buscable para Modelo en RegistroForm
   - Vista tipo Excel para Modelos con buscadores, metricas de registros y navegacion cruzada
 - **Forzar Cambio de Estado** (2026-03-25):
+- **Incidencias Unificadas con Paralizaciones** (2026-03-26):
+  - Unificado: una incidencia puede opcionalmente paralizar la produccion (check "Paraliza produccion")
+  - Al resolver incidencia con paralizacion, se levanta automaticamente
+  - Catalogo administrable de motivos: tabla prod_motivos_incidencia con CRUD
+  - Creacion inline de motivos desde el dialog de incidencia
+  - Seccion de Incidencias movida dentro del formulario RegistroForm
+  - Lista de Registros simplificada: de 7 a 4 botones (Ver, Colores, Editar, Eliminar)
 - **Skip Validacion por Registro** (2026-03-25):
   - POST /api/registros/{id}/validar-cambio-estado acepta {forzar: true} para saltar validaciones
   - Dialog en frontend "Cambio de Estado Bloqueado" con boton "Forzar Cambio" (destructive)

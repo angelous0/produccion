@@ -147,6 +147,29 @@ async def ensure_bom_tables():
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS observaciones TEXT")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS skip_validacion_estado BOOLEAN DEFAULT FALSE")
 
+        # Tabla de motivos de incidencia (catálogo administrable)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_motivos_incidencia (
+                id VARCHAR PRIMARY KEY,
+                nombre VARCHAR NOT NULL UNIQUE,
+                activo BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        # Seed defaults si tabla vacía
+        count = await conn.fetchval("SELECT COUNT(*) FROM prod_motivos_incidencia")
+        if count == 0:
+            defaults = ['Falta Material', 'Falta Avíos', 'Retraso Taller', 'Calidad', 'Cambio Prioridad', 'Sin Capacidad', 'Reprogramación', 'Otro']
+            for nombre in defaults:
+                await conn.execute(
+                    "INSERT INTO prod_motivos_incidencia (id, nombre) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                    str(uuid.uuid4()), nombre
+                )
+
+        # Agregar columna paraliza a incidencias existentes
+        await conn.execute("ALTER TABLE prod_incidencia ADD COLUMN IF NOT EXISTS paraliza BOOLEAN DEFAULT FALSE")
+        await conn.execute("ALTER TABLE prod_incidencia ADD COLUMN IF NOT EXISTS paralizacion_id VARCHAR")
+
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
     return pool

@@ -730,15 +730,6 @@ export const Registros = () => {
                           <Button variant="ghost" size="icon" onClick={() => handleView(item)} title="Ver detalle" data-testid={`view-registro-${item.id}`}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenControl(item)} title="Control" data-testid={`control-registro-${item.id}`}>
-                            <Calendar className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenIncidencias(item)} title="Incidencias" data-testid={`incidencias-registro-${item.id}`}>
-                            <FileWarning className={`h-4 w-4 ${item.incidencias_abiertas > 0 ? 'text-amber-500' : ''}`} />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenParalizaciones(item)} title={item.paralizacion_activa ? 'Paralización activa' : 'Paralizaciones'} data-testid={`paralizacion-registro-${item.id}`}>
-                            {item.paralizacion_activa ? <PlayCircle className="h-4 w-4 text-red-600" /> : <PauseCircle className="h-4 w-4" />}
-                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
                             <Palette className={`h-4 w-4 ${tieneColores(item) ? 'text-primary' : ''}`} />
                           </Button>
