@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
@@ -305,8 +305,8 @@ export const Inventario = () => {
                   </TableRow>
                 ) : (
                   items.map((item) => (
-                    <>
-                      <TableRow key={item.id} className="data-table-row" data-testid={`item-row-${item.id}`}>
+                    <React.Fragment key={item.id}>
+                      <TableRow className="data-table-row" data-testid={`item-row-${item.id}`}>
                         <TableCell className="p-1">
                           {hasActiveReservas(item) && (
                             <TooltipProvider>
@@ -441,7 +441,7 @@ export const Inventario = () => {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   ))
                 )}
               </TableBody>
