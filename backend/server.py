@@ -3659,6 +3659,106 @@ async def get_requerimiento_mp(registro_id: str):
         }
 
 
+@api_router.get("/registros/{registro_id}/materiales")
+async def get_materiales_consolidado(registro_id: str):
+    """Vista consolidada: requerimiento + reservas + salidas de un registro en una sola respuesta."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not registro:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # 1) Requerimiento
+        req_rows = await conn.fetch("""
+            SELECT r.*, i.codigo as item_codigo, i.nombre as item_nombre,
+                   i.unidad_medida as item_unidad, i.stock_actual, i.control_por_rollos,
+                   tc.nombre as talla_nombre
+            FROM prod_registro_requerimiento_mp r
+            JOIN prod_inventario i ON r.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON r.talla_id = tc.id
+            WHERE r.registro_id = $1
+            ORDER BY i.nombre, tc.orden NULLS FIRST
+        """, registro_id)
+        
+        # 2) Reservas activas con detalle de líneas
+        reservas = await conn.fetch("""
+            SELECT r.id, r.estado, r.created_at as fecha
+            FROM prod_inventario_reservas r
+            WHERE r.registro_id = $1
+            ORDER BY r.created_at DESC
+        """, registro_id)
+        
+        reservas_list = []
+        for res in reservas:
+            lineas_r = await conn.fetch("""
+                SELECT rl.*, i.codigo as item_codigo, i.nombre as item_nombre, i.unidad_medida as item_unidad,
+                       tc.nombre as talla_nombre
+                FROM prod_inventario_reservas_linea rl
+                JOIN prod_inventario i ON rl.item_id = i.id
+                LEFT JOIN prod_tallas_catalogo tc ON rl.talla_id = tc.id
+                WHERE rl.reserva_id = $1
+            """, res['id'])
+            reservas_list.append({
+                "id": res['id'],
+                "estado": res['estado'],
+                "fecha": str(res['fecha']) if res['fecha'] else None,
+                "lineas": [{
+                    **row_to_dict(l),
+                    "cantidad_activa": max(0, float(l['cantidad_reservada']) - float(l['cantidad_liberada']))
+                } for l in lineas_r]
+            })
+        
+        # 3) Salidas relacionadas
+        salidas = await conn.fetch("""
+            SELECT s.*, i.codigo as item_codigo, i.nombre as item_nombre, i.unidad_medida as item_unidad
+            FROM prod_inventario_salidas s
+            JOIN prod_inventario i ON s.item_id = i.id
+            WHERE s.registro_id = $1
+            ORDER BY s.fecha DESC
+        """, registro_id)
+        
+        # 4) Disponibilidad por item (con reservas globales)
+        item_ids = list(set(r['item_id'] for r in req_rows))
+        disponibilidad = {}
+        for iid in item_ids:
+            disp = await get_disponibilidad_item(conn, iid)
+            if disp:
+                disponibilidad[iid] = disp
+        
+        # Armar resultado
+        lineas = []
+        for r in req_rows:
+            d = row_to_dict(r)
+            req = float(d['cantidad_requerida'])
+            res_qty = float(d['cantidad_reservada'])
+            con = float(d['cantidad_consumida'])
+            item_disp = disponibilidad.get(d['item_id'], {})
+            d['pendiente'] = max(0, req - con)
+            d['disponible'] = item_disp.get('disponible', 0)
+            d['stock_actual'] = item_disp.get('stock_actual', float(d.get('stock_actual') or 0))
+            lineas.append(d)
+        
+        total_req = sum(float(l['cantidad_requerida']) for l in lineas)
+        total_res = sum(float(l['cantidad_reservada']) for l in lineas)
+        total_con = sum(float(l['cantidad_consumida']) for l in lineas)
+        
+        return {
+            "registro_id": registro_id,
+            "tiene_requerimiento": len(lineas) > 0,
+            "lineas": lineas,
+            "resumen": {
+                "total_lineas": len(lineas),
+                "total_requerido": total_req,
+                "total_reservado": total_res,
+                "total_consumido": total_con,
+                "total_pendiente": max(0, total_req - total_con),
+            },
+            "reservas": reservas_list,
+            "salidas": [row_to_dict(s) for s in salidas],
+        }
+
+
+
 # ==================== FASE 2: ENDPOINTS RESERVAS ====================
 
 async def get_disponibilidad_item(conn, item_id: str) -> dict:

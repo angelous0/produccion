@@ -47,6 +47,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
+import MaterialesTab from '../components/MaterialesTab';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -1878,17 +1879,9 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
             <Scissors className="h-4 w-4 mr-2" />
             Tallas
           </TabsTrigger>
-          <TabsTrigger value="requerimiento" data-testid="tab-requerimiento">
+          <TabsTrigger value="materiales" data-testid="tab-materiales">
             <Package className="h-4 w-4 mr-2" />
-            Requerimiento
-          </TabsTrigger>
-          <TabsTrigger value="reservas" data-testid="tab-reservas">
-            <BookmarkCheck className="h-4 w-4 mr-2" />
-            Reservas
-          </TabsTrigger>
-          <TabsTrigger value="salidas" data-testid="tab-salidas">
-            <LogOut className="h-4 w-4 mr-2" />
-            Salidas
+            Materiales
           </TabsTrigger>
           <TabsTrigger value="costos" data-testid="tab-costos">
             <DollarSign className="h-4 w-4 mr-2" />
@@ -1904,16 +1897,8 @@ export const RegistroDetalleFase2 = ({ registroId, registro, onEstadoChange }) =
           <TallasTab registroId={registroId} onTotalChange={setTotalPrendas} />
         </TabsContent>
 
-        <TabsContent value="requerimiento" className="mt-4">
-          <RequerimientoTab registroId={registroId} totalPrendas={totalPrendas} />
-        </TabsContent>
-
-        <TabsContent value="reservas" className="mt-4">
-          <ReservasTab registroId={registroId} />
-        </TabsContent>
-
-        <TabsContent value="salidas" className="mt-4">
-          <SalidasTab registroId={registroId} />
+        <TabsContent value="materiales" className="mt-4">
+          <MaterialesTab registroId={registroId} totalPrendas={totalPrendas} />
         </TabsContent>
 
         <TabsContent value="costos" className="mt-4">

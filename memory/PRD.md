@@ -85,11 +85,15 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Corregidos crasheos en InventarioSalidas, GuiasRemision, CalidadMerma por cambio a paginacion
   - 14/14 paginas principales verificadas y funcionando
   - Backend 96% tests pasados (26/27)
-- **Resiliencia de Conexión BD Remota** (2026-03-26):
-  - Exception handlers globales para ConnectionDoesNotExistError e InterfaceError
-  - Auto-recreacion del pool de conexiones ante desconexiones
-  - Respuesta 503 amigable en lugar de error 500 genérico
-- **Alertas de Stock Bajo** (2026-03-26):
+- **Vista Unificada Materiales** (2026-03-26):
+  - Pestaña "Materiales" reemplaza Requerimiento + Reservas + Salidas en Gestion OP
+  - Endpoint consolidado GET /api/registros/{id}/materiales
+  - KPIs: Requerido, Reservado, Consumido, Pendiente
+  - Toggle Dar Salida / Reservar en misma vista
+  - Boton "Llenar pendientes" auto-completa cantidades
+  - Salida extra para items fuera del BOM
+  - Historial colapsable de reservas y salidas
+  - Componente reutilizable MaterialesTab.jsx y SearchableSelect.jsx
   - Endpoint GET /api/inventario/alertas-stock con modo fisico/disponible
   - Endpoint PUT /api/inventario/{id}/ignorar-alerta para archivar items
   - Campo ignorar_alerta_stock en prod_inventario
