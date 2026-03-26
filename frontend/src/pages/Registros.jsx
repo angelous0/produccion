@@ -658,25 +658,32 @@ export const Registros = () => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead>N° Corte</TableHead>
-                  <TableHead>Fecha</TableHead>
+                  <TableHead>Fecha Creacion</TableHead>
                   <TableHead>Modelo</TableHead>
+                  <TableHead>Marca</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Entalle</TableHead>
+                  <TableHead>Tela</TableHead>
+                  <TableHead>Hilo</TableHead>
+                  <TableHead>Hilo Esp.</TableHead>
+                  <TableHead>Curva</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Entrega Final</TableHead>
+                  <TableHead>Fecha Final</TableHead>
                   <TableHead>Operativo</TableHead>
-                  <TableHead>Piezas</TableHead>
-                  <TableHead className="w-[200px]">Acciones</TableHead>
+                  <TableHead className="w-[140px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={15} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : displayItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay registros que coincidan con los filtros' : 'No hay registros'}
                     </TableCell>
                   </TableRow>
@@ -687,57 +694,61 @@ export const Registros = () => {
                       className={`data-table-row ${item.estado_operativo === 'PARALIZADA' ? 'bg-red-50 dark:bg-red-950/20' : item.estado_operativo === 'EN_RIESGO' ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}
                       data-testid={`registro-row-${item.id}`}
                     >
-                      <TableCell className="font-mono font-medium">
-                        <div className="flex items-center gap-2">
+                      <TableCell className="font-mono font-medium whitespace-nowrap">
+                        <div className="flex items-center gap-1">
                           {item.urgente && (
-                            <AlertTriangle className="h-4 w-4 text-destructive badge-urgent" />
+                            <AlertTriangle className="h-3.5 w-3.5 text-destructive badge-urgent" />
                           )}
                           {item.paralizacion_activa && (
-                            <PauseCircle className="h-4 w-4 text-red-600" />
+                            <PauseCircle className="h-3.5 w-3.5 text-red-600" />
                           )}
                           {item.incidencias_abiertas > 0 && (
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white text-xs font-bold">{item.incidencias_abiertas}</span>
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold">{item.incidencias_abiertas}</span>
                           )}
                           {item.n_corte}
                           {item.dividido_desde_registro_id && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600 ml-1">div</Badge>
-                          )}
-                          {item.cantidad_divisiones > 0 && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600 ml-1">{item.cantidad_divisiones} div</Badge>
+                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600">div</Badge>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-xs whitespace-nowrap">
                         {formatDate(item.fecha_creacion)}
                       </TableCell>
-                      <TableCell>{item.modelo_nombre || '-'}</TableCell>
+                      <TableCell className="text-sm">{item.modelo_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.marca_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.tipo_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.entalle_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.tela_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.hilo_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.hilo_especifico_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs">{item.curva || '-'}</TableCell>
+                      <TableCell className="text-right font-mono font-semibold">
+                        {getTotalPiezas(item)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`${getStatusClass(item.estado)} whitespace-nowrap`}>
+                        <Badge variant="outline" className={`${getStatusClass(item.estado)} whitespace-nowrap text-xs`}>
                           {item.estado}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {getFechaEntregaBadge(item.fecha_entrega_final, item.estado)}
                       </TableCell>
                       <TableCell>
                         {getEstadoOperativoBadge(item.estado_operativo)}
                       </TableCell>
-                      <TableCell className="font-mono font-semibold">
-                        {getTotalPiezas(item)}
-                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => handleView(item)} title="Ver detalle" data-testid={`view-registro-${item.id}`}>
-                            <Eye className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleView(item)} title="Ver detalle" data-testid={`view-registro-${item.id}`}>
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
-                            <Palette className={`h-4 w-4 ${tieneColores(item) ? 'text-primary' : ''}`} />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
+                            <Palette className={`h-3.5 w-3.5 ${tieneColores(item) ? 'text-primary' : ''}`} />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => navigate(`/registros/editar/${item.id}`)} title="Editar" data-testid={`edit-registro-${item.id}`}>
-                            <Pencil className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/registros/editar/${item.id}`)} title="Editar" data-testid={`edit-registro-${item.id}`}>
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>
                       </TableCell>
