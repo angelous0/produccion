@@ -4703,6 +4703,26 @@ class IngresoUpdateData(BaseModel):
     costo_unitario: float = 0
     rollos: Optional[List[dict]] = None
 
+
+@api_router.get("/inventario-ingresos/ultimo-costo/{item_id}")
+async def get_ultimo_costo_ingreso(item_id: str):
+    """Retorna el costo unitario del último ingreso de un item."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT costo_unitario, fecha, proveedor FROM prod_inventario_ingresos WHERE item_id = $1 ORDER BY fecha DESC LIMIT 1",
+            item_id
+        )
+        if not row:
+            return {"tiene_historial": False, "costo_unitario": 0}
+        return {
+            "tiene_historial": True,
+            "costo_unitario": float(row['costo_unitario'] or 0),
+            "fecha": str(row['fecha']) if row['fecha'] else None,
+            "proveedor": row['proveedor'],
+        }
+
+
 @api_router.get("/inventario-ingresos/{ingreso_id}/rollos")
 async def get_ingreso_rollos(ingreso_id: str):
     pool = await get_pool()

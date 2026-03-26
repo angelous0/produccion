@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { useSaving } from '../hooks/useSaving';
 import { Button } from '../components/ui/button';
@@ -6,34 +6,27 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../components/ui/table';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '../components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Trash2, ArrowDownCircle, Layers, Pencil } from 'lucide-react';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '../components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '../components/ui/command';
+import { Plus, Trash2, ArrowDownCircle, Layers, Pencil, ChevronsUpDown, Check, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '../lib/dateUtils';
 import { NumericInput } from '../components/ui/numeric-input';
+import { cn } from '../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -57,6 +50,10 @@ export const InventarioIngresos = () => {
   // Rollos para items con control_por_rollos
   const [rollos, setRollos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  // Combobox states
+  const [itemPopoverOpen, setItemPopoverOpen] = useState(false);
+  const [proveedorPopoverOpen, setProveedorPopoverOpen] = useState(false);
+  const [ultimoCosto, setUltimoCosto] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -91,13 +88,24 @@ export const InventarioIngresos = () => {
     });
     setSelectedItem(null);
     setRollos([]);
+    setUltimoCosto(null);
   };
 
-  const handleItemChange = (itemId) => {
+  const handleItemChange = async (itemId) => {
     const item = items.find(i => i.id === itemId);
     setSelectedItem(item);
     setFormData({ ...formData, item_id: itemId, cantidad: '' });
     setRollos([]);
+    setItemPopoverOpen(false);
+    setUltimoCosto(null);
+    // Buscar último costo
+    try {
+      const res = await axios.get(`${API}/inventario-ingresos/ultimo-costo/${itemId}`);
+      if (res.data.tiene_historial) {
+        setUltimoCosto(res.data);
+        setFormData(prev => ({ ...prev, item_id: itemId, cantidad: '', costo_unitario: res.data.costo_unitario }));
+      }
+    } catch (e) { /* silencioso */ }
   };
 
   const addRollo = () => {
@@ -385,28 +393,53 @@ export const InventarioIngresos = () => {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label>Item *</Label>
-                  <Select
-                    value={formData.item_id}
-                    onValueChange={handleItemChange}
-                    required
-                  >
-                    <SelectTrigger data-testid="select-item">
-                      <SelectValue placeholder="Seleccionar item..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {items.filter(i => i.categoria !== 'PT').map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          <span className="font-mono mr-2">{item.codigo}</span>
-                          {item.nombre}
-                          {item.control_por_rollos && (
-                            <Badge variant="outline" className="ml-2 text-xs">Rollos</Badge>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={itemPopoverOpen} onOpenChange={setItemPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                        data-testid="combobox-item"
+                      >
+                        {formData.item_id ? (
+                          <span className="truncate">
+                            <span className="font-mono mr-2">{items.find(i => i.id === formData.item_id)?.codigo}</span>
+                            {items.find(i => i.id === formData.item_id)?.nombre}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Buscar item...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[460px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar por nombre o codigo..." data-testid="search-item" />
+                        <CommandList>
+                          <CommandEmpty>Sin resultados</CommandEmpty>
+                          <CommandGroup className="max-h-[250px] overflow-auto">
+                            {items.filter(i => i.categoria !== 'PT').map((item) => (
+                              <CommandItem
+                                key={item.id}
+                                value={`${item.codigo} ${item.nombre}`}
+                                onSelect={() => handleItemChange(item.id)}
+                                data-testid={`item-option-${item.id}`}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", formData.item_id === item.id ? "opacity-100" : "opacity-0")} />
+                                <span className="font-mono text-xs mr-2 text-muted-foreground">{item.codigo}</span>
+                                <span className="truncate">{item.nombre}</span>
+                                {item.control_por_rollos && (
+                                  <Badge variant="outline" className="ml-auto text-xs shrink-0">Rollos</Badge>
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
               
@@ -506,6 +539,11 @@ export const InventarioIngresos = () => {
                       className="font-mono"
                       data-testid="input-costo"
                     />
+                    {ultimoCosto && ultimoCosto.tiene_historial && !editingIngreso && (
+                      <p className="text-xs text-blue-600 flex items-center gap-1">
+                        <Info className="h-3 w-3" /> Último: {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(ultimoCosto.costo_unitario)}
+                      </p>
+                    )}
                   </div>
                 </>
               ) : !editingIngreso && formData.item_id ? (
@@ -538,6 +576,18 @@ export const InventarioIngresos = () => {
                 </div>
               ) : null}
 
+              {/* Referencia de último costo */}
+              {ultimoCosto && ultimoCosto.tiene_historial && !editingIngreso && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/20" data-testid="referencia-costo">
+                  <Info className="h-4 w-4 text-blue-500 shrink-0" />
+                  <span className="text-xs text-blue-700">
+                    Último costo registrado: <strong className="font-mono">{new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(ultimoCosto.costo_unitario)}</strong>
+                    {ultimoCosto.fecha && <span className="text-muted-foreground"> ({formatDate(ultimoCosto.fecha)})</span>}
+                    {ultimoCosto.proveedor && <span className="text-muted-foreground"> — {ultimoCosto.proveedor}</span>}
+                  </span>
+                </div>
+              )}
+
               {/* Costo unitario en modo edición para items SIN rollos */}
               {editingIngreso && !selectedItem?.control_por_rollos && (
                 <div className="space-y-2">
@@ -557,29 +607,62 @@ export const InventarioIngresos = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="proveedor">Proveedor</Label>
-                  <Select
-                    value={formData.proveedor_id ? String(formData.proveedor_id) : 'none'}
-                    onValueChange={(value) => {
-                      if (value === 'none') {
-                        setFormData({ ...formData, proveedor_id: null, proveedor: '' });
-                      } else {
-                        const prov = proveedores.find(p => String(p.id) === value);
-                        setFormData({ ...formData, proveedor_id: parseInt(value), proveedor: prov?.nombre || '' });
-                      }
-                    }}
-                  >
-                    <SelectTrigger data-testid="select-proveedor">
-                      <SelectValue placeholder="Seleccionar proveedor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin proveedor</SelectItem>
-                      {proveedores.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.nombre} {p.numero_documento ? `(${p.numero_documento})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={proveedorPopoverOpen} onOpenChange={setProveedorPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between font-normal"
+                        data-testid="combobox-proveedor"
+                      >
+                        {formData.proveedor_id ? (
+                          <span className="truncate">
+                            {proveedores.find(p => p.id === formData.proveedor_id)?.nombre || formData.proveedor}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Buscar proveedor...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[340px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar proveedor..." data-testid="search-proveedor" />
+                        <CommandList>
+                          <CommandEmpty>Sin resultados</CommandEmpty>
+                          <CommandGroup className="max-h-[200px] overflow-auto">
+                            <CommandItem
+                              value="__sin_proveedor__"
+                              onSelect={() => {
+                                setFormData({ ...formData, proveedor_id: null, proveedor: '' });
+                                setProveedorPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", !formData.proveedor_id ? "opacity-100" : "opacity-0")} />
+                              <span className="text-muted-foreground italic">Sin proveedor</span>
+                            </CommandItem>
+                            {proveedores.map((p) => (
+                              <CommandItem
+                                key={p.id}
+                                value={`${p.nombre} ${p.numero_documento || ''}`}
+                                onSelect={() => {
+                                  setFormData({ ...formData, proveedor_id: p.id, proveedor: p.nombre });
+                                  setProveedorPopoverOpen(false);
+                                }}
+                                data-testid={`proveedor-option-${p.id}`}
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", formData.proveedor_id === p.id ? "opacity-100" : "opacity-0")} />
+                                <span className="truncate">{p.nombre}</span>
+                                {p.numero_documento && (
+                                  <span className="ml-auto text-xs text-muted-foreground font-mono">{p.numero_documento}</span>
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="numero_documento">N° Documento</Label>
