@@ -89,6 +89,15 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Exception handlers globales para ConnectionDoesNotExistError e InterfaceError
   - Auto-recreacion del pool de conexiones ante desconexiones
   - Respuesta 503 amigable en lugar de error 500 genérico
+- **Alertas de Stock Bajo** (2026-03-26):
+  - Endpoint GET /api/inventario/alertas-stock con modo fisico/disponible
+  - Endpoint PUT /api/inventario/{id}/ignorar-alerta para archivar items
+  - Campo ignorar_alerta_stock en prod_inventario
+  - Stats del dashboard incluyen conteos de alertas de stock
+  - Pagina ReporteStockBajo.jsx con KPIs, toggle modo, toggle ignorados, tabla con boton ignorar
+  - Banner de alerta clickeable en Dashboard y en pagina de Inventario
+  - Link "Alertas Stock" en sidebar bajo Inventario FIFO
+  - Solo items con stock_minimo > 0 configurado son evaluados
 
 ## Key API Endpoints
 - GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)
@@ -105,6 +114,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - GET /api/registros/{id}/resumen-cantidades
 - GET /api/registros/{id}/trazabilidad-completa
 - GET /api/guias-remision (listado con filtros)
+- GET /api/inventario/alertas-stock (modo=fisico|disponible, incluir_ignorados=true|false)
+- PUT /api/inventario/{id}/ignorar-alerta (toggle)
 
 ## Prioritized Backlog
 ### P0 (COMPLETADO)
