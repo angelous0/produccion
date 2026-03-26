@@ -6031,109 +6031,111 @@ async def get_reporte_productividad(fecha_inicio: str = None, fecha_fin: str = N
 # ==================== ENDPOINTS KARDEX E INVENTARIO MOVIMIENTOS ====================
 
 @api_router.get("/inventario-movimientos")
-async def get_inventario_movimientos(item_id: str = None, fecha_inicio: str = None, fecha_fin: str = None):
+async def get_inventario_movimientos(
+    item_id: str = None,
+    tipo: str = None,
+    fecha_inicio: str = None, fecha_fin: str = None,
+    fecha_desde: str = None, fecha_hasta: str = None,
+    limit: int = 100, offset: int = 0,
+):
+    # Compatibilidad de nombres de params
+    f_inicio = fecha_inicio or fecha_desde
+    f_fin = fecha_fin or fecha_hasta
+    
     pool = await get_pool()
     async with pool.acquire() as conn:
-        movimientos = []
+        # Construir queries con JOINs (eliminando N+1)
+        unions = []
+        params = []
+        param_idx = 0
         
-        # Obtener ingresos
-        query_ing = "SELECT * FROM prod_inventario_ingresos WHERE 1=1"
-        params_ing = []
-        if item_id:
-            params_ing.append(item_id)
-            query_ing += f" AND item_id = ${len(params_ing)}"
-        if fecha_inicio:
-            params_ing.append(fecha_inicio)
-            query_ing += f" AND fecha >= ${len(params_ing)}::timestamp"
-        if fecha_fin:
-            params_ing.append(fecha_fin)
-            query_ing += f" AND fecha <= ${len(params_ing)}::timestamp"
+        # --- INGRESOS ---
+        if not tipo or tipo == 'ingreso':
+            ing_where = []
+            if item_id:
+                param_idx += 1; params.append(item_id)
+                ing_where.append(f"i.item_id = ${param_idx}")
+            if f_inicio:
+                param_idx += 1; params.append(f_inicio)
+                ing_where.append(f"i.fecha >= ${param_idx}::timestamp")
+            if f_fin:
+                param_idx += 1; params.append(f_fin)
+                ing_where.append(f"i.fecha <= ${param_idx}::timestamp")
+            where_clause = (" AND " + " AND ".join(ing_where)) if ing_where else ""
+            unions.append(f"""
+                SELECT i.id, 'ingreso' as tipo, i.item_id, inv.nombre as item_nombre, inv.codigo as item_codigo,
+                       i.cantidad::float, i.costo_unitario::float, (i.cantidad * i.costo_unitario)::float as costo_total,
+                       i.fecha, i.proveedor, i.numero_documento, i.observaciones,
+                       NULL as registro_id, NULL as registro_n_corte, NULL as motivo
+                FROM prod_inventario_ingresos i
+                LEFT JOIN prod_inventario inv ON inv.id = i.item_id
+                WHERE 1=1 {where_clause}
+            """)
         
-        ingresos = await conn.fetch(query_ing, *params_ing)
-        for ing in ingresos:
-            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", ing['item_id'])
-            movimientos.append({
-                "id": ing['id'],
-                "tipo": "ingreso",
-                "item_id": ing['item_id'],
-                "item_nombre": item['nombre'] if item else "",
-                "item_codigo": item['codigo'] if item else "",
-                "cantidad": float(ing['cantidad']),
-                "costo_unitario": float(ing['costo_unitario']),
-                "costo_total": float(ing['cantidad']) * float(ing['costo_unitario']),
-                "fecha": ing['fecha'],
-                "proveedor": ing['proveedor'],
-                "numero_documento": ing['numero_documento'],
-                "observaciones": ing['observaciones']
-            })
+        # --- SALIDAS ---
+        if not tipo or tipo == 'salida':
+            sal_where = []
+            if item_id:
+                param_idx += 1; params.append(item_id)
+                sal_where.append(f"s.item_id = ${param_idx}")
+            if f_inicio:
+                param_idx += 1; params.append(f_inicio)
+                sal_where.append(f"s.fecha >= ${param_idx}::timestamp")
+            if f_fin:
+                param_idx += 1; params.append(f_fin)
+                sal_where.append(f"s.fecha <= ${param_idx}::timestamp")
+            where_clause = (" AND " + " AND ".join(sal_where)) if sal_where else ""
+            unions.append(f"""
+                SELECT s.id, 'salida' as tipo, s.item_id, inv.nombre as item_nombre, inv.codigo as item_codigo,
+                       s.cantidad::float, 0::float as costo_unitario, s.costo_total::float,
+                       s.fecha, NULL as proveedor, NULL as numero_documento, s.observaciones,
+                       s.registro_id, r.n_corte as registro_n_corte, NULL as motivo
+                FROM prod_inventario_salidas s
+                LEFT JOIN prod_inventario inv ON inv.id = s.item_id
+                LEFT JOIN prod_registros r ON r.id = s.registro_id
+                WHERE 1=1 {where_clause}
+            """)
         
-        # Obtener salidas
-        query_sal = "SELECT * FROM prod_inventario_salidas WHERE 1=1"
-        params_sal = []
-        if item_id:
-            params_sal.append(item_id)
-            query_sal += f" AND item_id = ${len(params_sal)}"
-        if fecha_inicio:
-            params_sal.append(fecha_inicio)
-            query_sal += f" AND fecha >= ${len(params_sal)}::timestamp"
-        if fecha_fin:
-            params_sal.append(fecha_fin)
-            query_sal += f" AND fecha <= ${len(params_sal)}::timestamp"
+        # --- AJUSTES ---
+        if not tipo or tipo.startswith('ajuste'):
+            aj_where = []
+            if item_id:
+                param_idx += 1; params.append(item_id)
+                aj_where.append(f"a.item_id = ${param_idx}")
+            if f_inicio:
+                param_idx += 1; params.append(f_inicio)
+                aj_where.append(f"a.fecha >= ${param_idx}::timestamp")
+            if f_fin:
+                param_idx += 1; params.append(f_fin)
+                aj_where.append(f"a.fecha <= ${param_idx}::timestamp")
+            where_clause = (" AND " + " AND ".join(aj_where)) if aj_where else ""
+            unions.append(f"""
+                SELECT a.id, ('ajuste_' || a.tipo) as tipo, a.item_id, inv.nombre as item_nombre, inv.codigo as item_codigo,
+                       a.cantidad::float, 0::float as costo_unitario, 0::float as costo_total,
+                       a.fecha, NULL as proveedor, NULL as numero_documento, a.observaciones,
+                       NULL as registro_id, NULL as registro_n_corte, a.motivo
+                FROM prod_inventario_ajustes a
+                LEFT JOIN prod_inventario inv ON inv.id = a.item_id
+                WHERE 1=1 {where_clause}
+            """)
         
-        salidas = await conn.fetch(query_sal, *params_sal)
-        for sal in salidas:
-            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", sal['item_id'])
-            registro = None
-            if sal['registro_id']:
-                registro = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", sal['registro_id'])
-            movimientos.append({
-                "id": sal['id'],
-                "tipo": "salida",
-                "item_id": sal['item_id'],
-                "item_nombre": item['nombre'] if item else "",
-                "item_codigo": item['codigo'] if item else "",
-                "cantidad": float(sal['cantidad']),
-                "costo_unitario": 0,
-                "costo_total": float(sal['costo_total']),
-                "fecha": sal['fecha'],
-                "registro_id": sal['registro_id'],
-                "registro_n_corte": registro['n_corte'] if registro else None,
-                "observaciones": sal['observaciones']
-            })
+        if not unions:
+            return []
         
-        # Obtener ajustes
-        query_aj = "SELECT * FROM prod_inventario_ajustes WHERE 1=1"
-        params_aj = []
-        if item_id:
-            params_aj.append(item_id)
-            query_aj += f" AND item_id = ${len(params_aj)}"
-        if fecha_inicio:
-            params_aj.append(fecha_inicio)
-            query_aj += f" AND fecha >= ${len(params_aj)}::timestamp"
-        if fecha_fin:
-            params_aj.append(fecha_fin)
-            query_aj += f" AND fecha <= ${len(params_aj)}::timestamp"
+        full_query = " UNION ALL ".join(unions)
         
-        ajustes = await conn.fetch(query_aj, *params_aj)
-        for aj in ajustes:
-            item = await conn.fetchrow("SELECT nombre, codigo FROM prod_inventario WHERE id = $1", aj['item_id'])
-            movimientos.append({
-                "id": aj['id'],
-                "tipo": f"ajuste_{aj['tipo']}",
-                "item_id": aj['item_id'],
-                "item_nombre": item['nombre'] if item else "",
-                "item_codigo": item['codigo'] if item else "",
-                "cantidad": float(aj['cantidad']),
-                "costo_unitario": 0,
-                "costo_total": 0,
-                "fecha": aj['fecha'],
-                "motivo": aj['motivo'],
-                "observaciones": aj['observaciones']
-            })
+        # Count total
+        count_query = f"SELECT COUNT(*) FROM ({full_query}) sub"
+        total = await conn.fetchval(count_query, *params)
         
-        # Ordenar por fecha
-        movimientos.sort(key=lambda x: x['fecha'] if x['fecha'] else datetime.min, reverse=True)
-        return movimientos
+        # Paginated results
+        param_idx += 1; params.append(limit)
+        param_idx += 1; params.append(offset)
+        data_query = f"SELECT * FROM ({full_query}) sub ORDER BY fecha DESC NULLS LAST LIMIT ${param_idx - 1} OFFSET ${param_idx}"
+        rows = await conn.fetch(data_query, *params)
+        
+        movimientos = [row_to_dict(r) for r in rows]
+        return {"items": movimientos, "total": total}
 
 @api_router.get("/inventario-kardex/{item_id}")
 async def get_inventario_kardex_by_path(item_id: str):

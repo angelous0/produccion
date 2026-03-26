@@ -60,7 +60,8 @@ export const ReporteMovimientos = () => {
         axios.get(`${API}/inventario-movimientos?${params.toString()}`),
         axios.get(`${API}/inventario?all=true`),
       ]);
-      setMovimientos(movimientosRes.data);
+      const movData = Array.isArray(movimientosRes.data) ? movimientosRes.data : movimientosRes.data.items || [];
+      setMovimientos(movData);
       const itemsData = Array.isArray(itemsRes.data) ? itemsRes.data : itemsRes.data.items || [];
       setItems(itemsData);
     } catch (error) {
