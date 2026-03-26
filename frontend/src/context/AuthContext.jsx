@@ -27,6 +27,25 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
+  // Interceptor para manejar token expirado (401)
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401 && token) {
+          // Token expirado o inválido - cerrar sesión automáticamente
+          localStorage.removeItem('token');
+          setToken(null);
+          setUser(null);
+          delete axios.defaults.headers.common['Authorization'];
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [token]);
+
   // Verificar token al cargar
   useEffect(() => {
     const verifyToken = async () => {
