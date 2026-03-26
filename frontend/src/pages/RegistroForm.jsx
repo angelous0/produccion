@@ -42,6 +42,7 @@ import { Textarea } from '../components/ui/textarea';
 import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
+import MaterialesTab from '../components/MaterialesTab';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -1808,135 +1809,11 @@ export const RegistroForm = () => {
               </CardContent>
             </Card>
 
-            {/* Salidas de Inventario (solo en modo edición) */}
+            {/* Materiales / Salidas de Inventario (solo en modo edición) */}
             {isEditing && (
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    Salidas de Inventario
-                  </CardTitle>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setRollosDialogOpen(true)}
-                      data-testid="btn-salida-rollos"
-                    >
-                      <Layers className="h-4 w-4 mr-1" />
-                      Rollos
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={handleOpenSalidaDialog}
-                      data-testid="btn-nueva-salida"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Agregar Salida
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {salidasRegistro.length > 0 ? (
-                    <>
-                      <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead>Item</TableHead>
-                              <TableHead className="text-right">Cantidad</TableHead>
-                              <TableHead className="text-right">Costo FIFO</TableHead>
-                              <TableHead className="w-[60px]"></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {Object.entries(salidasAgrupadas).map(([key, grupo]) => {
-                              const isExpanded = salidasExpandidas[key];
-                              return (
-                                <React.Fragment key={key}>
-                                  {/* Fila resumen del grupo */}
-                                  <TableRow
-                                    className="cursor-pointer hover:bg-muted/40 transition-colors"
-                                    onClick={() => toggleSalidaExpandida(key)}
-                                    data-testid={`salida-grupo-${key}`}
-                                  >
-                                    <TableCell>
-                                      <div className="flex items-center gap-2">
-                                        {isExpanded
-                                          ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-                                          : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                                        }
-                                        <div>
-                                          <p className="font-medium">{grupo.item_nombre}</p>
-                                          <p className="text-xs text-muted-foreground font-mono">{grupo.item_codigo} &middot; {grupo.salidas.length} salida{grupo.salidas.length > 1 ? 's' : ''}</p>
-                                        </div>
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono font-semibold">
-                                      {grupo.cantidad_total}
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono">
-                                      {formatCurrency(grupo.costo_total)}
-                                    </TableCell>
-                                    <TableCell></TableCell>
-                                  </TableRow>
-                                  {/* Filas individuales expandidas */}
-                                  {isExpanded && grupo.salidas.map((salida) => (
-                                    <TableRow key={salida.id} className="bg-muted/10" data-testid={`salida-row-${salida.id}`}>
-                                      <TableCell className="pl-10">
-                                        <div className="flex items-center gap-2">
-                                          <ArrowUpCircle className="h-3.5 w-3.5 text-red-400" />
-                                          <span className="text-sm text-muted-foreground">
-                                            {salida.observaciones || `Salida #${salida.id?.slice(0,8)}`}
-                                          </span>
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="text-right font-mono text-sm">
-                                        {salida.cantidad}
-                                      </TableCell>
-                                      <TableCell className="text-right font-mono text-sm">
-                                        {formatCurrency(salida.costo_total)}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-7 w-7"
-                                          onClick={(e) => { e.stopPropagation(); handleDeleteSalida(salida.id); }}
-                                          data-testid={`delete-salida-${salida.id}`}
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                        </Button>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </React.Fragment>
-                              );
-                            })}
-                            <TableRow className="bg-muted/30">
-                              <TableCell colSpan={2} className="font-semibold">Total Costo</TableCell>
-                              <TableCell className="text-right font-mono font-bold text-primary">
-                                {formatCurrency(getTotalCostoSalidas())}
-                              </TableCell>
-                              <TableCell></TableCell>
-                            </TableRow>
-                          </TableBody>
-                        </Table>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {salidasRegistro.length} salida{salidasRegistro.length !== 1 ? 's' : ''} vinculada{salidasRegistro.length !== 1 ? 's' : ''} a este registro
-                      </p>
-                    </>
-                  ) : (
-                    <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
-                      <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No hay salidas de inventario</p>
-                      <p className="text-xs mt-1">Agrega materiales utilizados en este registro</p>
-                    </div>
-                  )}
+                <CardContent className="pt-4">
+                  <MaterialesTab registroId={id} totalPrendas={1} />
                 </CardContent>
               </Card>
             )}
