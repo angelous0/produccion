@@ -56,14 +56,20 @@ export const ReporteMovimientos = () => {
       if (filtroFechaDesde) params.append('fecha_desde', filtroFechaDesde);
       if (filtroFechaHasta) params.append('fecha_hasta', filtroFechaHasta);
       
-      const [movimientosRes, itemsRes] = await Promise.all([
+      const [movimientosRes, itemsRes] = await Promise.allSettled([
         axios.get(`${API}/inventario-movimientos?${params.toString()}`),
         axios.get(`${API}/inventario?all=true`),
       ]);
-      const movData = Array.isArray(movimientosRes.data) ? movimientosRes.data : movimientosRes.data.items || [];
-      setMovimientos(movData);
-      const itemsData = Array.isArray(itemsRes.data) ? itemsRes.data : itemsRes.data.items || [];
-      setItems(itemsData);
+      if (movimientosRes.status === 'fulfilled') {
+        const movData = Array.isArray(movimientosRes.value.data) ? movimientosRes.value.data : movimientosRes.value.data.items || [];
+        setMovimientos(movData);
+      } else {
+        toast.error('Error al cargar movimientos');
+      }
+      if (itemsRes.status === 'fulfilled') {
+        const itemsData = Array.isArray(itemsRes.value.data) ? itemsRes.value.data : itemsRes.value.data.items || [];
+        setItems(itemsData);
+      }
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
