@@ -686,15 +686,19 @@ export const InventarioIngresos = () => {
               
               <div className="space-y-2">
                 <Label>Linea de Negocio</Label>
-                <Select value={formData.linea_negocio_id || 'global'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'global' ? '' : v })}>
-                  <SelectTrigger data-testid="select-linea-ingreso"><SelectValue placeholder="Global" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="global">Global (sin linea)</SelectItem>
-                    {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {selectedItem?.linea_negocio_id && (
-                  <p className="text-[10px] text-blue-600">Sugerida desde el item (exclusivo de esta linea)</p>
+                {selectedItem?.linea_negocio_id ? (
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-md border bg-muted/50">
+                    <span className="text-sm">{lineasNegocio.find(l => l.id === selectedItem.linea_negocio_id)?.nombre || `Línea #${selectedItem.linea_negocio_id}`}</span>
+                    <span className="text-[10px] text-muted-foreground ml-auto">Heredada del item</span>
+                  </div>
+                ) : (
+                  <Select value={formData.linea_negocio_id || 'global'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'global' ? '' : v })}>
+                    <SelectTrigger data-testid="select-linea-ingreso"><SelectValue placeholder="Global" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="global">Global</SelectItem>
+                      {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
               

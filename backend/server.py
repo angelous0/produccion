@@ -4949,10 +4949,9 @@ async def create_ingreso(input: IngresoInventarioCreate):
         )
         ingreso.cantidad_disponible = cantidad
         
-        # Heredar linea_negocio_id del item si no viene explícito
-        linea_negocio_id = input.linea_negocio_id
-        if linea_negocio_id is None and item.get('linea_negocio_id'):
-            linea_negocio_id = item['linea_negocio_id']
+        # Línea de negocio: el item manda. Si el item tiene línea, se usa esa siempre.
+        # Si el item es global (null), se usa lo que envíe el frontend (o null).
+        linea_negocio_id = item.get('linea_negocio_id') or input.linea_negocio_id
         
         await conn.execute(
             """INSERT INTO prod_inventario_ingresos (id, item_id, cantidad, cantidad_disponible, costo_unitario, proveedor, numero_documento, observaciones, fecha, empresa_id, linea_negocio_id)
