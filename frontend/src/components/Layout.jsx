@@ -355,7 +355,7 @@ export const Layout = () => {
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <aside className={`
           fixed inset-y-0 left-0 z-40 transform bg-card border-r pt-16 transition-all duration-300 ease-in-out
@@ -548,7 +548,7 @@ export const Layout = () => {
         )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8" id="main-content">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0 p-6 md:p-8" id="main-content">
           <ScrollToTop />
           <Outlet />
         </main>

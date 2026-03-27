@@ -1255,7 +1255,7 @@ export const RegistroForm = () => {
   }
 
   return (
-    <div className="space-y-6" data-testid="registro-form-page">
+    <div className="space-y-6 pb-8 min-w-0" data-testid="registro-form-page">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 

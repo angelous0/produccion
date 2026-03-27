@@ -170,6 +170,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Salidas: herencia de linea desde registro
   - MaterialesTab: filtro automatico MP por linea del registro (misma linea + global)
   - Propiedad es_cierre en etapas de ruta de produccion
+- **Bugfix Overflow CSS en RegistroForm** (2026-03-27):
+  - Corregido desbordamiento de pantalla al hacer scroll en RegistroForm
+  - Fixes: min-h-0/min-w-0 en Layout flex containers, overflow-x-hidden en main, overflow:hidden en body/html/#root
+  - pb-8 en wrapper del formulario para padding inferior adecuado
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
