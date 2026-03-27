@@ -514,7 +514,22 @@ export const Modelos = () => {
                 <div className="space-y-2">
                   <Label>Ruta de Produccion</Label>
                   <p className="text-xs text-muted-foreground">Define la secuencia de estados para los registros de este modelo</p>
-                  <Select value={formData.ruta_produccion_id} onValueChange={(value) => setFormData({ ...formData, ruta_produccion_id: value === 'none' ? '' : value })}>
+                  <Select value={formData.ruta_produccion_id} onValueChange={(value) => {
+                    const rutaId = value === 'none' ? '' : value;
+                    const ruta = rutas.find(r => r.id === rutaId);
+                    // Auto-poblar servicios desde las etapas de la ruta
+                    let nuevosServicios = [...formData.servicios_ids];
+                    if (ruta?.etapas) {
+                      const serviciosRuta = ruta.etapas
+                        .filter(e => e.servicio_id)
+                        .map(e => e.servicio_id);
+                      // Agregar sin duplicar, mantener los que ya estaban
+                      serviciosRuta.forEach(sId => {
+                        if (!nuevosServicios.includes(sId)) nuevosServicios.push(sId);
+                      });
+                    }
+                    setFormData({ ...formData, ruta_produccion_id: rutaId, servicios_ids: nuevosServicios });
+                  }}>
                     <SelectTrigger data-testid="select-ruta"><SelectValue placeholder="Seleccionar ruta..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin ruta (estados globales)</SelectItem>
@@ -524,15 +539,18 @@ export const Modelos = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Servicios Requeridos</Label>
-                  <p className="text-xs text-muted-foreground">Servicios que se usaran para este modelo (sin asignar persona aun)</p>
-                  <div className="grid grid-cols-2 gap-2 border rounded-md p-3">
-                    {servicios.map((srv) => (
-                      <label key={srv.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
-                        <Checkbox checked={formData.servicios_ids.includes(srv.id)} onCheckedChange={() => handleToggleServicio(srv.id)} data-testid={`checkbox-servicio-${srv.id}`} />
-                        <span className="text-sm">{srv.nombre}</span>
-                      </label>
-                    ))}
-                    {servicios.length === 0 && <p className="col-span-2 text-sm text-muted-foreground text-center py-2">No hay servicios disponibles</p>}
+                  <p className="text-xs text-muted-foreground">Auto-completados desde la ruta. Puedes agregar o quitar.</p>
+                  <div className="grid grid-cols-3 gap-1.5 border rounded-md p-2.5">
+                    {servicios.map((srv) => {
+                      const checked = formData.servicios_ids.includes(srv.id);
+                      return (
+                        <label key={srv.id} className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-xs cursor-pointer transition-colors ${checked ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted border border-transparent'}`}>
+                          <Checkbox checked={checked} onCheckedChange={() => handleToggleServicio(srv.id)} data-testid={`checkbox-servicio-${srv.id}`} className="h-3.5 w-3.5" />
+                          <span className={checked ? 'font-medium' : 'text-muted-foreground'}>{srv.nombre}</span>
+                        </label>
+                      );
+                    })}
+                    {servicios.length === 0 && <p className="col-span-3 text-xs text-muted-foreground text-center py-2">No hay servicios disponibles</p>}
                   </div>
                 </div>
                 <div className="space-y-2 border-t pt-4">

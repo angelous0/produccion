@@ -622,20 +622,20 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
             {loadingLineas ? (
               <div className="py-6 text-center text-muted-foreground">Cargando líneas...</div>
             ) : (
-              <div className="overflow-auto">
-                <Table>
+              <div className="overflow-x-auto border rounded-md">
+                <Table className="min-w-[1050px]">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Tipo</TableHead>
-                      <TableHead className="min-w-[280px]">Item</TableHead>
-                      <TableHead className="min-w-[130px]">Talla</TableHead>
-                      <TableHead className="w-[120px]">Etapa</TableHead>
-                      <TableHead className="w-[130px] text-right">Cant. Base</TableHead>
-                      <TableHead className="w-[90px] text-right">Merma %</TableHead>
-                      <TableHead className="w-[110px] text-right">Cant. Total</TableHead>
-                      <TableHead className="w-[120px] text-right">Costo Unitario</TableHead>
-                      <TableHead className="w-[80px]">Opcional</TableHead>
-                      <TableHead className="w-[80px]"></TableHead>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[90px]">Tipo</TableHead>
+                      <TableHead className="min-w-[200px]">Item</TableHead>
+                      <TableHead className="w-[100px]">Talla</TableHead>
+                      <TableHead className="w-[100px]">Etapa</TableHead>
+                      <TableHead className="w-[110px] text-right">Cant. Base</TableHead>
+                      <TableHead className="w-[80px] text-right">Merma %</TableHead>
+                      <TableHead className="w-[100px] text-right">Cant. Total</TableHead>
+                      <TableHead className="w-[110px] text-right">Costo Unitario</TableHead>
+                      <TableHead className="w-[70px] text-center">Opcional</TableHead>
+                      <TableHead className="w-[70px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
