@@ -187,7 +187,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Estados visuales: normal, importante (rojo), pendiente (amarillo), resuelto (verde)
   - Mensajes fijados aparecen arriba con icono de pin
   - Menu de acciones: responder, cambiar estado, fijar/desfijar, eliminar
-  - UI: Panel lateral derecho colapsable con boton-resumen en vista principal (muestra conteo total + badges importantes/pendientes/fijados)
+  - UI: Boton flotante fijo arriba-derecha con contadores (total, importantes, pendientes, fijados). Panel lateral derecho slide-in con boton X para cerrar. Overlay en movil.
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos

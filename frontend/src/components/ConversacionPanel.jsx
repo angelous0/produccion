@@ -43,7 +43,7 @@ function formatFecha(dateStr) {
     ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ─── Boton resumen para abrir el panel ───
+// ─── Boton flotante fijo arriba derecha ───
 export const ConversacionTrigger = ({ registroId, onClick }) => {
   const [stats, setStats] = useState({ total: 0, importantes: 0, pendientes: 0, fijados: 0 });
 
@@ -61,38 +61,33 @@ export const ConversacionTrigger = ({ registroId, onClick }) => {
   }, [registroId]);
 
   return (
-    <Button
+    <button
       type="button"
-      variant="outline"
-      className="w-full justify-between h-auto py-2.5 px-4"
       onClick={onClick}
+      className="fixed top-[70px] right-5 z-30 flex items-center gap-2 bg-background border shadow-lg rounded-full pl-3 pr-3.5 py-2 hover:shadow-xl hover:scale-105 transition-all cursor-pointer"
       data-testid="btn-abrir-conversacion"
     >
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-4 w-4" />
-        <span className="font-medium text-sm">Conversacion</span>
-        {stats.total > 0 && (
-          <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">{stats.total}</span>
-        )}
-      </div>
-      <div className="flex items-center gap-1.5">
-        {stats.importantes > 0 && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 flex items-center gap-0.5">
-            <AlertTriangle className="h-2.5 w-2.5" /> {stats.importantes}
-          </span>
-        )}
-        {stats.pendientes > 0 && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex items-center gap-0.5">
-            <Clock className="h-2.5 w-2.5" /> {stats.pendientes}
-          </span>
-        )}
-        {stats.fijados > 0 && (
-          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 flex items-center gap-0.5">
-            <Pin className="h-2.5 w-2.5" /> {stats.fijados}
-          </span>
-        )}
-      </div>
-    </Button>
+      <MessageSquare className="h-4 w-4" />
+      <span className="text-xs font-medium hidden sm:inline">Conversacion</span>
+      {stats.total > 0 && (
+        <span className="text-[10px] font-semibold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{stats.total}</span>
+      )}
+      {stats.importantes > 0 && (
+        <span className="text-[10px] font-semibold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <AlertTriangle className="h-2.5 w-2.5" />{stats.importantes}
+        </span>
+      )}
+      {stats.pendientes > 0 && (
+        <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <Clock className="h-2.5 w-2.5" />{stats.pendientes}
+        </span>
+      )}
+      {stats.fijados > 0 && (
+        <span className="text-[10px] font-semibold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+          <Pin className="h-2.5 w-2.5" />{stats.fijados}
+        </span>
+      )}
+    </button>
   );
 };
 
@@ -308,7 +303,7 @@ export const ConversacionPanel = ({ registroId, usuario, open, onClose }) => {
         </div>
 
         {/* Input */}
-        <div className="p-3 border-t space-y-2 shrink-0" data-testid="new-message-input">
+        <div className="p-3 pb-5 border-t space-y-2 shrink-0" data-testid="new-message-input">
           <div className="flex gap-1">
             {['normal', 'importante', 'pendiente', 'resuelto'].map(est => {
               const c = ESTADO_CONFIG[est];

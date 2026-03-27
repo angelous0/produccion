@@ -2169,9 +2169,6 @@ export const RegistroForm = () => {
 
             {/* Trazabilidad Unificada (solo en modo edición) */}
             {isEditing && (
-              <ConversacionTrigger registroId={id} onClick={() => setConvOpen(true)} />
-            )}
-            {isEditing && (
               <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
                 <TrazabilidadPanel
                   registroId={id}
@@ -3275,14 +3272,19 @@ export const RegistroForm = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Panel lateral de conversacion */}
+      {/* Boton flotante + Panel lateral de conversacion */}
       {isEditing && (
-        <ConversacionPanel
-          registroId={id}
-          usuario={user?.nombre_completo || user?.username || 'Usuario'}
-          open={convOpen}
-          onClose={() => setConvOpen(false)}
-        />
+        <>
+          {!convOpen && (
+            <ConversacionTrigger registroId={id} onClick={() => setConvOpen(true)} />
+          )}
+          <ConversacionPanel
+            registroId={id}
+            usuario={user?.nombre_completo || user?.username || 'Usuario'}
+            open={convOpen}
+            onClose={() => setConvOpen(false)}
+          />
+        </>
       )}
     </div>
   );
