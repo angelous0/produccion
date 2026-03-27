@@ -122,6 +122,7 @@ async def ensure_bom_tables():
             )
         """)
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_cab_modelo ON prod_bom_cabecera(modelo_id)")
+        await conn.execute("ALTER TABLE prod_bom_cabecera ADD COLUMN IF NOT EXISTS nombre VARCHAR NULL")
         await conn.execute("CREATE INDEX IF NOT EXISTS idx_bom_linea_bom_id ON prod_modelo_bom_linea(bom_id)")
 
         await conn.execute(

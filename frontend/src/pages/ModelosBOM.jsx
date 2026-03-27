@@ -251,7 +251,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
         axios.get(`${API}/bom/${bomId}`),
         axios.get(`${API}/bom/${bomId}/costo-estandar?cantidad_prendas=1`).catch(() => ({ data: null })),
       ]);
-      setBomDetalle(detRes.data);
+      setBomDetalle({ ...detRes.data, _originalNombre: detRes.data.nombre || '' });
       setCostoEstandar(costoRes.data);
     } catch {
       toast.error('Error al cargar detalle BOM');
@@ -520,7 +520,7 @@ export const ModelosBOMTab = ({ modeloId }) => {
                   <SelectContent>
                     {cabeceras.map(c => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.codigo} (v{c.version}) - {c.estado}
+                        {c.nombre || c.codigo} (v{c.version}) - {c.estado}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -544,7 +544,27 @@ export const ModelosBOMTab = ({ modeloId }) => {
             <div className="flex items-center justify-between gap-4 flex-wrap border-b pb-3">
               <div className="flex items-center gap-3">
                 <Badge variant={estadoInfo.variant} data-testid="bom-estado-badge">{estadoInfo.label}</Badge>
-                <span className="text-sm text-muted-foreground">
+                <input
+                  type="text"
+                  className="text-sm font-medium bg-transparent border-b border-dashed border-muted-foreground/30 hover:border-primary focus:border-primary focus:outline-none px-1 py-0.5 min-w-[120px] max-w-[250px]"
+                  value={bomDetalle.nombre || ''}
+                  placeholder="Nombre del BOM..."
+                  data-testid="input-bom-nombre"
+                  onChange={(e) => setBomDetalle({ ...bomDetalle, nombre: e.target.value })}
+                  onBlur={async (e) => {
+                    const val = e.target.value.trim();
+                    if (val !== (bomDetalle._originalNombre || '')) {
+                      try {
+                        await axios.put(`${API}/bom/${activeBomId}`, { nombre: val });
+                        setBomDetalle(prev => ({ ...prev, nombre: val, _originalNombre: val }));
+                        // Refresh list to show updated name
+                        const res = await axios.get(`${API}/bom?modelo_id=${modeloId}`);
+                        setBomCabeceras(res.data);
+                      } catch {}
+                    }
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">
                   {bomDetalle.codigo} | v{bomDetalle.version}
                 </span>
                 {bomDetalle.observaciones && (

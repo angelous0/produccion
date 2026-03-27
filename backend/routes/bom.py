@@ -16,11 +16,13 @@ router = APIRouter(prefix="/api/bom", tags=["BOM"])
 
 class BomCabeceraCreate(BaseModel):
     modelo_id: str
+    nombre: Optional[str] = None
     codigo: Optional[str] = None
     version: int = 1
     observaciones: Optional[str] = None
 
 class BomCabeceraUpdate(BaseModel):
+    nombre: Optional[str] = None
     estado: Optional[str] = None  # BORRADOR, APROBADO, INACTIVO
     observaciones: Optional[str] = None
     vigente_desde: Optional[str] = None
@@ -113,12 +115,13 @@ async def create_bom_cabecera(data: BomCabeceraCreate):
         version = (max_ver or 0) + 1
 
         codigo = data.codigo or f"BOM-{modelo['nombre'][:10].upper().replace(' ','-')}-V{version}"
+        nombre = data.nombre or f"Receta v{version}"
         new_id = str(uuid4())
 
         await conn.execute("""
-            INSERT INTO prod_bom_cabecera (id, modelo_id, codigo, version, estado, observaciones, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, 'BORRADOR', $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        """, new_id, data.modelo_id, codigo, version, data.observaciones)
+            INSERT INTO prod_bom_cabecera (id, modelo_id, codigo, version, nombre, estado, observaciones, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, 'BORRADOR', $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        """, new_id, data.modelo_id, codigo, version, nombre, data.observaciones)
 
         row = await conn.fetchrow("""
             SELECT bc.*, m.nombre as modelo_nombre
@@ -191,17 +194,18 @@ async def update_bom_cabecera(bom_id: str, data: BomCabeceraUpdate):
         if estado not in ESTADOS_BOM:
             raise HTTPException(status_code=400, detail=f"Estado inválido. Permitidos: {ESTADOS_BOM}")
 
+        nombre = data.nombre if data.nombre is not None else cab.get('nombre')
         obs = data.observaciones if data.observaciones is not None else cab['observaciones']
         vigente_desde = data.vigente_desde or (cab['vigente_desde'].isoformat() if cab['vigente_desde'] else None)
         vigente_hasta = data.vigente_hasta or (cab['vigente_hasta'].isoformat() if cab['vigente_hasta'] else None)
 
         await conn.execute("""
             UPDATE prod_bom_cabecera
-            SET estado = $1, observaciones = $2,
-                vigente_desde = $3::timestamp, vigente_hasta = $4::timestamp,
+            SET estado = $1, observaciones = $2, nombre = $3,
+                vigente_desde = $4::timestamp, vigente_hasta = $5::timestamp,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $5
-        """, estado, obs, vigente_desde, vigente_hasta, bom_id)
+            WHERE id = $6
+        """, estado, obs, nombre, vigente_desde, vigente_hasta, bom_id)
 
         row = await conn.fetchrow("""
             SELECT bc.*, m.nombre as modelo_nombre
