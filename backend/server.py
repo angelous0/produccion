@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, UploadFile, File, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
@@ -3517,8 +3517,10 @@ def calcular_estado_requerimiento(cantidad_requerida: float, cantidad_reservada:
 
 
 @api_router.post("/registros/{registro_id}/generar-requerimiento")
-async def generar_requerimiento_mp(registro_id: str):
-    """Genera el requerimiento de MP a partir de la explosión del BOM"""
+async def generar_requerimiento_mp(registro_id: str, bom_id: str = Query(None)):
+    """Genera el requerimiento de MP a partir de la explosión del BOM.
+    Si bom_id se proporciona, usa ese BOM específico.
+    Si no, auto-selecciona el mejor BOM (APROBADO > BORRADOR, versión más reciente)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         # Obtener registro
@@ -3539,13 +3541,37 @@ async def generar_requerimiento_mp(registro_id: str):
         if total_prendas <= 0:
             raise HTTPException(status_code=400, detail="Ingresa cantidades reales por talla antes de generar el requerimiento")
         
-        # Obtener BOM activo del modelo
-        bom_lineas = await conn.fetch("""
-            SELECT bl.*, i.nombre as item_nombre, i.codigo as item_codigo, i.unidad_medida
-            FROM prod_modelo_bom_linea bl
-            JOIN prod_inventario i ON bl.inventario_id = i.id
-            WHERE bl.modelo_id = $1 AND bl.activo = true
-        """, modelo_id)
+        # Determinar qué BOM usar
+        if bom_id:
+            bom_cab = await conn.fetchrow("SELECT * FROM prod_bom_cabecera WHERE id = $1", bom_id)
+            if not bom_cab:
+                raise HTTPException(status_code=404, detail="BOM no encontrado")
+        else:
+            # Auto-seleccionar mejor BOM: APROBADO primero, luego BORRADOR, versión más reciente
+            bom_cab = await conn.fetchrow("""
+                SELECT * FROM prod_bom_cabecera
+                WHERE modelo_id = $1 AND estado != 'INACTIVO'
+                ORDER BY CASE estado WHEN 'APROBADO' THEN 1 WHEN 'BORRADOR' THEN 2 ELSE 3 END, version DESC
+                LIMIT 1
+            """, modelo_id)
+        
+        # Obtener BOM activo del modelo, filtrando por bom_id si existe
+        if bom_cab:
+            bom_lineas = await conn.fetch("""
+                SELECT bl.*, i.nombre as item_nombre, i.codigo as item_codigo, i.unidad_medida
+                FROM prod_modelo_bom_linea bl
+                JOIN prod_inventario i ON bl.inventario_id = i.id
+                WHERE bl.bom_id = $1 AND bl.activo = true
+                  AND COALESCE(bl.tipo_componente, 'TELA') IN ('TELA', 'AVIO', 'EMPAQUE', 'OTRO')
+            """, bom_cab['id'])
+        else:
+            # Fallback: líneas sin bom_id asignado (datos legacy)
+            bom_lineas = await conn.fetch("""
+                SELECT bl.*, i.nombre as item_nombre, i.codigo as item_codigo, i.unidad_medida
+                FROM prod_modelo_bom_linea bl
+                JOIN prod_inventario i ON bl.inventario_id = i.id
+                WHERE bl.modelo_id = $1 AND bl.activo = true AND bl.bom_id IS NULL
+            """, modelo_id)
         
         if not bom_lineas:
             raise HTTPException(status_code=400, detail="El modelo no tiene BOM definido")
@@ -3606,7 +3632,13 @@ async def generar_requerimiento_mp(registro_id: str):
             "message": "Requerimiento generado",
             "total_prendas": total_prendas,
             "lineas_creadas": created,
-            "lineas_actualizadas": updated
+            "lineas_actualizadas": updated,
+            "bom_usado": {
+                "id": bom_cab['id'],
+                "codigo": bom_cab['codigo'],
+                "version": bom_cab['version'],
+                "estado": bom_cab['estado'],
+            } if bom_cab else None
         }
 
 

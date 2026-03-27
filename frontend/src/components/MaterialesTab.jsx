@@ -11,6 +11,9 @@ import {
 import {
   Collapsible, CollapsibleContent, CollapsibleTrigger,
 } from '../components/ui/collapsible';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '../components/ui/select';
 import { SearchableSelect } from './SearchableSelect';
 import {
   Package, PackageCheck, PackageMinus, PackageX, RefreshCw,
@@ -22,7 +25,7 @@ import { NumericInput } from './ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const MaterialesTab = ({ registroId, totalPrendas }) => {
+const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generando, setGenerando] = useState(false);
@@ -42,6 +45,11 @@ const MaterialesTab = ({ registroId, totalPrendas }) => {
   const [histReservasOpen, setHistReservasOpen] = useState(false);
   const [histSalidasOpen, setHistSalidasOpen] = useState(false);
 
+  // BOM selector
+  const [boms, setBoms] = useState([]);
+  const [selectedBomId, setSelectedBomId] = useState(null);
+  const [bomsLoading, setBomsLoading] = useState(false);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -56,11 +64,30 @@ const MaterialesTab = ({ registroId, totalPrendas }) => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Cargar BOMs del modelo
+  useEffect(() => {
+    if (!modeloId) return;
+    setBomsLoading(true);
+    axios.get(`${API}/bom?modelo_id=${modeloId}`)
+      .then(res => {
+        const list = res.data || [];
+        setBoms(list);
+        // Auto-seleccionar: APROBADO primero, sino el más reciente
+        const aprobado = list.find(b => b.estado === 'APROBADO');
+        if (aprobado) setSelectedBomId(aprobado.id);
+        else if (list.length > 0) setSelectedBomId(list[0].id);
+      })
+      .catch(() => {})
+      .finally(() => setBomsLoading(false));
+  }, [modeloId]);
+
   const generarRequerimiento = async () => {
     setGenerando(true);
     try {
-      const res = await axios.post(`${API}/registros/${registroId}/generar-requerimiento`);
-      toast.success(`Requerimiento generado: ${res.data.lineas_creadas} líneas creadas, ${res.data.lineas_actualizadas} actualizadas`);
+      const params = selectedBomId ? `?bom_id=${selectedBomId}` : '';
+      const res = await axios.post(`${API}/registros/${registroId}/generar-requerimiento${params}`);
+      const bomInfo = res.data.bom_usado ? ` (${res.data.bom_usado.codigo} v${res.data.bom_usado.version})` : '';
+      toast.success(`Requerimiento generado${bomInfo}: ${res.data.lineas_creadas} líneas creadas, ${res.data.lineas_actualizadas} actualizadas`);
       fetchData();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al generar requerimiento');
@@ -196,13 +223,32 @@ const MaterialesTab = ({ registroId, totalPrendas }) => {
   return (
     <div className="space-y-4" data-testid="materiales-tab">
       {/* Header con acciones */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h4 className="font-semibold text-base">Materiales de la OP</h4>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {boms.length > 1 && (
+            <Select value={selectedBomId || ''} onValueChange={setSelectedBomId}>
+              <SelectTrigger className="w-[200px] h-8 text-xs" data-testid="select-bom-materiales">
+                <SelectValue placeholder="Seleccionar BOM" />
+              </SelectTrigger>
+              <SelectContent>
+                {boms.map(b => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.codigo} (v{b.version}) {b.estado === 'APROBADO' ? '✓' : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {boms.length === 1 && (
+            <span className="text-xs text-muted-foreground border rounded px-2 py-1">
+              {boms[0].codigo} (v{boms[0].version}) — {boms[0].estado}
+            </span>
+          )}
           <Button type="button" variant="outline" size="sm" onClick={fetchData} data-testid="btn-refresh-materiales">
             <RefreshCw className="h-3.5 w-3.5 mr-1" /> Actualizar
           </Button>
-          <Button type="button" size="sm" onClick={generarRequerimiento} disabled={generando || totalPrendas <= 0}
+          <Button type="button" size="sm" onClick={generarRequerimiento} disabled={generando || totalPrendas <= 0 || (boms.length > 0 && !selectedBomId)}
             data-testid="btn-generar-req"
           >
             {generando ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <BookOpen className="h-3.5 w-3.5 mr-1" />}

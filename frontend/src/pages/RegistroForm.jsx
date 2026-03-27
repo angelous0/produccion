@@ -1813,7 +1813,7 @@ export const RegistroForm = () => {
             {isEditing && (
               <Card>
                 <CardContent className="pt-4">
-                  <MaterialesTab registroId={id} totalPrendas={1} />
+                  <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} />
                 </CardContent>
               </Card>
             )}

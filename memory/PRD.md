@@ -103,6 +103,13 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Link "Alertas Stock" en sidebar bajo Inventario FIFO
   - Solo items con stock_minimo > 0 configurado son evaluados
 
+- **Selector de BOM en Materiales** (2026-03-27):
+  - Al generar requerimiento, el sistema ahora selecciona el BOM específico (no mezcla líneas de múltiples BOMs)
+  - Si hay 1 solo BOM: muestra etiqueta informativa (codigo, versión, estado)
+  - Si hay múltiples BOMs: muestra dropdown selector, auto-selecciona el APROBADO
+  - Backend: endpoint generar-requerimiento acepta ?bom_id= opcional; auto-selecciona APROBADO > BORRADOR si no se especifica
+  - Toast de éxito incluye nombre del BOM usado
+
 ## Key API Endpoints
 - GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)
 - GET /api/registros-estados
