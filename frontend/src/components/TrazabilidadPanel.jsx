@@ -449,7 +449,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                 { val: balance.en_produccion || 0, color: 'bg-blue-500', label: 'En producción' },
                 { val: balance.fallados_en_arreglo || 0, color: 'bg-violet-500', label: 'En arreglo' },
                 { val: balance.fallados_reparados || 0, color: 'bg-emerald-500', label: 'Reparados' },
-                { val: balance.fallados_liquidados || 0, color: 'bg-red-500', label: 'Liquidados' },
+                { val: (balance.liquidacion || 0) + (balance.segunda || 0) + (balance.descarte || 0), color: 'bg-rose-500', label: 'Liquidados' },
                 { val: balance.fallados_sin_asignar || 0, color: 'bg-orange-400', label: 'Sin asignar' },
                 { val: balance.mermas || 0, color: 'bg-amber-500', label: 'Mermas' },
                 { val: balance.divididos || 0, color: 'bg-cyan-500', label: 'Divididos' },
@@ -477,7 +477,7 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
             })()}
 
             {/* Grid de métricas principales */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <div className="text-center p-2 rounded-md bg-blue-50 border border-blue-100">
                 <div className="text-lg font-bold font-mono text-blue-700">{balance.en_produccion}</div>
                 <div className="text-[10px] text-blue-600 font-medium">En producción</div>
@@ -490,6 +490,15 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                 <div className={`text-lg font-bold font-mono ${balance.fallados_total > 0 ? 'text-red-700' : 'text-muted-foreground'}`}>{balance.fallados_total || 0}</div>
                 <div className={`text-[10px] font-medium ${balance.fallados_total > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>Fallados</div>
               </div>
+              {(() => {
+                const totalLiquidados = (balance.liquidacion || 0) + (balance.segunda || 0) + (balance.descarte || 0);
+                return (
+                  <div className={`text-center p-2 rounded-md ${totalLiquidados > 0 ? 'bg-rose-50 border border-rose-100' : 'bg-muted/50 border border-transparent'}`}>
+                    <div className={`text-lg font-bold font-mono ${totalLiquidados > 0 ? 'text-rose-700' : 'text-muted-foreground'}`}>{totalLiquidados}</div>
+                    <div className={`text-[10px] font-medium ${totalLiquidados > 0 ? 'text-rose-600' : 'text-muted-foreground'}`}>Liquidados</div>
+                  </div>
+                );
+              })()}
               <div className={`text-center p-2 rounded-md ${balance.divididos > 0 ? 'bg-cyan-50 border border-cyan-100' : 'bg-muted/50 border border-transparent'}`}>
                 <div className={`text-lg font-bold font-mono ${balance.divididos > 0 ? 'text-cyan-700' : 'text-muted-foreground'}`}>{balance.divididos || 0}</div>
                 <div className={`text-[10px] font-medium ${balance.divididos > 0 ? 'text-cyan-600' : 'text-muted-foreground'}`}>Divididos</div>
