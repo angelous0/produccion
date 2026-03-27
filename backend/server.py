@@ -188,6 +188,10 @@ async def ensure_bom_tables():
         await conn.execute("ALTER TABLE prod_conversacion ADD COLUMN IF NOT EXISTS estado VARCHAR DEFAULT 'normal'")
         await conn.execute("ALTER TABLE prod_conversacion ADD COLUMN IF NOT EXISTS fijado BOOLEAN DEFAULT FALSE")
 
+        # Avance porcentaje en servicios y movimientos
+        await conn.execute("ALTER TABLE prod_servicios_produccion ADD COLUMN IF NOT EXISTS usa_avance_porcentaje BOOLEAN DEFAULT FALSE")
+        await conn.execute("ALTER TABLE prod_movimientos_produccion ADD COLUMN IF NOT EXISTS avance_porcentaje INTEGER")
+
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
     return pool
@@ -699,6 +703,7 @@ class ServicioBase(BaseModel):
     descripcion: str = ""
     tarifa: float = 0
     orden: Optional[int] = None
+    usa_avance_porcentaje: bool = False
 
 class ServicioCreate(ServicioBase):
     pass
@@ -743,6 +748,7 @@ class MovimientoBase(BaseModel):
     fecha_esperada_movimiento: Optional[str] = None
     responsable_movimiento: Optional[str] = None
     observaciones: str = ""
+    avance_porcentaje: Optional[int] = None
 
 class MovimientoCreate(MovimientoBase):
     pass
@@ -2066,8 +2072,8 @@ async def create_servicio_produccion(input: ServicioCreate):
     async with pool.acquire() as conn:
         max_orden = await conn.fetchval("SELECT COALESCE(MAX(orden), -1) FROM prod_servicios_produccion")
         await conn.execute(
-            "INSERT INTO prod_servicios_produccion (id, nombre, descripcion, tarifa, orden, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
-            servicio.id, servicio.nombre, servicio.descripcion, servicio.tarifa, max_orden + 1, servicio.created_at.replace(tzinfo=None)
+            "INSERT INTO prod_servicios_produccion (id, nombre, descripcion, tarifa, orden, usa_avance_porcentaje, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            servicio.id, servicio.nombre, servicio.descripcion, servicio.tarifa, max_orden + 1, input.usa_avance_porcentaje, servicio.created_at.replace(tzinfo=None)
         )
     return servicio
 
@@ -2080,12 +2086,12 @@ async def update_servicio_produccion(servicio_id: str, input: ServicioCreate):
             raise HTTPException(status_code=404, detail="Servicio no encontrado")
         if input.orden is not None:
             await conn.execute(
-                "UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3, orden = $4 WHERE id = $5",
-                input.nombre, input.descripcion, input.tarifa, input.orden, servicio_id)
+                "UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3, orden = $4, usa_avance_porcentaje = $5 WHERE id = $6",
+                input.nombre, input.descripcion, input.tarifa, input.orden, input.usa_avance_porcentaje, servicio_id)
         else:
             await conn.execute(
-                "UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3 WHERE id = $4",
-                input.nombre, input.descripcion, input.tarifa, servicio_id)
+                "UPDATE prod_servicios_produccion SET nombre = $1, descripcion = $2, tarifa = $3, usa_avance_porcentaje = $4 WHERE id = $5",
+                input.nombre, input.descripcion, input.tarifa, input.usa_avance_porcentaje, servicio_id)
         return {**row_to_dict(result), **input.model_dump(exclude_none=True)}
 
 @api_router.delete("/servicios-produccion/{servicio_id}")
@@ -5816,12 +5822,12 @@ async def create_movimiento(input: MovimientoCreate):
                 pass
         
         await conn.execute(
-            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, fecha_esperada_movimiento, responsable_movimiento, observaciones, created_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)""",
+            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, fecha_esperada_movimiento, responsable_movimiento, observaciones, avance_porcentaje, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)""",
             movimiento.id, movimiento.registro_id, movimiento.servicio_id, movimiento.persona_id,
             movimiento.cantidad_enviada, movimiento.cantidad_recibida, diferencia, costo_calculado,
             tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None,
-            movimiento.observaciones, movimiento.created_at.replace(tzinfo=None)
+            movimiento.observaciones, input.avance_porcentaje, movimiento.created_at.replace(tzinfo=None)
         )
         
         # Crear merma si hay diferencia
@@ -5882,9 +5888,9 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
                 pass
         
         await conn.execute(
-            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, fecha_esperada_movimiento=$11, responsable_movimiento=$12, observaciones=$13 WHERE id=$14""",
+            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, fecha_esperada_movimiento=$11, responsable_movimiento=$12, observaciones=$13, avance_porcentaje=$14 WHERE id=$15""",
             input.registro_id, input.servicio_id, input.persona_id, input.cantidad_enviada, input.cantidad_recibida,
-            diferencia, costo_calculado, tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None, input.observaciones, movimiento_id
+            diferencia, costo_calculado, tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None, input.observaciones, input.avance_porcentaje, movimiento_id
         )
         
         # Crear nueva merma si hay diferencia

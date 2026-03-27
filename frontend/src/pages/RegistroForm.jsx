@@ -159,6 +159,7 @@ export const RegistroForm = () => {
     tarifa_aplicada: 0,
     fecha_esperada_movimiento: '',
     observaciones: '',
+    avance_porcentaje: null,
   });
 
   // Hilos específicos disponibles
@@ -974,6 +975,7 @@ export const RegistroForm = () => {
         tarifa_aplicada: movimiento.tarifa_aplicada || 0,
         fecha_esperada_movimiento: movimiento.fecha_esperada_movimiento || '',
         observaciones: movimiento.observaciones || '',
+        avance_porcentaje: movimiento.avance_porcentaje ?? null,
       });
       // Filtrar personas por el servicio del movimiento (nueva estructura)
       const filtradas = personasProduccion.filter(p => {
@@ -997,6 +999,7 @@ export const RegistroForm = () => {
         fecha_esperada_movimiento: '',
         responsable_movimiento: '',
         observaciones: '',
+        avance_porcentaje: null,
       });
       setPersonasFiltradas([]);
     }
@@ -1946,6 +1949,9 @@ export const RegistroForm = () => {
                               <TableHead className="text-right">Enviada</TableHead>
                               <TableHead className="text-right">Recibida</TableHead>
                               <TableHead className="text-right">Merma</TableHead>
+                              {serviciosProduccion.some(s => s.usa_avance_porcentaje && movimientosProduccion.some(m => m.servicio_id === s.id)) && (
+                                <TableHead className="text-center">Avance</TableHead>
+                              )}
                               <TableHead className="w-[100px] text-right">Acciones</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -2026,6 +2032,23 @@ export const RegistroForm = () => {
                                       <span className="text-muted-foreground">-</span>
                                     )}
                                   </TableCell>
+                                  {serviciosProduccion.some(s => s.usa_avance_porcentaje && movimientosProduccion.some(m => m.servicio_id === s.id)) && (
+                                    <TableCell className="text-center">
+                                      {serviciosProduccion.find(s => s.id === mov.servicio_id)?.usa_avance_porcentaje && mov.avance_porcentaje != null ? (
+                                        <div className="flex items-center justify-center gap-1.5">
+                                          <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">
+                                            <div
+                                              className={`h-full rounded-full ${mov.avance_porcentaje >= 100 ? 'bg-green-500' : mov.avance_porcentaje >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                                              style={{ width: `${Math.min(100, mov.avance_porcentaje)}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-xs font-mono font-medium">{mov.avance_porcentaje}%</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">-</span>
+                                      )}
+                                    </TableCell>
+                                  )}
                                   <TableCell className="text-right">
                                     <div className="flex justify-end gap-1">
                                       <Button
@@ -2063,7 +2086,7 @@ export const RegistroForm = () => {
                             })}
                             <TableRow className="bg-muted/30">
                               <TableCell colSpan={6} className="font-semibold">Total Recibidas</TableCell>
-                              <TableCell className="text-right font-mono font-bold text-primary" colSpan={2}>
+                              <TableCell className="text-right font-mono font-bold text-primary" colSpan={serviciosProduccion.some(s => s.usa_avance_porcentaje && movimientosProduccion.some(m => m.servicio_id === s.id)) ? 3 : 2}>
                                 {getTotalCantidadMovimientos()}
                               </TableCell>
                             </TableRow>
@@ -2921,6 +2944,34 @@ export const RegistroForm = () => {
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                   {movimientoFormData.cantidad_recibida} prendas × {formatCurrency(movimientoFormData.tarifa_aplicada)}
                 </p>
+              </div>
+            )}
+
+            {/* Avance porcentaje - solo si el servicio lo requiere */}
+            {movimientoFormData.servicio_id && serviciosProduccion.find(s => s.id === movimientoFormData.servicio_id)?.usa_avance_porcentaje && (
+              <div className="space-y-2">
+                <Label htmlFor="avance-porcentaje">Avance %</Label>
+                <div className="flex items-center gap-3">
+                  <NumericInput
+                    id="avance-porcentaje"
+                    min="0"
+                    max="100"
+                    value={movimientoFormData.avance_porcentaje ?? ''}
+                    onChange={(e) => setMovimientoFormData({ ...movimientoFormData, avance_porcentaje: e.target.value === '' ? null : Number(e.target.value) })}
+                    className="font-mono w-24"
+                    placeholder="0"
+                    data-testid="input-avance-porcentaje"
+                  />
+                  <span className="text-sm text-muted-foreground">%</span>
+                  {movimientoFormData.avance_porcentaje != null && (
+                    <div className="flex-1 h-2.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${movimientoFormData.avance_porcentaje >= 100 ? 'bg-green-500' : movimientoFormData.avance_porcentaje >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                        style={{ width: `${Math.min(100, Math.max(0, movimientoFormData.avance_porcentaje))}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

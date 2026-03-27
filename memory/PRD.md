@@ -188,6 +188,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Mensajes fijados aparecen arriba con icono de pin
   - Menu de acciones: responder, cambiar estado, fijar/desfijar, eliminar
   - UI: Boton flotante fijo arriba-derecha con contadores (total, importantes, pendientes, fijados). Panel lateral derecho slide-in con boton X para cerrar. Overlay en movil.
+- **Avance Porcentaje en Servicios y Movimientos** (2026-03-27):
+  - Nueva columna `usa_avance_porcentaje` en prod_servicios_produccion (configurable por servicio)
+  - Nueva columna `avance_porcentaje` en prod_movimientos_produccion
+  - UI: Checkbox en catalogo de servicios, campo condicional en dialog de movimiento, barra visual en tabla de movimientos
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos

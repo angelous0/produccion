@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
-import { Plus, Pencil, Trash2, Cog, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Cog, GripVertical, Percent } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import {
@@ -72,7 +72,12 @@ const SortableRow = ({ servicio, onEdit, onDelete }) => {
           {servicio.secuencia}
         </div>
       </td>
-      <td className="p-3 font-medium">{servicio.nombre}</td>
+      <td className="p-3 font-medium">
+        {servicio.nombre}
+        {servicio.usa_avance_porcentaje && (
+          <span className="ml-2 text-[10px] font-medium bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">%</span>
+        )}
+      </td>
       <td className="p-3 text-right">
         <div className="flex justify-end gap-1">
           <Button
@@ -103,7 +108,7 @@ export const ServiciosProduccion = () => {
   const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingServicio, setEditingServicio] = useState(null);
-  const [formData, setFormData] = useState({ nombre: '', secuencia: 0 });
+  const [formData, setFormData] = useState({ nombre: '', secuencia: 0, usa_avance_porcentaje: false });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -130,11 +135,11 @@ export const ServiciosProduccion = () => {
   const handleOpenDialog = (servicio = null) => {
     if (servicio) {
       setEditingServicio(servicio);
-      setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0 });
+      setFormData({ nombre: servicio.nombre, secuencia: servicio.secuencia || 0, usa_avance_porcentaje: servicio.usa_avance_porcentaje || false });
     } else {
       setEditingServicio(null);
       const maxSecuencia = servicios.reduce((max, s) => Math.max(max, s.secuencia || 0), 0);
-      setFormData({ nombre: '', secuencia: maxSecuencia + 1 });
+      setFormData({ nombre: '', secuencia: maxSecuencia + 1, usa_avance_porcentaje: false });
     }
     setDialogOpen(true);
   };
@@ -195,6 +200,7 @@ export const ServiciosProduccion = () => {
               descripcion: s.descripcion || '',
               tarifa: s.tarifa || 0,
               orden: s.orden,
+              usa_avance_porcentaje: s.usa_avance_porcentaje || false,
             })
           )
         );
@@ -310,6 +316,20 @@ export const ServiciosProduccion = () => {
             <p className="text-xs text-muted-foreground">
               Arrastra las filas en la tabla para cambiar el orden. Las tarifas se configuran en la ficha de cada Persona.
             </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="usa_avance_porcentaje"
+                checked={formData.usa_avance_porcentaje}
+                onChange={(e) => setFormData({ ...formData, usa_avance_porcentaje: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+                data-testid="checkbox-usa-avance"
+              />
+              <Label htmlFor="usa_avance_porcentaje" className="text-sm cursor-pointer flex items-center gap-1.5">
+                <Percent className="h-3.5 w-3.5" />
+                Usa avance por porcentaje
+              </Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
