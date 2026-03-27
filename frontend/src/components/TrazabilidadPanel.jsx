@@ -401,113 +401,147 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                 <Shield className="h-4 w-4 text-blue-500" />
                 Balance del Lote
               </CardTitle>
-              <span className="text-xs text-muted-foreground font-mono">Total: {balance.cantidad_inicial}</span>
+              <Badge variant="outline" className="font-mono text-xs">{balance.cantidad_inicial} prendas</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Barra de distribución visual */}
-            {balance.cantidad_inicial > 0 && (() => {
-              const total = balance.cantidad_inicial;
-              const segments = [
-                { val: balance.en_produccion || 0, color: 'bg-blue-500', label: 'Produccion' },
-                { val: balance.fallados_en_arreglo || 0, color: 'bg-violet-500', label: 'En arreglo' },
-                { val: balance.fallados_reparados || 0, color: 'bg-green-500', label: 'Reparados' },
-                { val: balance.fallados_liquidados || 0, color: 'bg-red-500', label: 'Liquidados' },
-                { val: balance.fallados_sin_asignar || 0, color: 'bg-orange-400', label: 'Sin asignar' },
-                { val: balance.mermas || 0, color: 'bg-amber-500', label: 'Mermas' },
-                { val: balance.divididos || 0, color: 'bg-cyan-500', label: 'Divididos' },
-              ].filter(s => s.val > 0);
+
+            {/* Progreso de ruta de producción */}
+            {timeline?.eventos && (() => {
+              const movimientos = timeline.eventos.filter(e => e.tipo_evento === 'MOVIMIENTO');
+              const serviciosCompletados = new Set(movimientos.filter(m => m.fecha_fin).map(m => m.servicio));
+              const serviciosEnCurso = new Set(movimientos.filter(m => !m.fecha_fin).map(m => m.servicio));
+              const todosServicios = [...new Set(movimientos.map(m => m.servicio))].filter(Boolean);
+              if (todosServicios.length === 0) return null;
+              const completados = serviciosCompletados.size;
+              const total = todosServicios.length;
+              const pctRuta = total > 0 ? Math.round((completados / total) * 100) : 0;
               return (
                 <div>
-                  <div className="flex h-3 rounded-full overflow-hidden border">
-                    {segments.map((s, i) => (
-                      <div key={i} className={`${s.color} transition-all`} style={{ width: `${(s.val / total) * 100}%` }} title={`${s.label}: ${s.val}`} />
-                    ))}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-muted-foreground font-medium">Avance de ruta</span>
+                    <span className="text-xs font-mono font-semibold">{completados}/{total} etapas ({pctRuta}%)</span>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
-                    {segments.map((s, i) => (
-                      <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <span className={`inline-block w-2 h-2 rounded-sm ${s.color}`} />
-                        {s.label}: {s.val}
-                      </span>
-                    ))}
+                  <div className="flex gap-1 flex-wrap">
+                    {todosServicios.map((s, i) => {
+                      const done = serviciosCompletados.has(s);
+                      const active = serviciosEnCurso.has(s);
+                      return (
+                        <div key={i} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border
+                          ${done ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : active ? 'bg-blue-50 border-blue-300 text-blue-700 animate-pulse' : 'bg-muted border-transparent text-muted-foreground'}`}>
+                          {done ? <CheckCircle2 className="h-2.5 w-2.5" /> : active ? <Clock className="h-2.5 w-2.5" /> : <CircleDot className="h-2.5 w-2.5 opacity-40" />}
+                          {s}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-1.5 h-1.5 rounded-full overflow-hidden bg-muted">
+                    <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pctRuta}%` }} />
                   </div>
                 </div>
               );
             })()}
 
-            <Separator />
-
-            {/* Distribución detallada */}
-            <div className="space-y-1.5 text-sm">
-              <div className="flex items-center justify-between font-semibold border-b pb-1">
-                <span>Inicial</span>
-                <span className="font-mono">{balance.cantidad_inicial}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-blue-700 dark:text-blue-400">
-                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-blue-500" /> En produccion</span>
-                <span className="font-mono">{balance.en_produccion}</span>
-              </div>
-
-              {balance.fallados_total > 0 && (
-                <>
-                  <div className="flex items-center justify-between text-red-700 dark:text-red-400">
-                    <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-red-500" /> Fallados</span>
-                    <span className="font-mono">{balance.fallados_total}</span>
+            {/* Barra de distribución de cantidades */}
+            {balance.cantidad_inicial > 0 && (() => {
+              const total = balance.cantidad_inicial;
+              const segments = [
+                { val: balance.en_produccion || 0, color: 'bg-blue-500', label: 'En producción' },
+                { val: balance.fallados_en_arreglo || 0, color: 'bg-violet-500', label: 'En arreglo' },
+                { val: balance.fallados_reparados || 0, color: 'bg-emerald-500', label: 'Reparados' },
+                { val: balance.fallados_liquidados || 0, color: 'bg-red-500', label: 'Liquidados' },
+                { val: balance.fallados_sin_asignar || 0, color: 'bg-orange-400', label: 'Sin asignar' },
+                { val: balance.mermas || 0, color: 'bg-amber-500', label: 'Mermas' },
+                { val: balance.divididos || 0, color: 'bg-cyan-500', label: 'Divididos' },
+              ].filter(s => s.val > 0);
+              const tieneNovedades = segments.length > 1 || (segments.length === 1 && segments[0].label !== 'En producción');
+              return (
+                <div>
+                  <div className="flex h-2.5 rounded-full overflow-hidden border">
+                    {segments.map((s, i) => (
+                      <div key={i} className={`${s.color} transition-all`} style={{ width: `${(s.val / total) * 100}%` }} title={`${s.label}: ${s.val}`} />
+                    ))}
                   </div>
-                  <div className="pl-5 space-y-0.5 text-xs text-muted-foreground">
-                    {balance.fallados_en_arreglo > 0 && (
-                      <div className="flex justify-between">
-                        <span>En arreglo{balance.arreglos_vencidos > 0 ? ` (${balance.arreglos_vencidos} vencidos)` : ''}</span>
-                        <span className="font-mono">{balance.fallados_en_arreglo}</span>
-                      </div>
-                    )}
-                    {balance.fallados_reparados > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Reparados (reintegrados)</span>
-                        <span className="font-mono">{balance.fallados_reparados}</span>
-                      </div>
-                    )}
-                    {balance.liquidacion > 0 && <div className="flex justify-between"><span>Liquidacion</span><span className="font-mono">{balance.liquidacion}</span></div>}
-                    {balance.segunda > 0 && <div className="flex justify-between"><span>Segunda</span><span className="font-mono">{balance.segunda}</span></div>}
-                    {balance.descarte > 0 && <div className="flex justify-between"><span>Descarte</span><span className="font-mono">{balance.descarte}</span></div>}
-                    {balance.fallados_sin_asignar > 0 && (
-                      <div className="flex justify-between text-orange-600 font-medium">
-                        <span>Sin asignar</span>
-                        <span className="font-mono">{balance.fallados_sin_asignar}</span>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {balance.mermas > 0 && (
-                <div className="flex items-center justify-between text-amber-700 dark:text-amber-400">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500" /> Mermas/Faltantes</span>
-                  <span className="font-mono">{balance.mermas}</span>
+                  {tieneNovedades && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+                      {segments.map((s, i) => (
+                        <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span className={`inline-block w-2 h-2 rounded-sm ${s.color}`} />
+                          {s.label}: <span className="font-mono font-semibold">{s.val}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              );
+            })()}
 
-              {balance.divididos > 0 && (
-                <div className="flex items-center justify-between text-cyan-700 dark:text-cyan-400">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-cyan-500" /> Divididos (lotes hijos)</span>
-                  <span className="font-mono">{balance.divididos}</span>
-                </div>
-              )}
-
-              {/* Verificación de suma */}
-              {(() => {
-                const suma = (balance.en_produccion || 0) + (balance.fallados_total || 0) - (balance.fallados_reparados || 0) + (balance.mermas || 0) + (balance.divididos || 0);
-                const cuadra = suma === balance.cantidad_inicial;
-                return (
-                  <div className={`flex items-center justify-between pt-1 border-t font-semibold ${cuadra ? 'text-green-600' : 'text-red-600'}`}>
-                    <span>{cuadra ? 'Total' : 'Total (descuadre)'}</span>
-                    <span className="font-mono">{cuadra ? balance.cantidad_inicial : suma} {cuadra ? '=' : '≠'} {balance.cantidad_inicial}</span>
-                  </div>
-                );
-              })()}
+            {/* Grid de métricas principales */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="text-center p-2 rounded-md bg-blue-50 border border-blue-100">
+                <div className="text-lg font-bold font-mono text-blue-700">{balance.en_produccion}</div>
+                <div className="text-[10px] text-blue-600 font-medium">En producción</div>
+              </div>
+              <div className={`text-center p-2 rounded-md ${balance.mermas > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-muted/50 border border-transparent'}`}>
+                <div className={`text-lg font-bold font-mono ${balance.mermas > 0 ? 'text-amber-700' : 'text-muted-foreground'}`}>{balance.mermas || 0}</div>
+                <div className={`text-[10px] font-medium ${balance.mermas > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>Mermas</div>
+              </div>
+              <div className={`text-center p-2 rounded-md ${balance.fallados_total > 0 ? 'bg-red-50 border border-red-100' : 'bg-muted/50 border border-transparent'}`}>
+                <div className={`text-lg font-bold font-mono ${balance.fallados_total > 0 ? 'text-red-700' : 'text-muted-foreground'}`}>{balance.fallados_total || 0}</div>
+                <div className={`text-[10px] font-medium ${balance.fallados_total > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>Fallados</div>
+              </div>
+              <div className={`text-center p-2 rounded-md ${balance.divididos > 0 ? 'bg-cyan-50 border border-cyan-100' : 'bg-muted/50 border border-transparent'}`}>
+                <div className={`text-lg font-bold font-mono ${balance.divididos > 0 ? 'text-cyan-700' : 'text-muted-foreground'}`}>{balance.divididos || 0}</div>
+                <div className={`text-[10px] font-medium ${balance.divididos > 0 ? 'text-cyan-600' : 'text-muted-foreground'}`}>Divididos</div>
+              </div>
             </div>
+
+            {/* Desglose de fallados (solo si hay) */}
+            {balance.fallados_total > 0 && (
+              <div className="bg-muted/30 rounded-md p-2 space-y-1">
+                <span className="text-xs font-semibold text-muted-foreground">Desglose fallados</span>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                  {balance.fallados_en_arreglo > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-violet-600">En arreglo{balance.arreglos_vencidos > 0 ? ` (${balance.arreglos_vencidos} venc.)` : ''}</span>
+                      <span className="font-mono font-semibold">{balance.fallados_en_arreglo}</span>
+                    </div>
+                  )}
+                  {balance.fallados_reparados > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-emerald-600">Reparados</span>
+                      <span className="font-mono font-semibold">{balance.fallados_reparados}</span>
+                    </div>
+                  )}
+                  {balance.liquidacion > 0 && (
+                    <div className="flex justify-between"><span>Liquidación</span><span className="font-mono font-semibold">{balance.liquidacion}</span></div>
+                  )}
+                  {balance.segunda > 0 && (
+                    <div className="flex justify-between"><span>Segunda</span><span className="font-mono font-semibold">{balance.segunda}</span></div>
+                  )}
+                  {balance.descarte > 0 && (
+                    <div className="flex justify-between"><span>Descarte</span><span className="font-mono font-semibold">{balance.descarte}</span></div>
+                  )}
+                  {balance.fallados_sin_asignar > 0 && (
+                    <div className="flex justify-between text-orange-600 font-medium">
+                      <span>Sin asignar</span><span className="font-mono font-semibold">{balance.fallados_sin_asignar}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Alertas */}
+            {balance.alertas?.length > 0 && (
+              <div className="space-y-1">
+                {balance.alertas.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-md bg-destructive/10 text-destructive text-xs">
+                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                    {a.mensaje}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Padre / Hijos */}
             {(balance.padre || balance.hijos?.length > 0) && (
@@ -526,6 +560,19 @@ export const TrazabilidadPanel = ({ registroId, servicios = [], personas = [] })
                 </div>
               </div>
             )}
+
+            {/* Verificación de suma */}
+            {(() => {
+              const suma = (balance.en_produccion || 0) + (balance.fallados_total || 0) - (balance.fallados_reparados || 0) + (balance.mermas || 0) + (balance.divididos || 0);
+              const cuadra = suma === balance.cantidad_inicial;
+              if (cuadra) return null;
+              return (
+                <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-destructive/10 text-destructive text-xs font-mono">
+                  <AlertTriangle className="h-3 w-3" />
+                  Descuadre: {suma} ≠ {balance.cantidad_inicial}
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
