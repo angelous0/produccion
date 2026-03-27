@@ -172,6 +172,9 @@ export const RegistroForm = () => {
   const [incidenciaDialogOpen, setIncidenciaDialogOpen] = useState(false);
   const [incidenciaForm, setIncidenciaForm] = useState({ motivo_id: '', comentario: '', paraliza: false });
   const [nuevoMotivoNombre, setNuevoMotivoNombre] = useState('');
+  const [gestionMotivos, setGestionMotivos] = useState(false);
+  const [editandoMotivo, setEditandoMotivo] = useState(null);
+  const [editMotivoNombre, setEditMotivoNombre] = useState('');
 
   // Salidas agrupadas: items expandidos
   const [salidasExpandidas, setSalidasExpandidas] = useState({});
@@ -324,6 +327,32 @@ export const RegistroForm = () => {
       toast.success(`Motivo "${res.data.nombre}" creado`);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al crear motivo');
+    }
+  };
+
+  const handleEditarMotivo = async (motivoId) => {
+    if (!editMotivoNombre.trim()) return;
+    try {
+      const res = await axios.put(`${API}/motivos-incidencia/${motivoId}`, { nombre: editMotivoNombre.trim() });
+      setMotivosIncidencia(prev => prev.map(m => m.id === motivoId ? res.data : m).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setEditandoMotivo(null);
+      setEditMotivoNombre('');
+      toast.success('Motivo actualizado');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al editar motivo');
+    }
+  };
+
+  const handleEliminarMotivo = async (motivoId) => {
+    try {
+      await axios.delete(`${API}/motivos-incidencia/${motivoId}`);
+      setMotivosIncidencia(prev => prev.filter(m => m.id !== motivoId));
+      if (incidenciaForm.motivo_id === motivoId) {
+        setIncidenciaForm(prev => ({ ...prev, motivo_id: '' }));
+      }
+      toast.success('Motivo eliminado');
+    } catch (error) {
+      toast.error('Error al eliminar motivo');
     }
   };
 
@@ -3028,6 +3057,52 @@ export const RegistroForm = () => {
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              {/* Gestionar motivos */}
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+                onClick={() => setGestionMotivos(!gestionMotivos)}
+                data-testid="toggle-gestionar-motivos"
+              >
+                {gestionMotivos ? 'Ocultar lista' : 'Gestionar motivos'}
+              </button>
+              {gestionMotivos && (
+                <div className="border rounded-lg max-h-[180px] overflow-y-auto divide-y text-sm">
+                  {motivosIncidencia.length === 0 && <p className="p-2 text-muted-foreground text-xs">Sin motivos</p>}
+                  {motivosIncidencia.map(m => (
+                    <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted/50">
+                      {editandoMotivo === m.id ? (
+                        <>
+                          <Input
+                            value={editMotivoNombre}
+                            onChange={(e) => setEditMotivoNombre(e.target.value)}
+                            className="h-7 text-sm flex-1"
+                            autoFocus
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleEditarMotivo(m.id); } if (e.key === 'Escape') setEditandoMotivo(null); }}
+                            data-testid={`input-edit-motivo-${m.id}`}
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleEditarMotivo(m.id)} data-testid={`btn-save-motivo-${m.id}`}>
+                            <Check className="h-3.5 w-3.5 text-green-600" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditandoMotivo(null)}>
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 truncate">{m.nombre}</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { setEditandoMotivo(m.id); setEditMotivoNombre(m.nombre); }} data-testid={`btn-edit-motivo-${m.id}`}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-destructive hover:text-destructive" onClick={() => handleEliminarMotivo(m.id)} data-testid={`btn-delete-motivo-${m.id}`}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Comentario</Label>

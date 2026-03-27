@@ -67,6 +67,24 @@ async def delete_motivo_incidencia(motivo_id: str):
         await conn.execute("UPDATE prod_motivos_incidencia SET activo = FALSE WHERE id = $1", motivo_id)
         return {"ok": True}
 
+@router.put("/motivos-incidencia/{motivo_id}")
+async def update_motivo_incidencia(motivo_id: str, input: MotivoCreate):
+    from server import get_pool
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT id FROM prod_motivos_incidencia WHERE nombre ILIKE $1 AND id != $2",
+            input.nombre.strip(), motivo_id
+        )
+        if exists:
+            raise HTTPException(status_code=400, detail="Ya existe un motivo con ese nombre")
+        await conn.execute(
+            "UPDATE prod_motivos_incidencia SET nombre = $1 WHERE id = $2",
+            input.nombre.strip(), motivo_id
+        )
+        row = await conn.fetchrow("SELECT * FROM prod_motivos_incidencia WHERE id = $1", motivo_id)
+        return row_to_dict(row)
+
 # ========== INCIDENCIAS (Unificadas con Paralizaciones) ==========
 
 @router.get("/incidencias/{registro_id}")

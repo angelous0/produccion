@@ -174,6 +174,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Corregido desbordamiento de pantalla al hacer scroll en RegistroForm
   - Fixes: min-h-0/min-w-0 en Layout flex containers, overflow-x-hidden en main, overflow:hidden en body/html/#root
   - pb-8 en wrapper del formulario para padding inferior adecuado
+- **Bugfix Error Crear Incidencia + CRUD Motivos** (2026-03-27):
+  - Corregido varchar(30) en columna tipo de prod_incidencia que impedía guardar UUIDs (36 chars)
+  - Nuevo endpoint PUT /api/motivos-incidencia/{id} para editar nombre de motivos
+  - UI: enlace "Gestionar motivos" despliega lista con edicion inline y eliminacion por motivo
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
