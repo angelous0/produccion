@@ -217,7 +217,7 @@ export const ModelosTallasTab = ({ modeloId }) => {
 
 
 // ==================== BOM TAB (mejorado) ====================
-export const ModelosBOMTab = ({ modeloId }) => {
+export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
   const [cabeceras, setCabeceras] = useState([]);
   const [activeBomId, setActiveBomId] = useState(null);
   const [bomDetalle, setBomDetalle] = useState(null);
@@ -479,11 +479,16 @@ export const ModelosBOMTab = ({ modeloId }) => {
     });
   };
 
-  // Filtrar inventario por tipo de componente
+  // Filtrar inventario por tipo de componente y línea de negocio del modelo
   const getFilteredInventario = (tipoComponente) => {
     const cat = TIPO_TO_CATEGORIA[tipoComponente];
-    if (!cat) return inventario;
-    return inventario.filter(i => i.categoria === cat);
+    let filtered = inventario;
+    if (cat) filtered = filtered.filter(i => i.categoria === cat);
+    // Filtrar por línea: misma línea del modelo + globales (null)
+    if (lineaNegocioId) {
+      filtered = filtered.filter(i => !i.linea_negocio_id || i.linea_negocio_id === lineaNegocioId);
+    }
+    return filtered;
   };
 
   // Resumen

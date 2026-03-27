@@ -507,7 +507,7 @@ export const Modelos = () => {
               </TabsContent>
 
               <TabsContent value="bom" className="space-y-4 mt-4">
-                {editingItem ? <ModelosBOMTab modeloId={editingItem.id} /> : <p className="text-sm text-muted-foreground">Primero crea el modelo para poder definir su BOM.</p>}
+                {editingItem ? <ModelosBOMTab modeloId={editingItem.id} lineaNegocioId={editingItem.linea_negocio_id} /> : <p className="text-sm text-muted-foreground">Primero crea el modelo para poder definir su BOM.</p>}
               </TabsContent>
 
               <TabsContent value="produccion" className="space-y-4 mt-4">
