@@ -43,6 +43,8 @@ import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import MaterialesTab from '../components/MaterialesTab';
+import { ConversacionPanel } from '../components/ConversacionPanel';
+import { useAuth } from '../context/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -50,6 +52,7 @@ export const RegistroForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = Boolean(id);
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -2164,6 +2167,9 @@ export const RegistroForm = () => {
 
 
             {/* Trazabilidad Unificada (solo en modo edición) */}
+            {isEditing && (
+              <ConversacionPanel registroId={id} usuario={user?.nombre_completo || user?.username || 'Usuario'} />
+            )}
             {isEditing && (
               <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
                 <TrazabilidadPanel

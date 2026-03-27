@@ -138,6 +138,9 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - GET /api/movimientos-produccion (paginado: limit, offset, search, servicio_id, persona_id, fecha_desde, fecha_hasta; o all=true)
 - GET /api/reportes-produccion/dashboard
 - GET /api/reportes-produccion/matriz
+- GET /api/registros/{id}/conversacion (mensajes del hilo)
+- POST /api/registros/{id}/conversacion (crear mensaje o respuesta)
+- DELETE /api/conversacion/{id} (eliminar mensaje y sus respuestas)
 - GET /api/fallados / POST / PUT / DELETE
 - GET /api/arreglos / POST / PUT / DELETE
 - GET /api/registros/{id}/resumen-cantidades
@@ -178,6 +181,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Corregido varchar(30) en columna tipo de prod_incidencia que impedía guardar UUIDs (36 chars)
   - Nuevo endpoint PUT /api/motivos-incidencia/{id} para editar nombre de motivos
   - UI: enlace "Gestionar motivos" despliega lista con edicion inline y eliminacion por motivo
+- **Hilo de Conversacion por Registro** (2026-03-27):
+  - Nueva tabla prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, created_at)
+  - Endpoints: GET/POST /api/registros/{id}/conversacion, DELETE /api/conversacion/{id}
+  - Componente ConversacionPanel.jsx: mensajes cronologicos con respuestas indentadas
+  - Input de nuevo mensaje con Enter para enviar, boton responder inline por mensaje
+  - Seccion colapsable entre Incidencias y Trazabilidad en RegistroForm
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos

@@ -174,6 +174,18 @@ async def ensure_bom_tables():
         await conn.execute("ALTER TABLE prod_incidencia ALTER COLUMN tipo TYPE VARCHAR")
         await conn.execute("ALTER TABLE prod_incidencia ALTER COLUMN usuario TYPE VARCHAR")
 
+        # Tabla de conversacion/hilo por registro
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_conversacion (
+                id VARCHAR PRIMARY KEY,
+                registro_id VARCHAR NOT NULL,
+                mensaje_padre_id VARCHAR,
+                autor VARCHAR NOT NULL,
+                mensaje TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
     return pool
@@ -7144,6 +7156,7 @@ from routes.reportes import router as reportes_router
 from routes.integracion_finanzas import router as integracion_finanzas_router
 from routes.control_produccion import router as control_produccion_router
 from routes.reportes_produccion import router as reportes_produccion_router
+from routes.conversacion import router as conversacion_router
 
 
 # ==================== DIVISIÓN DE LOTE ====================
@@ -7443,3 +7456,4 @@ app.include_router(reportes_produccion_router)
 # Trazabilidad unificada router
 from routes.trazabilidad import router as trazabilidad_router, init_trazabilidad_tables
 app.include_router(trazabilidad_router)
+app.include_router(conversacion_router)
