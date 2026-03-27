@@ -630,11 +630,11 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
                       <TableHead className="min-w-[280px]">Item</TableHead>
                       <TableHead className="min-w-[130px]">Talla</TableHead>
                       <TableHead className="w-[120px]">Etapa</TableHead>
-                      <TableHead className="w-[110px] text-right">Cant. Base</TableHead>
+                      <TableHead className="w-[130px] text-right">Cant. Base</TableHead>
                       <TableHead className="w-[90px] text-right">Merma %</TableHead>
                       <TableHead className="w-[110px] text-right">Cant. Total</TableHead>
-                      <TableHead className="w-[110px] text-right">Costo Unit.</TableHead>
-                      <TableHead className="w-[70px]">Opc.</TableHead>
+                      <TableHead className="w-[120px] text-right">Costo Unitario</TableHead>
+                      <TableHead className="w-[80px]">Opcional</TableHead>
                       <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -716,7 +716,7 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
                         </TableCell>
                         <TableCell>
                           <NumericInput min="0" step="0.0001"
-                            className="text-right font-mono h-8 text-sm"
+                            className="text-right font-mono h-8 text-sm w-[120px]"
                             value={l.cantidad_base}
                             onChange={(e) => updateLinea(l.id, { cantidad_base: e.target.value })}
                             data-testid={`bom-cant-base-${l.id}`} />
