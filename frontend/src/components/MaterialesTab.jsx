@@ -132,18 +132,26 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
       });
     if (!lineas.length) return toast.error('Ingresa cantidades para dar salida');
     setProcesando(true);
+    let ok = 0, errores = [];
     try {
       for (const l of lineas) {
-        await axios.post(`${API}/inventario-salidas`, {
-          item_id: l.item_id,
-          cantidad: l.cantidad,
-          registro_id: registroId,
-          talla_id: l.talla_id,
-          fecha: new Date().toISOString(),
-          observaciones: 'Salida desde Materiales OP',
-        });
+        try {
+          await axios.post(`${API}/inventario-salidas`, {
+            item_id: l.item_id,
+            cantidad: l.cantidad,
+            registro_id: registroId,
+            talla_id: l.talla_id,
+            fecha: new Date().toISOString(),
+            observaciones: 'Salida desde Materiales OP',
+          });
+          ok++;
+        } catch (err) {
+          const msg = err.response?.data?.detail || 'Error desconocido';
+          errores.push(msg);
+        }
       }
-      toast.success(`${lineas.length} salida(s) registrada(s)`);
+      if (ok > 0) toast.success(`${ok} salida(s) registrada(s)`);
+      if (errores.length > 0) toast.error(`${errores.length} error(es): ${errores[0]}`);
       setCantidades({});
       fetchData();
     } catch (err) {
@@ -196,6 +204,21 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
       }
     });
     setCantidades(nuevas);
+  };
+
+  const llenarReservado = () => {
+    if (!data?.lineas) return;
+    const nuevas = {};
+    data.lineas.forEach(l => {
+      const reservado = parseFloat(l.cantidad_reservada) || 0;
+      const consumido = parseFloat(l.cantidad_consumida) || 0;
+      const porConsumir = Math.max(0, reservado - consumido);
+      if (porConsumir > 0) {
+        nuevas[getLineaKey(l)] = porConsumir;
+      }
+    });
+    setCantidades(nuevas);
+    setAccion('salida');
   };
 
   // Cargar inventario para modo extra
@@ -327,6 +350,13 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
                 </div>
               </div>
               <div className="flex gap-2">
+                {resumen.total_reservado > resumen.total_consumido && (
+                  <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-green-700 hover:text-green-800 hover:bg-green-50"
+                    onClick={llenarReservado} data-testid="btn-consumir-reservado"
+                  >
+                    <ArrowDownCircle className="h-3 w-3 mr-1" />Consumir reservado
+                  </Button>
+                )}
                 <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={llenarPendientes}
                   data-testid="btn-llenar-pendientes"
                 >

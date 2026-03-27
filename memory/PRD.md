@@ -109,6 +109,15 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Si hay múltiples BOMs: muestra dropdown selector, auto-selecciona el APROBADO
   - Backend: endpoint generar-requerimiento acepta ?bom_id= opcional; auto-selecciona APROBADO > BORRADOR si no se especifica
   - Toast de éxito incluye nombre del BOM usado
+- **Bugfix Dar Salida desde Materiales** (2026-03-27):
+  - Corregido empresa_id inválido (items con empresa_id=1 que no existía en cont_empresa)
+  - empresa_id ahora se toma del registro, no del item
+  - Items con control_por_rollos ahora auto-seleccionan rollo FIFO si no se especifica rollo_id
+  - Manejo de errores parciales: si una línea falla, las demás se procesan y se reporta el resultado
+- **Feature Consumir Reservado** (2026-03-27):
+  - Nuevo botón "Consumir reservado" en MaterialesTab que llena automáticamente las cantidades con lo reservado menos lo ya consumido
+  - Solo aparece cuando hay material reservado pendiente de consumir
+  - Cambia automáticamente al modo "Dar Salida"
 
 ## Key API Endpoints
 - GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)

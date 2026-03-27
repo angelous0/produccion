@@ -5050,9 +5050,20 @@ async def create_salida(input: SalidaInventarioCreate):
         
         # Validar regla de rollo según control_por_rollos
         if control_por_rollos:
-            # TELA: rollo_id OBLIGATORIO
             if not input.rollo_id:
-                raise HTTPException(status_code=400, detail="Este item requiere seleccionar un rollo (control por rollos activo)")
+                # Auto-seleccionar rollo FIFO (el más antiguo con metraje disponible)
+                auto_rollo = await conn.fetchrow("""
+                    SELECT r.id, r.metraje_disponible FROM prod_inventario_rollos r
+                    JOIN prod_inventario_ingresos ing ON r.ingreso_id = ing.id
+                    WHERE r.item_id = $1 AND r.metraje_disponible > 0
+                    ORDER BY ing.fecha ASC
+                    LIMIT 1
+                """, input.item_id)
+                if not auto_rollo:
+                    raise HTTPException(status_code=400, detail="No hay rollos disponibles para este item")
+                if float(auto_rollo['metraje_disponible']) < input.cantidad:
+                    raise HTTPException(status_code=400, detail=f"Metraje insuficiente en rollo disponible. Disponible: {auto_rollo['metraje_disponible']}")
+                input.rollo_id = auto_rollo['id']
             # Validar que el rollo pertenece al item
             rollo = await conn.fetchrow("SELECT * FROM prod_inventario_rollos WHERE id = $1", input.rollo_id)
             if not rollo:
@@ -5137,8 +5148,14 @@ async def create_salida(input: SalidaInventarioCreate):
         salida.costo_total = costo_total
         salida.detalle_fifo = detalle_fifo
         
-        # empresa_id para FK de salidas (cont_empresa)
-        empresa_id = item.get('empresa_id') or 7
+        # empresa_id: preferir del registro, luego del item, fallback 8
+        empresa_id = 8
+        if input.registro_id:
+            reg = await conn.fetchrow("SELECT empresa_id FROM prod_registros WHERE id = $1", input.registro_id)
+            if reg and reg['empresa_id']:
+                empresa_id = reg['empresa_id']
+        elif item.get('empresa_id'):
+            empresa_id = item['empresa_id']
         
         # Insertar salida con talla_id y empresa_id
         await conn.execute(
@@ -5266,8 +5283,14 @@ async def create_salida_extra(input: SalidaExtraCreate):
         fecha = datetime.now(timezone.utc)
         observaciones = f"[EXTRA] {input.motivo}. {input.observaciones}".strip()
         
-        # empresa_id para FK de salidas (cont_empresa)
-        empresa_id = item.get('empresa_id') or 7
+        # empresa_id: preferir del registro, luego del item, fallback 8
+        empresa_id = 8
+        if input.registro_id:
+            reg = await conn.fetchrow("SELECT empresa_id FROM prod_registros WHERE id = $1", input.registro_id)
+            if reg and reg['empresa_id']:
+                empresa_id = reg['empresa_id']
+        elif item.get('empresa_id'):
+            empresa_id = item['empresa_id']
         
         await conn.execute(
             """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha, empresa_id)
@@ -7257,6 +7280,11 @@ async def startup():
         # Columnas para división de lote
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS dividido_desde_registro_id VARCHAR NULL")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
+        # Fix: corregir items con empresa_id inválido (1 no es válido)
+        await conn.execute("""
+            UPDATE prod_inventario SET empresa_id = 8
+            WHERE empresa_id = 1
+        """)
     # Tablas de trazabilidad unificada (fallados, arreglos)
     await init_trazabilidad_tables()
 
