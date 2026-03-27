@@ -3085,7 +3085,7 @@ export const RegistroForm = () => {
                       data-testid={`btn-cerrar-mov-${i}`}
                       onClick={() => {
                         setForzarEstadoDialog(null);
-                        const mov = movimientos.find(m => m.id === movId);
+                        const mov = movimientosProduccion.find(m => m.id === movId);
                         if (mov) handleOpenMovimientoDialog(mov);
                       }}
                     >
