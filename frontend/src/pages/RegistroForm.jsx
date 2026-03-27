@@ -3060,29 +3060,59 @@ export const RegistroForm = () => {
       </Dialog>
 
 
-      {/* Dialog: Forzar cambio de estado */}
+      {/* Dialog: Cambio de Estado Bloqueado */}
       <Dialog open={!!forzarEstadoDialog} onOpenChange={() => setForzarEstadoDialog(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Cambio de Estado Bloqueado</DialogTitle>
             <DialogDescription>
-              No se puede cambiar al estado "{forzarEstadoDialog?.nuevo_estado}" por las siguientes razones:
+              No se puede cambiar a "{forzarEstadoDialog?.nuevo_estado}" por las siguientes razones:
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 my-2">
-            {(forzarEstadoDialog?.bloqueos || []).map((b, i) => (
-              <p key={i} className="text-sm text-red-600 flex items-start gap-2">
-                <span className="mt-0.5 shrink-0">&#x26A0;</span>
-                {b}
-              </p>
-            ))}
+          <div className="space-y-3 my-2">
+            {(forzarEstadoDialog?.bloqueos || []).map((b, i) => {
+              const msg = typeof b === 'string' ? b : b.mensaje;
+              const movId = typeof b === 'object' ? b.movimiento_id : null;
+              const srvId = typeof b === 'object' ? b.servicio_id : null;
+              return (
+                <div key={i} className="flex items-center justify-between gap-2 p-2 rounded border bg-muted/30">
+                  <p className="text-sm text-foreground flex items-start gap-2">
+                    <span className="mt-0.5 shrink-0 text-amber-500">&#x26A0;</span>
+                    {msg}
+                  </p>
+                  {movId && (
+                    <Button size="sm" variant="default" className="shrink-0 h-7 text-xs"
+                      data-testid={`btn-cerrar-mov-${i}`}
+                      onClick={() => {
+                        setForzarEstadoDialog(null);
+                        const mov = movimientos.find(m => m.id === movId);
+                        if (mov) handleOpenMovimientoDialog(mov);
+                      }}
+                    >
+                      Cerrar movimiento
+                    </Button>
+                  )}
+                  {!movId && srvId && (
+                    <Button size="sm" variant="default" className="shrink-0 h-7 text-xs"
+                      data-testid={`btn-crear-mov-${i}`}
+                      onClick={() => {
+                        setForzarEstadoDialog(null);
+                        handleOpenMovimientoDialog();
+                      }}
+                    >
+                      Crear movimiento
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setForzarEstadoDialog(null)} data-testid="btn-cancelar-forzar-estado">
+          <DialogFooter className="flex items-center justify-between">
+            <Button variant="outline" size="sm" onClick={() => setForzarEstadoDialog(null)} data-testid="btn-cancelar-forzar-estado">
               Cancelar
             </Button>
-            <Button
-              variant="destructive"
+            <button
+              className="text-xs text-muted-foreground underline hover:text-foreground transition-colors cursor-pointer"
               data-testid="btn-forzar-cambio-estado"
               onClick={async () => {
                 const nuevoEstado = forzarEstadoDialog.nuevo_estado;
@@ -3096,8 +3126,8 @@ export const RegistroForm = () => {
                 }
               }}
             >
-              Forzar Cambio
-            </Button>
+              Forzar cambio de estado
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

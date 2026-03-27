@@ -3341,7 +3341,7 @@ async def validar_cambio_estado(registro_id: str, body: dict):
         
         # Bloqueo 1: estado fuera de ruta
         if nuevo_estado not in nombres_ruta:
-            bloqueos.append(f"El estado '{nuevo_estado}' no pertenece a la ruta de producción asignada.")
+            bloqueos.append({"mensaje": f"El estado '{nuevo_estado}' no pertenece a la ruta de producción asignada.", "servicio_id": None, "movimiento_id": None, "etapa": None})
         
         # Bloqueo 2: saltar etapa obligatoria previa sin movimiento completado
         nuevo_idx = None
@@ -3351,7 +3351,7 @@ async def validar_cambio_estado(registro_id: str, body: dict):
                 break
         
         movimientos = await conn.fetch(
-            "SELECT servicio_id, fecha_inicio, fecha_fin FROM prod_movimientos_produccion WHERE registro_id = $1",
+            "SELECT id, servicio_id, fecha_inicio, fecha_fin FROM prod_movimientos_produccion WHERE registro_id = $1",
             registro_id
         )
         movs_por_servicio = {}
@@ -3386,14 +3386,16 @@ async def validar_cambio_estado(registro_id: str, body: dict):
                 tiene_mov_padre = sid in movs_padre
                 
                 if es_obligatoria and not tiene_mov_propio and not tiene_mov_padre:
-                    bloqueos.append(f"La etapa obligatoria '{et['nombre']}' no tiene movimiento registrado.")
+                    bloqueos.append({"mensaje": f"La etapa obligatoria '{et['nombre']}' no tiene movimiento registrado.", "servicio_id": sid, "movimiento_id": None, "etapa": et['nombre']})
                 elif tiene_mov_propio:
                     alguno_abierto = any(m.get('fecha_inicio') and not m.get('fecha_fin') for m in movs_por_servicio[sid])
                     if alguno_abierto:
+                        mov_abierto = next((m for m in movs_por_servicio[sid] if m.get('fecha_inicio') and not m.get('fecha_fin')), None)
+                        mov_id = mov_abierto.get('id') if mov_abierto else None
                         if es_obligatoria:
-                            bloqueos.append(f"La etapa obligatoria '{et['nombre']}' tiene movimiento iniciado sin cerrar.")
+                            bloqueos.append({"mensaje": f"La etapa obligatoria '{et['nombre']}' tiene movimiento iniciado sin cerrar.", "servicio_id": sid, "movimiento_id": mov_id, "etapa": et['nombre']})
                         else:
-                            bloqueos.append(f"La etapa '{et['nombre']}' tiene movimiento activo sin cerrar. Ciérralo antes de avanzar.")
+                            bloqueos.append({"mensaje": f"La etapa '{et['nombre']}' tiene movimiento activo sin cerrar.", "servicio_id": sid, "movimiento_id": mov_id, "etapa": et['nombre']})
         
         # Sugerencia: si el nuevo estado tiene servicio vinculado y no hay movimiento
         sugerencia_movimiento = None
