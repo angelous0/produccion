@@ -664,7 +664,7 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs text-muted-foreground">{l.disponible?.toFixed(1) || '-'}</TableCell>
                         <TableCell className="text-center">
-                          {!completo && !tieneRollos && (
+                          {!completo && (!tieneRollos || accion === 'reservar') && (
                             <NumericInput
                               className="h-7 w-[100px] text-center font-mono text-sm"
                               min={0} step={1}
@@ -674,7 +674,7 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
                               data-testid={`input-cantidad-${key}`}
                             />
                           )}
-                          {!completo && tieneRollos && (
+                          {!completo && tieneRollos && accion === 'salida' && (
                             <Button type="button" variant="outline" size="sm"
                               className={`h-7 text-xs font-mono ${sumaRollos > 0 ? 'border-blue-400 text-blue-700 bg-blue-50' : ''}`}
                               onClick={() => { setRollosModal({ open: true, linea: l }); setRollosSearch(''); setRollosFiltroAncho('todos'); setRollosFiltroTono('todos'); }}
