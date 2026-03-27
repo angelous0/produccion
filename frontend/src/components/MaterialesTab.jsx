@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -14,16 +14,201 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '../components/ui/dialog';
+import { Checkbox } from '../components/ui/checkbox';
 import { SearchableSelect } from './SearchableSelect';
 import {
   Package, PackageCheck, PackageMinus, PackageX, RefreshCw,
   ChevronDown, ChevronUp, Loader2, Plus, Trash2, BookOpen,
-  ArrowDownCircle, ArrowUpCircle, AlertTriangle,
+  ArrowDownCircle, ArrowUpCircle, AlertTriangle, Search, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from './ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+/** Modal para seleccionar rollos y cantidades */
+const RollosModal = ({ open, linea, rollosCantidades, setRollosCantidades, onClose, search, setSearch, filtroAncho, setFiltroAncho, filtroTono, setFiltroTono }) => {
+  const rollos = linea?.rollos_disponibles || [];
+  const pendiente = parseFloat(linea?.pendiente) || 0;
+
+  // Valores únicos para filtros
+  const anchosUnicos = useMemo(() => [...new Set(rollos.map(r => r.ancho).filter(Boolean))].sort((a, b) => a - b), [rollos]);
+  const tonosUnicos = useMemo(() => [...new Set(rollos.map(r => r.tono).filter(Boolean))].sort(), [rollos]);
+
+  // Filtrar rollos
+  const rollosFiltrados = useMemo(() => {
+    return rollos.filter(r => {
+      if (filtroAncho !== 'todos' && String(r.ancho) !== filtroAncho) return false;
+      if (filtroTono !== 'todos' && r.tono !== filtroTono) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const matchNum = String(r.numero_rollo || '').toLowerCase().includes(q);
+        const matchTono = String(r.tono || '').toLowerCase().includes(q);
+        const matchAncho = String(r.ancho || '').includes(q);
+        if (!matchNum && !matchTono && !matchAncho) return false;
+      }
+      return true;
+    });
+  }, [rollos, filtroAncho, filtroTono, search]);
+
+  const sumaTotal = rollos.reduce((s, r) => s + (parseFloat(rollosCantidades[r.id]) || 0), 0);
+
+  const seleccionarTodo = (rollo) => {
+    setRollosCantidades(prev => ({ ...prev, [rollo.id]: rollo.metraje_disponible }));
+  };
+  const limpiarRollo = (rollo) => {
+    setRollosCantidades(prev => ({ ...prev, [rollo.id]: '' }));
+  };
+  const seleccionarTodosFiltrados = () => {
+    const nuevos = { ...rollosCantidades };
+    let restante = pendiente - sumaTotal + rollosFiltrados.reduce((s, r) => s + (parseFloat(rollosCantidades[r.id]) || 0), 0);
+    rollosFiltrados.forEach(r => {
+      if (restante <= 0) { nuevos[r.id] = ''; return; }
+      const usar = Math.min(restante, r.metraje_disponible);
+      nuevos[r.id] = usar;
+      restante -= usar;
+    });
+    setRollosCantidades(nuevos);
+  };
+  const limpiarTodos = () => {
+    const nuevos = { ...rollosCantidades };
+    rollos.forEach(r => { nuevos[r.id] = ''; });
+    setRollosCantidades(nuevos);
+  };
+
+  if (!linea) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-[700px] max-h-[85vh] flex flex-col" data-testid="modal-rollos">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-blue-600" />
+            Seleccionar Rollos — {linea.item_nombre}
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground">
+            Pendiente: <span className="font-semibold text-yellow-600">{pendiente.toFixed(1)}</span> {linea.item_unidad}
+            {sumaTotal > 0 && <> · Seleccionado: <span className="font-semibold text-blue-600">{sumaTotal.toFixed(1)}</span></>}
+          </p>
+        </DialogHeader>
+
+        {/* Filtros */}
+        <div className="flex gap-2 items-end flex-wrap">
+          <div className="flex-1 min-w-[150px]">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input className="h-8 pl-8 text-xs" placeholder="Buscar rollo, tono, ancho..."
+                value={search} onChange={e => setSearch(e.target.value)} data-testid="input-buscar-rollo" />
+            </div>
+          </div>
+          {anchosUnicos.length > 1 && (
+            <div>
+              <Select value={filtroAncho} onValueChange={setFiltroAncho}>
+                <SelectTrigger className="h-8 w-[130px] text-xs" data-testid="filtro-ancho">
+                  <SelectValue placeholder="Ancho" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos anchos</SelectItem>
+                  {anchosUnicos.map(a => <SelectItem key={a} value={String(a)}>{a} cm</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {tonosUnicos.length > 1 && (
+            <div>
+              <Select value={filtroTono} onValueChange={setFiltroTono}>
+                <SelectTrigger className="h-8 w-[130px] text-xs" data-testid="filtro-tono">
+                  <SelectValue placeholder="Tono" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos tonos</SelectItem>
+                  {tonosUnicos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {/* Tabla de rollos */}
+        <div className="flex-1 overflow-y-auto border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[60px]">#</TableHead>
+                <TableHead>Ancho</TableHead>
+                <TableHead>Tono</TableHead>
+                <TableHead className="text-right">Disponible</TableHead>
+                <TableHead className="w-[130px] text-center">Cantidad</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rollosFiltrados.map(r => {
+                const cant = parseFloat(rollosCantidades[r.id]) || 0;
+                return (
+                  <TableRow key={r.id} className={cant > 0 ? 'bg-blue-50/50' : ''} data-testid={`rollo-row-${r.id}`}>
+                    <TableCell className="font-mono text-xs">{r.numero_rollo || '-'}</TableCell>
+                    <TableCell className="text-sm">{r.ancho ? `${r.ancho} cm` : '-'}</TableCell>
+                    <TableCell className="text-sm">{r.tono || '-'}</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-semibold">{r.metraje_disponible.toFixed(1)}</TableCell>
+                    <TableCell className="text-center">
+                      <NumericInput
+                        className="h-7 w-[110px] text-center font-mono text-sm"
+                        min={0} max={r.metraje_disponible} step={0.1}
+                        value={rollosCantidades[r.id] || ''}
+                        onChange={(e) => setRollosCantidades(prev => ({ ...prev, [r.id]: e.target.value }))}
+                        placeholder="0"
+                        data-testid={`input-rollo-${r.id}`}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {cant > 0 ? (
+                        <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-1" onClick={() => limpiarRollo(r)}>
+                          Quitar
+                        </Button>
+                      ) : (
+                        <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-1 text-blue-600" onClick={() => seleccionarTodo(r)}>
+                          Todo
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {rollosFiltrados.length === 0 && (
+                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">No hay rollos que coincidan</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Footer */}
+        <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" className="text-xs" onClick={seleccionarTodosFiltrados}>
+              Llenar pendiente FIFO
+            </Button>
+            <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={limpiarTodos}>
+              Limpiar todo
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-mono">
+              Total: <span className={`font-bold ${sumaTotal > 0 ? 'text-blue-700' : 'text-muted-foreground'}`}>{sumaTotal.toFixed(1)}</span>
+              <span className="text-muted-foreground"> / {pendiente.toFixed(1)}</span>
+            </span>
+            <Button type="button" size="sm" onClick={onClose} data-testid="btn-confirmar-rollos">
+              Confirmar
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
   const [data, setData] = useState(null);
@@ -45,8 +230,11 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
   const [histReservasOpen, setHistReservasOpen] = useState(false);
   const [histSalidasOpen, setHistSalidasOpen] = useState(false);
 
-  // Rollos expandidos por item
-  const [expandedRollos, setExpandedRollos] = useState({});
+  // Modal de rollos
+  const [rollosModal, setRollosModal] = useState({ open: false, linea: null });
+  const [rollosSearch, setRollosSearch] = useState('');
+  const [rollosFiltroAncho, setRollosFiltroAncho] = useState('todos');
+  const [rollosFiltroTono, setRollosFiltroTono] = useState('todos');
   // Cantidades por rollo: { "rollo_id": cantidad }
   const [rollosCantidades, setRollosCantidades] = useState({});
 
@@ -236,7 +424,6 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
       const pendiente = parseFloat(l.pendiente) || 0;
       if (pendiente > 0) {
         if (l.control_por_rollos && l.rollos_disponibles?.length) {
-          // Distribuir entre rollos FIFO
           let restante = pendiente;
           l.rollos_disponibles.forEach(r => {
             if (restante <= 0) return;
@@ -244,8 +431,6 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
             nuevosRollos[r.id] = usar;
             restante -= usar;
           });
-          // Expandir automáticamente para que vea la distribución
-          setExpandedRollos(prev => ({ ...prev, [getLineaKey(l)]: true }));
         } else {
           nuevas[getLineaKey(l)] = pendiente;
         }
@@ -272,7 +457,6 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
             nuevosRollos[r.id] = usar;
             restante -= usar;
           });
-          setExpandedRollos(prev => ({ ...prev, [getLineaKey(l)]: true }));
         } else {
           nuevas[getLineaKey(l)] = porConsumir;
         }
@@ -451,93 +635,57 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
                     const pendiente = parseFloat(l.pendiente) || 0;
                     const completo = pendiente <= 0;
                     const tieneRollos = l.control_por_rollos && l.rollos_disponibles?.length > 0;
-                    const expanded = expandedRollos[key];
-                    // Calcular suma de rollos para este item
+                    // Calcular suma de rollos seleccionados para este item
                     const sumaRollos = tieneRollos
                       ? l.rollos_disponibles.reduce((s, r) => s + (parseFloat(rollosCantidades[r.id]) || 0), 0)
                       : 0;
+                    const rollosUsados = tieneRollos
+                      ? l.rollos_disponibles.filter(r => parseFloat(rollosCantidades[r.id]) > 0).length
+                      : 0;
                     return (
-                      <React.Fragment key={key}>
-                        <TableRow className={completo ? 'opacity-50' : ''} data-testid={`material-row-${key}`}>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              {tieneRollos && !completo && (
-                                <button type="button" onClick={() => setExpandedRollos(prev => ({ ...prev, [key]: !prev[key] }))}
-                                  className="p-0.5 rounded hover:bg-muted" data-testid={`btn-expand-rollos-${key}`}
-                                >
-                                  {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                                </button>
-                              )}
-                              <div>
-                                <span className="text-sm font-medium">{l.item_nombre}</span>
-                                <span className="block text-xs text-muted-foreground font-mono">
-                                  {l.item_codigo} · {l.item_unidad}
-                                  {tieneRollos && <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1">Rollos: {l.rollos_disponibles.length}</Badge>}
-                                </span>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {l.talla_nombre ? <Badge variant="outline" className="text-xs">{l.talla_nombre}</Badge> : <span className="text-xs text-muted-foreground">General</span>}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm">{parseFloat(l.cantidad_requerida).toFixed(1)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm text-blue-600">{parseFloat(l.cantidad_reservada).toFixed(1)}</TableCell>
-                          <TableCell className="text-right font-mono text-sm text-green-600">{parseFloat(l.cantidad_consumida).toFixed(1)}</TableCell>
-                          <TableCell className={`text-right font-mono text-sm font-semibold ${completo ? 'text-green-600' : 'text-yellow-600'}`}>
-                            {completo ? <PackageCheck className="h-4 w-4 inline text-green-600" /> : pendiente.toFixed(1)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">{l.disponible?.toFixed(1) || '-'}</TableCell>
-                          <TableCell className="text-center">
-                            {!completo && !tieneRollos && (
-                              <NumericInput
-                                className="h-7 w-[100px] text-center font-mono text-sm"
-                                min={0}
-                                step={1}
-                                value={cantidades[key] || ''}
-                                onChange={(e) => setCantidad(key, e.target.value)}
-                                placeholder="0"
-                                data-testid={`input-cantidad-${key}`}
-                              />
-                            )}
-                            {!completo && tieneRollos && (
-                              <span className="font-mono text-sm font-semibold text-blue-700 cursor-pointer"
-                                onClick={() => setExpandedRollos(prev => ({ ...prev, [key]: !prev[key] }))}
-                              >
-                                {sumaRollos > 0 ? sumaRollos.toFixed(1) : <span className="text-muted-foreground text-xs">Seleccionar rollos ▾</span>}
-                              </span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                        {/* Sub-filas de rollos */}
-                        {tieneRollos && expanded && !completo && l.rollos_disponibles.map(r => (
-                          <TableRow key={r.id} className="bg-blue-50/50 hover:bg-blue-50" data-testid={`rollo-row-${r.id}`}>
-                            <TableCell colSpan={2} className="pl-10">
-                              <div className="text-xs">
-                                <span className="font-mono text-muted-foreground">Rollo #{r.numero_rollo || '?'}</span>
-                                {r.tono && <span className="ml-2 text-muted-foreground">· Tono: {r.tono}</span>}
-                                {r.ancho && <span className="ml-2 text-muted-foreground">· {r.ancho}cm</span>}
-                              </div>
-                            </TableCell>
-                            <TableCell colSpan={3}></TableCell>
-                            <TableCell className="text-right">
-                              <span className="font-mono text-xs text-muted-foreground">Disp:</span>
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-xs font-semibold">{r.metraje_disponible.toFixed(1)}</TableCell>
-                            <TableCell className="text-center">
-                              <NumericInput
-                                className="h-7 w-[100px] text-center font-mono text-sm"
-                                min={0}
-                                max={r.metraje_disponible}
-                                step={0.1}
-                                value={rollosCantidades[r.id] || ''}
-                                onChange={(e) => setRollosCantidades(prev => ({ ...prev, [r.id]: e.target.value }))}
-                                placeholder="0"
-                                data-testid={`input-rollo-${r.id}`}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </React.Fragment>
+                      <TableRow key={key} className={completo ? 'opacity-50' : ''} data-testid={`material-row-${key}`}>
+                        <TableCell>
+                          <div>
+                            <span className="text-sm font-medium">{l.item_nombre}</span>
+                            <span className="block text-xs text-muted-foreground font-mono">
+                              {l.item_codigo} · {l.item_unidad}
+                              {tieneRollos && <Badge variant="outline" className="ml-1 text-[10px] py-0 px-1">Rollos: {l.rollos_disponibles.length}</Badge>}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {l.talla_nombre ? <Badge variant="outline" className="text-xs">{l.talla_nombre}</Badge> : <span className="text-xs text-muted-foreground">General</span>}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{parseFloat(l.cantidad_requerida).toFixed(1)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-blue-600">{parseFloat(l.cantidad_reservada).toFixed(1)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm text-green-600">{parseFloat(l.cantidad_consumida).toFixed(1)}</TableCell>
+                        <TableCell className={`text-right font-mono text-sm font-semibold ${completo ? 'text-green-600' : 'text-yellow-600'}`}>
+                          {completo ? <PackageCheck className="h-4 w-4 inline text-green-600" /> : pendiente.toFixed(1)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs text-muted-foreground">{l.disponible?.toFixed(1) || '-'}</TableCell>
+                        <TableCell className="text-center">
+                          {!completo && !tieneRollos && (
+                            <NumericInput
+                              className="h-7 w-[100px] text-center font-mono text-sm"
+                              min={0} step={1}
+                              value={cantidades[key] || ''}
+                              onChange={(e) => setCantidad(key, e.target.value)}
+                              placeholder="0"
+                              data-testid={`input-cantidad-${key}`}
+                            />
+                          )}
+                          {!completo && tieneRollos && (
+                            <Button type="button" variant="outline" size="sm"
+                              className={`h-7 text-xs font-mono ${sumaRollos > 0 ? 'border-blue-400 text-blue-700 bg-blue-50' : ''}`}
+                              onClick={() => { setRollosModal({ open: true, linea: l }); setRollosSearch(''); setRollosFiltroAncho('todos'); setRollosFiltroTono('todos'); }}
+                              data-testid={`btn-seleccionar-rollos-${key}`}
+                            >
+                              <Layers className="h-3 w-3 mr-1" />
+                              {sumaRollos > 0 ? `${sumaRollos.toFixed(1)} (${rollosUsados} rollos)` : 'Seleccionar rollos'}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
                 </TableBody>
@@ -701,6 +849,21 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      {/* Modal Selector de Rollos */}
+      <RollosModal
+        open={rollosModal.open}
+        linea={rollosModal.linea}
+        rollosCantidades={rollosCantidades}
+        setRollosCantidades={setRollosCantidades}
+        onClose={() => setRollosModal({ open: false, linea: null })}
+        search={rollosSearch}
+        setSearch={setRollosSearch}
+        filtroAncho={rollosFiltroAncho}
+        setFiltroAncho={setRollosFiltroAncho}
+        filtroTono={rollosFiltroTono}
+        setFiltroTono={setRollosFiltroTono}
+      />
     </div>
   );
 };

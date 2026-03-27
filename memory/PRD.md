@@ -119,9 +119,11 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Solo aparece cuando hay material reservado pendiente de consumir
   - Cambia automáticamente al modo "Dar Salida"
 - **Selector de Rollos en Materiales** (2026-03-27):
-  - Items con control_por_rollos muestran sub-filas expandibles con rollos disponibles
-  - Cada rollo muestra número, ancho y metraje disponible con input individual
-  - "Llenar pendientes" y "Consumir reservado" auto-distribuyen entre rollos FIFO
+  - Items con control_por_rollos muestran botón "Seleccionar rollos" que abre modal pop-up
+  - Modal con buscador, filtros por ancho y tono, tabla de rollos con cantidad individual
+  - Botón "Todo" por rollo para tomar metraje completo, "Quitar" para limpiar
+  - "Llenar pendiente FIFO" auto-distribuye cantidad entre rollos (más antiguos primero)
+  - Muestra total seleccionado vs pendiente. Botón padre muestra resumen (ej: "310.0 (4 rollos)")
   - Salidas se crean una por rollo con rollo_id específico
 - **Anular Salidas** (2026-03-27):
   - Botón "Anular" en historial de salidas, restaura stock y metraje de rollos
