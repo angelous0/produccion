@@ -43,7 +43,7 @@ import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import MaterialesTab from '../components/MaterialesTab';
-import { ConversacionPanel } from '../components/ConversacionPanel';
+import { ConversacionPanel, ConversacionTrigger } from '../components/ConversacionPanel';
 import { useAuth } from '../context/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -56,6 +56,7 @@ export const RegistroForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [convOpen, setConvOpen] = useState(false);
   const { saving, guard } = useSaving();
   
   const [formData, setFormData] = useState({
@@ -2168,7 +2169,7 @@ export const RegistroForm = () => {
 
             {/* Trazabilidad Unificada (solo en modo edición) */}
             {isEditing && (
-              <ConversacionPanel registroId={id} usuario={user?.nombre_completo || user?.username || 'Usuario'} />
+              <ConversacionTrigger registroId={id} onClick={() => setConvOpen(true)} />
             )}
             {isEditing && (
               <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
@@ -3273,6 +3274,16 @@ export const RegistroForm = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Panel lateral de conversacion */}
+      {isEditing && (
+        <ConversacionPanel
+          registroId={id}
+          usuario={user?.nombre_completo || user?.username || 'Usuario'}
+          open={convOpen}
+          onClose={() => setConvOpen(false)}
+        />
+      )}
     </div>
   );
 };

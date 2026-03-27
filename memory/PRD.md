@@ -184,11 +184,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - **Hilo de Conversacion por Registro** (2026-03-27):
   - Nueva tabla prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, estado, fijado, created_at)
   - Endpoints: GET/POST /api/registros/{id}/conversacion, PATCH/DELETE /api/conversacion/{id}
-  - Componente ConversacionPanel.jsx: mensajes cronologicos con respuestas indentadas
   - Estados visuales: normal, importante (rojo), pendiente (amarillo), resuelto (verde)
   - Mensajes fijados aparecen arriba con icono de pin
   - Menu de acciones: responder, cambiar estado, fijar/desfijar, eliminar
-  - Selector de estado al crear nuevo mensaje
+  - UI: Panel lateral derecho colapsable con boton-resumen en vista principal (muestra conteo total + badges importantes/pendientes/fijados)
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
