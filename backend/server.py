@@ -645,6 +645,7 @@ class RegistroBase(BaseModel):
     urgente: bool = False
     hilo_especifico_id: Optional[str] = None
     pt_item_id: Optional[str] = None
+    lq_odoo_id: Optional[str] = None
     empresa_id: Optional[int] = 8
     id_odoo: Optional[str] = None
     observaciones: Optional[str] = None
@@ -3016,6 +3017,7 @@ async def update_registro(registro_id: str, input: RegistroCreate):
     # Sanitizar FKs opcionales: string vacío → None
     input.pt_item_id = input.pt_item_id or None
     input.hilo_especifico_id = input.hilo_especifico_id or None
+    input.lq_odoo_id = input.lq_odoo_id or None
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
@@ -3024,8 +3026,8 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         tallas_json = json.dumps([t.model_dump() for t in input.tallas])
         dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11 WHERE id=$12""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, registro_id
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11, lq_odoo_id=$12 WHERE id=$13""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, input.lq_odoo_id, registro_id
         )
         
         # Sincronizar prod_registro_tallas con las cantidades del JSON
@@ -7295,6 +7297,8 @@ async def startup():
         # Columnas para división de lote
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS dividido_desde_registro_id VARCHAR NULL")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
+        # Campo para vincular producto de liquidación en Odoo
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS lq_odoo_id VARCHAR NULL")
         # Fix: corregir items con empresa_id inválido (1 no es válido)
         await conn.execute("""
             UPDATE prod_inventario SET empresa_id = 8

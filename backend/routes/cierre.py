@@ -8,6 +8,7 @@ from typing import Optional
 from datetime import date
 from decimal import Decimal
 import uuid
+import json
 from db import get_pool
 from auth import get_current_user
 from helpers import row_to_dict
@@ -307,3 +308,209 @@ async def get_cierre(registro_id: str, current_user: dict = Depends(get_current_
         if not cierre:
             return None
         return row_to_dict(cierre)
+
+
+@router.get("/registros/{registro_id}/balance-pdf")
+async def get_balance_pdf(registro_id: str, current_user: dict = Depends(get_current_user)):
+    """Genera PDF detallado del balance del lote"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from fastapi.responses import StreamingResponse
+    import io
+    from datetime import datetime
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        reg = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+
+        modelo = await conn.fetchrow("SELECT m.nombre, ma.nombre as marca_nombre FROM prod_modelos m LEFT JOIN prod_marcas ma ON m.marca_id = ma.id WHERE m.id = $1", reg['modelo_id']) if reg['modelo_id'] else None
+        tallas = await conn.fetch("SELECT talla_id, cantidad_real FROM prod_registro_tallas WHERE registro_id = $1", registro_id)
+        total_prendas = sum(int(t['cantidad_real']) for t in tallas)
+
+        # Obtener nombres de tallas
+        tallas_info = json.loads(reg['tallas']) if reg.get('tallas') else []
+        tallas_map_nombre = {t.get('id', t.get('talla_id', '')): t.get('nombre', t.get('talla', '')) for t in tallas_info}
+
+        # Movimientos
+        movs = await conn.fetch("""
+            SELECT m.*, s.nombre as servicio_nombre
+            FROM prod_movimientos_produccion m
+            LEFT JOIN prod_servicios_produccion s ON m.servicio_id = s.id
+            WHERE m.registro_id = $1 ORDER BY m.fecha_inicio
+        """, registro_id)
+
+        # Mermas
+        mermas = await conn.fetch("SELECT * FROM prod_mermas WHERE registro_id = $1", registro_id)
+        total_mermas = sum(float(m.get('cantidad', 0) or 0) for m in mermas)
+
+        # Cierre
+        cierre = await conn.fetchrow("SELECT * FROM prod_registro_cierre WHERE registro_id = $1", registro_id)
+
+        # Materiales consumidos
+        salidas = await conn.fetch("""
+            SELECT s.*, i.nombre as item_nombre, i.codigo as item_codigo
+            FROM prod_inventario_salidas s
+            JOIN prod_inventario i ON s.item_id = i.id
+            WHERE s.registro_id = $1
+        """, registro_id)
+        total_costo_mp = sum(float(s.get('costo_total', 0) or 0) for s in salidas)
+
+        # Generar PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=1.5*cm, leftMargin=2*cm, rightMargin=2*cm)
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=6)
+        subtitle_style = ParagraphStyle('Subtitle', parent=styles['Heading2'], fontSize=12, spaceAfter=4)
+        normal = styles['Normal']
+
+        elements = []
+
+        # Header
+        elements.append(Paragraph(f"Balance del Lote — {reg['n_corte']}", title_style))
+        elements.append(Paragraph(f"Modelo: {modelo['nombre'] if modelo else 'N/A'} | Marca: {modelo['marca_nombre'] if modelo and modelo.get('marca_nombre') else 'N/A'}", normal))
+        elements.append(Paragraph(f"Estado: {reg['estado']} | Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", normal))
+        if reg.get('id_odoo'):
+            elements.append(Paragraph(f"ID Odoo: {reg['id_odoo']}", normal))
+        if reg.get('lq_odoo_id'):
+            elements.append(Paragraph(f"ID Odoo Liquidación: {reg['lq_odoo_id']}", normal))
+        elements.append(Spacer(1, 0.5*cm))
+
+        # Tallas
+        elements.append(Paragraph("Distribución por Tallas", subtitle_style))
+        talla_data = [['Talla', 'Cantidad']]
+        for t in tallas:
+            nombre = tallas_map_nombre.get(t['talla_id'], t['talla_id'])
+            talla_data.append([nombre, str(int(t['cantidad_real']))])
+        talla_data.append(['TOTAL', str(total_prendas)])
+        t_table = Table(talla_data, colWidths=[8*cm, 4*cm])
+        t_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f9ff')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(t_table)
+        elements.append(Spacer(1, 0.5*cm))
+
+        # Balance de cantidades
+        elements.append(Paragraph("Balance de Cantidades", subtitle_style))
+        en_produccion = total_prendas - int(total_mermas)
+        bal_data = [
+            ['Concepto', 'Cantidad'],
+            ['Cantidad Inicial', str(total_prendas)],
+            ['En Producción', str(en_produccion)],
+            ['Mermas / Faltantes', str(int(total_mermas))],
+        ]
+        bal_table = Table(bal_data, colWidths=[8*cm, 4*cm])
+        bal_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(bal_table)
+        elements.append(Spacer(1, 0.5*cm))
+
+        # Movimientos de producción
+        if movs:
+            elements.append(Paragraph("Movimientos de Producción", subtitle_style))
+            mov_data = [['Servicio', 'Enviado', 'Recibido', 'Fecha Envío', 'Estado']]
+            for m in movs:
+                fecha = str(m['fecha_inicio'])[:10] if m.get('fecha_inicio') else '-'
+                estado = 'Completado' if m.get('fecha_fin') else 'En proceso'
+                mov_data.append([
+                    m.get('servicio_nombre', '-'),
+                    str(int(m.get('cantidad_enviada', 0) or 0)),
+                    str(int(m.get('cantidad_recibida', 0) or 0)),
+                    fecha,
+                    estado,
+                ])
+            mov_table = Table(mov_data, colWidths=[4*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm])
+            mov_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            elements.append(mov_table)
+            elements.append(Spacer(1, 0.5*cm))
+
+        # Materiales consumidos
+        if salidas:
+            elements.append(Paragraph("Materiales Consumidos", subtitle_style))
+            sal_data = [['Material', 'Cantidad', 'Costo']]
+            for s in salidas:
+                sal_data.append([
+                    s.get('item_nombre', '-'),
+                    f"{float(s.get('cantidad', 0)):.1f}",
+                    f"S/ {float(s.get('costo_total', 0) or 0):.2f}",
+                ])
+            sal_data.append(['TOTAL MATERIALES', '', f"S/ {total_costo_mp:.2f}"])
+            sal_table = Table(sal_data, colWidths=[6*cm, 3*cm, 3*cm])
+            sal_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#f0f9ff')),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            elements.append(sal_table)
+            elements.append(Spacer(1, 0.5*cm))
+
+        # Resumen de costos (si hay cierre)
+        if cierre:
+            elements.append(Paragraph("Resumen de Costos", subtitle_style))
+            cost_data = [
+                ['Concepto', 'Monto'],
+                ['Costo MP (FIFO)', f"S/ {float(cierre.get('costo_mp', 0) or 0):.2f}"],
+                ['Costo Servicios', f"S/ {float(cierre.get('costo_servicios', 0) or 0):.2f}"],
+                ['COSTO TOTAL', f"S/ {float(cierre.get('costo_total', 0) or 0):.2f}"],
+            ]
+            if total_prendas > 0:
+                costo_unit = float(cierre.get('costo_total', 0) or 0) / total_prendas
+                cost_data.append(['Costo Unitario', f"S/ {costo_unit:.2f}"])
+            cost_table = Table(cost_data, colWidths=[8*cm, 4*cm])
+            cost_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#dcfce7')),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            elements.append(cost_table)
+
+        doc.build(elements)
+        buffer.seek(0)
+
+        filename = f"Balance_{reg['n_corte'].replace(' ', '_')}.pdf"
+        return StreamingResponse(
+            buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )

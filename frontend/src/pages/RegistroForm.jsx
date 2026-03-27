@@ -33,7 +33,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight, Check, ChevronsUpDown, Search } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight, Check, ChevronsUpDown, Search, FileDown, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
@@ -63,6 +63,7 @@ export const RegistroForm = () => {
     urgente: false,
     hilo_especifico_id: '',
     pt_item_id: '',
+    lq_odoo_id: '',
     id_odoo: '',
     observaciones: '',
   });
@@ -133,6 +134,7 @@ export const RegistroForm = () => {
   const [divisionInfo, setDivisionInfo] = useState(null);
 
   const esUltimaEtapa = estados.length > 0 && formData.estado === estados[estados.length - 1];
+  const esCierreable = esUltimaEtapa || formData.estado === 'Producto Terminado' || formData.estado === 'Almacén PT';
   const [movimientoFormData, setMovimientoFormData] = useState({
     servicio_id: '',
     persona_id: '',
@@ -334,6 +336,7 @@ export const RegistroForm = () => {
         urgente: registro.urgente,
         hilo_especifico_id: registro.hilo_especifico_id || '',
         pt_item_id: registro.pt_item_id || '',
+        lq_odoo_id: registro.lq_odoo_id || '',
         id_odoo: registro.id_odoo || '',
         observaciones: registro.observaciones || '',
         skip_validacion_estado: registro.skip_validacion_estado || false,
@@ -462,7 +465,7 @@ export const RegistroForm = () => {
 
   // Cargar preview de cierre cuando estado es última etapa
   useEffect(() => {
-    if (!id || !esUltimaEtapa) {
+    if (!id || !esCierreable) {
       setCierrePreview(null);
       return;
     }
@@ -486,7 +489,7 @@ export const RegistroForm = () => {
       }
     };
     fetchCierre();
-  }, [id, esUltimaEtapa]);
+  }, [id, esCierreable]);
 
 
   // Cuando cambia el modelo seleccionado
@@ -538,6 +541,22 @@ export const RegistroForm = () => {
       toast.error(typeof err.response?.data?.detail === 'string' ? err.response.data.detail : 'Error al ejecutar cierre');
     } finally {
       setEjecutandoCierre(false);
+    }
+  };
+
+  const descargarBalancePDF = async () => {
+    try {
+      toast.info('Generando PDF...');
+      const res = await axios.get(`${API}/registros/${id}/balance-pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Balance_${formData.n_corte || id}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF descargado');
+    } catch (err) {
+      toast.error('Error al generar PDF');
     }
   };
 
@@ -1473,7 +1492,7 @@ export const RegistroForm = () => {
                 )}
 
                 {/* Panel de Cierre de Producción */}
-                {esUltimaEtapa && (
+                {esCierreable && (
                   <div className="rounded-lg border-2 border-green-500/40 bg-green-50 dark:bg-green-950/20 p-5 space-y-4" data-testid="cierre-panel">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-green-500/15 flex items-center justify-center shrink-0">
@@ -1486,11 +1505,16 @@ export const RegistroForm = () => {
                     </div>
 
                     {cierreExistente ? (
-                      <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-4 text-center">
-                        <p className="font-semibold text-green-800 dark:text-green-300">Producción ya cerrada</p>
-                        <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                          Costo total: S/ {parseFloat(cierreExistente.costo_total || 0).toFixed(2)}
-                        </p>
+                      <div className="space-y-3">
+                        <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-4 text-center">
+                          <p className="font-semibold text-green-800 dark:text-green-300">Producción ya cerrada</p>
+                          <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                            Costo total: S/ {parseFloat(cierreExistente.costo_total || 0).toFixed(2)}
+                          </p>
+                        </div>
+                        <Button type="button" variant="outline" className="w-full" onClick={descargarBalancePDF} data-testid="btn-descargar-balance-pdf">
+                          <FileDown className="h-4 w-4 mr-2" /> Descargar Balance del Lote (PDF)
+                        </Button>
                       </div>
                     ) : cierreLoading ? (
                       <div className="text-center py-4 text-green-600">Calculando costos...</div>
@@ -1686,7 +1710,7 @@ export const RegistroForm = () => {
                   </Label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-3 gap-4 pt-2">
                   <div className="space-y-2">
                     <Label htmlFor="id_odoo">ID Odoo</Label>
                     <Input
@@ -1695,6 +1719,16 @@ export const RegistroForm = () => {
                       onChange={(e) => setFormData({ ...formData, id_odoo: e.target.value })}
                       placeholder="ID del sistema Odoo"
                       data-testid="input-id-odoo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lq_odoo_id">ID Odoo Liquidación</Label>
+                    <Input
+                      id="lq_odoo_id"
+                      value={formData.lq_odoo_id || ''}
+                      onChange={(e) => setFormData({ ...formData, lq_odoo_id: e.target.value })}
+                      placeholder="Ej: EDUARD-LQ"
+                      data-testid="input-lq-odoo-id"
                     />
                   </div>
                   <div className="space-y-2">
