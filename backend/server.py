@@ -524,9 +524,10 @@ class HiloEspecifico(HiloEspecificoBase):
 class EtapaRuta(BaseModel):
     nombre: str
     servicio_id: Optional[str] = None
-    orden: int = 0
+    orden: float = 0
     obligatorio: bool = True
     aparece_en_estado: bool = True
+    es_cierre: bool = False
 
 class RutaProduccionBase(BaseModel):
     nombre: str

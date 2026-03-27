@@ -134,7 +134,15 @@ export const RegistroForm = () => {
   const [divisionInfo, setDivisionInfo] = useState(null);
 
   const esUltimaEtapa = estados.length > 0 && formData.estado === estados[estados.length - 1];
-  const esCierreable = esUltimaEtapa || formData.estado === 'Producto Terminado' || formData.estado === 'Almacén PT';
+  const esCierreable = (() => {
+    // Verificar si la etapa actual tiene la marca es_cierre en la ruta
+    if (etapasCompletas.length > 0) {
+      const etapaActual = etapasCompletas.find(e => e.nombre === formData.estado && e.es_cierre === true);
+      if (etapaActual) return true;
+    }
+    // Fallback: última etapa de la ruta
+    return esUltimaEtapa;
+  })();
   const [movimientoFormData, setMovimientoFormData] = useState({
     servicio_id: '',
     persona_id: '',

@@ -29,7 +29,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { Plus, Pencil, Trash2, Route, ArrowRight, GripVertical, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Route, ArrowRight, GripVertical, X, Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -118,6 +118,15 @@ const SortableEtapa = ({ etapa, index, servicios, onRemove, onToggle, onUpdate }
       >
         {etapa.aparece_en_estado !== false ? 'Estado' : 'Solo mov.'}
       </button>
+      <button
+        type="button"
+        onClick={() => onToggle(etapa.id, 'es_cierre')}
+        className={`text-[10px] px-1.5 py-0.5 rounded border cursor-pointer transition-colors shrink-0 ${etapa.es_cierre ? 'bg-green-100 border-green-400 text-green-700 dark:bg-green-950 dark:border-green-600 dark:text-green-300' : 'bg-muted border-muted-foreground/20 text-muted-foreground'}`}
+        title={etapa.es_cierre ? 'Etapa de cierre de OP (click para quitar)' : 'Marcar como etapa de cierre de OP'}
+        data-testid={`toggle-cierre-${index}`}
+      >
+        {etapa.es_cierre ? <><Flag className="h-3 w-3 inline mr-0.5" />Cierre</> : 'Cierre'}
+      </button>
       <Button
         variant="ghost"
         size="icon"
@@ -179,6 +188,7 @@ export const RutasProduccion = () => {
         id: `etapa-${i}-${Date.now()}`,
         obligatorio: e.obligatorio !== false,
         aparece_en_estado: e.aparece_en_estado !== false,
+        es_cierre: e.es_cierre === true,
       }));
       setFormData({
         nombre: ruta.nombre,
@@ -207,6 +217,7 @@ export const RutasProduccion = () => {
       orden: formData.etapas.length,
       obligatorio: true,
       aparece_en_estado: true,
+      es_cierre: false,
     };
     setFormData({
       ...formData,
@@ -217,12 +228,24 @@ export const RutasProduccion = () => {
   };
 
   const handleToggleEtapaField = (etapaId, field) => {
-    setFormData({
-      ...formData,
-      etapas: formData.etapas.map(e =>
-        e.id === etapaId ? { ...e, [field]: !(e[field] !== false) } : e
-      ),
-    });
+    if (field === 'es_cierre') {
+      // Solo una etapa puede ser de cierre: si se activa una, se desactivan las demás
+      const etapaActual = formData.etapas.find(e => e.id === etapaId);
+      const nuevoValor = !etapaActual?.es_cierre;
+      setFormData({
+        ...formData,
+        etapas: formData.etapas.map(e =>
+          e.id === etapaId ? { ...e, es_cierre: nuevoValor } : { ...e, es_cierre: false }
+        ),
+      });
+    } else {
+      setFormData({
+        ...formData,
+        etapas: formData.etapas.map(e =>
+          e.id === etapaId ? { ...e, [field]: !(e[field] !== false) } : e
+        ),
+      });
+    }
   };
 
   const handleUpdateEtapa = (etapaId, field, value) => {
@@ -275,6 +298,7 @@ export const RutasProduccion = () => {
         orden: i,
         obligatorio: e.obligatorio !== false,
         aparece_en_estado: e.aparece_en_estado !== false,
+        es_cierre: e.es_cierre === true,
       }));
 
       const payload = {
@@ -362,8 +386,9 @@ export const RutasProduccion = () => {
                             <span key={i} className="flex items-center">
                               <Badge
                                 variant={etapa.aparece_en_estado === false ? 'outline' : 'secondary'}
-                                className={`text-xs ${etapa.obligatorio === false ? 'opacity-60 border-dashed' : ''}`}
+                                className={`text-xs ${etapa.obligatorio === false ? 'opacity-60 border-dashed' : ''} ${etapa.es_cierre ? 'ring-2 ring-green-500 ring-offset-1' : ''}`}
                               >
+                                {etapa.es_cierre && <Flag className="h-3 w-3 mr-1 inline text-green-600" />}
                                 {etapa.nombre || etapa.servicio_nombre || 'N/A'}
                               </Badge>
                               {i < ruta.etapas.length - 1 && (
