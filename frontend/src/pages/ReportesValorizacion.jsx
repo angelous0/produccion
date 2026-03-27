@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { Package, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
 
-const API = process.env.REACT_APP_BACKEND_URL;
+const API = process.env.REACT_APP_BACKEND_URL + '/api';
 const EMPRESA_ID = 6;
 
 function formatCurrency(value) {
@@ -110,7 +110,7 @@ export function ReporteWIP() {
   const fetchData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API}/api/reportes/wip?empresa_id=${EMPRESA_ID}`, {
+      const res = await axios.get(`${API}/reportes/wip?empresa_id=${EMPRESA_ID}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setData(res.data);
