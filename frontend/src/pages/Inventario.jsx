@@ -556,10 +556,10 @@ export const Inventario = () => {
                   <SelectTrigger data-testid="select-linea-item"><SelectValue placeholder="Global (compartida)" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="global">Global (compartida para todas las lineas)</SelectItem>
-                    {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre} (exclusiva)</SelectItem>)}
+                    {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground">Global = disponible para todas las lineas. Exclusiva = solo para la linea seleccionada.</p>
+                <p className="text-[10px] text-muted-foreground">Global = disponible para todas las lineas.</p>
               </div>
               {formData.categoria !== 'Servicios' ? (
                 <>
