@@ -118,6 +118,13 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Nuevo botón "Consumir reservado" en MaterialesTab que llena automáticamente las cantidades con lo reservado menos lo ya consumido
   - Solo aparece cuando hay material reservado pendiente de consumir
   - Cambia automáticamente al modo "Dar Salida"
+- **Selector de Rollos en Materiales** (2026-03-27):
+  - Items con control_por_rollos muestran sub-filas expandibles con rollos disponibles
+  - Cada rollo muestra número, ancho y metraje disponible con input individual
+  - "Llenar pendientes" y "Consumir reservado" auto-distribuyen entre rollos FIFO
+  - Salidas se crean una por rollo con rollo_id específico
+- **Anular Salidas** (2026-03-27):
+  - Botón "Anular" en historial de salidas, restaura stock y metraje de rollos
 
 ## Key API Endpoints
 - GET /api/registros (paginado: limit, offset, search, estados, excluir_estados, modelo_id)

@@ -3768,6 +3768,21 @@ async def get_materiales_consolidado(registro_id: str):
             d['pendiente'] = max(0, req - con)
             d['disponible'] = item_disp.get('disponible', 0)
             d['stock_actual'] = item_disp.get('stock_actual', float(d.get('stock_actual') or 0))
+            # Para items con control_por_rollos, incluir rollos disponibles
+            if d.get('control_por_rollos'):
+                rollos = await conn.fetch("""
+                    SELECT r.id, r.numero_rollo, r.metraje_disponible, r.tono, r.ancho,
+                           ing.fecha as fecha_ingreso
+                    FROM prod_inventario_rollos r
+                    JOIN prod_inventario_ingresos ing ON r.ingreso_id = ing.id
+                    WHERE r.item_id = $1 AND r.metraje_disponible > 0
+                    ORDER BY ing.fecha ASC
+                """, d['item_id'])
+                d['rollos_disponibles'] = [dict(ro) for ro in rollos]
+                for ro in d['rollos_disponibles']:
+                    ro['metraje_disponible'] = float(ro['metraje_disponible'])
+                    ro['fecha_ingreso'] = str(ro['fecha_ingreso']) if ro.get('fecha_ingreso') else None
+                    ro['ancho'] = float(ro['ancho']) if ro.get('ancho') else None
             lineas.append(d)
         
         total_req = sum(float(l['cantidad_requerida']) for l in lineas)
