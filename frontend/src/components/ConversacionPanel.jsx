@@ -90,7 +90,7 @@ export const ConversacionPanel = ({ registroId, usuario }) => {
   });
 
   return (
-    <Card data-testid="conversacion-panel">
+    <Card data-testid="conversacion-panel" onSubmit={(e) => e.stopPropagation()}>
       <CardHeader className="pb-3 cursor-pointer" onClick={() => setCollapsed(!collapsed)}>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -130,14 +130,14 @@ export const ConversacionPanel = ({ registroId, usuario }) => {
                     </div>
                     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <Button
-                        variant="ghost" size="icon" className="h-7 w-7"
+                        type="button" variant="ghost" size="icon" className="h-7 w-7"
                         onClick={() => { setRespondiendo(respondiendo === msg.id ? null : msg.id); setRespuestaTexto(''); }}
                         data-testid={`btn-reply-${msg.id}`}
                       >
                         <Reply className="h-3.5 w-3.5" />
                       </Button>
                       <Button
-                        variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                        type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
                         onClick={() => eliminarMensaje(msg.id)}
                         data-testid={`btn-delete-msg-${msg.id}`}
                       >
@@ -162,7 +162,7 @@ export const ConversacionPanel = ({ registroId, usuario }) => {
                         <p className="text-sm whitespace-pre-wrap break-words ml-5">{resp.mensaje}</p>
                       </div>
                       <Button
-                        variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive shrink-0"
+                        type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive shrink-0"
                         onClick={() => eliminarMensaje(resp.id)}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -182,12 +182,12 @@ export const ConversacionPanel = ({ registroId, usuario }) => {
                       className="text-sm resize-none"
                       autoFocus
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(respuestaTexto, msg.id); }
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); enviarMensaje(respuestaTexto, msg.id); }
                         if (e.key === 'Escape') setRespondiendo(null);
                       }}
                     />
                     <Button
-                      size="icon" className="shrink-0 h-9 w-9"
+                      type="button" size="icon" className="shrink-0 h-9 w-9"
                       disabled={!respuestaTexto.trim() || loading}
                       onClick={() => enviarMensaje(respuestaTexto, msg.id)}
                       data-testid={`btn-send-reply-${msg.id}`}
@@ -210,11 +210,11 @@ export const ConversacionPanel = ({ registroId, usuario }) => {
               rows={1}
               className="text-sm resize-none"
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(nuevoMensaje); }
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); enviarMensaje(nuevoMensaje); }
               }}
             />
             <Button
-              size="icon" className="shrink-0 h-9 w-9"
+              type="button" size="icon" className="shrink-0 h-9 w-9"
               disabled={!nuevoMensaje.trim() || loading}
               onClick={() => enviarMensaje(nuevoMensaje)}
               data-testid="btn-send-message"
