@@ -145,6 +145,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - GET /api/guias-remision (listado con filtros)
 - GET /api/inventario/alertas-stock (modo=fisico|disponible, incluir_ignorados=true|false)
 - PUT /api/inventario/{id}/ignorar-alerta (toggle)
+- GET /api/lineas-negocio (lineas activas de finanzas2)
+- GET /api/inventario/stock-por-linea (stock agrupado por item y linea)
 
 ## Prioritized Backlog
 ### P0 (COMPLETADO)
@@ -157,6 +159,17 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Forzar cambio de estado para registros migrados
 - [x] Combobox buscable + Carga resiliente de catalogos
 - [x] Vista tipo Excel para Modelos
+- [x] **Linea de Negocio en Produccion/Inventario** (2026-03-27):
+  - Endpoint GET /api/lineas-negocio (lee de finanzas2.cont_linea_negocio)
+  - Endpoint GET /api/inventario/stock-por-linea (stock agrupado por item + linea)
+  - linea_negocio_id en: prod_modelos, prod_registros, prod_inventario_ingresos, prod_inventario_salidas
+  - Modelos: selector de linea en form, columna en tabla
+  - Registros: herencia automatica del modelo, no editable si tiene consumos/movimientos
+  - Inventario: linea_negocio_id nullable (null=GLOBAL), filtro por linea, selector en form
+  - Ingresos: auto-herencia de linea desde item exclusivo
+  - Salidas: herencia de linea desde registro
+  - MaterialesTab: filtro automatico MP por linea del registro (misma linea + global)
+  - Propiedad es_cierre en etapas de ruta de produccion
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
@@ -193,18 +206,21 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 │   │   ├── test_pagination_force_state.py
 │   │   ├── test_movimientos_produccion.py
 │   │   └── test_comprehensive_general.py
-│   └── server.py (~6900 lines - needs modularization)
+│   └── server.py (~7400 lines - needs modularization)
 └── frontend/
     └── src/
         ├── components/
-        │   └── TrazabilidadPanel.jsx
+        │   ├── TrazabilidadPanel.jsx
+        │   └── MaterialesTab.jsx (filtro por linea de negocio)
         └── pages/
             ├── MatrizProduccion.jsx
-            ├── Modelos.jsx (paginacion server-side)
+            ├── Modelos.jsx (paginacion server-side, columna linea)
             ├── Registros.jsx (paginacion server-side, 15 columnas)
             ├── MovimientosProduccion.jsx (paginacion server-side)
+            ├── Inventario.jsx (filtro por linea de negocio)
+            ├── InventarioIngresos.jsx (selector linea de negocio)
             ├── InventarioSalidas.jsx (corregido paginacion)
             ├── GuiasRemision.jsx (corregido paginacion)
             ├── CalidadMerma.jsx (corregido paginacion)
-            └── RegistroForm.jsx (~3000 lines - needs refactoring)
+            └── RegistroForm.jsx (~3100 lines - needs refactoring)
 ```
