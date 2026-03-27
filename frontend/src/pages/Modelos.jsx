@@ -37,6 +37,7 @@ export const Modelos = () => {
   const [formData, setFormData] = useState({
     nombre: '', marca_id: '', tipo_id: '', entalle_id: '',
     tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
+    linea_negocio_id: '',
   });
 
   // Datos para los selects del dialog
@@ -48,6 +49,7 @@ export const Modelos = () => {
   const [rutas, setRutas] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [itemsPT, setItemsPT] = useState([]);
+  const [lineasNegocio, setLineasNegocio] = useState([]);
 
   // Filtros server-side
   const [searchTerm, setSearchTerm] = useState('');
@@ -100,7 +102,7 @@ export const Modelos = () => {
 
   const fetchRelatedData = async () => {
     try {
-      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, srvRes, ptRes] = await Promise.all([
+      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, srvRes, ptRes, lnRes] = await Promise.all([
         axios.get(`${API}/marcas`),
         axios.get(`${API}/tipos`),
         axios.get(`${API}/entalles`),
@@ -109,6 +111,7 @@ export const Modelos = () => {
         axios.get(`${API}/rutas-produccion`),
         axios.get(`${API}/servicios-produccion`),
         axios.get(`${API}/items-pt`),
+        axios.get(`${API}/lineas-negocio`),
       ]);
       setMarcas(marcasRes.data);
       setTipos(tiposRes.data);
@@ -118,6 +121,7 @@ export const Modelos = () => {
       setRutas(rutasRes.data);
       setServicios(srvRes.data.sort((a, b) => (a.secuencia || 0) - (b.secuencia || 0)));
       setItemsPT(ptRes.data);
+      setLineasNegocio(lnRes.data);
     } catch (error) {
       toast.error('Error al cargar datos relacionados');
     }
@@ -145,7 +149,7 @@ export const Modelos = () => {
   const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...formData, ruta_produccion_id: formData.ruta_produccion_id || null };
+      const payload = { ...formData, ruta_produccion_id: formData.ruta_produccion_id || null, linea_negocio_id: formData.linea_negocio_id ? parseInt(formData.linea_negocio_id) : null };
       if (editingItem) {
         await axios.put(`${API}/modelos/${editingItem.id}`, payload);
         toast.success('Modelo actualizado');
@@ -166,6 +170,7 @@ export const Modelos = () => {
     setFormData({
       nombre: '', marca_id: '', tipo_id: '', entalle_id: '',
       tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
+      linea_negocio_id: '',
     });
   };
 
@@ -176,6 +181,7 @@ export const Modelos = () => {
       entalle_id: item.entalle_id, tela_id: item.tela_id, hilo_id: item.hilo_id,
       ruta_produccion_id: item.ruta_produccion_id || '', servicios_ids: item.servicios_ids || [],
       pt_item_id: item.pt_item_id || '',
+      linea_negocio_id: item.linea_negocio_id ? String(item.linea_negocio_id) : '',
     });
     fetchRelatedData();
     setDialogOpen(true);
@@ -309,6 +315,7 @@ export const Modelos = () => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead className="min-w-[160px]">Nombre</TableHead>
+                  <TableHead>Linea</TableHead>
                   <TableHead>Marca</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Entalle</TableHead>
@@ -322,11 +329,11 @@ export const Modelos = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">Cargando...</TableCell>
+                    <TableCell colSpan={10} className="text-center py-8">Cargando...</TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay modelos que coincidan con los filtros' : 'No hay modelos registrados'}
                     </TableCell>
                   </TableRow>
@@ -334,6 +341,11 @@ export const Modelos = () => {
                   items.map((item) => (
                     <TableRow key={item.id} className="data-table-row" data-testid={`modelo-row-${item.id}`}>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
+                      <TableCell className="text-xs">
+                        {item.linea_negocio_nombre 
+                          ? <Badge variant="secondary" className="text-[10px]">{item.linea_negocio_nombre}</Badge>
+                          : <span className="text-muted-foreground">Global</span>}
+                      </TableCell>
                       <TableCell className="text-sm">{item.marca_nombre || '-'}</TableCell>
                       <TableCell className="text-sm">{item.tipo_nombre || '-'}</TableCell>
                       <TableCell className="text-sm">{item.entalle_nombre || '-'}</TableCell>
@@ -415,9 +427,21 @@ export const Modelos = () => {
               </TabsList>
 
               <TabsContent value="general" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="nombre">Nombre *</Label>
-                  <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del modelo" required data-testid="input-nombre-modelo" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nombre">Nombre *</Label>
+                    <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del modelo" required data-testid="input-nombre-modelo" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Linea de Negocio</Label>
+                    <Select value={formData.linea_negocio_id || 'none'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'none' ? '' : v })}>
+                      <SelectTrigger data-testid="select-linea-negocio"><SelectValue placeholder="Seleccionar linea..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin linea (Global)</SelectItem>
+                        {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

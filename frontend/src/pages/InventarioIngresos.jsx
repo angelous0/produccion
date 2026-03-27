@@ -46,10 +46,12 @@ export const InventarioIngresos = () => {
     proveedor_id: null,
     numero_documento: '',
     observaciones: '',
+    linea_negocio_id: '',
   });
   // Rollos para items con control_por_rollos
   const [rollos, setRollos] = useState([]);
   const [proveedores, setProveedores] = useState([]);
+  const [lineasNegocio, setLineasNegocio] = useState([]);
   // Combobox states
   const [itemPopoverOpen, setItemPopoverOpen] = useState(false);
   const [proveedorPopoverOpen, setProveedorPopoverOpen] = useState(false);
@@ -57,14 +59,16 @@ export const InventarioIngresos = () => {
 
   const fetchData = async () => {
     try {
-      const [ingresosRes, itemsRes, provRes] = await Promise.all([
+      const [ingresosRes, itemsRes, provRes, lnRes] = await Promise.all([
         axios.get(`${API}/inventario-ingresos`),
         axios.get(`${API}/inventario?all=true`),
         axios.get(`${API}/proveedores`),
+        axios.get(`${API}/lineas-negocio`),
       ]);
       setIngresos(ingresosRes.data);
       setItems(itemsRes.data);
       setProveedores(provRes.data);
+      setLineasNegocio(lnRes.data);
     } catch (error) {
       toast.error('Error al cargar datos');
     } finally {
@@ -85,6 +89,7 @@ export const InventarioIngresos = () => {
       proveedor_id: null,
       numero_documento: '',
       observaciones: '',
+      linea_negocio_id: '',
     });
     setSelectedItem(null);
     setRollos([]);
@@ -94,7 +99,9 @@ export const InventarioIngresos = () => {
   const handleItemChange = async (itemId) => {
     const item = items.find(i => i.id === itemId);
     setSelectedItem(item);
-    setFormData({ ...formData, item_id: itemId, cantidad: '' });
+    // Auto-heredar línea de negocio del item si es exclusivo
+    const lineaSugerida = item?.linea_negocio_id ? String(item.linea_negocio_id) : '';
+    setFormData({ ...formData, item_id: itemId, cantidad: '', linea_negocio_id: lineaSugerida });
     setRollos([]);
     setItemPopoverOpen(false);
     setUltimoCosto(null);
@@ -103,7 +110,7 @@ export const InventarioIngresos = () => {
       const res = await axios.get(`${API}/inventario-ingresos/ultimo-costo/${itemId}`);
       if (res.data.tiene_historial) {
         setUltimoCosto(res.data);
-        setFormData(prev => ({ ...prev, item_id: itemId, cantidad: '', costo_unitario: res.data.costo_unitario }));
+        setFormData(prev => ({ ...prev, item_id: itemId, cantidad: '', costo_unitario: res.data.costo_unitario, linea_negocio_id: lineaSugerida }));
       }
     } catch (e) { /* silencioso */ }
   };
@@ -176,7 +183,7 @@ export const InventarioIngresos = () => {
   const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...formData, cantidad: parseFloat(formData.cantidad) || 0, costo_unitario: parseFloat(formData.costo_unitario) || 0 };
+      const payload = { ...formData, cantidad: parseFloat(formData.cantidad) || 0, costo_unitario: parseFloat(formData.costo_unitario) || 0, linea_negocio_id: formData.linea_negocio_id ? parseInt(formData.linea_negocio_id) : null };
       if (selectedItem?.control_por_rollos && rollos.length > 0) {
         payload.rollos = rollos.map(r => ({
           ...r,
@@ -675,6 +682,20 @@ export const InventarioIngresos = () => {
                     data-testid="input-documento"
                   />
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Linea de Negocio</Label>
+                <Select value={formData.linea_negocio_id || 'global'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'global' ? '' : v })}>
+                  <SelectTrigger data-testid="select-linea-ingreso"><SelectValue placeholder="Global" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Global (sin linea)</SelectItem>
+                    {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {selectedItem?.linea_negocio_id && (
+                  <p className="text-[10px] text-blue-600">Sugerida desde el item (exclusivo de esta linea)</p>
+                )}
               </div>
               
               <div className="space-y-2">

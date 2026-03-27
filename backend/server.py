@@ -270,6 +270,12 @@ async def ensure_fase2_tables():
             "ALTER TABLE prod_inventario ADD COLUMN IF NOT EXISTS ignorar_alerta_stock BOOLEAN DEFAULT FALSE"
         )
 
+        # 7) Línea de negocio en modelos, registros, ingresos y salidas
+        await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS linea_negocio_id INTEGER NULL")
+        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS linea_negocio_id INTEGER NULL")
+        await conn.execute("ALTER TABLE prod_inventario_ingresos ADD COLUMN IF NOT EXISTS linea_negocio_id INTEGER NULL")
+        await conn.execute("ALTER TABLE prod_inventario_salidas ADD COLUMN IF NOT EXISTS linea_negocio_id INTEGER NULL")
+
 
 
 app = FastAPI()
@@ -552,6 +558,7 @@ class ModeloBase(BaseModel):
     ruta_produccion_id: Optional[str] = None
     servicios_ids: List[str] = []
     pt_item_id: Optional[str] = None
+    linea_negocio_id: Optional[int] = None
 
 class ModeloCreate(ModeloBase):
     pass
@@ -650,6 +657,7 @@ class RegistroBase(BaseModel):
     empresa_id: Optional[int] = 8
     id_odoo: Optional[str] = None
     observaciones: Optional[str] = None
+    linea_negocio_id: Optional[int] = None
 
 class RegistroCreate(RegistroBase):
     tallas: List[TallaCantidadItem] = []
@@ -736,6 +744,7 @@ class ItemInventarioBase(BaseModel):
     unidad_medida: str = "unidad"
     stock_minimo: int = 0
     control_por_rollos: bool = False
+    linea_negocio_id: Optional[int] = None
 
 class ItemInventarioCreate(ItemInventarioBase):
     pass
@@ -757,6 +766,7 @@ class IngresoInventarioBase(BaseModel):
 class IngresoInventarioCreate(IngresoInventarioBase):
     rollos: List[dict] = []
     empresa_id: int = 7
+    linea_negocio_id: Optional[int] = None
 
 class IngresoInventario(IngresoInventarioBase):
     model_config = ConfigDict(extra="ignore")
@@ -773,7 +783,7 @@ class SalidaInventarioBase(BaseModel):
     rollo_id: Optional[str] = None
 
 class SalidaInventarioCreate(SalidaInventarioBase):
-    pass
+    linea_negocio_id: Optional[int] = None
 
 class SalidaInventario(SalidaInventarioBase):
     model_config = ConfigDict(extra="ignore")
@@ -2153,6 +2163,17 @@ async def delete_persona_produccion(persona_id: str):
 
 # ==================== ENDPOINTS MODELOS ====================
 
+@api_router.get("/lineas-negocio")
+async def get_lineas_negocio():
+    """Retorna las líneas de negocio activas desde finanzas2."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, codigo, nombre FROM finanzas2.cont_linea_negocio WHERE activo = true ORDER BY nombre"
+        )
+        return [{"id": r["id"], "codigo": r["codigo"], "nombre": r["nombre"]} for r in rows]
+
+
 @api_router.get("/modelos")
 async def get_modelos(
     limit: int = 50,
@@ -2178,6 +2199,7 @@ async def get_modelos(
                     rp.nombre as ruta_nombre,
                     inv.nombre as pt_item_nombre,
                     inv.codigo as pt_item_codigo,
+                    ln.nombre as linea_negocio_nombre,
                     COALESCE(reg_count.total, 0) as registros_count
                 FROM prod_modelos m
                 LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -2187,6 +2209,7 @@ async def get_modelos(
                 LEFT JOIN prod_hilos h ON m.hilo_id = h.id
                 LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
                 LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
+                LEFT JOIN finanzas2.cont_linea_negocio ln ON m.linea_negocio_id = ln.id
                 LEFT JOIN LATERAL (
                     SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
                 ) reg_count ON true
@@ -2254,6 +2277,7 @@ async def get_modelos(
                 rp.nombre as ruta_nombre,
                 inv.nombre as pt_item_nombre,
                 inv.codigo as pt_item_codigo,
+                ln.nombre as linea_negocio_nombre,
                 COALESCE(reg_count.total, 0) as registros_count
             FROM prod_modelos m
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -2263,6 +2287,7 @@ async def get_modelos(
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
             LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
             LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
+            LEFT JOIN finanzas2.cont_linea_negocio ln ON m.linea_negocio_id = ln.id
             LEFT JOIN LATERAL (
                 SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
             ) reg_count ON true
@@ -2711,9 +2736,9 @@ async def create_modelo(input: ModeloCreate):
         pt_item_id = modelo.pt_item_id or None
         await conn.execute(
             """INSERT INTO prod_modelos (id, nombre, marca_id, tipo_id, entalle_id, tela_id, hilo_id, 
-               ruta_produccion_id, servicios_ids, pt_item_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+               ruta_produccion_id, servicios_ids, pt_item_id, linea_negocio_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
             modelo.id, modelo.nombre, modelo.marca_id, modelo.tipo_id, modelo.entalle_id, modelo.tela_id,
-            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.created_at.replace(tzinfo=None)
+            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.linea_negocio_id, modelo.created_at.replace(tzinfo=None)
         )
     return modelo
 
@@ -2728,9 +2753,9 @@ async def update_modelo(modelo_id: str, input: ModeloCreate):
         pt_item_id = input.pt_item_id or None
         await conn.execute(
             """UPDATE prod_modelos SET nombre=$1, marca_id=$2, tipo_id=$3, entalle_id=$4, tela_id=$5, hilo_id=$6,
-               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9 WHERE id=$10""",
+               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9, linea_negocio_id=$10 WHERE id=$11""",
             input.nombre, input.marca_id, input.tipo_id, input.entalle_id, input.tela_id, input.hilo_id,
-            input.ruta_produccion_id, servicios_json, pt_item_id, modelo_id
+            input.ruta_produccion_id, servicios_json, pt_item_id, input.linea_negocio_id, modelo_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
@@ -2989,14 +3014,19 @@ async def create_registro(input: RegistroCreate):
     registro.hilo_especifico_id = registro.hilo_especifico_id or None
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Heredar linea_negocio_id del modelo si no viene explícito
+        if not registro.linea_negocio_id and registro.modelo_id:
+            modelo = await conn.fetchrow("SELECT linea_negocio_id FROM prod_modelos WHERE id = $1", registro.modelo_id)
+            if modelo and modelo['linea_negocio_id']:
+                registro.linea_negocio_id = modelo['linea_negocio_id']
         tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
         dist_json = json.dumps([d.model_dump() for d in registro.distribucion_colores])
         await conn.execute(
-            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id, id_odoo, observaciones) 
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)""",
+            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id, id_odoo, observaciones, linea_negocio_id) 
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)""",
             registro.id, registro.n_corte, registro.modelo_id, registro.curva, registro.estado, registro.urgente,
             registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None),
-            registro.pt_item_id, registro.empresa_id, registro.id_odoo, registro.observaciones
+            registro.pt_item_id, registro.empresa_id, registro.id_odoo, registro.observaciones, registro.linea_negocio_id
         )
     return registro
 
@@ -3024,11 +3054,28 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         result = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
         if not result:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # Validar cambio de línea de negocio si hay consumos/movimientos
+        old_linea = result.get('linea_negocio_id')
+        new_linea = input.linea_negocio_id
+        if old_linea and new_linea != old_linea:
+            tiene_consumos = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_inventario_salidas WHERE registro_id = $1", registro_id
+            )
+            tiene_movimientos = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_movimientos_produccion WHERE registro_id = $1", registro_id
+            )
+            if tiene_consumos > 0 or tiene_movimientos > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No se puede cambiar la línea de negocio: el registro ya tiene consumos o movimientos asociados."
+                )
+        
         tallas_json = json.dumps([t.model_dump() for t in input.tallas])
         dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11, lq_odoo_id=$12 WHERE id=$13""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, input.lq_odoo_id, registro_id
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11, lq_odoo_id=$12, linea_negocio_id=$13 WHERE id=$14""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, input.lq_odoo_id, input.linea_negocio_id, registro_id
         )
         
         # Sincronizar prod_registro_tallas con las cantidades del JSON
@@ -4504,6 +4551,7 @@ async def get_inventario(
     categoria: str = "",
     stock_status: str = "",
     all: str = "",
+    linea_negocio_id: str = "",
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -4520,6 +4568,14 @@ async def get_inventario(
             conditions.append(f"i.categoria = ${param_idx}")
             params.append(categoria)
             param_idx += 1
+
+        if linea_negocio_id:
+            if linea_negocio_id == "global":
+                conditions.append("i.linea_negocio_id IS NULL")
+            else:
+                conditions.append(f"(i.linea_negocio_id = ${param_idx} OR i.linea_negocio_id IS NULL)")
+                params.append(int(linea_negocio_id))
+                param_idx += 1
 
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
 
@@ -4651,6 +4707,31 @@ async def get_alertas_stock(
         }
 
 
+
+@api_router.get("/inventario/stock-por-linea")
+async def get_stock_por_linea():
+    """Retorna stock agrupado por item y línea de negocio."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT 
+                i.id as item_id, i.codigo, i.nombre, i.unidad_medida, i.categoria,
+                i.linea_negocio_id as item_linea_id,
+                i.stock_actual,
+                ln.nombre as linea_nombre,
+                ln.codigo as linea_codigo,
+                COALESCE(SUM(CASE WHEN ing.cantidad_disponible > 0 THEN ing.cantidad_disponible ELSE 0 END), 0) as stock_disponible_ingresos,
+                COALESCE(SUM(CASE WHEN ing.cantidad_disponible > 0 THEN ing.cantidad_disponible * ing.costo_unitario ELSE 0 END), 0) as valorizado
+            FROM prod_inventario i
+            LEFT JOIN prod_inventario_ingresos ing ON ing.item_id = i.id AND ing.cantidad_disponible > 0
+            LEFT JOIN finanzas2.cont_linea_negocio ln ON i.linea_negocio_id = ln.id
+            WHERE i.stock_actual > 0 OR ing.cantidad_disponible > 0
+            GROUP BY i.id, i.codigo, i.nombre, i.unidad_medida, i.categoria, i.linea_negocio_id, i.stock_actual, ln.nombre, ln.codigo
+            ORDER BY COALESCE(ln.nombre, 'ZZZZZ'), i.nombre
+        """)
+        return [dict(r) for r in rows]
+
+
 @api_router.put("/inventario/{item_id}/ignorar-alerta")
 async def toggle_ignorar_alerta(item_id: str):
     """Activa/desactiva ignorar alertas de stock para un item."""
@@ -4773,10 +4854,10 @@ async def create_item_inventario(input: ItemInventarioCreate):
             raise HTTPException(status_code=400, detail="El código ya existe")
         item = ItemInventario(**input.model_dump())
         await conn.execute(
-            """INSERT INTO prod_inventario (id, codigo, nombre, descripcion, categoria, unidad_medida, stock_minimo, stock_actual, control_por_rollos, created_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            """INSERT INTO prod_inventario (id, codigo, nombre, descripcion, categoria, unidad_medida, stock_minimo, stock_actual, control_por_rollos, linea_negocio_id, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
             item.id, item.codigo, item.nombre, item.descripcion, item.categoria, item.unidad_medida,
-            item.stock_minimo, item.stock_actual, item.control_por_rollos, item.created_at.replace(tzinfo=None)
+            item.stock_minimo, item.stock_actual, item.control_por_rollos, item.linea_negocio_id, item.created_at.replace(tzinfo=None)
         )
         return item
 
@@ -4792,8 +4873,8 @@ async def update_item_inventario(item_id: str, input: ItemInventarioCreate):
             if existing:
                 raise HTTPException(status_code=400, detail="El código ya existe")
         await conn.execute(
-            """UPDATE prod_inventario SET codigo=$1, nombre=$2, descripcion=$3, categoria=$4, unidad_medida=$5, stock_minimo=$6, control_por_rollos=$7 WHERE id=$8""",
-            input.codigo, input.nombre, input.descripcion, input.categoria, input.unidad_medida, input.stock_minimo, input.control_por_rollos, item_id
+            """UPDATE prod_inventario SET codigo=$1, nombre=$2, descripcion=$3, categoria=$4, unidad_medida=$5, stock_minimo=$6, control_por_rollos=$7, linea_negocio_id=$8 WHERE id=$9""",
+            input.codigo, input.nombre, input.descripcion, input.categoria, input.unidad_medida, input.stock_minimo, input.control_por_rollos, input.linea_negocio_id, item_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 
@@ -4807,6 +4888,7 @@ async def delete_item_inventario(item_id: str):
         await conn.execute("DELETE FROM prod_inventario_rollos WHERE item_id = $1", item_id)
         await conn.execute("DELETE FROM prod_inventario WHERE id = $1", item_id)
         return {"message": "Item eliminado"}
+
 
 # ==================== ENDPOINTS INGRESOS INVENTARIO ====================
 
@@ -4866,11 +4948,16 @@ async def create_ingreso(input: IngresoInventarioCreate):
         )
         ingreso.cantidad_disponible = cantidad
         
+        # Heredar linea_negocio_id del item si no viene explícito
+        linea_negocio_id = input.linea_negocio_id
+        if linea_negocio_id is None and item.get('linea_negocio_id'):
+            linea_negocio_id = item['linea_negocio_id']
+        
         await conn.execute(
-            """INSERT INTO prod_inventario_ingresos (id, item_id, cantidad, cantidad_disponible, costo_unitario, proveedor, numero_documento, observaciones, fecha, empresa_id)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)""",
+            """INSERT INTO prod_inventario_ingresos (id, item_id, cantidad, cantidad_disponible, costo_unitario, proveedor, numero_documento, observaciones, fecha, empresa_id, linea_negocio_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
             ingreso.id, ingreso.item_id, ingreso.cantidad, ingreso.cantidad_disponible, ingreso.costo_unitario,
-            ingreso.proveedor, ingreso.numero_documento, ingreso.observaciones, ingreso.fecha.replace(tzinfo=None), input.empresa_id
+            ingreso.proveedor, ingreso.numero_documento, ingreso.observaciones, ingreso.fecha.replace(tzinfo=None), input.empresa_id, linea_negocio_id
         )
         
         # Crear rollos si aplica
@@ -5168,20 +5255,24 @@ async def create_salida(input: SalidaInventarioCreate):
         
         # empresa_id: preferir del registro, luego del item, fallback 8
         empresa_id = 8
+        # linea_negocio_id: heredar del registro si existe
+        linea_negocio_id = input.linea_negocio_id
         if input.registro_id:
-            reg = await conn.fetchrow("SELECT empresa_id FROM prod_registros WHERE id = $1", input.registro_id)
+            reg = await conn.fetchrow("SELECT empresa_id, linea_negocio_id FROM prod_registros WHERE id = $1", input.registro_id)
             if reg and reg['empresa_id']:
                 empresa_id = reg['empresa_id']
+            if reg and reg['linea_negocio_id'] and not linea_negocio_id:
+                linea_negocio_id = reg['linea_negocio_id']
         elif item.get('empresa_id'):
             empresa_id = item['empresa_id']
         
-        # Insertar salida con talla_id y empresa_id
+        # Insertar salida con talla_id, empresa_id y linea_negocio_id
         await conn.execute(
-            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha, empresa_id)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)""",
+            """INSERT INTO prod_inventario_salidas (id, item_id, cantidad, registro_id, talla_id, observaciones, rollo_id, costo_total, detalle_fifo, fecha, empresa_id, linea_negocio_id)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
             salida.id, salida.item_id, salida.cantidad, salida.registro_id, salida.talla_id, salida.observaciones,
             salida.rollo_id, salida.costo_total, json.dumps(salida.detalle_fifo), salida.fecha.replace(tzinfo=None),
-            empresa_id
+            empresa_id, linea_negocio_id
         )
         await conn.execute("UPDATE prod_inventario SET stock_actual = stock_actual - $1 WHERE id = $2", input.cantidad, input.item_id)
         

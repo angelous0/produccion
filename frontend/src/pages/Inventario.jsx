@@ -54,13 +54,16 @@ export const Inventario = () => {
   const [searchDebounced, setSearchDebounced] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todos');
   const [filtroStock, setFiltroStock] = useState('todos');
+  const [filtroLinea, setFiltroLinea] = useState('todos');
 
   // Opciones de filtro desde servidor
   const [categoriasOpciones, setCategoriasOpciones] = useState([]);
+  const [lineasNegocio, setLineasNegocio] = useState([]);
 
   const [formData, setFormData] = useState({
     codigo: '', nombre: '', descripcion: '', categoria: 'Otros',
     unidad_medida: 'unidad', stock_minimo: 0, control_por_rollos: false,
+    linea_negocio_id: '',
   });
 
   // Debounce search
@@ -77,6 +80,7 @@ export const Inventario = () => {
       if (searchDebounced) params.set('search', searchDebounced);
       if (filtroCategoria !== 'todos') params.set('categoria', filtroCategoria);
       if (filtroStock !== 'todos') params.set('stock_status', filtroStock);
+      if (filtroLinea !== 'todos') params.set('linea_negocio_id', filtroLinea);
       const response = await axios.get(`${API}/inventario?${params.toString()}`);
       const data = response.data;
       if (append) {
@@ -90,16 +94,18 @@ export const Inventario = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchDebounced, filtroCategoria, filtroStock, pageSize, items.length]);
+  }, [searchDebounced, filtroCategoria, filtroStock, filtroLinea, pageSize, items.length]);
 
   const fetchFiltros = async () => {
     try {
-      const [filtrosRes, alertasRes] = await Promise.allSettled([
+      const [filtrosRes, alertasRes, lineasRes] = await Promise.allSettled([
         axios.get(`${API}/inventario-filtros`),
         axios.get(`${API}/inventario/alertas-stock`),
+        axios.get(`${API}/lineas-negocio`),
       ]);
       if (filtrosRes.status === 'fulfilled') setCategoriasOpciones(filtrosRes.value.data.categorias);
       if (alertasRes.status === 'fulfilled') setAlertasStock(alertasRes.value.data);
+      if (lineasRes.status === 'fulfilled') setLineasNegocio(lineasRes.value.data);
     } catch (e) {}
   };
 
@@ -107,20 +113,22 @@ export const Inventario = () => {
 
   useEffect(() => {
     fetchItems(false);
-  }, [searchDebounced, filtroCategoria, filtroStock]);
+  }, [searchDebounced, filtroCategoria, filtroStock, filtroLinea]);
 
-  const hayFiltrosActivos = searchTerm || filtroCategoria !== 'todos' || filtroStock !== 'todos';
+  const hayFiltrosActivos = searchTerm || filtroCategoria !== 'todos' || filtroStock !== 'todos' || filtroLinea !== 'todos';
 
   const limpiarFiltros = () => {
     setSearchTerm('');
     setFiltroCategoria('todos');
     setFiltroStock('todos');
+    setFiltroLinea('todos');
   };
 
   const resetForm = () => {
     setFormData({
       codigo: '', nombre: '', descripcion: '', categoria: 'Otros',
       unidad_medida: 'unidad', stock_minimo: 0, control_por_rollos: false,
+      linea_negocio_id: '',
     });
     setEditingItem(null);
   };
@@ -132,6 +140,7 @@ export const Inventario = () => {
         codigo: item.codigo, nombre: item.nombre, descripcion: item.descripcion || '',
         categoria: item.categoria || 'Otros', unidad_medida: item.unidad_medida || 'unidad',
         stock_minimo: item.stock_minimo || 0, control_por_rollos: item.control_por_rollos || false,
+        linea_negocio_id: item.linea_negocio_id ? String(item.linea_negocio_id) : '',
       });
     } else {
       resetForm();
@@ -142,11 +151,12 @@ export const Inventario = () => {
   const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
+      const payload = { ...formData, linea_negocio_id: formData.linea_negocio_id ? parseInt(formData.linea_negocio_id) : null };
       if (editingItem) {
-        await axios.put(`${API}/inventario/${editingItem.id}`, formData);
+        await axios.put(`${API}/inventario/${editingItem.id}`, payload);
         toast.success('Item actualizado');
       } else {
-        await axios.post(`${API}/inventario`, formData);
+        await axios.post(`${API}/inventario`, payload);
         toast.success('Item creado');
       }
       setDialogOpen(false);
@@ -268,6 +278,16 @@ export const Inventario = () => {
             {STOCK_STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filtroLinea} onValueChange={setFiltroLinea}>
+          <SelectTrigger className="w-[200px]" data-testid="filtro-linea-inventario">
+            <SelectValue placeholder="Linea de negocio" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas las lineas</SelectItem>
+            <SelectItem value="global">Solo Global</SelectItem>
+            {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
+          </SelectContent>
+        </Select>
         {hayFiltrosActivos && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros} data-testid="btn-limpiar-filtros-inv">
             <X className="h-4 w-4 mr-1" /> Limpiar
@@ -314,6 +334,7 @@ export const Inventario = () => {
                   <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Codigo</TableHead>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Linea</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Unidad</TableHead>
                   <TableHead className="text-right">Stock Actual</TableHead>
@@ -368,6 +389,11 @@ export const Inventario = () => {
                               </Badge>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {item.linea_negocio_id
+                            ? <Badge variant="secondary" className="text-[10px]">{lineasNegocio.find(l => l.id === item.linea_negocio_id)?.nombre || `#${item.linea_negocio_id}`}</Badge>
+                            : <span className="text-muted-foreground italic">Global</span>}
                         </TableCell>
                         <TableCell>
                           <Badge className={getCategoriaColor(item.categoria)}>{item.categoria || 'Otros'}</Badge>
@@ -523,6 +549,17 @@ export const Inventario = () => {
               <div className="space-y-2">
                 <Label htmlFor="nombre">Nombre *</Label>
                 <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del item" required data-testid="input-nombre" />
+              </div>
+              <div className="space-y-2">
+                <Label>Linea de Negocio</Label>
+                <Select value={formData.linea_negocio_id || 'global'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'global' ? '' : v })}>
+                  <SelectTrigger data-testid="select-linea-item"><SelectValue placeholder="Global (compartida)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">Global (compartida para todas las lineas)</SelectItem>
+                    {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre} (exclusiva)</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground">Global = disponible para todas las lineas. Exclusiva = solo para la linea seleccionada.</p>
               </div>
               {formData.categoria !== 'Servicios' ? (
                 <>

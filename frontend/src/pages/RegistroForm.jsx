@@ -66,6 +66,7 @@ export const RegistroForm = () => {
     lq_odoo_id: '',
     id_odoo: '',
     observaciones: '',
+    linea_negocio_id: null,
   });
 
   // Datos del modelo seleccionado
@@ -84,6 +85,7 @@ export const RegistroForm = () => {
   const [tallasCatalogo, setTallasCatalogo] = useState([]);
   const [coloresCatalogo, setColoresCatalogo] = useState([]);
   const [modelos, setModelos] = useState([]);
+  const [lineasNegocio, setLineasNegocio] = useState([]);
   const [estados, setEstados] = useState([]);
   const [estadosGlobales, setEstadosGlobales] = useState([]);
   const [usaRuta, setUsaRuta] = useState(false);
@@ -196,6 +198,7 @@ export const RegistroForm = () => {
     axios.get(`${API}/tallas-catalogo`).then(r => setTallasCatalogo(r.data)).catch(() => {});
     axios.get(`${API}/colores-catalogo`).then(r => setColoresCatalogo(r.data)).catch(() => {});
     axios.get(`${API}/inventario?all=true`).then(r => setItemsInventario(r.data)).catch(() => {});
+    axios.get(`${API}/lineas-negocio`).then(r => setLineasNegocio(r.data)).catch(() => {});
     axios.get(`${API}/servicios-produccion`).then(r => setServiciosProduccion(r.data)).catch(() => {});
     axios.get(`${API}/personas-produccion?activo=true`).then(r => setPersonasProduccion(r.data)).catch(() => {});
   };
@@ -348,6 +351,7 @@ export const RegistroForm = () => {
         id_odoo: registro.id_odoo || '',
         observaciones: registro.observaciones || '',
         skip_validacion_estado: registro.skip_validacion_estado || false,
+        linea_negocio_id: registro.linea_negocio_id || null,
       });
       
       setTallasSeleccionadas(registro.tallas || []);
@@ -505,12 +509,15 @@ export const RegistroForm = () => {
     const modelo = modelos.find(m => m.id === modeloId);
     setModeloSeleccionado(modelo || null);
     
+    // Heredar linea_negocio_id del modelo
+    const lineaHeredada = modelo?.linea_negocio_id || null;
+    
     if (modelo?.pt_item_id) {
       // Modelo ya tiene PT, auto-completar
-      setFormData({ ...formData, modelo_id: modeloId, pt_item_id: modelo.pt_item_id });
+      setFormData({ ...formData, modelo_id: modeloId, pt_item_id: modelo.pt_item_id, linea_negocio_id: lineaHeredada });
     } else if (modelo) {
       // Modelo sin PT, crear automáticamente
-      setFormData({ ...formData, modelo_id: modeloId });
+      setFormData({ ...formData, modelo_id: modeloId, linea_negocio_id: lineaHeredada });
       try {
         const token = localStorage.getItem('token');
         const res = await axios.post(`${API}/modelos/${modelo.id}/crear-pt`, {}, {
@@ -529,7 +536,7 @@ export const RegistroForm = () => {
         console.error('Error creating PT:', err);
       }
     } else {
-      setFormData({ ...formData, modelo_id: modeloId });
+      setFormData({ ...formData, modelo_id: modeloId, linea_negocio_id: null });
     }
   };
 
@@ -1661,6 +1668,20 @@ export const RegistroForm = () => {
                   </div>
 
                   <div className="space-y-2">
+                    <Label>Línea de Negocio</Label>
+                    {formData.linea_negocio_id ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs" data-testid="badge-linea-negocio">
+                          {lineasNegocio.find(l => l.id === formData.linea_negocio_id)?.nombre || `Línea #${formData.linea_negocio_id}`}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">Heredada del modelo</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">Global (sin línea asignada)</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
                     <Label>Hilo Específico</Label>
                     <Select
                       key={hilosEspecificos.length > 0 && formData.hilo_especifico_id ? formData.hilo_especifico_id : 'hilo-loading'}
@@ -1855,7 +1876,7 @@ export const RegistroForm = () => {
             {isEditing && (
               <Card>
                 <CardContent className="pt-4">
-                  <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} />
+                  <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} lineaNegocioId={formData.linea_negocio_id} />
                 </CardContent>
               </Card>
             )}

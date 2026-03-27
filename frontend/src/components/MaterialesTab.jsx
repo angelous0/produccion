@@ -210,7 +210,7 @@ const RollosModal = ({ open, linea, rollosCantidades, setRollosCantidades, onClo
   );
 };
 
-const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
+const MaterialesTab = ({ registroId, totalPrendas, modeloId, lineaNegocioId }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generando, setGenerando] = useState(false);
@@ -467,7 +467,7 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
     setAccion('salida');
   };
 
-  // Cargar inventario para modo extra
+  // Cargar inventario para modo extra (filtrado por línea de negocio)
   const loadInventarioExtra = async () => {
     if (inventario.length) { setModoExtra(true); return; }
     try {
@@ -477,6 +477,14 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
       setModoExtra(true);
     } catch { toast.error('Error al cargar inventario'); }
   };
+
+  // Filtrar inventario por línea de negocio del registro
+  const inventarioFiltrado = useMemo(() => {
+    if (!lineaNegocioId) return inventario;
+    return inventario.filter(i =>
+      !i.linea_negocio_id || i.linea_negocio_id === lineaNegocioId
+    );
+  }, [inventario, lineaNegocioId]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" /> <span className="ml-2">Cargando materiales...</span></div>;
@@ -732,7 +740,7 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId }) => {
                 <SearchableSelect
                   value={extraItem}
                   onValueChange={setExtraItem}
-                  options={inventario.filter(i => i.tipo_item === 'MP')}
+                  options={inventarioFiltrado.filter(i => i.tipo_item === 'MP')}
                   placeholder="Buscar item..."
                   searchPlaceholder="Buscar por nombre o codigo..."
                   testId="combobox-extra-item"
