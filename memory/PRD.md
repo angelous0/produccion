@@ -182,11 +182,13 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Nuevo endpoint PUT /api/motivos-incidencia/{id} para editar nombre de motivos
   - UI: enlace "Gestionar motivos" despliega lista con edicion inline y eliminacion por motivo
 - **Hilo de Conversacion por Registro** (2026-03-27):
-  - Nueva tabla prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, created_at)
-  - Endpoints: GET/POST /api/registros/{id}/conversacion, DELETE /api/conversacion/{id}
+  - Nueva tabla prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, estado, fijado, created_at)
+  - Endpoints: GET/POST /api/registros/{id}/conversacion, PATCH/DELETE /api/conversacion/{id}
   - Componente ConversacionPanel.jsx: mensajes cronologicos con respuestas indentadas
-  - Input de nuevo mensaje con Enter para enviar, boton responder inline por mensaje
-  - Seccion colapsable entre Incidencias y Trazabilidad en RegistroForm
+  - Estados visuales: normal, importante (rojo), pendiente (amarillo), resuelto (verde)
+  - Mensajes fijados aparecen arriba con icono de pin
+  - Menu de acciones: responder, cambiar estado, fijar/desfijar, eliminar
+  - Selector de estado al crear nuevo mensaje
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos

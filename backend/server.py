@@ -185,6 +185,8 @@ async def ensure_bom_tables():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
+        await conn.execute("ALTER TABLE prod_conversacion ADD COLUMN IF NOT EXISTS estado VARCHAR DEFAULT 'normal'")
+        await conn.execute("ALTER TABLE prod_conversacion ADD COLUMN IF NOT EXISTS fijado BOOLEAN DEFAULT FALSE")
 
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
