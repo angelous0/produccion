@@ -3629,6 +3629,7 @@ async def generar_requerimiento_mp(registro_id: str, bom_id: str = Query(None)):
         
         created = 0
         updated = 0
+        empresa_id = registro.get('empresa_id') or 8
         
         for bom in bom_lineas:
             item_id = bom['inventario_id']
@@ -3674,9 +3675,9 @@ async def generar_requerimiento_mp(registro_id: str, bom_id: str = Query(None)):
                 estado = 'PENDIENTE' if cantidad_requerida > 0 else 'COMPLETO'
                 await conn.execute("""
                     INSERT INTO prod_registro_requerimiento_mp
-                    (id, registro_id, item_id, talla_id, cantidad_requerida, cantidad_reservada, cantidad_consumida, estado)
-                    VALUES ($1, $2, $3, $4, $5, 0, 0, $6)
-                """, new_id, registro_id, item_id, talla_id, cantidad_requerida, estado)
+                    (id, registro_id, item_id, talla_id, cantidad_requerida, cantidad_reservada, cantidad_consumida, estado, empresa_id)
+                    VALUES ($1, $2, $3, $4, $5, 0, 0, $6, $7)
+                """, new_id, registro_id, item_id, talla_id, cantidad_requerida, estado, empresa_id)
                 created += 1
         
         return {
