@@ -419,51 +419,27 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId, lineaNegocioId }) =
   const llenarPendientes = () => {
     if (!data?.lineas) return;
     const nuevas = {};
-    const nuevosRollos = {};
     data.lineas.forEach(l => {
       const pendiente = parseFloat(l.pendiente) || 0;
       if (pendiente > 0) {
-        if (l.control_por_rollos && l.rollos_disponibles?.length) {
-          let restante = pendiente;
-          l.rollos_disponibles.forEach(r => {
-            if (restante <= 0) return;
-            const usar = Math.min(restante, r.metraje_disponible);
-            nuevosRollos[r.id] = usar;
-            restante -= usar;
-          });
-        } else {
-          nuevas[getLineaKey(l)] = pendiente;
-        }
+        nuevas[getLineaKey(l)] = pendiente;
       }
     });
     setCantidades(nuevas);
-    setRollosCantidades(nuevosRollos);
   };
 
   const llenarReservado = () => {
     if (!data?.lineas) return;
     const nuevas = {};
-    const nuevosRollos = {};
     data.lineas.forEach(l => {
       const reservado = parseFloat(l.cantidad_reservada) || 0;
       const consumido = parseFloat(l.cantidad_consumida) || 0;
       const porConsumir = Math.max(0, reservado - consumido);
       if (porConsumir > 0) {
-        if (l.control_por_rollos && l.rollos_disponibles?.length) {
-          let restante = porConsumir;
-          l.rollos_disponibles.forEach(r => {
-            if (restante <= 0) return;
-            const usar = Math.min(restante, r.metraje_disponible);
-            nuevosRollos[r.id] = usar;
-            restante -= usar;
-          });
-        } else {
-          nuevas[getLineaKey(l)] = porConsumir;
-        }
+        nuevas[getLineaKey(l)] = porConsumir;
       }
     });
     setCantidades(nuevas);
-    setRollosCantidades(nuevosRollos);
     setAccion('salida');
   };
 
@@ -707,7 +683,7 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId, lineaNegocioId }) =
               <Button
                 type="button"
                 size="sm"
-                disabled={procesando || (Object.values(cantidades).every(v => !v || parseFloat(v) <= 0) && Object.values(rollosCantidades).every(v => !v || parseFloat(v) <= 0))}
+                disabled={procesando || Object.values(cantidades).every(v => !v || parseFloat(v) <= 0)}
                 onClick={accion === 'salida' ? ejecutarSalida : ejecutarReserva}
                 className={accion === 'salida' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}
                 data-testid="btn-ejecutar-accion"
