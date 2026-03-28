@@ -2192,6 +2192,12 @@ export const RegistroForm = () => {
                                 </span>
                               )}
                             </p>
+                            {inc.estado === 'RESUELTA' && inc.updated_at && (
+                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                Resuelta: {new Date(inc.updated_at).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                              </p>
+                            )}
                           </div>
                           <div className="flex gap-1 shrink-0">
                             {inc.estado === 'ABIERTA' && (
