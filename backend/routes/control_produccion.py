@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import uuid
 
 router = APIRouter(prefix="/api", tags=["Control Producción"])
+
+TZ_LIMA = timezone(timedelta(hours=-5))
 
 # ========== MODELS ==========
 
@@ -123,12 +125,15 @@ async def create_incidencia(input: IncidenciaCreate):
     pool = await get_pool()
     async with pool.acquire() as conn:
         inc_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = datetime.now(TZ_LIMA).replace(tzinfo=None)
         paralizacion_id = None
+
+        # Get motivo nombre
+        motivo_row = await conn.fetchrow("SELECT nombre FROM prod_motivos_incidencia WHERE id = $1", input.motivo_id)
+        motivo_nombre = motivo_row['nombre'] if motivo_row else 'Incidencia'
 
         # Si paraliza, crear paralización automáticamente
         if input.paraliza:
-            # Verificar no haya paralización activa
             active = await conn.fetchrow(
                 "SELECT id FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE AND movimiento_id IS NULL",
                 input.registro_id
@@ -137,10 +142,6 @@ async def create_incidencia(input: IncidenciaCreate):
                 raise HTTPException(status_code=400, detail="Ya existe una paralización activa para este registro")
 
             paralizacion_id = str(uuid.uuid4())
-            # Get motivo nombre for paralizacion
-            motivo_row = await conn.fetchrow("SELECT nombre FROM prod_motivos_incidencia WHERE id = $1", input.motivo_id)
-            motivo_nombre = motivo_row['nombre'] if motivo_row else 'Incidencia'
-
             await conn.execute(
                 """INSERT INTO prod_paralizacion (id, registro_id, movimiento_id, fecha_inicio, motivo, comentario, activa, created_at, updated_at)
                    VALUES ($1,$2,$3,$4,$5,$6,TRUE,$7,$7)""",
@@ -156,6 +157,22 @@ async def create_incidencia(input: IncidenciaCreate):
                VALUES ($1,$2,$3,$4,$5,$6,$7,'ABIERTA',$8,$9,$10,$10)""",
             inc_id, input.registro_id, input.movimiento_id, now, input.usuario, input.motivo_id, input.comentario, input.paraliza, paralizacion_id, now
         )
+
+        # Auto-publicar en conversación del registro
+        msg_texto = f"INCIDENCIA: {motivo_nombre}"
+        if input.comentario:
+            msg_texto += f"\n{input.comentario}"
+        if input.paraliza:
+            msg_texto += "\nPARALIZA PRODUCCION"
+        conv_id = str(uuid.uuid4())
+        await conn.execute(
+            """INSERT INTO prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, estado, fijado, created_at)
+               VALUES ($1, $2, NULL, $3, $4, $5, $6, $7)""",
+            conv_id, input.registro_id, input.usuario or 'Sistema',
+            msg_texto, 'importante' if input.paraliza else 'pendiente',
+            input.paraliza, now
+        )
+
         row = await conn.fetchrow("SELECT * FROM prod_incidencia WHERE id = $1", inc_id)
         return row_to_dict(row)
 
@@ -168,7 +185,7 @@ async def update_incidencia(incidencia_id: str, input: IncidenciaUpdate):
         if not row:
             raise HTTPException(status_code=404, detail="Incidencia no encontrada")
 
-        now = datetime.now()
+        now = datetime.now(TZ_LIMA).replace(tzinfo=None)
         await conn.execute(
             "UPDATE prod_incidencia SET estado = $1, updated_at = $2 WHERE id = $3",
             input.estado, now, incidencia_id
@@ -201,6 +218,17 @@ async def update_incidencia(incidencia_id: str, input: IncidenciaUpdate):
                     else:
                         new_estado = 'NORMAL'
                     await conn.execute("UPDATE prod_registros SET estado_operativo = $1 WHERE id = $2", new_estado, registro_id)
+
+            # Auto-publicar resolución en conversación
+            motivo_row = await conn.fetchrow("SELECT nombre FROM prod_motivos_incidencia WHERE id = $1", row['tipo'])
+            motivo_nombre = motivo_row['nombre'] if motivo_row else 'Incidencia'
+            conv_id = str(uuid.uuid4())
+            await conn.execute(
+                """INSERT INTO prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, estado, fijado, created_at)
+                   VALUES ($1, $2, NULL, $3, $4, 'resuelto', FALSE, $5)""",
+                conv_id, row['registro_id'], 'Sistema',
+                f"INCIDENCIA RESUELTA: {motivo_nombre}", now
+            )
 
         updated = await conn.fetchrow("SELECT * FROM prod_incidencia WHERE id = $1", incidencia_id)
         return row_to_dict(updated)
@@ -239,7 +267,7 @@ async def levantar_paralizacion(paralizacion_id: str):
             raise HTTPException(status_code=404, detail="Paralización no encontrada")
         if not row['activa']:
             raise HTTPException(status_code=400, detail="Ya fue levantada")
-        now = datetime.now()
+        now = datetime.now(TZ_LIMA).replace(tzinfo=None)
         await conn.execute(
             "UPDATE prod_paralizacion SET activa = FALSE, fecha_fin = $1, updated_at = $1 WHERE id = $2",
             now, paralizacion_id

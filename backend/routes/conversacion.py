@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import uuid
 
 router = APIRouter(prefix="/api", tags=["Conversacion"])
+
+TZ_LIMA = timezone(timedelta(hours=-5))
 
 
 class MensajeCreate(BaseModel):
@@ -59,8 +61,9 @@ async def create_mensaje(registro_id: str, input: MensajeCreate):
         estado = input.estado if input.estado in ('normal', 'importante', 'pendiente', 'resuelto') else 'normal'
         await conn.execute(
             """INSERT INTO prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, estado, fijado, created_at)
-               VALUES ($1, $2, $3, $4, $5, $6, FALSE, NOW())""",
-            msg_id, registro_id, input.mensaje_padre_id, input.autor.strip(), input.mensaje.strip(), estado
+               VALUES ($1, $2, $3, $4, $5, $6, FALSE, $7)""",
+            msg_id, registro_id, input.mensaje_padre_id, input.autor.strip(), input.mensaje.strip(), estado,
+            datetime.now(TZ_LIMA).replace(tzinfo=None)
         )
         row = await conn.fetchrow("SELECT * FROM prod_conversacion WHERE id = $1", msg_id)
         return row_to_dict(row)

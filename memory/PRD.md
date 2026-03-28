@@ -196,6 +196,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Backend: validar-cambio-estado, crear y editar movimiento verifican si hay paralizacion activa y rechazan con error claro
   - Frontend: Banner rojo "Registro PARALIZADO" arriba del form, botones de movimiento y select de estado deshabilitados
   - Auto-desbloqueo: al resolver la incidencia paralizante, la paralizacion se levanta y el registro vuelve a su estado normal
+- **Auto-post Incidencias a Conversacion + Timezone Lima** (2026-03-28):
+  - Al crear incidencia: auto-publica mensaje en conversacion (pendiente si normal, importante+fijado si paraliza)
+  - Al resolver incidencia: auto-publica mensaje "INCIDENCIA RESUELTA" con estado resuelto
+  - Corregido timezone de UTC a America/Lima (UTC-5) en incidencias y conversacion
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
