@@ -3342,6 +3342,18 @@ async def validar_cambio_estado(registro_id: str, body: dict):
         if not registro:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         
+        # Bloqueo por paralización activa
+        par_activa = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", registro_id
+        )
+        if par_activa and par_activa > 0:
+            return {
+                "permitido": False,
+                "bloqueos": [{"mensaje": "El registro esta PARALIZADO. Resuelve la incidencia que paraliza antes de cambiar de estado.", "servicio_id": None, "movimiento_id": None, "etapa": None}],
+                "sugerencia_movimiento": None,
+                "paralizado": True
+            }
+        
         modelo = await conn.fetchrow("SELECT ruta_produccion_id FROM prod_modelos WHERE id = $1", registro['modelo_id']) if registro['modelo_id'] else None
         ruta_id = modelo['ruta_produccion_id'] if modelo and modelo['ruta_produccion_id'] else None
         
@@ -5777,6 +5789,12 @@ async def create_movimiento(input: MovimientoCreate):
         reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
         if not reg:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
+        # Bloqueo por paralización activa
+        par_activa = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", input.registro_id
+        )
+        if par_activa and par_activa > 0:
+            raise HTTPException(status_code=400, detail="Registro PARALIZADO. Resuelve la incidencia antes de crear movimientos.")
         srv = await conn.fetchrow("SELECT id FROM prod_servicios_produccion WHERE id = $1", input.servicio_id)
         if not srv:
             raise HTTPException(status_code=404, detail="Servicio no encontrado")
@@ -5849,6 +5867,12 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
         result = await conn.fetchrow("SELECT * FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
         if not result:
             raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+        # Bloqueo por paralización activa
+        par_activa = await conn.fetchval(
+            "SELECT COUNT(*) FROM prod_paralizacion WHERE registro_id = $1 AND activa = TRUE", input.registro_id
+        )
+        if par_activa and par_activa > 0:
+            raise HTTPException(status_code=400, detail="Registro PARALIZADO. Resuelve la incidencia antes de editar movimientos.")
         
         # Usar tarifa_aplicada del frontend si viene, sino calcular desde persona-servicio
         tarifa = input.tarifa_aplicada or 0

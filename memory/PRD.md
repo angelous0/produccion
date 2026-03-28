@@ -192,6 +192,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Nueva columna `usa_avance_porcentaje` en prod_servicios_produccion (configurable por servicio)
   - Nueva columna `avance_porcentaje` en prod_movimientos_produccion
   - UI: Checkbox en catalogo de servicios, campo condicional en dialog de movimiento, barra visual en tabla de movimientos
+- **Bloqueo por Paralizacion** (2026-03-28):
+  - Backend: validar-cambio-estado, crear y editar movimiento verifican si hay paralizacion activa y rechazan con error claro
+  - Frontend: Banner rojo "Registro PARALIZADO" arriba del form, botones de movimiento y select de estado deshabilitados
+  - Auto-desbloqueo: al resolver la incidencia paralizante, la paralizacion se levanta y el registro vuelve a su estado normal
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos

@@ -173,6 +173,7 @@ export const RegistroForm = () => {
 
   // Incidencias
   const [incidencias, setIncidencias] = useState([]);
+  const isParalizado = incidencias.some(i => i.paraliza && i.paralizacion_activa && i.estado === 'ABIERTA');
   const [motivosIncidencia, setMotivosIncidencia] = useState([]);
   const [incidenciaDialogOpen, setIncidenciaDialogOpen] = useState(false);
   const [incidenciaForm, setIncidenciaForm] = useState({ motivo_id: '', comentario: '', paraliza: false });
@@ -1324,6 +1325,21 @@ export const RegistroForm = () => {
         </Button>
       </div>
 
+      {/* Banner PARALIZADO */}
+      {isEditing && isParalizado && (
+        <div className="rounded-lg border-2 border-red-500 bg-red-50 p-4 flex items-center gap-3" data-testid="banner-paralizado">
+          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <AlertTriangle className="h-5 w-5 text-red-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-red-800">Registro PARALIZADO</p>
+            <p className="text-sm text-red-600">
+              No se puede cambiar de estado ni crear/editar movimientos hasta resolver la incidencia que paraliza.
+            </p>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Columna izquierda - Información general */}
@@ -1372,7 +1388,7 @@ export const RegistroForm = () => {
                         }
                       }}
                     >
-                      <SelectTrigger data-testid="select-estado" className="w-[260px] h-11 text-base font-semibold border-primary/40 bg-white dark:bg-zinc-900">
+                      <SelectTrigger data-testid="select-estado" className={`w-[260px] h-11 text-base font-semibold border-primary/40 bg-white dark:bg-zinc-900 ${isParalizado ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado}>
                         <SelectValue placeholder="Seleccionar estado" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1929,6 +1945,8 @@ export const RegistroForm = () => {
                     type="button"
                     size="sm"
                     onClick={() => handleOpenMovimientoDialog()}
+                    disabled={isParalizado}
+                    className={isParalizado ? 'opacity-50 cursor-not-allowed' : ''}
                     data-testid="btn-nuevo-movimiento"
                   >
                     <Plus className="h-4 w-4 mr-1" />
@@ -2056,6 +2074,8 @@ export const RegistroForm = () => {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => handleOpenMovimientoDialog(mov)}
+                                        disabled={isParalizado}
+                                        className={isParalizado ? 'opacity-30' : ''}
                                         data-testid={`edit-movimiento-${mov.id}`}
                                       >
                                         <Pencil className="h-4 w-4" />
@@ -2075,6 +2095,8 @@ export const RegistroForm = () => {
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => handleDeleteMovimiento(mov.id)}
+                                        disabled={isParalizado}
+                                        className={isParalizado ? 'opacity-30' : ''}
                                         data-testid={`delete-movimiento-${mov.id}`}
                                       >
                                         <Trash2 className="h-4 w-4 text-destructive" />
