@@ -2305,13 +2305,23 @@ export const RegistroForm = () => {
                 </Button>
               </div>
 
-              {/* Modelo ultra-compacto */}
+              {/* Datos del Modelo */}
               {modeloSeleccionado && (
-                <div className="rounded-lg border bg-muted/30 px-3 py-2">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">{modeloSeleccionado.nombre}</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
-                    {[modeloSeleccionado.marca_nombre, modeloSeleccionado.tipo_nombre, modeloSeleccionado.entalle_nombre, modeloSeleccionado.tela_nombre, modeloSeleccionado.hilo_nombre].filter(Boolean).join(' · ')}
-                  </p>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-0.5">Modelo</p>
+                  <p className="font-semibold text-sm leading-snug">{modeloSeleccionado.nombre}</p>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 mt-2 text-xs">
+                    <span className="text-muted-foreground">Marca</span>
+                    <span className="font-medium">{modeloSeleccionado.marca_nombre || '-'}</span>
+                    <span className="text-muted-foreground">Tipo</span>
+                    <span className="font-medium">{modeloSeleccionado.tipo_nombre || '-'}</span>
+                    <span className="text-muted-foreground">Entalle</span>
+                    <span className="font-medium">{modeloSeleccionado.entalle_nombre || '-'}</span>
+                    <span className="text-muted-foreground">Tela</span>
+                    <span className="font-medium">{modeloSeleccionado.tela_nombre || '-'}</span>
+                    <span className="text-muted-foreground">Hilo</span>
+                    <span className="font-medium">{modeloSeleccionado.hilo_nombre || '-'}</span>
+                  </div>
                 </div>
               )}
 
