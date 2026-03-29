@@ -224,6 +224,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Acciones rapidas inline: editar avance %, crear incidencia rapida (dialog), abrir registro
   - Ruta: /reportes/costura, sidebar: Op. Costura
   - Testing: 100% backend (15/15) y 100% frontend
+- **Ajustes Reporte Costura** (2026-03-29):
+  - Eliminada columna "Pend." (pendiente estimado) — no existe en DB, solo se calculaba
+  - Nueva tabla prod_avance_historial (movimiento_id, avance_porcentaje, usuario, created_at) para tracking de cambios
+  - Nuevo endpoint GET /api/reportes-produccion/costura/avance-historial/{movimiento_id}
+  - Endpoint PUT avance ahora registra automaticamente en historial con usuario
+  - UI: Dialog modal "Historial de Avance" accesible desde icono reloj en columna Avance, muestra cronologia con diferencias (+N%) y usuario/fecha
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos

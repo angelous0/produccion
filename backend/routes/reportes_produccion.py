@@ -1092,10 +1092,7 @@ async def reporte_costura(
             elif fecha_inicio and d['avance_porcentaje'] is not None:
                 dias_sin_actualizar = (hoy - fecha_inicio).days
 
-            # Pendiente estimado
-            pendiente_estimado = None
-            if d['cantidad_enviada'] and avance is not None:
-                pendiente_estimado = round(d['cantidad_enviada'] * (1 - avance / 100))
+            # Pendiente estimado — ELIMINADO por pedido del usuario
 
             # Lógica de riesgo
             nivel_riesgo = 'normal'
@@ -1146,7 +1143,6 @@ async def reporte_costura(
                 "cantidad_enviada": d['cantidad_enviada'],
                 "cantidad_recibida": d['cantidad_recibida'],
                 "avance_porcentaje": d['avance_porcentaje'],
-                "pendiente_estimado": pendiente_estimado,
                 "fecha_inicio": str(d['fecha_inicio']) if d['fecha_inicio'] else None,
                 "fecha_fin": str(d['fecha_fin']) if d['fecha_fin'] else None,
                 "fecha_esperada": str(d['fecha_esperada_movimiento']) if d['fecha_esperada_movimiento'] else None,
@@ -1251,4 +1247,36 @@ async def actualizar_avance_rapido(
                WHERE id = $2""",
             input.avance_porcentaje, movimiento_id
         )
+        # Registrar en historial
+        usuario_nombre = user.get("nombre_completo") or user.get("username") or "Sistema"
+        await conn.execute(
+            """INSERT INTO produccion.prod_avance_historial (movimiento_id, avance_porcentaje, usuario)
+               VALUES ($1, $2, $3)""",
+            movimiento_id, input.avance_porcentaje, usuario_nombre
+        )
         return {"ok": True, "avance_porcentaje": input.avance_porcentaje}
+
+
+@router.get("/costura/avance-historial/{movimiento_id}")
+async def get_avance_historial(
+    movimiento_id: str,
+    user=Depends(get_current_user)
+):
+    """Obtener historial de cambios de avance de un movimiento."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, avance_porcentaje, usuario, created_at
+               FROM produccion.prod_avance_historial
+               WHERE movimiento_id = $1
+               ORDER BY created_at ASC""",
+            movimiento_id
+        )
+        return [
+            {
+                "avance_porcentaje": r["avance_porcentaje"],
+                "usuario": r["usuario"],
+                "fecha": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in rows
+        ]

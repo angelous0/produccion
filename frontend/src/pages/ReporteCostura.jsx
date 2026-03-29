@@ -12,7 +12,7 @@ import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
 import {
   ChevronDown, ChevronRight, Users, Package, AlertTriangle, Clock, FileWarning,
-  ExternalLink, Plus, Pencil, Filter, X, RefreshCw
+  ExternalLink, Plus, Pencil, Filter, X, RefreshCw, History
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -35,21 +35,72 @@ const KpiCard = ({ label, value, icon: Icon, accent }) => (
 );
 
 // Inline avance editor
-const AvanceEditor = ({ movimientoId, currentValue, onSaved }) => {
+const AvanceEditor = ({ movimientoId, currentValue, onSaved, nCorte }) => {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(currentValue ?? 0);
   const [saving, setSaving] = useState(false);
+  const [historial, setHistorial] = useState(null);
+  const [showHist, setShowHist] = useState(false);
+
+  const fetchHistorial = async () => {
+    try {
+      const resp = await axios.get(`${API}/api/reportes-produccion/costura/avance-historial/${movimientoId}`);
+      setHistorial(resp.data);
+      setShowHist(true);
+    } catch { toast.error('Error al cargar historial'); }
+  };
 
   if (!editing) {
     return (
-      <button
-        onClick={() => { setVal(currentValue ?? 0); setEditing(true); }}
-        className="flex items-center gap-1 hover:bg-muted rounded px-1 py-0.5 transition-colors group"
-        title="Actualizar avance"
-      >
-        <span className="font-mono text-sm font-semibold">{currentValue ?? '—'}%</span>
-        <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-      </button>
+      <>
+        <div className="flex items-center gap-0.5 justify-center">
+          <button
+            onClick={() => { setVal(currentValue ?? 0); setEditing(true); }}
+            className="flex items-center gap-1 hover:bg-muted rounded px-1 py-0.5 transition-colors group"
+            title="Actualizar avance"
+          >
+            <span className="font-mono text-sm font-semibold">{currentValue ?? '—'}%</span>
+            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </button>
+          <button
+            onClick={fetchHistorial}
+            className="h-5 w-5 flex items-center justify-center rounded hover:bg-muted transition-colors"
+            title="Ver historial de avances"
+          >
+            <History className="h-3 w-3 text-muted-foreground" />
+          </button>
+        </div>
+        <Dialog open={showHist} onOpenChange={setShowHist}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Historial de Avance — Corte {nCorte}</DialogTitle>
+            </DialogHeader>
+            {!historial || historial.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Sin registros de avance</p>
+            ) : (
+              <div className="space-y-0 max-h-64 overflow-y-auto">
+                {historial.map((h, i) => {
+                  const prev = i > 0 ? historial[i - 1].avance_porcentaje : 0;
+                  const diff = h.avance_porcentaje - prev;
+                  return (
+                    <div key={i} className="flex items-center justify-between py-2 px-1 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-sm w-10 text-right">{h.avance_porcentaje}%</span>
+                        {diff > 0 && <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">+{diff}%</Badge>}
+                        {diff < 0 && <Badge variant="outline" className="text-[10px] text-red-600 border-red-300">{diff}%</Badge>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs">{h.fecha ? new Date(h.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}</p>
+                        <p className="text-[10px] text-muted-foreground">{h.usuario} · {h.fecha ? new Date(h.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : ''}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </>
     );
   }
 
@@ -349,7 +400,6 @@ export const ReporteCostura = () => {
                           <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Entalle</th>
                           <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tela</th>
                           <th className="text-right p-2 font-medium text-muted-foreground whitespace-nowrap">Cant.</th>
-                          <th className="text-right p-2 font-medium text-muted-foreground whitespace-nowrap">Pend.</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Inicio</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">F. Esperada</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Días</th>
@@ -376,12 +426,11 @@ export const ReporteCostura = () => {
                               <td className="p-2 whitespace-nowrap">{item.entalle_nombre || '-'}</td>
                               <td className="p-2 whitespace-nowrap">{item.tela_nombre || '-'}</td>
                               <td className="p-2 text-right font-mono">{item.cantidad_enviada?.toLocaleString() || '-'}</td>
-                              <td className="p-2 text-right font-mono text-muted-foreground">{item.pendiente_estimado != null ? item.pendiente_estimado.toLocaleString() : '-'}</td>
                               <td className="p-2 text-center whitespace-nowrap">{item.fecha_inicio ? new Date(item.fecha_inicio + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
                               <td className="p-2 text-center whitespace-nowrap">{item.fecha_esperada ? new Date(item.fecha_esperada + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : (item.fecha_fin ? new Date(item.fecha_fin + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-')}</td>
                               <td className="p-2 text-center font-mono">{item.dias_transcurridos ?? '-'}</td>
                               <td className="p-2 text-center">
-                                <AvanceEditor movimientoId={item.movimiento_id} currentValue={item.avance_porcentaje} onSaved={fetchData} />
+                                <AvanceEditor movimientoId={item.movimiento_id} currentValue={item.avance_porcentaje} onSaved={fetchData} nCorte={item.n_corte} />
                               </td>
                               <td className="p-2 text-center whitespace-nowrap text-muted-foreground">
                                 {item.avance_updated_at ? new Date(item.avance_updated_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}

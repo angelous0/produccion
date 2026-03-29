@@ -192,6 +192,16 @@ async def ensure_bom_tables():
         await conn.execute("ALTER TABLE prod_servicios_produccion ADD COLUMN IF NOT EXISTS usa_avance_porcentaje BOOLEAN DEFAULT FALSE")
         await conn.execute("ALTER TABLE prod_movimientos_produccion ADD COLUMN IF NOT EXISTS avance_porcentaje INTEGER")
         await conn.execute("ALTER TABLE prod_movimientos_produccion ADD COLUMN IF NOT EXISTS avance_updated_at TIMESTAMP")
+        # Historial de avances
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS produccion.prod_avance_historial (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                movimiento_id VARCHAR NOT NULL,
+                avance_porcentaje INTEGER NOT NULL,
+                usuario VARCHAR,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
 
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
