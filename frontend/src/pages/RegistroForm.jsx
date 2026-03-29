@@ -48,6 +48,32 @@ import { useAuth } from '../context/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+// Mini-componente para stats de conversación en el panel derecho
+const ConversacionStats = ({ registroId }) => {
+  const [stats, setStats] = React.useState(null);
+  React.useEffect(() => {
+    if (!registroId) return;
+    axios.get(`${API}/registros/${registroId}/conversacion`).then(r => {
+      const msgs = r.data || [];
+      const total = msgs.length;
+      const importantes = msgs.filter(m => m.estado === 'importante').length;
+      const pendientes = msgs.filter(m => m.estado === 'pendiente').length;
+      const fijados = msgs.filter(m => m.fijado).length;
+      setStats({ total, importantes, pendientes, fijados });
+    }).catch(() => setStats({ total: 0, importantes: 0, pendientes: 0, fijados: 0 }));
+  }, [registroId]);
+  if (!stats) return <span className="text-xs text-muted-foreground">Cargando...</span>;
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-sm font-semibold">{stats.total} mensajes</span>
+      {stats.importantes > 0 && <span className="text-[10px] px-1.5 py-0 rounded-full bg-red-100 text-red-700 font-medium">{stats.importantes} imp.</span>}
+      {stats.pendientes > 0 && <span className="text-[10px] px-1.5 py-0 rounded-full bg-amber-100 text-amber-700 font-medium">{stats.pendientes} pend.</span>}
+      {stats.fijados > 0 && <span className="text-[10px] px-1.5 py-0 rounded-full bg-blue-100 text-blue-700 font-medium">{stats.fijados} fijados</span>}
+    </div>
+  );
+};
+
+
 export const RegistroForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -1292,215 +1318,159 @@ export const RegistroForm = () => {
   }
 
   return (
-    <div className="space-y-6 pb-8 min-w-0" data-testid="registro-form-page">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => navigate('/registros')}
-          data-testid="btn-volver"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold tracking-tight">
-            {isEditing ? 'Editar Registro' : 'Nuevo Registro'}
-          </h2>
-          <p className="text-muted-foreground">
-            {isEditing ? `Editando registro ${formData.n_corte}` : 'Crear un nuevo registro de produccion'}
-          </p>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          disabled={loading}
-          onClick={async () => {
-            await handleSubmit(null, true);
-            toast.success('Guardado');
-          }}
-          data-testid="btn-guardar-rapido"
-        >
-          {loading ? 'Guardando...' : 'Guardar'}
-        </Button>
-      </div>
-
-      {/* Banner PARALIZADO */}
-      {isEditing && isParalizado && (
-        <div className="rounded-lg border-2 border-red-500 bg-red-50 p-4 flex items-center gap-3" data-testid="banner-paralizado">
-          <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-          </div>
+    <div className="space-y-4 pb-8 min-w-0" data-testid="registro-form-page">
+      {/* ═══ HEADER OPERATIVO ═══ */}
+      <div className="rounded-xl border bg-card shadow-sm p-4 space-y-3" data-testid="header-operativo">
+        {/* Fila 1: Navegación + Identidad + Guardar */}
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate('/registros')} data-testid="btn-volver">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-red-800">Registro PARALIZADO</p>
-            <p className="text-sm text-red-600">
-              No se puede cambiar de estado ni crear/editar movimientos hasta resolver la incidencia que paraliza.
-            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold tracking-tight">Corte {formData.n_corte || '—'}</h2>
+              {modeloSeleccionado && (
+                <span className="text-sm text-muted-foreground">· {modeloSeleccionado.nombre}</span>
+              )}
+              {formData.urgente && <Badge variant="destructive" className="text-[10px]">URGENTE</Badge>}
+              {isParalizado && <Badge className="bg-red-600 text-[10px]">PARALIZADO</Badge>}
+            </div>
+            {!isEditing && <p className="text-sm text-muted-foreground">Crear un nuevo registro de producción</p>}
           </div>
+          <Button type="button" size="sm" disabled={loading} onClick={async () => { await handleSubmit(null, true); toast.success('Guardado'); }} data-testid="btn-guardar-rapido">
+            <Save className="h-4 w-4 mr-1" />
+            {loading ? 'Guardando...' : 'Guardar'}
+          </Button>
         </div>
-      )}
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Columna izquierda - Información general */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Información General */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Información General</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* ESTADO - Campo dominante */}
-                <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4" data-testid="estado-banner">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-10 w-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                        <Play className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Estado actual</Label>
-                        {usaRuta && rutaNombre && (
-                          <p className="text-xs text-muted-foreground truncate">Ruta: {rutaNombre}</p>
-                        )}
-                      </div>
-                    </div>
-                    <Select
-                      key={estados.length > 0 && formData.estado ? formData.estado : 'est-loading'}
-                      value={formData.estado}
-                      onValueChange={async (value) => {
+        {/* Fila 2: Estado + Ruta (solo edición) */}
+        {isEditing && (
+          <div className="rounded-lg border bg-muted/30 p-3 space-y-2" data-testid="estado-banner">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Play className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">Estado</span>
+              </div>
+              <Select
+                key={estados.length > 0 && formData.estado ? formData.estado : 'est-loading'}
+                value={formData.estado}
+                onValueChange={async (value) => {
+                  if (usaRuta && id) {
+                    try {
+                      const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: value });
+                      const data = resp.data;
+                      if (!data.permitido) { setForzarEstadoDialog({ nuevo_estado: value, bloqueos: data.bloqueos }); return; }
+                      await autoGuardarEstado(value);
+                      if (data.sugerencia_movimiento) setSugerenciaMovDialog(data.sugerencia_movimiento);
+                    } catch { await autoGuardarEstado(value); }
+                  } else { await autoGuardarEstado(value); }
+                }}
+              >
+                <SelectTrigger data-testid="select-estado" className={`w-[220px] h-9 text-sm font-semibold ${isParalizado ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado}>
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {estados.map((e, idx) => (
+                    <SelectItem key={e} value={e}>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground font-mono w-5">{idx + 1}.</span>
+                        {e}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {usaRuta && rutaNombre && (
+                <span className="text-xs text-muted-foreground">Ruta: {rutaNombre}</span>
+              )}
+              {id && (
+                <label className="flex items-center gap-1.5 cursor-pointer select-none ml-auto" title="Desactiva las validaciones de movimientos para cambiar de estado libremente">
+                  <input type="checkbox" checked={formData.skip_validacion_estado || false} onChange={async (ev) => {
+                    const newVal = ev.target.checked;
+                    setFormData(prev => ({ ...prev, skip_validacion_estado: newVal }));
+                    try { await axios.put(`${API}/registros/${id}/skip-validacion`, { skip_validacion_estado: newVal }); toast.success(newVal ? 'Validacion desactivada' : 'Validacion activada'); }
+                    catch { toast.error('Error'); setFormData(prev => ({ ...prev, skip_validacion_estado: !newVal })); }
+                  }} className="rounded border-gray-300" data-testid="toggle-skip-validacion" />
+                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">Sin restricciones</span>
+                </label>
+              )}
+            </div>
+            {/* Ruta visual */}
+            {estados.length > 1 && (
+              <div className="flex items-center gap-0.5 overflow-x-auto pb-0.5">
+                {estados.map((e, idx) => {
+                  const currentIdx = estados.indexOf(formData.estado);
+                  const isPast = idx < currentIdx;
+                  const isCurrent = idx === currentIdx;
+                  return (
+                    <div key={e} className="flex items-center gap-0.5 shrink-0">
+                      {idx > 0 && <div className={`w-3 h-0.5 ${isPast ? 'bg-primary' : 'bg-muted-foreground/20'}`} />}
+                      <div className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap cursor-pointer transition-colors ${
+                        isCurrent ? 'bg-primary text-primary-foreground font-semibold' :
+                        isPast ? 'bg-primary/20 text-primary' :
+                        'bg-muted text-muted-foreground'
+                      }`} onClick={async () => {
                         if (usaRuta && id) {
                           try {
-                            const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: value });
+                            const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: e });
                             const data = resp.data;
-                            if (!data.permitido) {
-                              setForzarEstadoDialog({ nuevo_estado: value, bloqueos: data.bloqueos });
-                              return;
-                            }
-                            await autoGuardarEstado(value);
-                            if (data.sugerencia_movimiento) {
-                              setSugerenciaMovDialog(data.sugerencia_movimiento);
-                            }
-                          } catch {
-                            await autoGuardarEstado(value);
-                          }
-                        } else {
-                          await autoGuardarEstado(value);
-                        }
-                      }}
-                    >
-                      <SelectTrigger data-testid="select-estado" className={`w-[260px] h-11 text-base font-semibold border-primary/40 bg-white dark:bg-zinc-900 ${isParalizado ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado}>
-                        <SelectValue placeholder="Seleccionar estado" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {estados.map((e, idx) => (
-                          <SelectItem key={e} value={e}>
-                            <span className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground font-mono w-5">{idx + 1}.</span>
-                              {e}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {id && (
-                      <label className="flex items-center gap-2 cursor-pointer select-none ml-3" title="Desactiva las validaciones de movimientos para cambiar de estado libremente">
-                        <input
-                          type="checkbox"
-                          checked={formData.skip_validacion_estado || false}
-                          onChange={async (ev) => {
-                            const newVal = ev.target.checked;
-                            setFormData(prev => ({ ...prev, skip_validacion_estado: newVal }));
-                            try {
-                              await axios.put(`${API}/registros/${id}/skip-validacion`, { skip_validacion_estado: newVal });
-                              toast.success(newVal ? 'Validacion de estados desactivada' : 'Validacion de estados activada');
-                            } catch {
-                              toast.error('Error al cambiar configuracion');
-                              setFormData(prev => ({ ...prev, skip_validacion_estado: !newVal }));
-                            }
-                          }}
-                          className="rounded border-gray-300"
-                          data-testid="toggle-skip-validacion"
-                        />
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">Sin restricciones</span>
-                      </label>
-                    )}
-                  </div>
-                  {estados.length > 1 && (
-                    <div className="flex items-center gap-1 mt-3 overflow-x-auto pb-1">
-                      {estados.map((e, idx) => {
-                        const currentIdx = estados.indexOf(formData.estado);
-                        const isPast = idx < currentIdx;
-                        const isCurrent = idx === currentIdx;
-                        return (
-                          <div key={e} className="flex items-center gap-1 shrink-0">
-                            {idx > 0 && <div className={`w-4 h-0.5 ${isPast ? 'bg-primary' : 'bg-muted'}`} />}
-                            <div
-                              className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap cursor-pointer transition-colors ${
-                                isCurrent ? 'bg-primary text-primary-foreground font-semibold' :
-                                isPast ? 'bg-primary/20 text-primary' :
-                                'bg-muted text-muted-foreground'
-                              }`}
-                              onClick={async () => {
-                                if (usaRuta && id) {
-                                  try {
-                                    const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: e });
-                                    const data = resp.data;
-                                    if (!data.permitido) {
-                                      setForzarEstadoDialog({ nuevo_estado: e, bloqueos: data.bloqueos });
-                                      return;
-                                    }
-                                    await autoGuardarEstado(e);
-                                    if (data.sugerencia_movimiento) {
-                                      setSugerenciaMovDialog(data.sugerencia_movimiento);
-                                    }
-                                  } catch {
-                                    await autoGuardarEstado(e);
-                                  }
-                                } else {
-                                  await autoGuardarEstado(e);
-                                }
-                              }}
-                            >
-                              {e}
-                            </div>
-                          </div>
-                        );
-                      })}
+                            if (!data.permitido) { setForzarEstadoDialog({ nuevo_estado: e, bloqueos: data.bloqueos }); return; }
+                            await autoGuardarEstado(e);
+                            if (data.sugerencia_movimiento) setSugerenciaMovDialog(data.sugerencia_movimiento);
+                          } catch { await autoGuardarEstado(e); }
+                        } else { await autoGuardarEstado(e); }
+                      }}>{e}</div>
                     </div>
-                  )}
-                </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
-                {/* Banner de inconsistencias estado vs movimientos */}
-                {analisisEstado && analisisEstado.inconsistencias && analisisEstado.inconsistencias.length > 0 && !formData.skip_validacion_estado && (
-                  <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-3 space-y-1" data-testid="inconsistencias-banner">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                      <span className="text-sm font-medium text-amber-800 dark:text-amber-300">Estado y movimientos no coinciden completamente</span>
-                    </div>
-                    {analisisEstado.inconsistencias.map((inc, i) => (
-                      <p key={i} className={`text-xs ml-6 ${inc.severidad === 'error' ? 'text-red-600 font-medium' : inc.severidad === 'warning' ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                        {inc.mensaje}
-                      </p>
-                    ))}
-                    {analisisEstado.estado_sugerido && analisisEstado.estado_sugerido !== formData.estado && (
-                      <div className="ml-6 mt-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-6 text-xs border-amber-400 text-amber-700 hover:bg-amber-100"
-                          onClick={async () => {
-                            await autoGuardarEstado(analisisEstado.estado_sugerido);
-                          }}
-                          data-testid="btn-aplicar-estado-sugerido"
-                        >
-                          Aplicar estado sugerido: {analisisEstado.estado_sugerido}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
+        {/* Banners contextuales dentro del header */}
+        {isEditing && isParalizado && (
+          <div className="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/30 p-3 flex items-center gap-3" data-testid="banner-paralizado">
+            <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-red-800 text-sm">Registro PARALIZADO</p>
+              <p className="text-xs text-red-600">No se puede cambiar de estado ni crear/editar movimientos hasta resolver la incidencia.</p>
+            </div>
+          </div>
+        )}
 
+        {analisisEstado && analisisEstado.inconsistencias && analisisEstado.inconsistencias.length > 0 && !formData.skip_validacion_estado && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-2.5 space-y-1" data-testid="inconsistencias-banner">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span className="text-xs font-medium text-amber-800 dark:text-amber-300">Estado y movimientos no coinciden</span>
+            </div>
+            {analisisEstado.inconsistencias.map((inc, i) => (
+              <p key={i} className={`text-[11px] ml-5 ${inc.severidad === 'error' ? 'text-red-600 font-medium' : 'text-amber-700 dark:text-amber-400'}`}>{inc.mensaje}</p>
+            ))}
+            {analisisEstado.estado_sugerido && analisisEstado.estado_sugerido !== formData.estado && (
+              <div className="ml-5 mt-0.5">
+                <Button type="button" variant="outline" size="sm" className="h-5 text-[10px] border-amber-400 text-amber-700 hover:bg-amber-100" onClick={async () => { await autoGuardarEstado(analisisEstado.estado_sugerido); }} data-testid="btn-aplicar-estado-sugerido">
+                  Aplicar: {analisisEstado.estado_sugerido}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ FORM + GRID DE 2 COLUMNAS ═══ */}
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+          {/* ═══ COLUMNA IZQUIERDA ═══ */}
+          <div className="space-y-4 min-w-0">
+
+            {/* Bloque 1: Datos del Registro */}
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Datos del Registro</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 space-y-3">
                 {/* Banner de división de lote */}
                 {divisionInfo && (divisionInfo.es_hijo || divisionInfo.hijos.length > 0) && (
                   <div className="rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700 p-3 space-y-2" data-testid="division-banner">
@@ -1826,10 +1796,10 @@ export const RegistroForm = () => {
               </CardContent>
             </Card>
 
-            {/* Tallas */}
+            {/* Bloque 2: Tallas */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Tallas y Cantidades</CardTitle>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Tallas y Cantidades</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -1924,7 +1894,7 @@ export const RegistroForm = () => {
               </CardContent>
             </Card>
 
-            {/* Materiales / Salidas de Inventario (solo en modo edición) */}
+            {/* Bloque 3: Materiales / Salidas de Inventario (solo en modo edición) */}
             {isEditing && (
               <Card>
                 <CardContent className="pt-4">
@@ -1933,7 +1903,7 @@ export const RegistroForm = () => {
               </Card>
             )}
 
-            {/* Movimientos de Producción (solo en modo edición) */}
+            {/* Bloque 4: Movimientos de Producción (solo en modo edición) */}
             {isEditing && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -2130,7 +2100,7 @@ export const RegistroForm = () => {
               </Card>
             )}
 
-            {/* Incidencias (solo en modo edición) */}
+            {/* Bloque 5: Incidencias (solo en modo edición) */}
             {isEditing && (
               <Card>
                 <CardHeader className="pb-3">
@@ -2218,7 +2188,7 @@ export const RegistroForm = () => {
             )}
 
 
-            {/* Trazabilidad Unificada (solo en modo edición) */}
+            {/* Bloque 6: Trazabilidad Unificada (solo en modo edición) */}
             {isEditing && (
               <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
                 <TrazabilidadPanel
@@ -2230,7 +2200,7 @@ export const RegistroForm = () => {
             )}
 
             {/* Botones de acción mobile (visible solo en < lg) */}
-            <div className="lg:hidden flex flex-col gap-2 pt-4">
+            <div className="lg:hidden flex flex-col gap-2 pt-2">
               <Button type="submit" className="w-full" disabled={loading} data-testid="btn-guardar-registro-mobile">
                 <Save className="h-4 w-4 mr-2" />
                 {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
@@ -2244,97 +2214,105 @@ export const RegistroForm = () => {
             </div>
           </div>
 
-          {/* Columna derecha - Panel de apoyo sticky */}
+          {/* ═══ COLUMNA DERECHA - Panel operativo sticky ═══ */}
           <div className="hidden lg:block">
-            <div className="sticky top-6 space-y-3" data-testid="panel-derecho">
-              {/* Mini-ficha resumen */}
-              <Card className="border-primary/20">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Corte</span>
-                    <span className="font-mono font-bold text-lg">{formData.n_corte || '—'}</span>
-                  </div>
-                  <Separator />
+            <div className="sticky top-4 space-y-3" data-testid="panel-derecho">
+
+              {/* Resumen del Lote */}
+              <div className="rounded-xl border bg-card p-4 space-y-2.5 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Lote</span>
+                  <span className="font-mono font-bold text-xl leading-none">{formData.n_corte || '—'}</span>
+                </div>
+                <Separator />
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Estado</span>
-                    <Badge variant="outline" className="font-medium">{formData.estado}</Badge>
+                    <Badge variant={isParalizado ? 'destructive' : 'outline'} className="text-xs font-medium">{isParalizado ? 'PARALIZADO' : formData.estado}</Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Prendas</span>
-                    <span className="font-mono font-semibold">{tallasSeleccionadas.reduce((sum, t) => sum + (t.cantidad || 0), 0)}</span>
+                    <span className="font-mono font-bold text-base">{tallasSeleccionadas.reduce((sum, t) => sum + (t.cantidad || 0), 0)}</span>
                   </div>
                   {formData.linea_negocio_id && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Línea</span>
-                      <span className="text-sm font-medium truncate max-w-[140px]">{lineasNegocio.find(l => l.id === formData.linea_negocio_id)?.nombre || '—'}</span>
+                      <span className="text-xs font-medium truncate max-w-[160px] text-right">{lineasNegocio.find(l => l.id === formData.linea_negocio_id)?.nombre || '—'}</span>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                  {isEditing && (
+                    <>
+                      <Separator />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Movimientos</span>
+                        <span className="text-xs font-semibold">{movimientosProduccion.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">Incidencias</span>
+                        <div className="flex items-center gap-1.5">
+                          {incidencias.filter(i => i.estado === 'ABIERTA').length > 0 && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{incidencias.filter(i => i.estado === 'ABIERTA').length} abiertas</Badge>
+                          )}
+                          <span className="text-xs font-semibold">{incidencias.length}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
-              {/* Botones de acción */}
-              <div className="flex flex-col gap-2">
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loading}
-                  data-testid="btn-guardar-registro"
-                >
+              {/* Acciones */}
+              <div className="space-y-2">
+                <Button type="submit" className="w-full h-9" disabled={loading} data-testid="btn-guardar-registro">
                   <Save className="h-4 w-4 mr-2" />
                   {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
                 </Button>
-
                 {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
-                    onClick={handleOpenDivision}
-                    data-testid="btn-dividir-lote"
-                  >
-                    <Scissors className="h-4 w-4 mr-2" />
-                    Dividir Lote
+                  <Button type="button" variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={handleOpenDivision} data-testid="btn-dividir-lote">
+                    <Scissors className="h-3.5 w-3.5 mr-1.5" /> Dividir Lote
                   </Button>
                 )}
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => navigate('/registros')}
-                >
+                <Button type="button" variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => navigate('/registros')}>
                   Cancelar
                 </Button>
               </div>
 
-              {/* Datos del Modelo - compacto */}
-              {modeloSeleccionado ? (
-                <Card>
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Modelo</p>
-                    <p className="font-semibold text-sm mb-3">{modeloSeleccionado.nombre}</p>
-                    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-                      <span className="text-muted-foreground text-xs">Marca</span>
-                      <span className="font-medium text-xs">{modeloSeleccionado.marca_nombre || '-'}</span>
-                      <span className="text-muted-foreground text-xs">Tipo</span>
-                      <span className="font-medium text-xs">{modeloSeleccionado.tipo_nombre || '-'}</span>
-                      <span className="text-muted-foreground text-xs">Entalle</span>
-                      <span className="font-medium text-xs">{modeloSeleccionado.entalle_nombre || '-'}</span>
-                      <span className="text-muted-foreground text-xs">Tela</span>
-                      <span className="font-medium text-xs">{modeloSeleccionado.tela_nombre || '-'}</span>
-                      <span className="text-muted-foreground text-xs">Hilo</span>
-                      <span className="font-medium text-xs">{modeloSeleccionado.hilo_nombre || '-'}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="p-4 text-center text-sm text-muted-foreground">
-                    Selecciona un modelo
-                  </CardContent>
-                </Card>
+              {/* Modelo compacto */}
+              {modeloSeleccionado && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Modelo</p>
+                  <p className="font-semibold text-sm leading-tight mb-2">{modeloSeleccionado.nombre}</p>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                    {[
+                      ['Marca', modeloSeleccionado.marca_nombre],
+                      ['Tipo', modeloSeleccionado.tipo_nombre],
+                      ['Entalle', modeloSeleccionado.entalle_nombre],
+                      ['Tela', modeloSeleccionado.tela_nombre],
+                      ['Hilo', modeloSeleccionado.hilo_nombre],
+                    ].map(([label, val]) => (
+                      <React.Fragment key={label}>
+                        <span className="text-[11px] text-muted-foreground">{label}</span>
+                        <span className="text-[11px] font-medium truncate">{val || '-'}</span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Conversación integrada */}
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={() => setConvOpen(true)}
+                  className="w-full rounded-lg border bg-card p-3 hover:bg-accent/50 transition-colors text-left group"
+                  data-testid="btn-abrir-conversacion-panel"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Conversación</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <ConversacionStats registroId={id} />
+                </button>
               )}
             </div>
           </div>
@@ -3354,12 +3332,15 @@ export const RegistroForm = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Boton flotante + Panel lateral de conversacion */}
+      {/* Panel lateral de conversación (el trigger ahora está en el panel derecho) */}
       {isEditing && (
         <>
-          {!convOpen && (
-            <ConversacionTrigger registroId={id} onClick={() => setConvOpen(true)} />
-          )}
+          {/* Trigger mobile-only para cuando no se ve el panel derecho */}
+          <div className="lg:hidden">
+            {!convOpen && (
+              <ConversacionTrigger registroId={id} onClick={() => setConvOpen(true)} />
+            )}
+          </div>
           <ConversacionPanel
             registroId={id}
             usuario={user?.nombre_completo || user?.username || 'Usuario'}

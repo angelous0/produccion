@@ -203,15 +203,13 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - **Feedback Visual Incidencias Resueltas** (2026-03-28):
   - Badge "RESUELTA" + fecha de resolucion con icono verde en la seccion de incidencias
   - Incidencias con paralizacion muestran badge "Reanudada" cuando fueron resueltas
-- **Reorganizacion Layout RegistroForm** (2026-03-29):
-  - Layout 2 columnas: izquierda (ancha, flujo principal) + derecha (angosta, panel de apoyo sticky)
-  - Columna derecha sticky con: mini-ficha resumen (Corte, Estado, Prendas, Linea), botones de accion, datos del modelo compactos
-  - Datos del modelo compactados: de iconos+padding grande a tabla densa etiqueta-valor
-  - Botones de accion (Actualizar, Dividir, Cancelar) siempre visibles por sticky
-  - Botones mobile al final de columna izquierda para pantallas < lg
-  - Limpieza de imports no usados (Tag, Layers, Shirt)
-
-### P1
+- **Reorganizacion REAL Layout RegistroForm** (2026-03-29):
+  - Header operativo: Estado/Ruta extraidos del formulario a barra superior dominante con select, ruta visual con pills, badge PARALIZADO y boton Guardar
+  - Layout 2 columnas [1fr_320px]: izquierda (bloques: Datos, Tallas, Materiales, Movimientos, Incidencias, Trazabilidad) + derecha sticky
+  - Panel derecho enriquecido: contadores movimientos/incidencias, modelo compacto, conversacion integrada con stats
+  - Conversacion: boton flotante eliminado en desktop, integrado en panel derecho; drawer se mantiene
+  - ConversacionStats: mini-componente con resumen del hilo
+  - Banners (paralizado, inconsistencias) integrados en header operativo
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos
