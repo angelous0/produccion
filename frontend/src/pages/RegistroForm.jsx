@@ -33,7 +33,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Separator } from '../components/ui/separator';
-import { ArrowLeft, Save, AlertTriangle, Trash2, Tag, Layers, Shirt, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight, Check, ChevronsUpDown, Search, FileDown, Lock } from 'lucide-react';
+import { ArrowLeft, Save, AlertTriangle, Trash2, Palette, Scissors, Package, Plus, ArrowUpCircle, Cog, Users, Calendar, Play, Pencil, FileText, ChevronDown, ChevronUp, Divide, ArrowRight, Check, ChevronsUpDown, Search, FileDown, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
@@ -2228,111 +2228,114 @@ export const RegistroForm = () => {
                 />
               </div>
             )}
-          </div>
 
-          {/* Columna derecha - Datos del modelo */}
-          <div className="space-y-6">
-            {/* Datos del Modelo Seleccionado */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Datos del Modelo</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {modeloSeleccionado ? (
-                  <div className="space-y-4">
-                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Modelo</p>
-                      <p className="font-semibold text-lg">{modeloSeleccionado.nombre}</p>
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                        <Tag className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Marca</p>
-                          <p className="font-medium">{modeloSeleccionado.marca_nombre || '-'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                        <Layers className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Tipo</p>
-                          <p className="font-medium">{modeloSeleccionado.tipo_nombre || '-'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                        <Shirt className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Entalle</p>
-                          <p className="font-medium">{modeloSeleccionado.entalle_nombre || '-'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                        <Palette className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Tela</p>
-                          <p className="font-medium">{modeloSeleccionado.tela_nombre || '-'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
-                        <Scissors className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-xs text-muted-foreground">Hilo</p>
-                          <p className="font-medium">{modeloSeleccionado.hilo_nombre || '-'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    Selecciona un modelo para ver sus datos
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Botones de acción */}
-            <div className="flex flex-col gap-3">
-              <Button 
-                type="submit" 
-                size="lg" 
-                className="w-full"
-                disabled={loading}
-                data-testid="btn-guardar-registro"
-              >
+            {/* Botones de acción mobile (visible solo en < lg) */}
+            <div className="lg:hidden flex flex-col gap-2 pt-4">
+              <Button type="submit" className="w-full" disabled={loading} data-testid="btn-guardar-registro-mobile">
                 <Save className="h-4 w-4 mr-2" />
                 {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
               </Button>
-              
               {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && (
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  size="lg"
-                  className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
-                  onClick={handleOpenDivision}
-                  data-testid="btn-dividir-lote"
-                >
-                  <Scissors className="h-4 w-4 mr-2" />
-                  Dividir Lote
+                <Button type="button" variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={handleOpenDivision} data-testid="btn-dividir-lote-mobile">
+                  <Scissors className="h-4 w-4 mr-2" /> Dividir Lote
                 </Button>
               )}
-              
-              <Button 
-                type="button"
-                variant="outline" 
-                size="lg"
-                className="w-full"
-                onClick={() => navigate('/registros')}
-              >
-                Cancelar
-              </Button>
+              <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => navigate('/registros')}>Cancelar</Button>
+            </div>
+          </div>
+
+          {/* Columna derecha - Panel de apoyo sticky */}
+          <div className="hidden lg:block">
+            <div className="sticky top-6 space-y-3" data-testid="panel-derecho">
+              {/* Mini-ficha resumen */}
+              <Card className="border-primary/20">
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground uppercase tracking-wider">Corte</span>
+                    <span className="font-mono font-bold text-lg">{formData.n_corte || '—'}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Estado</span>
+                    <Badge variant="outline" className="font-medium">{formData.estado}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Prendas</span>
+                    <span className="font-mono font-semibold">{tallasSeleccionadas.reduce((sum, t) => sum + (t.cantidad || 0), 0)}</span>
+                  </div>
+                  {formData.linea_negocio_id && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Línea</span>
+                      <span className="text-sm font-medium truncate max-w-[140px]">{lineasNegocio.find(l => l.id === formData.linea_negocio_id)?.nombre || '—'}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Botones de acción */}
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading}
+                  data-testid="btn-guardar-registro"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
+                </Button>
+
+                {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+                    onClick={handleOpenDivision}
+                    data-testid="btn-dividir-lote"
+                  >
+                    <Scissors className="h-4 w-4 mr-2" />
+                    Dividir Lote
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => navigate('/registros')}
+                >
+                  Cancelar
+                </Button>
+              </div>
+
+              {/* Datos del Modelo - compacto */}
+              {modeloSeleccionado ? (
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Modelo</p>
+                    <p className="font-semibold text-sm mb-3">{modeloSeleccionado.nombre}</p>
+                    <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
+                      <span className="text-muted-foreground text-xs">Marca</span>
+                      <span className="font-medium text-xs">{modeloSeleccionado.marca_nombre || '-'}</span>
+                      <span className="text-muted-foreground text-xs">Tipo</span>
+                      <span className="font-medium text-xs">{modeloSeleccionado.tipo_nombre || '-'}</span>
+                      <span className="text-muted-foreground text-xs">Entalle</span>
+                      <span className="font-medium text-xs">{modeloSeleccionado.entalle_nombre || '-'}</span>
+                      <span className="text-muted-foreground text-xs">Tela</span>
+                      <span className="font-medium text-xs">{modeloSeleccionado.tela_nombre || '-'}</span>
+                      <span className="text-muted-foreground text-xs">Hilo</span>
+                      <span className="font-medium text-xs">{modeloSeleccionado.hilo_nombre || '-'}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="p-4 text-center text-sm text-muted-foreground">
+                    Selecciona un modelo
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </div>

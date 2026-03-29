@@ -200,6 +200,16 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Al crear incidencia: auto-publica mensaje en conversacion (pendiente si normal, importante+fijado si paraliza)
   - Al resolver incidencia: auto-publica mensaje "INCIDENCIA RESUELTA" con estado resuelto
   - Corregido timezone de UTC a America/Lima (UTC-5) en incidencias y conversacion
+- **Feedback Visual Incidencias Resueltas** (2026-03-28):
+  - Badge "RESUELTA" + fecha de resolucion con icono verde en la seccion de incidencias
+  - Incidencias con paralizacion muestran badge "Reanudada" cuando fueron resueltas
+- **Reorganizacion Layout RegistroForm** (2026-03-29):
+  - Layout 2 columnas: izquierda (ancha, flujo principal) + derecha (angosta, panel de apoyo sticky)
+  - Columna derecha sticky con: mini-ficha resumen (Corte, Estado, Prendas, Linea), botones de accion, datos del modelo compactos
+  - Datos del modelo compactados: de iconos+padding grande a tabla densa etiqueta-valor
+  - Botones de accion (Actualizar, Dividir, Cancelar) siempre visibles por sticky
+  - Botones mobile al final de columna izquierda para pantallas < lg
+  - Limpieza de imports no usados (Tag, Layers, Shirt)
 
 ### P1
 - [ ] Logica en modulo Finanzas para cargos internos
@@ -213,8 +223,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 ### P3
 - [ ] Permisos granulares con usePermissions
 - [ ] Exportacion Excel/PDF
-- [ ] Refactorizar RegistroForm.jsx (~2900 lineas)
-- [ ] Migrar server.py a routers modulares (~6800 lineas)
+- [ ] Refactorizar RegistroForm.jsx (~3370 lineas)
+- [ ] Migrar server.py a routers modulares (~7400 lineas)
 
 ## Key Credentials
 - Usuario: eduard / eduard123
