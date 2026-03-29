@@ -210,6 +210,11 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Conversacion: boton flotante eliminado en desktop, integrado en panel derecho; drawer se mantiene
   - ConversacionStats: mini-componente con resumen del hilo
   - Banners (paralizado, inconsistencias) integrados en header operativo
+- **Ajustes finales Layout RegistroForm** (2026-03-29):
+  - Balance del Lote movido arriba de Incidencias (prioridad operativa)
+  - Incidencias: solo abiertas visibles; resueltas colapsadas en "Historial resueltas (N)" con toggle expandible
+  - Modelo en panel derecho ultra-compacto: nombre + atributos en una sola linea separados por punto medio
+  - Orden final de bloques: Datos → Tallas → Materiales → Movimientos → Balance/Trazabilidad → Incidencias
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos

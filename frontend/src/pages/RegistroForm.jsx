@@ -203,6 +203,7 @@ export const RegistroForm = () => {
   const [motivosIncidencia, setMotivosIncidencia] = useState([]);
   const [incidenciaDialogOpen, setIncidenciaDialogOpen] = useState(false);
   const [incidenciaForm, setIncidenciaForm] = useState({ motivo_id: '', comentario: '', paraliza: false });
+  const [showResueltas, setShowResueltas] = useState(false);
   const [nuevoMotivoNombre, setNuevoMotivoNombre] = useState('');
   const [gestionMotivos, setGestionMotivos] = useState(false);
   const [editandoMotivo, setEditandoMotivo] = useState(null);
@@ -2100,7 +2101,18 @@ export const RegistroForm = () => {
               </Card>
             )}
 
-            {/* Bloque 5: Incidencias (solo en modo edición) */}
+            {/* Bloque 5: Balance y Trazabilidad (solo en modo edición) - PRIORIDAD OPERATIVA */}
+            {isEditing && (
+              <div>
+                <TrazabilidadPanel
+                  registroId={id}
+                  servicios={serviciosProduccion}
+                  personas={personasProduccion}
+                />
+              </div>
+            )}
+
+            {/* Bloque 6: Incidencias (solo en modo edición) */}
             {isEditing && (
               <Card>
                 <CardHeader className="pb-3">
@@ -2131,72 +2143,88 @@ export const RegistroForm = () => {
                     <p className="text-sm text-muted-foreground text-center py-4">Sin incidencias registradas</p>
                   ) : (
                     <div className="space-y-2">
-                      {incidencias.map((inc) => (
-                        <div key={inc.id} className={`flex items-start gap-3 p-3 rounded-lg border ${inc.estado === 'ABIERTA' ? 'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800' : 'bg-muted/30 border-border'}`} data-testid={`incidencia-${inc.id}`}>
+                      {/* Incidencias activas (ABIERTA) — siempre visibles */}
+                      {incidencias.filter(i => i.estado === 'ABIERTA').map((inc) => (
+                        <div key={inc.id} className="flex items-start gap-3 p-3 rounded-lg border bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" data-testid={`incidencia-${inc.id}`}>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant={inc.estado === 'ABIERTA' ? 'destructive' : 'secondary'} className="text-xs">
-                                {inc.estado}
-                              </Badge>
+                              <Badge variant="destructive" className="text-xs">{inc.estado}</Badge>
                               <span className="font-medium text-sm">{inc.motivo_nombre || inc.tipo}</span>
-                              {inc.paraliza && (
-                                <Badge variant="outline" className="text-xs border-red-300 text-red-600">
-                                  Paraliza
-                                </Badge>
-                              )}
-                              {inc.paralizacion_activa && (
-                                <Badge className="bg-red-600 text-xs">En pausa</Badge>
-                              )}
-                              {inc.paralizacion_fin && !inc.paralizacion_activa && inc.paraliza && (
-                                <Badge variant="outline" className="text-xs text-green-600 border-green-300">Reanudada</Badge>
-                              )}
+                              {inc.paraliza && <Badge variant="outline" className="text-xs border-red-300 text-red-600">Paraliza</Badge>}
+                              {inc.paralizacion_activa && <Badge className="bg-red-600 text-xs">En pausa</Badge>}
                             </div>
                             {inc.comentario && <p className="text-xs text-muted-foreground mt-1">{inc.comentario}</p>}
                             {inc.movimiento_servicio && <p className="text-xs text-muted-foreground">Mov: {inc.movimiento_servicio}</p>}
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {inc.fecha_hora ? new Date(inc.fecha_hora).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
                               {inc.paraliza && inc.paralizacion_inicio && (
-                                <span className="ml-2">
-                                  Paralizada: {new Date(inc.paralizacion_inicio).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
-                                  {inc.paralizacion_fin ? ` → ${new Date(inc.paralizacion_fin).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : ' (activa)'}
-                                </span>
+                                <span className="ml-2">Paralizada: {new Date(inc.paralizacion_inicio).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })} (activa)</span>
                               )}
                             </p>
-                            {inc.estado === 'RESUELTA' && inc.updated_at && (
-                              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                <Check className="h-3 w-3" />
-                                Resuelta: {new Date(inc.updated_at).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
-                              </p>
-                            )}
                           </div>
                           <div className="flex gap-1 shrink-0">
-                            {inc.estado === 'ABIERTA' && (
-                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResolverIncidencia(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                            )}
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleResolverIncidencia(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
+                              <Check className="h-4 w-4 text-green-600" />
+                            </Button>
                             <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEliminarIncidencia(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </div>
                         </div>
                       ))}
+
+                      {/* Incidencias resueltas — colapsadas por defecto */}
+                      {incidencias.filter(i => i.estado === 'RESUELTA').length > 0 && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setShowResueltas(prev => !prev)}
+                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full py-1.5"
+                            data-testid="toggle-incidencias-resueltas"
+                          >
+                            {showResueltas ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            <span>Historial resueltas ({incidencias.filter(i => i.estado === 'RESUELTA').length})</span>
+                            <Separator className="flex-1" />
+                          </button>
+                          {showResueltas && (
+                            <div className="space-y-1.5 mt-1">
+                              {incidencias.filter(i => i.estado === 'RESUELTA').map((inc) => (
+                                <div key={inc.id} className="flex items-start gap-3 p-2.5 rounded-lg border bg-muted/20 border-border" data-testid={`incidencia-${inc.id}`}>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <Badge variant="secondary" className="text-[10px]">RESUELTA</Badge>
+                                      <span className="font-medium text-xs text-muted-foreground">{inc.motivo_nombre || inc.tipo}</span>
+                                      {inc.paraliza && <Badge variant="outline" className="text-[10px] border-green-300 text-green-600">Reanudada</Badge>}
+                                    </div>
+                                    {inc.comentario && <p className="text-[11px] text-muted-foreground mt-0.5">{inc.comentario}</p>}
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                      {inc.fecha_hora ? new Date(inc.fecha_hora).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
+                                      {inc.paraliza && inc.paralizacion_inicio && (
+                                        <span className="ml-1">· Paralizada: {new Date(inc.paralizacion_inicio).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                                          {inc.paralizacion_fin ? ` → ${new Date(inc.paralizacion_fin).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}` : ''}
+                                        </span>
+                                      )}
+                                    </p>
+                                    {inc.updated_at && (
+                                      <p className="text-[11px] text-green-600 mt-0.5 flex items-center gap-1">
+                                        <Check className="h-2.5 w-2.5" />
+                                        Resuelta: {new Date(inc.updated_at).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleEliminarIncidencia(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
+                                    <Trash2 className="h-3 w-3 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
               </Card>
-            )}
-
-
-            {/* Bloque 6: Trazabilidad Unificada (solo en modo edición) */}
-            {isEditing && (
-              <div className="pt-2 border-t-2 border-dashed border-muted-foreground/20">
-                <TrazabilidadPanel
-                  registroId={id}
-                  servicios={serviciosProduccion}
-                  personas={personasProduccion}
-                />
-              </div>
             )}
 
             {/* Botones de acción mobile (visible solo en < lg) */}
@@ -2277,25 +2305,13 @@ export const RegistroForm = () => {
                 </Button>
               </div>
 
-              {/* Modelo compacto */}
+              {/* Modelo ultra-compacto */}
               {modeloSeleccionado && (
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">Modelo</p>
-                  <p className="font-semibold text-sm leading-tight mb-2">{modeloSeleccionado.nombre}</p>
-                  <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                    {[
-                      ['Marca', modeloSeleccionado.marca_nombre],
-                      ['Tipo', modeloSeleccionado.tipo_nombre],
-                      ['Entalle', modeloSeleccionado.entalle_nombre],
-                      ['Tela', modeloSeleccionado.tela_nombre],
-                      ['Hilo', modeloSeleccionado.hilo_nombre],
-                    ].map(([label, val]) => (
-                      <React.Fragment key={label}>
-                        <span className="text-[11px] text-muted-foreground">{label}</span>
-                        <span className="text-[11px] font-medium truncate">{val || '-'}</span>
-                      </React.Fragment>
-                    ))}
-                  </div>
+                <div className="rounded-lg border bg-muted/30 px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">{modeloSeleccionado.nombre}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                    {[modeloSeleccionado.marca_nombre, modeloSeleccionado.tipo_nombre, modeloSeleccionado.entalle_nombre, modeloSeleccionado.tela_nombre, modeloSeleccionado.hilo_nombre].filter(Boolean).join(' · ')}
+                  </p>
                 </div>
               )}
 
