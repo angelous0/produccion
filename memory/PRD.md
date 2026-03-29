@@ -215,6 +215,15 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Incidencias: solo abiertas visibles; resueltas colapsadas en "Historial resueltas (N)" con toggle expandible
   - Modelo en panel derecho ultra-compacto: nombre + atributos en una sola linea separados por punto medio
   - Orden final de bloques: Datos → Tallas → Materiales → Movimientos → Balance/Trazabilidad → Incidencias
+- **Reporte Operativo de Costura** (2026-03-29):
+  - Nuevo endpoint GET /api/reportes-produccion/costura con query SQL completa (JOINs a registros, modelos, personas, servicios, incidencias)
+  - Endpoint PUT /api/reportes-produccion/costura/avance/{movimiento_id} para actualizar avance inline
+  - Nueva columna avance_updated_at en prod_movimientos_produccion (se auto-actualiza al cambiar avance)
+  - Logica de riesgo automatica: Normal/Atencion/Critico/Vencido basada en fechas, avance, dias sin actualizar, incidencias
+  - Frontend: ReporteCostura.jsx con KPIs (7 tarjetas), filtros (6 campos), tabla agrupada por persona expandible (16 columnas)
+  - Acciones rapidas inline: editar avance %, crear incidencia rapida (dialog), abrir registro
+  - Ruta: /reportes/costura, sidebar: Op. Costura
+  - Testing: 100% backend (15/15) y 100% frontend
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos
