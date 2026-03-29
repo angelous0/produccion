@@ -170,6 +170,7 @@ async def ensure_bom_tables():
         # Agregar columna paraliza a incidencias existentes
         await conn.execute("ALTER TABLE prod_incidencia ADD COLUMN IF NOT EXISTS paraliza BOOLEAN DEFAULT FALSE")
         await conn.execute("ALTER TABLE prod_incidencia ADD COLUMN IF NOT EXISTS paralizacion_id VARCHAR")
+        await conn.execute("ALTER TABLE prod_incidencia ADD COLUMN IF NOT EXISTS comentario_resolucion TEXT")
         # Expandir columna tipo de varchar(30) a VARCHAR sin limite
         await conn.execute("ALTER TABLE prod_incidencia ALTER COLUMN tipo TYPE VARCHAR")
         await conn.execute("ALTER TABLE prod_incidencia ALTER COLUMN usuario TYPE VARCHAR")

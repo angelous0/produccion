@@ -12,7 +12,7 @@ import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
 import {
   ChevronDown, ChevronRight, Users, Package, AlertTriangle, Clock, FileWarning,
-  ExternalLink, Plus, Pencil, Filter, X, RefreshCw, History
+  ExternalLink, Plus, Pencil, Filter, X, RefreshCw, History, Eye, Check
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -147,6 +147,45 @@ export const ReporteCostura = () => {
   const [incSaving, setIncSaving] = useState(false);
   const [motivos, setMotivos] = useState([]);
   const [incMotivo, setIncMotivo] = useState('');
+
+  // Incidencias expandidas por registro e resolver
+  const [expandedInc, setExpandedInc] = useState({});
+  const [incidenciasPorRegistro, setIncidenciasPorRegistro] = useState({});
+  const [resolverDialog, setResolverDialog] = useState(null);
+  const [resolverTexto, setResolverTexto] = useState('');
+  const [resolverSaving, setResolverSaving] = useState(false);
+
+  const fetchIncidencias = async (registroId) => {
+    try {
+      const resp = await axios.get(`${API}/api/incidencias/${registroId}`);
+      setIncidenciasPorRegistro(prev => ({ ...prev, [registroId]: resp.data }));
+    } catch { toast.error('Error al cargar incidencias'); }
+  };
+
+  const toggleIncidencias = (registroId) => {
+    const isOpen = expandedInc[registroId];
+    setExpandedInc(prev => ({ ...prev, [registroId]: !isOpen }));
+    if (!isOpen && !incidenciasPorRegistro[registroId]) {
+      fetchIncidencias(registroId);
+    }
+  };
+
+  const handleResolver = async () => {
+    if (!resolverDialog) return;
+    setResolverSaving(true);
+    try {
+      await axios.put(`${API}/api/incidencias/${resolverDialog.id}`, {
+        estado: 'RESUELTA',
+        comentario_resolucion: resolverTexto || null,
+      });
+      toast.success('Incidencia resuelta');
+      setResolverDialog(null);
+      setResolverTexto('');
+      fetchIncidencias(resolverDialog.registro_id);
+      fetchData();
+    } catch { toast.error('Error al resolver'); }
+    setResolverSaving(false);
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -457,7 +496,10 @@ export const ReporteCostura = () => {
                               </td>
                               <td className="p-2 text-center">
                                 {item.incidencias_abiertas > 0 ? (
-                                  <Badge variant="destructive" className="text-[10px] px-1.5">{item.incidencias_abiertas}</Badge>
+                                  <button onClick={() => toggleIncidencias(item.registro_id)} className="inline-flex items-center gap-0.5 hover:bg-muted rounded px-1 py-0.5 transition-colors" title="Ver incidencias">
+                                    <Badge variant="destructive" className="text-[10px] px-1.5">{item.incidencias_abiertas}</Badge>
+                                    <Eye className="h-3 w-3 text-muted-foreground" />
+                                  </button>
                                 ) : <span className="text-muted-foreground">0</span>}
                               </td>
                               <td className="p-2 text-center">
@@ -484,6 +526,49 @@ export const ReporteCostura = () => {
                                 </div>
                               </td>
                             </tr>
+                            {/* Sub-fila: incidencias expandidas */}
+                            {expandedInc[item.registro_id] && (
+                              <tr className="bg-amber-50/30">
+                                <td colSpan={15} className="p-0">
+                                  <div className="px-4 py-2 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Incidencias — Corte {item.n_corte}</span>
+                                      <Button type="button" variant="ghost" size="sm" className="h-5 text-[10px]" onClick={() => setExpandedInc(prev => ({ ...prev, [item.registro_id]: false }))}>
+                                        <X className="h-3 w-3 mr-0.5" /> Cerrar
+                                      </Button>
+                                    </div>
+                                    {!incidenciasPorRegistro[item.registro_id] ? (
+                                      <p className="text-xs text-muted-foreground">Cargando...</p>
+                                    ) : incidenciasPorRegistro[item.registro_id].filter(i => i.estado === 'ABIERTA').length === 0 ? (
+                                      <p className="text-xs text-muted-foreground">Sin incidencias abiertas</p>
+                                    ) : (
+                                      incidenciasPorRegistro[item.registro_id].filter(i => i.estado === 'ABIERTA').map(inc => (
+                                        <div key={inc.id} className="flex items-center gap-3 p-2 rounded border bg-white text-xs">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <Badge variant="destructive" className="text-[10px]">ABIERTA</Badge>
+                                              <span className="font-medium">{inc.motivo_nombre || inc.tipo}</span>
+                                              {inc.paraliza && <Badge variant="outline" className="text-[10px] border-red-300 text-red-600">Paraliza</Badge>}
+                                            </div>
+                                            {inc.comentario && <p className="text-muted-foreground mt-0.5">{inc.comentario}</p>}
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                              {inc.fecha_hora ? new Date(inc.fecha_hora).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
+                                            </p>
+                                          </div>
+                                          <Button
+                                            type="button" variant="outline" size="sm" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50 shrink-0"
+                                            onClick={() => setResolverDialog({ id: inc.id, registro_id: item.registro_id, motivo: inc.motivo_nombre || inc.tipo, comentario: inc.comentario })}
+                                            data-testid={`resolver-inc-${inc.id}`}
+                                          >
+                                            <Check className="h-3 w-3 mr-1" /> Resolver
+                                          </Button>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
                           );
                         })}
                       </tbody>
@@ -521,6 +606,40 @@ export const ReporteCostura = () => {
             <Button variant="ghost" onClick={() => setIncDialog(null)}>Cancelar</Button>
             <Button onClick={handleIncidenciaRapida} disabled={!incMotivo || incSaving} data-testid="inc-rapida-guardar">
               {incSaving ? 'Guardando...' : 'Crear Incidencia'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog resolver incidencia */}
+      <Dialog open={!!resolverDialog} onOpenChange={(open) => { if (!open) { setResolverDialog(null); setResolverTexto(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base">Resolver incidencia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">{resolverDialog?.motivo}</p>
+              {resolverDialog?.comentario && <p className="text-muted-foreground text-xs mt-1">{resolverDialog.comentario}</p>}
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground font-medium">Texto de resolución</label>
+              <Textarea
+                value={resolverTexto}
+                onChange={e => setResolverTexto(e.target.value)}
+                rows={3}
+                className="text-sm mt-1"
+                placeholder="Describe cómo se resolvió..."
+                data-testid="resolver-texto"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setResolverDialog(null); setResolverTexto(''); }}>Cancelar</Button>
+            <Button onClick={handleResolver} disabled={resolverSaving} className="bg-green-600 hover:bg-green-700" data-testid="btn-confirmar-resolver">
+              <Check className="h-4 w-4 mr-1" />
+              {resolverSaving ? 'Resolviendo...' : 'Marcar como resuelta'}
             </Button>
           </DialogFooter>
         </DialogContent>

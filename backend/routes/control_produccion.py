@@ -20,6 +20,7 @@ class IncidenciaCreate(BaseModel):
 
 class IncidenciaUpdate(BaseModel):
     estado: str  # ABIERTA, RESUELTA
+    comentario_resolucion: Optional[str] = None
 
 class MotivoCreate(BaseModel):
     nombre: str
@@ -187,8 +188,8 @@ async def update_incidencia(incidencia_id: str, input: IncidenciaUpdate):
 
         now = datetime.now(TZ_LIMA).replace(tzinfo=None)
         await conn.execute(
-            "UPDATE prod_incidencia SET estado = $1, updated_at = $2 WHERE id = $3",
-            input.estado, now, incidencia_id
+            "UPDATE prod_incidencia SET estado = $1, updated_at = $2, comentario_resolucion = $3 WHERE id = $4",
+            input.estado, now, input.comentario_resolucion, incidencia_id
         )
 
         # Si se resuelve y tenía paralización activa, levantarla automáticamente
@@ -222,12 +223,15 @@ async def update_incidencia(incidencia_id: str, input: IncidenciaUpdate):
             # Auto-publicar resolución en conversación
             motivo_row = await conn.fetchrow("SELECT nombre FROM prod_motivos_incidencia WHERE id = $1", row['tipo'])
             motivo_nombre = motivo_row['nombre'] if motivo_row else 'Incidencia'
+            resolucion_texto = f"INCIDENCIA RESUELTA: {motivo_nombre}"
+            if input.comentario_resolucion:
+                resolucion_texto += f"\nResolución: {input.comentario_resolucion}"
             conv_id = str(uuid.uuid4())
             await conn.execute(
                 """INSERT INTO prod_conversacion (id, registro_id, mensaje_padre_id, autor, mensaje, estado, fijado, created_at)
                    VALUES ($1, $2, NULL, $3, $4, 'resuelto', FALSE, $5)""",
                 conv_id, row['registro_id'], 'Sistema',
-                f"INCIDENCIA RESUELTA: {motivo_nombre}", now
+                resolucion_texto, now
             )
 
         updated = await conn.fetchrow("SELECT * FROM prod_incidencia WHERE id = $1", incidencia_id)
