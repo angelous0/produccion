@@ -1023,6 +1023,7 @@ async def reporte_costura(
     con_incidencias: Optional[bool] = None,
     vencidos: Optional[bool] = None,
     sin_actualizar: Optional[bool] = None,
+    incluir_terminados: bool = Query(False),
     user=Depends(get_current_user)
 ):
     pool = await get_pool()
@@ -1066,8 +1067,9 @@ async def reporte_costura(
             LEFT JOIN produccion.prod_entalles ent ON ent.id = mod.entalle_id
             LEFT JOIN produccion.prod_telas tela ON tela.id = mod.tela_id
             WHERE LOWER(s.nombre) = LOWER($1)
+              AND ($2 = TRUE OR m.fecha_fin IS NULL)
             ORDER BY p.nombre, r.n_corte
-        """, servicio_nombre)
+        """, servicio_nombre, incluir_terminados)
 
         hoy = date.today()
         results = []

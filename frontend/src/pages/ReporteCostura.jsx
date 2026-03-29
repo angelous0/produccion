@@ -138,6 +138,7 @@ export const ReporteCostura = () => {
   const [filtroConIncidencias, setFiltroConIncidencias] = useState('__all__');
   const [filtroVencidos, setFiltroVencidos] = useState('__all__');
   const [filtroSinActualizar, setFiltroSinActualizar] = useState('__all__');
+  const [filtroTerminados, setFiltroTerminados] = useState('en_curso');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
 
   // Incidencia rápida
@@ -157,6 +158,7 @@ export const ReporteCostura = () => {
       if (filtroConIncidencias === 'no') params.append('con_incidencias', 'false');
       if (filtroVencidos === 'si') params.append('vencidos', 'true');
       if (filtroSinActualizar === 'si') params.append('sin_actualizar', 'true');
+      if (filtroTerminados === 'todos') params.append('incluir_terminados', 'true');
       const resp = await axios.get(`${API}/api/reportes-produccion/costura?${params.toString()}`);
       setData(resp.data);
     } catch (err) {
@@ -165,7 +167,7 @@ export const ReporteCostura = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filtroPersona, filtroRiesgo, filtroConIncidencias, filtroVencidos, filtroSinActualizar]);
+  useEffect(() => { fetchData(); }, [filtroPersona, filtroRiesgo, filtroConIncidencias, filtroVencidos, filtroSinActualizar, filtroTerminados]);
 
   useEffect(() => {
     axios.get(`${API}/api/motivos-incidencia`).then(r => setMotivos(r.data)).catch(() => {});
@@ -239,7 +241,7 @@ export const ReporteCostura = () => {
   const kpis = data?.kpis || {};
   const personas = data?.filtros?.personas || [];
 
-  const hasActiveFilters = filtroPersona !== '__all__' || filtroRiesgo !== '__all__' || filtroConIncidencias !== '__all__' || filtroVencidos !== '__all__' || filtroSinActualizar !== '__all__' || filtroBusqueda.trim();
+  const hasActiveFilters = filtroPersona !== '__all__' || filtroRiesgo !== '__all__' || filtroConIncidencias !== '__all__' || filtroVencidos !== '__all__' || filtroSinActualizar !== '__all__' || filtroTerminados !== 'en_curso' || filtroBusqueda.trim();
 
   const clearFilters = () => {
     setFiltroPersona('__all__');
@@ -247,6 +249,7 @@ export const ReporteCostura = () => {
     setFiltroConIncidencias('__all__');
     setFiltroVencidos('__all__');
     setFiltroSinActualizar('__all__');
+    setFiltroTerminados('en_curso');
     setFiltroBusqueda('');
   };
 
@@ -259,6 +262,10 @@ export const ReporteCostura = () => {
           <p className="text-sm text-muted-foreground">Seguimiento diario por costurero</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border text-sm overflow-hidden" data-testid="toggle-estado-rapido">
+            <button type="button" onClick={() => setFiltroTerminados('en_curso')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'en_curso' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>En curso</button>
+            <button type="button" onClick={() => setFiltroTerminados('todos')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'todos' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
+          </div>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(f => !f)} data-testid="toggle-filtros">
             <Filter className="h-3.5 w-3.5 mr-1" />
             Filtros
@@ -289,7 +296,17 @@ export const ReporteCostura = () => {
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Filtros</span>
               {hasActiveFilters && <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={clearFilters}>Limpiar filtros</Button>}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2">
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Estado</label>
+                <Select value={filtroTerminados} onValueChange={setFiltroTerminados}>
+                  <SelectTrigger className="h-8 text-sm" data-testid="filtro-terminados"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en_curso">En curso</SelectItem>
+                    <SelectItem value="todos">Todos (+ historial)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <label className="text-[10px] text-muted-foreground uppercase">Buscar</label>
                 <Input value={filtroBusqueda} onChange={e => setFiltroBusqueda(e.target.value)} placeholder="Corte, modelo..." className="h-8 text-sm" data-testid="filtro-busqueda" />
