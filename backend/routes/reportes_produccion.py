@@ -1002,3 +1002,253 @@ async def matriz_produccion(
                 "modelos": [{"id": r["id"], "nombre": r["nombre"]} for r in modelos],
             },
         }
+
+
+# ==================== REPORTE OPERATIVO DE COSTURA ====================
+
+from pydantic import BaseModel
+
+class AvanceRapidoInput(BaseModel):
+    avance_porcentaje: int
+
+@router.get("/costura")
+async def reporte_costura(
+    servicio_nombre: str = Query("Costura"),
+    persona_id: Optional[str] = None,
+    modelo_nombre: Optional[str] = None,
+    tipo_nombre: Optional[str] = None,
+    entalle_nombre: Optional[str] = None,
+    tela_nombre: Optional[str] = None,
+    riesgo: Optional[str] = None,
+    con_incidencias: Optional[bool] = None,
+    vencidos: Optional[bool] = None,
+    sin_actualizar: Optional[bool] = None,
+    user=Depends(get_current_user)
+):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                m.id as movimiento_id,
+                m.registro_id,
+                m.persona_id,
+                m.servicio_id,
+                m.cantidad_enviada,
+                m.cantidad_recibida,
+                m.avance_porcentaje,
+                m.fecha_inicio,
+                m.fecha_fin,
+                m.fecha_esperada_movimiento,
+                m.avance_updated_at,
+                m.observaciones as mov_observaciones,
+                m.created_at as mov_created_at,
+                r.n_corte,
+                r.estado as registro_estado,
+                r.observaciones as registro_observaciones,
+                r.urgente,
+                p.nombre as persona_nombre,
+                p.tipo_persona as persona_tipo,
+                mod.nombre as modelo_nombre,
+                marca.nombre as marca_nombre,
+                tipo.nombre as tipo_nombre,
+                ent.nombre as entalle_nombre,
+                tela.nombre as tela_nombre,
+                s.nombre as servicio_nombre,
+                (SELECT COUNT(*) FROM produccion.prod_incidencia i
+                 WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas
+            FROM produccion.prod_movimientos_produccion m
+            JOIN produccion.prod_registros r ON r.id = m.registro_id
+            JOIN produccion.prod_personas_produccion p ON p.id = m.persona_id
+            JOIN produccion.prod_servicios_produccion s ON s.id = m.servicio_id
+            LEFT JOIN produccion.prod_modelos mod ON mod.id = r.modelo_id
+            LEFT JOIN produccion.prod_marcas marca ON marca.id = mod.marca_id
+            LEFT JOIN produccion.prod_tipos tipo ON tipo.id = mod.tipo_id
+            LEFT JOIN produccion.prod_entalles ent ON ent.id = mod.entalle_id
+            LEFT JOIN produccion.prod_telas tela ON tela.id = mod.tela_id
+            WHERE LOWER(s.nombre) = LOWER($1)
+            ORDER BY p.nombre, r.n_corte
+        """, servicio_nombre)
+
+        hoy = date.today()
+        results = []
+        for r in rows:
+            d = dict(r)
+            avance = d['avance_porcentaje'] or 0
+            fecha_inicio = d['fecha_inicio']
+            fecha_fin = d['fecha_fin']
+            fecha_esperada = d['fecha_esperada_movimiento']
+            avance_updated = d['avance_updated_at']
+            incidencias = d['incidencias_abiertas'] or 0
+
+            # Días transcurridos
+            dias_transcurridos = None
+            if fecha_inicio:
+                dias_transcurridos = (hoy - fecha_inicio).days
+
+            # Días sin actualizar avance
+            dias_sin_actualizar = None
+            if avance_updated:
+                dias_sin_actualizar = (datetime.now() - avance_updated).days
+            elif fecha_inicio and d['avance_porcentaje'] is not None:
+                dias_sin_actualizar = (hoy - fecha_inicio).days
+
+            # Pendiente estimado
+            pendiente_estimado = None
+            if d['cantidad_enviada'] and avance is not None:
+                pendiente_estimado = round(d['cantidad_enviada'] * (1 - avance / 100))
+
+            # Lógica de riesgo
+            nivel_riesgo = 'normal'
+            if fecha_fin and hoy > fecha_fin and avance < 100:
+                nivel_riesgo = 'vencido'
+            elif fecha_esperada and hoy > fecha_esperada and avance < 100:
+                nivel_riesgo = 'vencido'
+            else:
+                score = 0
+                if dias_sin_actualizar is not None and dias_sin_actualizar >= 5:
+                    score += 3
+                elif dias_sin_actualizar is not None and dias_sin_actualizar >= 3:
+                    score += 1
+                if fecha_esperada:
+                    dias_para_entrega = (fecha_esperada - hoy).days
+                    if dias_para_entrega <= 2 and avance < 70:
+                        score += 3
+                    elif dias_para_entrega <= 5 and avance < 50:
+                        score += 1
+                elif fecha_fin:
+                    dias_para_entrega = (fecha_fin - hoy).days
+                    if dias_para_entrega <= 2 and avance < 70:
+                        score += 3
+                    elif dias_para_entrega <= 5 and avance < 50:
+                        score += 1
+                if incidencias >= 2:
+                    score += 2
+                elif incidencias >= 1:
+                    score += 1
+                if score >= 3:
+                    nivel_riesgo = 'critico'
+                elif score >= 1:
+                    nivel_riesgo = 'atencion'
+
+            item = {
+                "movimiento_id": d['movimiento_id'],
+                "registro_id": d['registro_id'],
+                "persona_id": d['persona_id'],
+                "persona_nombre": d['persona_nombre'],
+                "persona_tipo": d['persona_tipo'],
+                "n_corte": d['n_corte'],
+                "registro_estado": d['registro_estado'],
+                "modelo_nombre": d['modelo_nombre'],
+                "marca_nombre": d['marca_nombre'],
+                "tipo_nombre": d['tipo_nombre'],
+                "entalle_nombre": d['entalle_nombre'],
+                "tela_nombre": d['tela_nombre'],
+                "cantidad_enviada": d['cantidad_enviada'],
+                "cantidad_recibida": d['cantidad_recibida'],
+                "avance_porcentaje": d['avance_porcentaje'],
+                "pendiente_estimado": pendiente_estimado,
+                "fecha_inicio": str(d['fecha_inicio']) if d['fecha_inicio'] else None,
+                "fecha_fin": str(d['fecha_fin']) if d['fecha_fin'] else None,
+                "fecha_esperada": str(d['fecha_esperada_movimiento']) if d['fecha_esperada_movimiento'] else None,
+                "avance_updated_at": d['avance_updated_at'].isoformat() if d['avance_updated_at'] else None,
+                "dias_transcurridos": dias_transcurridos,
+                "dias_sin_actualizar": dias_sin_actualizar,
+                "incidencias_abiertas": incidencias,
+                "nivel_riesgo": nivel_riesgo,
+                "urgente": d['urgente'],
+                "observaciones": d['registro_observaciones'] or d['mov_observaciones'] or None,
+                "servicio_nombre": d['servicio_nombre'],
+            }
+
+            # Aplicar filtros en Python (más simple que SQL dinámico)
+            if persona_id and d['persona_id'] != persona_id:
+                continue
+            if modelo_nombre and (d['modelo_nombre'] or '').lower() != modelo_nombre.lower():
+                continue
+            if tipo_nombre and (d['tipo_nombre'] or '').lower() != tipo_nombre.lower():
+                continue
+            if entalle_nombre and (d['entalle_nombre'] or '').lower() != entalle_nombre.lower():
+                continue
+            if tela_nombre and (d['tela_nombre'] or '').lower() != tela_nombre.lower():
+                continue
+            if riesgo and nivel_riesgo != riesgo:
+                continue
+            if con_incidencias is True and incidencias == 0:
+                continue
+            if con_incidencias is False and incidencias > 0:
+                continue
+            if vencidos is True and nivel_riesgo != 'vencido':
+                continue
+            if sin_actualizar is True and (dias_sin_actualizar is None or dias_sin_actualizar < 3):
+                continue
+
+            results.append(item)
+
+        # KPIs
+        personas_set = set()
+        total_prendas = 0
+        registros_activos = 0
+        registros_vencidos = 0
+        registros_criticos = 0
+        registros_sin_act = 0
+        incidencias_totales = 0
+
+        for item in results:
+            personas_set.add(item['persona_id'])
+            total_prendas += item['cantidad_enviada'] or 0
+            registros_activos += 1
+            if item['nivel_riesgo'] == 'vencido':
+                registros_vencidos += 1
+            if item['nivel_riesgo'] == 'critico':
+                registros_criticos += 1
+            if item['dias_sin_actualizar'] is not None and item['dias_sin_actualizar'] >= 3:
+                registros_sin_act += 1
+            incidencias_totales += item['incidencias_abiertas']
+
+        # Filtros disponibles (valores únicos de los datos)
+        personas_unicas = []
+        seen_personas = set()
+        for item in results:
+            if item['persona_id'] not in seen_personas:
+                seen_personas.add(item['persona_id'])
+                personas_unicas.append({"id": item['persona_id'], "nombre": item['persona_nombre']})
+
+        return {
+            "kpis": {
+                "costureros_activos": len(personas_set),
+                "registros_activos": registros_activos,
+                "total_prendas": total_prendas,
+                "registros_vencidos": registros_vencidos,
+                "registros_criticos": registros_criticos,
+                "registros_sin_actualizar": registros_sin_act,
+                "incidencias_abiertas": incidencias_totales,
+            },
+            "items": results,
+            "filtros": {
+                "personas": sorted(personas_unicas, key=lambda x: x['nombre']),
+            }
+        }
+
+
+@router.put("/costura/avance/{movimiento_id}")
+async def actualizar_avance_rapido(
+    movimiento_id: str,
+    input: AvanceRapidoInput,
+    user=Depends(get_current_user)
+):
+    """Actualizar solo el avance % de un movimiento desde el reporte."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.fetchrow(
+            "SELECT id FROM produccion.prod_movimientos_produccion WHERE id = $1",
+            movimiento_id
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Movimiento no encontrado")
+        await conn.execute(
+            """UPDATE produccion.prod_movimientos_produccion
+               SET avance_porcentaje = $1, avance_updated_at = NOW()
+               WHERE id = $2""",
+            input.avance_porcentaje, movimiento_id
+        )
+        return {"ok": True, "avance_porcentaje": input.avance_porcentaje}

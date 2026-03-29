@@ -191,6 +191,7 @@ async def ensure_bom_tables():
         # Avance porcentaje en servicios y movimientos
         await conn.execute("ALTER TABLE prod_servicios_produccion ADD COLUMN IF NOT EXISTS usa_avance_porcentaje BOOLEAN DEFAULT FALSE")
         await conn.execute("ALTER TABLE prod_movimientos_produccion ADD COLUMN IF NOT EXISTS avance_porcentaje INTEGER")
+        await conn.execute("ALTER TABLE prod_movimientos_produccion ADD COLUMN IF NOT EXISTS avance_updated_at TIMESTAMP")
 
 
 # ==================== FASE 2: Tablas de Reservas y Requerimiento ====================
@@ -5840,12 +5841,14 @@ async def create_movimiento(input: MovimientoCreate):
                 pass
         
         await conn.execute(
-            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, fecha_esperada_movimiento, responsable_movimiento, observaciones, avance_porcentaje, created_at)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)""",
+            """INSERT INTO prod_movimientos_produccion (id, registro_id, servicio_id, persona_id, cantidad_enviada, cantidad_recibida, diferencia, costo_calculado, tarifa_aplicada, fecha_inicio, fecha_fin, fecha_esperada_movimiento, responsable_movimiento, observaciones, avance_porcentaje, avance_updated_at, created_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)""",
             movimiento.id, movimiento.registro_id, movimiento.servicio_id, movimiento.persona_id,
             movimiento.cantidad_enviada, movimiento.cantidad_recibida, diferencia, costo_calculado,
             tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None,
-            movimiento.observaciones, input.avance_porcentaje, movimiento.created_at.replace(tzinfo=None)
+            movimiento.observaciones, input.avance_porcentaje,
+            datetime.now() if input.avance_porcentaje is not None else None,
+            movimiento.created_at.replace(tzinfo=None)
         )
         
         # Crear merma si hay diferencia
@@ -5912,7 +5915,7 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
                 pass
         
         await conn.execute(
-            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, fecha_esperada_movimiento=$11, responsable_movimiento=$12, observaciones=$13, avance_porcentaje=$14 WHERE id=$15""",
+            """UPDATE prod_movimientos_produccion SET registro_id=$1, servicio_id=$2, persona_id=$3, cantidad_enviada=$4, cantidad_recibida=$5, diferencia=$6, costo_calculado=$7, tarifa_aplicada=$8, fecha_inicio=$9, fecha_fin=$10, fecha_esperada_movimiento=$11, responsable_movimiento=$12, observaciones=$13, avance_porcentaje=$14, avance_updated_at=CASE WHEN $14 IS DISTINCT FROM avance_porcentaje THEN NOW() ELSE avance_updated_at END WHERE id=$15""",
             input.registro_id, input.servicio_id, input.persona_id, input.cantidad_enviada, input.cantidad_recibida,
             diferencia, costo_calculado, tarifa, fecha_inicio, fecha_fin, fecha_esperada, input.responsable_movimiento or None, input.observaciones, input.avance_porcentaje, movimiento_id
         )

@@ -1,0 +1,66 @@
+{
+  "summary": "Tested Reporte Operativo de Costura feature. All backend endpoints working correctly (15/15 tests passed after fixing minor data validation). All frontend UI components verified: KPIs display, table grouping by persona, expand/collapse, all 16 columns, filters panel, riesgo filter, avance inline editor, incidencia rapida dialog, open registro button.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_verified": [
+    "GET /api/reportes-produccion/costura returns correct data with kpis, items, and filtros",
+    "PUT /api/reportes-produccion/costura/avance/{movimiento_id} updates avance and avance_updated_at",
+    "KPIs display correctly: costureros=1, registros=1, prendas=500, vencidos=0, criticos=0, sin_actualizar=0, incidencias=1",
+    "Table groups items by persona (Pepe Perez) with expand/collapse functionality",
+    "Each row shows all 16 columns: Corte, Modelo, Tipo, Entalle, Tela, Cant., Pend., Inicio, F. Esperada, Días, Avance, Últ. Act., D/s Act., Inc., Riesgo, Acciones",
+    "Avance inline editor works: click to edit, type value, Enter to save, Escape to cancel",
+    "Incidencia rapida dialog opens from + button with motivo select and comentario textarea",
+    "Filters panel toggles with Filtros button",
+    "Filter by riesgo works (Todos, Normal, Atención, Crítico, Vencido)",
+    "Filter by con_incidencias works",
+    "Open registro button present in Acciones column",
+    "Risk calculation: item with 1 incidencia_abierta has riesgo=atencion",
+    "Pendiente estimado = cantidad * (1 - avance/100) = 500 * (1 - 35/100) = 325",
+    "Sidebar has 'Op. Costura' link under Reportes Producción section"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_reporte_costura.py",
+    "/app/test_reports/pytest/pytest_reporte_costura.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Code is well-structured with proper data-testid attributes for testing",
+    "Risk calculation logic correctly handles incidencias, dias_sin_actualizar, and fecha_esperada",
+    "Avance inline editor uses optimistic UI update with toast feedback",
+    "Filters are applied both server-side (via query params) and client-side (via search)",
+    "Table uses expandable rows pattern for grouping by persona"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reporte_costura.py"
+  ],
+  "success_rate": {
+    "backend": "100% (15/15 passed)",
+    "frontend": "100% (all UI tests passed)"
+  },
+  "test_credentials": "username: eduard, password: eduard123",
+  "seed_data_creation": "None - used existing test data (movimiento_id: 0064144d-ac63-4a08-8db4-0c8cc6e8ec72)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reporte Costura feature fully implemented and working. Test movimiento: id=0064144d-ac63-4a08-8db4-0c8cc6e8ec72, persona=Pepe Perez, servicio=Costura, n_corte=01, cantidad=500, avance=35%, 1 incidencia abierta, riesgo=atencion. Remote PostgreSQL DB at postgres://admin:admin@72.60.241.216:9090/datos.",
+  "test_data": {
+    "movimiento_id": "0064144d-ac63-4a08-8db4-0c8cc6e8ec72",
+    "persona_nombre": "Pepe Perez",
+    "n_corte": "01",
+    "modelo": "Eduard",
+    "tipo": "Pantalon Denim",
+    "entalle": "Baggy",
+    "tela": "Rigido",
+    "cantidad_enviada": 500,
+    "pendiente_estimado": 325,
+    "avance_porcentaje": 35,
+    "incidencias_abiertas": 1,
+    "nivel_riesgo": "atencion"
+  }
+}
