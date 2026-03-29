@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Card, CardContent } from '../components/ui/card';
@@ -472,7 +472,8 @@ export const ReporteCostura = () => {
                           const cfg = RIESGO_CONFIG[item.nivel_riesgo] || RIESGO_CONFIG.normal;
                           const diasSinAct = item.dias_sin_actualizar;
                           return (
-                            <tr key={item.movimiento_id} className={`border-t hover:bg-muted/30 transition-colors ${cfg.rowClass}`} data-testid={`row-${item.movimiento_id}`}>
+                            <Fragment key={item.movimiento_id}>
+                            <tr className={`border-t hover:bg-muted/30 transition-colors ${cfg.rowClass}`} data-testid={`row-${item.movimiento_id}`}>
                               <td className="p-2 font-mono font-semibold whitespace-nowrap">
                                 {item.n_corte}
                                 {item.urgente && <span className="ml-1 text-[9px] text-red-600 font-bold">URG</span>}
@@ -569,6 +570,7 @@ export const ReporteCostura = () => {
                                 </td>
                               </tr>
                             )}
+                            </Fragment>
                           );
                         })}
                       </tbody>
@@ -623,7 +625,7 @@ export const ReporteCostura = () => {
               {resolverDialog?.comentario && <p className="text-muted-foreground text-xs mt-1">{resolverDialog.comentario}</p>}
             </div>
             <div>
-              <label className="text-xs text-muted-foreground font-medium">Texto de resolución</label>
+              <label className="text-xs text-muted-foreground font-medium">Texto de resolución <span className="text-red-500">*</span></label>
               <Textarea
                 value={resolverTexto}
                 onChange={e => setResolverTexto(e.target.value)}
@@ -637,7 +639,7 @@ export const ReporteCostura = () => {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => { setResolverDialog(null); setResolverTexto(''); }}>Cancelar</Button>
-            <Button onClick={handleResolver} disabled={resolverSaving} className="bg-green-600 hover:bg-green-700" data-testid="btn-confirmar-resolver">
+            <Button onClick={handleResolver} disabled={resolverSaving || !resolverTexto.trim()} className="bg-green-600 hover:bg-green-700" data-testid="btn-confirmar-resolver">
               <Check className="h-4 w-4 mr-1" />
               {resolverSaving ? 'Resolviendo...' : 'Marcar como resuelta'}
             </Button>
