@@ -605,12 +605,17 @@ export const ReporteCostura = () => {
           <p className="text-sm text-muted-foreground">Seguimiento diario por costurero</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg border text-sm overflow-hidden" data-testid="toggle-servicio">
-            <button type="button" onClick={() => setFiltroServicio('__todos__')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroServicio === '__todos__' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
-            {servicios.map(s => (
-              <button key={s.id} type="button" onClick={() => setFiltroServicio(s.nombre)} className={`px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${filtroServicio === s.nombre ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>{s.nombre}</button>
-            ))}
-          </div>
+          <Select value={filtroServicio} onValueChange={setFiltroServicio}>
+            <SelectTrigger className="h-8 w-[180px] text-xs" data-testid="select-servicio">
+              <SelectValue placeholder="Servicio" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__todos__">Todos los servicios</SelectItem>
+              {servicios.map(s => (
+                <SelectItem key={s.id} value={s.nombre}>{s.nombre}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex items-center rounded-lg border text-sm overflow-hidden" data-testid="toggle-estado-rapido">
             <button type="button" onClick={() => setFiltroTerminados('en_curso')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'en_curso' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>En curso</button>
             <button type="button" onClick={() => setFiltroTerminados('todos')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'todos' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
