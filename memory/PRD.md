@@ -319,3 +319,25 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
             ├── CalidadMerma.jsx (corregido paginacion)
             └── RegistroForm.jsx (~3100 lines - needs refactoring)
 ```
+
+
+## Cambios Recientes (2026-03-30)
+- **Jerarquia Base/Variante de Modelos**: prod_modelos ahora soporta base_id y hilo_especifico_id. Bases definen marca/tipo/entalle/tela/hilo/ruta; variantes heredan de base + hilo especifico con BOM propio
+- **UI Modelos**: Botones "Nueva Base" y "Nueva Variante", badge Jerarquia, columna Hilo Esp., filtro tipo modelo, dialog modo variante con auto-nombre
+- **Reportes**: Columna hilo_especifico en Reporte Operativo y Tiempos Muertos (tabla + Excel + PDF)
+- **RegistroForm**: Eliminado selector hilo_especifico (ahora hereda del modelo), agregado campo fecha_entrega_final, eliminado campo observaciones
+- **Exportacion Tiempos Muertos**: Botones Excel/PDF con estilos profesionales
+
+## Backlog Actualizado
+### P1
+- Filtrar alertas por usuario/servicio
+- Reportes y KPIs de Trazabilidad
+
+### P2
+- Refactorizar server.py (~7500 lineas) en routers modulares
+- Refactorizar RegistroForm.jsx (~3400 lineas)
+- Reportes P2 (Reprocesos, Eficiencia)
+
+### P3
+- Permisos granulares con usePermissions
+- Migracion de datos existentes a jerarquia Base/Variante

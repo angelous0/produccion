@@ -825,7 +825,7 @@ async def matriz_produccion(
             LEFT JOIN prod_entalles en ON m.entalle_id = en.id
             LEFT JOIN prod_telas te   ON m.tela_id = te.id
             LEFT JOIN prod_hilos hi   ON m.hilo_id = hi.id
-            LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
+            LEFT JOIN prod_hilos_especificos he ON he.id = COALESCE(m.hilo_especifico_id, r.hilo_especifico_id)
             LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
             LEFT JOIN LATERAL (
                 SELECT COALESCE(SUM(rt.cantidad_real), 0) as prendas
@@ -1069,7 +1069,7 @@ async def reporte_costura(
             LEFT JOIN produccion.prod_tipos tipo ON tipo.id = mod.tipo_id
             LEFT JOIN produccion.prod_entalles ent ON ent.id = mod.entalle_id
             LEFT JOIN produccion.prod_telas tela ON tela.id = mod.tela_id
-            LEFT JOIN produccion.prod_hilos_especificos he ON he.id = r.hilo_especifico_id
+            LEFT JOIN produccion.prod_hilos_especificos he ON he.id = COALESCE(mod.hilo_especifico_id, r.hilo_especifico_id)
             WHERE ($3 = FALSE OR LOWER(s.nombre) = LOWER($1))
               AND ($2 = TRUE OR m.fecha_fin IS NULL)
             ORDER BY p.nombre, r.n_corte
@@ -1481,7 +1481,7 @@ async def reporte_tiempos_muertos(
             LEFT JOIN produccion.prod_tipos tp ON tp.id = mod.tipo_id
             LEFT JOIN produccion.prod_entalles en ON en.id = mod.entalle_id
             LEFT JOIN produccion.prod_telas te ON te.id = mod.tela_id
-            LEFT JOIN produccion.prod_hilos_especificos he ON he.id = r.hilo_especifico_id
+            LEFT JOIN produccion.prod_hilos_especificos he ON he.id = COALESCE(mod.hilo_especifico_id, r.hilo_especifico_id)
             LEFT JOIN tiene_siguiente ts ON ts.registro_id = ut.registro_id
             ORDER BY ut.fecha_fin ASC
         """)

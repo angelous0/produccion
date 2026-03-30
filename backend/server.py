@@ -310,6 +310,10 @@ async def ensure_fase2_tables():
         await conn.execute("ALTER TABLE prod_inventario_ingresos ADD COLUMN IF NOT EXISTS linea_negocio_id INTEGER NULL")
         await conn.execute("ALTER TABLE prod_inventario_salidas ADD COLUMN IF NOT EXISTS linea_negocio_id INTEGER NULL")
 
+        # 8) Jerarquía Base → Modelo (variante) → Registro
+        await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS base_id VARCHAR NULL")
+        await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS hilo_especifico_id VARCHAR NULL")
+
 
 
 app = FastAPI()
@@ -593,6 +597,8 @@ class ModeloBase(BaseModel):
     servicios_ids: List[str] = []
     pt_item_id: Optional[str] = None
     linea_negocio_id: Optional[int] = None
+    base_id: Optional[str] = None
+    hilo_especifico_id: Optional[str] = None
 
 class ModeloCreate(ModeloBase):
     pass
@@ -2221,6 +2227,7 @@ async def get_modelos(
     entalle: str = "",
     tela: str = "",
     all: str = "",
+    tipo_modelo: str = "",
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -2233,10 +2240,12 @@ async def get_modelos(
                     e.nombre as entalle_nombre,
                     te.nombre as tela_nombre,
                     h.nombre as hilo_nombre,
+                    he.nombre as hilo_especifico_nombre,
                     rp.nombre as ruta_nombre,
                     inv.nombre as pt_item_nombre,
                     inv.codigo as pt_item_codigo,
                     ln.nombre as linea_negocio_nombre,
+                    base_m.nombre as base_nombre,
                     COALESCE(reg_count.total, 0) as registros_count
                 FROM prod_modelos m
                 LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -2244,14 +2253,17 @@ async def get_modelos(
                 LEFT JOIN prod_entalles e ON m.entalle_id = e.id
                 LEFT JOIN prod_telas te ON m.tela_id = te.id
                 LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+                LEFT JOIN prod_hilos_especificos he ON m.hilo_especifico_id = he.id
                 LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
                 LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
                 LEFT JOIN finanzas2.cont_linea_negocio ln ON m.linea_negocio_id = ln.id
+                LEFT JOIN prod_modelos base_m ON m.base_id = base_m.id
                 LEFT JOIN LATERAL (
                     SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
                 ) reg_count ON true
+                WHERE ($1 = '' OR ($1 = 'base' AND m.base_id IS NULL) OR ($1 = 'variante' AND m.base_id IS NOT NULL))
                 ORDER BY m.created_at DESC
-            """)
+            """, tipo_modelo)
             result = []
             for r in rows:
                 d = row_to_dict(r)
@@ -2263,6 +2275,11 @@ async def get_modelos(
         conditions = []
         params = []
         param_idx = 1
+
+        if tipo_modelo == 'base':
+            conditions.append("m.base_id IS NULL")
+        elif tipo_modelo == 'variante':
+            conditions.append("m.base_id IS NOT NULL")
 
         if search:
             conditions.append(f"(m.nombre ILIKE ${param_idx} OR ma.nombre ILIKE ${param_idx} OR t.nombre ILIKE ${param_idx} OR e.nombre ILIKE ${param_idx} OR te.nombre ILIKE ${param_idx})")
@@ -2311,10 +2328,12 @@ async def get_modelos(
                 e.nombre as entalle_nombre,
                 te.nombre as tela_nombre,
                 h.nombre as hilo_nombre,
+                he.nombre as hilo_especifico_nombre,
                 rp.nombre as ruta_nombre,
                 inv.nombre as pt_item_nombre,
                 inv.codigo as pt_item_codigo,
                 ln.nombre as linea_negocio_nombre,
+                base_m.nombre as base_nombre,
                 COALESCE(reg_count.total, 0) as registros_count
             FROM prod_modelos m
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -2322,9 +2341,11 @@ async def get_modelos(
             LEFT JOIN prod_entalles e ON m.entalle_id = e.id
             LEFT JOIN prod_telas te ON m.tela_id = te.id
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+            LEFT JOIN prod_hilos_especificos he ON m.hilo_especifico_id = he.id
             LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
             LEFT JOIN prod_inventario inv ON m.pt_item_id = inv.id
             LEFT JOIN finanzas2.cont_linea_negocio ln ON m.linea_negocio_id = ln.id
+            LEFT JOIN prod_modelos base_m ON m.base_id = base_m.id
             LEFT JOIN LATERAL (
                 SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
             ) reg_count ON true
@@ -2360,12 +2381,36 @@ async def get_modelos_filtros():
 async def get_modelo_detalle(modelo_id: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", modelo_id)
+        row = await conn.fetchrow("""
+            SELECT m.*, he.nombre as hilo_especifico_nombre, base_m.nombre as base_nombre
+            FROM prod_modelos m
+            LEFT JOIN prod_hilos_especificos he ON m.hilo_especifico_id = he.id
+            LEFT JOIN prod_modelos base_m ON m.base_id = base_m.id
+            WHERE m.id = $1
+        """, modelo_id)
         if not row:
             raise HTTPException(status_code=404, detail="Modelo no encontrado")
 
         d = row_to_dict(row)
         return d
+
+
+@api_router.get("/modelos/{modelo_id}/variantes")
+async def get_modelo_variantes(modelo_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT m.*, he.nombre as hilo_especifico_nombre,
+                COALESCE(reg_count.total, 0) as registros_count
+            FROM prod_modelos m
+            LEFT JOIN prod_hilos_especificos he ON m.hilo_especifico_id = he.id
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
+            ) reg_count ON true
+            WHERE m.base_id = $1
+            ORDER BY m.nombre
+        """, modelo_id)
+        return [row_to_dict(r) for r in rows]
 
 
 # ==================== MODELO ↔ TALLAS (BOM) ====================
@@ -2771,11 +2816,13 @@ async def create_modelo(input: ModeloCreate):
     async with pool.acquire() as conn:
         servicios_json = json.dumps(modelo.servicios_ids)
         pt_item_id = modelo.pt_item_id or None
+        base_id = modelo.base_id or None
+        hilo_especifico_id = modelo.hilo_especifico_id or None
         await conn.execute(
             """INSERT INTO prod_modelos (id, nombre, marca_id, tipo_id, entalle_id, tela_id, hilo_id, 
-               ruta_produccion_id, servicios_ids, pt_item_id, linea_negocio_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)""",
+               ruta_produccion_id, servicios_ids, pt_item_id, linea_negocio_id, base_id, hilo_especifico_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)""",
             modelo.id, modelo.nombre, modelo.marca_id, modelo.tipo_id, modelo.entalle_id, modelo.tela_id,
-            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.linea_negocio_id, modelo.created_at.replace(tzinfo=None)
+            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.linea_negocio_id, base_id, hilo_especifico_id, modelo.created_at.replace(tzinfo=None)
         )
     return modelo
 
@@ -2788,11 +2835,13 @@ async def update_modelo(modelo_id: str, input: ModeloCreate):
             raise HTTPException(status_code=404, detail="Modelo no encontrado")
         servicios_json = json.dumps(input.servicios_ids)
         pt_item_id = input.pt_item_id or None
+        base_id = input.base_id or None
+        hilo_especifico_id = input.hilo_especifico_id or None
         await conn.execute(
             """UPDATE prod_modelos SET nombre=$1, marca_id=$2, tipo_id=$3, entalle_id=$4, tela_id=$5, hilo_id=$6,
-               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9, linea_negocio_id=$10 WHERE id=$11""",
+               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9, linea_negocio_id=$10, base_id=$12, hilo_especifico_id=$13 WHERE id=$11""",
             input.nombre, input.marca_id, input.tipo_id, input.entalle_id, input.tela_id, input.hilo_id,
-            input.ruta_produccion_id, servicios_json, pt_item_id, input.linea_negocio_id, modelo_id
+            input.ruta_produccion_id, servicios_json, pt_item_id, input.linea_negocio_id, modelo_id, base_id, hilo_especifico_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 

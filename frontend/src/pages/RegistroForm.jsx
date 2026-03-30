@@ -1707,27 +1707,6 @@ export const RegistroForm = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Hilo Específico</Label>
-                    <Select
-                      key={hilosEspecificos.length > 0 && formData.hilo_especifico_id ? formData.hilo_especifico_id : 'hilo-loading'}
-                      value={formData.hilo_especifico_id || ""}
-                      onValueChange={(value) => setFormData({ ...formData, hilo_especifico_id: value === "none" ? "" : value })}
-                    >
-                      <SelectTrigger data-testid="select-hilo-especifico">
-                        <SelectValue placeholder="Sin hilo específico" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin hilo específico</SelectItem>
-                        {hilosEspecificos.map((h) => (
-                          <SelectItem key={h.id} value={h.id}>
-                            {h.nombre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label>Artículo PT (Producto Terminado)</Label>
                     {modeloSeleccionado?.pt_item_id && formData.pt_item_id === modeloSeleccionado.pt_item_id && (
                       <p className="text-xs text-green-600">Auto-completado desde el modelo</p>

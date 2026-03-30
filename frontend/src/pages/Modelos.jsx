@@ -19,7 +19,7 @@ import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { ModelosTallasTab, ModelosBOMTab } from './ModelosBOM';
-import { Plus, Pencil, Trash2, Route, Search, X, ExternalLink, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Route, Search, X, ExternalLink, ChevronDown, Copy, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { SearchableSelect } from '../components/SearchableSelect';
 
@@ -34,10 +34,11 @@ export const Modelos = () => {
   const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [modoVariante, setModoVariante] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '', marca_id: '', tipo_id: '', entalle_id: '',
     tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
-    linea_negocio_id: '',
+    linea_negocio_id: '', base_id: '', hilo_especifico_id: '',
   });
 
   // Datos para los selects del dialog
@@ -46,10 +47,12 @@ export const Modelos = () => {
   const [entalles, setEntalles] = useState([]);
   const [telas, setTelas] = useState([]);
   const [hilos, setHilos] = useState([]);
+  const [hilosEspecificos, setHilosEspecificos] = useState([]);
   const [rutas, setRutas] = useState([]);
   const [servicios, setServicios] = useState([]);
   const [itemsPT, setItemsPT] = useState([]);
   const [lineasNegocio, setLineasNegocio] = useState([]);
+  const [bases, setBases] = useState([]);
 
   // Filtros server-side
   const [searchTerm, setSearchTerm] = useState('');
@@ -58,6 +61,7 @@ export const Modelos = () => {
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroEntalle, setFiltroEntalle] = useState('todos');
   const [filtroTela, setFiltroTela] = useState('todos');
+  const [filtroTipoModelo, setFiltroTipoModelo] = useState('');
 
   // Opciones de filtro desde el servidor
   const [filtroOpciones, setFiltroOpciones] = useState({ marcas: [], tipos: [], entalles: [], telas: [] });
@@ -78,6 +82,7 @@ export const Modelos = () => {
       if (filtroTipo !== 'todos') params.set('tipo', filtroTipo);
       if (filtroEntalle !== 'todos') params.set('entalle', filtroEntalle);
       if (filtroTela !== 'todos') params.set('tela', filtroTela);
+      if (filtroTipoModelo) params.set('tipo_modelo', filtroTipoModelo);
       const response = await axios.get(`${API}/modelos?${params.toString()}`);
       const data = response.data;
       if (append) {
@@ -91,7 +96,7 @@ export const Modelos = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchDebounced, filtroMarca, filtroTipo, filtroEntalle, filtroTela, pageSize, items.length]);
+  }, [searchDebounced, filtroMarca, filtroTipo, filtroEntalle, filtroTela, filtroTipoModelo, pageSize, items.length]);
 
   const fetchFiltros = async () => {
     try {
@@ -102,26 +107,30 @@ export const Modelos = () => {
 
   const fetchRelatedData = async () => {
     try {
-      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, rutasRes, srvRes, ptRes, lnRes] = await Promise.all([
+      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, heRes, rutasRes, srvRes, ptRes, lnRes, basesRes] = await Promise.all([
         axios.get(`${API}/marcas`),
         axios.get(`${API}/tipos`),
         axios.get(`${API}/entalles`),
         axios.get(`${API}/telas`),
         axios.get(`${API}/hilos`),
+        axios.get(`${API}/hilos-especificos`),
         axios.get(`${API}/rutas-produccion`),
         axios.get(`${API}/servicios-produccion`),
         axios.get(`${API}/items-pt`),
         axios.get(`${API}/lineas-negocio`),
+        axios.get(`${API}/modelos?all=true`),
       ]);
       setMarcas(marcasRes.data);
       setTipos(tiposRes.data);
       setEntalles(entallesRes.data);
       setTelas(telasRes.data);
       setHilos(hilosRes.data);
+      setHilosEspecificos(heRes.data);
       setRutas(rutasRes.data);
       setServicios(srvRes.data.sort((a, b) => (a.secuencia || 0) - (b.secuencia || 0)));
       setItemsPT(ptRes.data);
       setLineasNegocio(lnRes.data);
+      setBases(basesRes.data.filter(m => !m.base_id));
     } catch (error) {
       toast.error('Error al cargar datos relacionados');
     }
@@ -134,9 +143,9 @@ export const Modelos = () => {
   // Reload when filters change
   useEffect(() => {
     fetchItems(false);
-  }, [searchDebounced, filtroMarca, filtroTipo, filtroEntalle, filtroTela]);
+  }, [searchDebounced, filtroMarca, filtroTipo, filtroEntalle, filtroTela, filtroTipoModelo]);
 
-  const hayFiltrosActivos = searchTerm || filtroMarca !== 'todos' || filtroTipo !== 'todos' || filtroEntalle !== 'todos' || filtroTela !== 'todos';
+  const hayFiltrosActivos = searchTerm || filtroMarca !== 'todos' || filtroTipo !== 'todos' || filtroEntalle !== 'todos' || filtroTela !== 'todos' || filtroTipoModelo !== '';
 
   const limpiarFiltros = () => {
     setSearchTerm('');
@@ -144,18 +153,39 @@ export const Modelos = () => {
     setFiltroTipo('todos');
     setFiltroEntalle('todos');
     setFiltroTela('todos');
+    setFiltroTipoModelo('');
   };
 
   const handleSubmit = guard(async (e) => {
     e.preventDefault();
     try {
-      const payload = { ...formData, ruta_produccion_id: formData.ruta_produccion_id || null, linea_negocio_id: formData.linea_negocio_id ? parseInt(formData.linea_negocio_id) : null };
+      const payload = {
+        ...formData,
+        ruta_produccion_id: formData.ruta_produccion_id || null,
+        linea_negocio_id: formData.linea_negocio_id ? parseInt(formData.linea_negocio_id) : null,
+        base_id: formData.base_id || null,
+        hilo_especifico_id: formData.hilo_especifico_id || null,
+      };
+      // Si es variante, heredar campos de la base
+      if (modoVariante && formData.base_id) {
+        const base = bases.find(b => b.id === formData.base_id);
+        if (base) {
+          payload.marca_id = base.marca_id;
+          payload.tipo_id = base.tipo_id;
+          payload.entalle_id = base.entalle_id;
+          payload.tela_id = base.tela_id;
+          payload.hilo_id = base.hilo_id;
+          payload.ruta_produccion_id = base.ruta_produccion_id || null;
+          payload.servicios_ids = base.servicios_ids || [];
+          payload.linea_negocio_id = base.linea_negocio_id || null;
+        }
+      }
       if (editingItem) {
         await axios.put(`${API}/modelos/${editingItem.id}`, payload);
         toast.success('Modelo actualizado');
       } else {
         await axios.post(`${API}/modelos`, payload);
-        toast.success('Modelo creado');
+        toast.success(modoVariante ? 'Variante creada' : 'Modelo base creado');
       }
       setDialogOpen(false);
       setEditingItem(null);
@@ -170,18 +200,22 @@ export const Modelos = () => {
     setFormData({
       nombre: '', marca_id: '', tipo_id: '', entalle_id: '',
       tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
-      linea_negocio_id: '',
+      linea_negocio_id: '', base_id: '', hilo_especifico_id: '',
     });
+    setModoVariante(false);
   };
 
   const handleEdit = (item) => {
     setEditingItem(item);
+    setModoVariante(!!item.base_id);
     setFormData({
       nombre: item.nombre, marca_id: item.marca_id, tipo_id: item.tipo_id,
       entalle_id: item.entalle_id, tela_id: item.tela_id, hilo_id: item.hilo_id,
       ruta_produccion_id: item.ruta_produccion_id || '', servicios_ids: item.servicios_ids || [],
       pt_item_id: item.pt_item_id || '',
       linea_negocio_id: item.linea_negocio_id ? String(item.linea_negocio_id) : '',
+      base_id: item.base_id || '',
+      hilo_especifico_id: item.hilo_especifico_id || '',
     });
     fetchRelatedData();
     setDialogOpen(true);
@@ -197,11 +231,58 @@ export const Modelos = () => {
     }
   };
 
-  const handleNew = () => {
+  const handleNew = (isVariante = false) => {
     setEditingItem(null);
     resetForm();
+    setModoVariante(isVariante);
     fetchRelatedData();
     setDialogOpen(true);
+  };
+
+  const handleCrearVariante = (baseItem) => {
+    setEditingItem(null);
+    setModoVariante(true);
+    setFormData({
+      nombre: baseItem.nombre + ' - ',
+      marca_id: baseItem.marca_id, tipo_id: baseItem.tipo_id,
+      entalle_id: baseItem.entalle_id, tela_id: baseItem.tela_id, hilo_id: baseItem.hilo_id,
+      ruta_produccion_id: baseItem.ruta_produccion_id || '',
+      servicios_ids: baseItem.servicios_ids || [],
+      pt_item_id: '',
+      linea_negocio_id: baseItem.linea_negocio_id ? String(baseItem.linea_negocio_id) : '',
+      base_id: baseItem.id,
+      hilo_especifico_id: '',
+    });
+    fetchRelatedData();
+    setDialogOpen(true);
+  };
+
+  // Auto-generate nombre when base or hilo_especifico changes in variante mode
+  const handleBaseChange = (baseId) => {
+    const base = bases.find(b => b.id === baseId);
+    if (base) {
+      const heNombre = hilosEspecificos.find(h => h.id === formData.hilo_especifico_id)?.nombre || '';
+      setFormData(prev => ({
+        ...prev,
+        base_id: baseId,
+        marca_id: base.marca_id, tipo_id: base.tipo_id,
+        entalle_id: base.entalle_id, tela_id: base.tela_id, hilo_id: base.hilo_id,
+        ruta_produccion_id: base.ruta_produccion_id || '',
+        servicios_ids: base.servicios_ids || [],
+        linea_negocio_id: base.linea_negocio_id ? String(base.linea_negocio_id) : '',
+        nombre: heNombre ? `${base.nombre} - ${heNombre}` : base.nombre + ' - ',
+      }));
+    }
+  };
+
+  const handleHiloEspChange = (heId) => {
+    const heNombre = hilosEspecificos.find(h => h.id === heId)?.nombre || '';
+    const baseName = bases.find(b => b.id === formData.base_id)?.nombre || '';
+    setFormData(prev => ({
+      ...prev,
+      hilo_especifico_id: heId,
+      nombre: baseName && heNombre ? `${baseName} - ${heNombre}` : prev.nombre,
+    }));
   };
 
   const handleToggleServicio = (servicioId) => {
@@ -236,12 +317,18 @@ export const Modelos = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Modelos</h2>
-          <p className="text-muted-foreground">Gestion de modelos con BOM y rutas</p>
+          <p className="text-muted-foreground">Bases, variantes (con hilo especifico) y BOM</p>
         </div>
-        <Button onClick={handleNew} data-testid="btn-nuevo-modelo">
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Modelo
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => handleNew(false)} data-testid="btn-nueva-base">
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Base
+          </Button>
+          <Button onClick={() => handleNew(true)} data-testid="btn-nueva-variante">
+            <Copy className="h-4 w-4 mr-2" />
+            Nueva Variante
+          </Button>
+        </div>
       </div>
 
       {/* Barra de busqueda y filtros */}
@@ -297,6 +384,16 @@ export const Modelos = () => {
             {filtroOpciones.telas.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filtroTipoModelo || 'todos'} onValueChange={(v) => setFiltroTipoModelo(v === 'todos' ? '' : v)}>
+          <SelectTrigger className="w-[150px]" data-testid="filtro-tipo-modelo">
+            <SelectValue placeholder="Tipo Modelo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="base">Solo Bases</SelectItem>
+            <SelectItem value="variante">Solo Variantes</SelectItem>
+          </SelectContent>
+        </Select>
         {hayFiltrosActivos && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros} data-testid="btn-limpiar-filtros">
             <X className="h-4 w-4 mr-1" /> Limpiar
@@ -315,25 +412,27 @@ export const Modelos = () => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead className="min-w-[160px]">Nombre</TableHead>
+                  <TableHead className="w-[90px]">Jerarquia</TableHead>
                   <TableHead>Linea</TableHead>
                   <TableHead>Marca</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Entalle</TableHead>
                   <TableHead>Tela</TableHead>
                   <TableHead>Hilo</TableHead>
+                  <TableHead>Hilo Esp.</TableHead>
                   <TableHead>Ruta Prod.</TableHead>
                   <TableHead className="text-center">Registros</TableHead>
-                  <TableHead className="w-[80px]">Acciones</TableHead>
+                  <TableHead className="w-[110px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">Cargando...</TableCell>
+                    <TableCell colSpan={12} className="text-center py-8">Cargando...</TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay modelos que coincidan con los filtros' : 'No hay modelos registrados'}
                     </TableCell>
                   </TableRow>
@@ -341,6 +440,13 @@ export const Modelos = () => {
                   items.map((item) => (
                     <TableRow key={item.id} className="data-table-row" data-testid={`modelo-row-${item.id}`}>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
+                      <TableCell>
+                        {item.base_id ? (
+                          <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700 bg-blue-50">Variante</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">Base</Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">
                         {item.linea_negocio_nombre 
                           ? <Badge variant="secondary" className="text-[10px]">{item.linea_negocio_nombre}</Badge>
@@ -351,6 +457,7 @@ export const Modelos = () => {
                       <TableCell className="text-sm">{item.entalle_nombre || '-'}</TableCell>
                       <TableCell className="text-sm">{item.tela_nombre || '-'}</TableCell>
                       <TableCell className="text-sm">{item.hilo_nombre || '-'}</TableCell>
+                      <TableCell className="text-sm">{item.hilo_especifico_nombre || '-'}</TableCell>
                       <TableCell>
                         {item.ruta_nombre ? (
                           <Badge variant="outline" className="text-xs whitespace-nowrap">
@@ -379,6 +486,11 @@ export const Modelos = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          {!item.base_id && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCrearVariante(item)} title="Crear Variante" data-testid={`crear-variante-${item.id}`}>
+                              <Copy className="h-3.5 w-3.5 text-blue-600" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(item)} data-testid={`edit-modelo-${item.id}`}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -414,8 +526,16 @@ export const Modelos = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingItem ? 'Editar Modelo' : 'Nuevo Modelo'}</DialogTitle>
-            <DialogDescription>Configura el modelo con sus materiales y servicios requeridos</DialogDescription>
+            <DialogTitle>
+              {editingItem
+                ? (modoVariante ? 'Editar Variante' : 'Editar Modelo Base')
+                : (modoVariante ? 'Nueva Variante' : 'Nuevo Modelo Base')}
+            </DialogTitle>
+            <DialogDescription>
+              {modoVariante
+                ? 'Selecciona la base y el hilo especifico. Los campos se heredan de la base.'
+                : 'Configura el modelo base con sus materiales y servicios requeridos'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <Tabs defaultValue="general" className="w-full">
@@ -427,79 +547,135 @@ export const Modelos = () => {
               </TabsList>
 
               <TabsContent value="general" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="nombre">Nombre *</Label>
-                    <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del modelo" required data-testid="input-nombre-modelo" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Linea de Negocio</Label>
-                    <Select value={formData.linea_negocio_id || 'none'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'none' ? '' : v })}>
-                      <SelectTrigger data-testid="select-linea-negocio"><SelectValue placeholder="Seleccionar linea..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin linea (Global)</SelectItem>
-                        {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Marca</Label>
-                    <SearchableSelect
-                      value={formData.marca_id}
-                      onValueChange={(value) => setFormData({ ...formData, marca_id: value })}
-                      options={marcas}
-                      placeholder="Buscar marca..."
-                      searchPlaceholder="Buscar marca..."
-                      testId="select-marca"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <SearchableSelect
-                      value={formData.tipo_id}
-                      onValueChange={(value) => setFormData({ ...formData, tipo_id: value })}
-                      options={tipos}
-                      placeholder="Buscar tipo..."
-                      searchPlaceholder="Buscar tipo..."
-                      testId="select-tipo"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Entalle</Label>
-                    <SearchableSelect
-                      value={formData.entalle_id}
-                      onValueChange={(value) => setFormData({ ...formData, entalle_id: value })}
-                      options={entalles}
-                      placeholder="Buscar entalle..."
-                      searchPlaceholder="Buscar entalle..."
-                      testId="select-entalle"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tela</Label>
-                    <SearchableSelect
-                      value={formData.tela_id}
-                      onValueChange={(value) => setFormData({ ...formData, tela_id: value })}
-                      options={telas}
-                      placeholder="Buscar tela..."
-                      searchPlaceholder="Buscar tela..."
-                      testId="select-tela"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Hilo</Label>
-                    <SearchableSelect
-                      value={formData.hilo_id}
-                      onValueChange={(value) => setFormData({ ...formData, hilo_id: value })}
-                      options={hilos}
-                      placeholder="Buscar hilo..."
-                      searchPlaceholder="Buscar hilo..."
-                      testId="select-hilo"
-                    />
-                  </div>
-                </div>
+                {modoVariante ? (
+                  <>
+                    {/* VARIANTE MODE */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Modelo Base *</Label>
+                        <SearchableSelect
+                          value={formData.base_id}
+                          onValueChange={handleBaseChange}
+                          options={bases.map(b => ({ id: b.id, nombre: b.nombre }))}
+                          placeholder="Seleccionar base..."
+                          searchPlaceholder="Buscar base..."
+                          testId="select-base-variante"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Hilo Especifico *</Label>
+                        <SearchableSelect
+                          value={formData.hilo_especifico_id}
+                          onValueChange={handleHiloEspChange}
+                          options={hilosEspecificos.map(h => ({ id: h.id, nombre: h.nombre }))}
+                          placeholder="Seleccionar hilo especifico..."
+                          searchPlaceholder="Buscar hilo especifico..."
+                          testId="select-hilo-especifico-variante"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="nombre-variante">Nombre (auto-generado, editable)</Label>
+                        <Input id="nombre-variante" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Base - Hilo Especifico" required data-testid="input-nombre-variante" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Linea de Negocio</Label>
+                        <Select value={formData.linea_negocio_id || 'none'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'none' ? '' : v })}>
+                          <SelectTrigger data-testid="select-linea-negocio-variante"><SelectValue placeholder="Heredada de la base" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin linea (Global)</SelectItem>
+                            {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {formData.base_id && (
+                      <div className="rounded-md bg-muted/50 border p-3 text-xs text-muted-foreground space-y-1">
+                        <p className="font-medium text-foreground flex items-center gap-1"><Layers className="h-3 w-3" /> Campos heredados de la base:</p>
+                        <p>Marca: {bases.find(b => b.id === formData.base_id)?.marca_nombre || '-'} | Tipo: {bases.find(b => b.id === formData.base_id)?.tipo_nombre || '-'} | Entalle: {bases.find(b => b.id === formData.base_id)?.entalle_nombre || '-'} | Tela: {bases.find(b => b.id === formData.base_id)?.tela_nombre || '-'} | Hilo: {bases.find(b => b.id === formData.base_id)?.hilo_nombre || '-'}</p>
+                        <p>Ruta: {bases.find(b => b.id === formData.base_id)?.ruta_nombre || 'Sin ruta'}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* BASE MODE */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="nombre">Nombre *</Label>
+                        <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del modelo base" required data-testid="input-nombre-modelo" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Linea de Negocio</Label>
+                        <Select value={formData.linea_negocio_id || 'none'} onValueChange={(v) => setFormData({ ...formData, linea_negocio_id: v === 'none' ? '' : v })}>
+                          <SelectTrigger data-testid="select-linea-negocio"><SelectValue placeholder="Seleccionar linea..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin linea (Global)</SelectItem>
+                            {lineasNegocio.map(ln => <SelectItem key={ln.id} value={String(ln.id)}>{ln.nombre}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Marca</Label>
+                        <SearchableSelect
+                          value={formData.marca_id}
+                          onValueChange={(value) => setFormData({ ...formData, marca_id: value })}
+                          options={marcas}
+                          placeholder="Buscar marca..."
+                          searchPlaceholder="Buscar marca..."
+                          testId="select-marca"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo</Label>
+                        <SearchableSelect
+                          value={formData.tipo_id}
+                          onValueChange={(value) => setFormData({ ...formData, tipo_id: value })}
+                          options={tipos}
+                          placeholder="Buscar tipo..."
+                          searchPlaceholder="Buscar tipo..."
+                          testId="select-tipo"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Entalle</Label>
+                        <SearchableSelect
+                          value={formData.entalle_id}
+                          onValueChange={(value) => setFormData({ ...formData, entalle_id: value })}
+                          options={entalles}
+                          placeholder="Buscar entalle..."
+                          searchPlaceholder="Buscar entalle..."
+                          testId="select-entalle"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tela</Label>
+                        <SearchableSelect
+                          value={formData.tela_id}
+                          onValueChange={(value) => setFormData({ ...formData, tela_id: value })}
+                          options={telas}
+                          placeholder="Buscar tela..."
+                          searchPlaceholder="Buscar tela..."
+                          testId="select-tela"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Hilo</Label>
+                        <SearchableSelect
+                          value={formData.hilo_id}
+                          onValueChange={(value) => setFormData({ ...formData, hilo_id: value })}
+                          options={hilos}
+                          placeholder="Buscar hilo..."
+                          searchPlaceholder="Buscar hilo..."
+                          testId="select-hilo"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="tallas" className="space-y-4 mt-4">
@@ -511,6 +687,13 @@ export const Modelos = () => {
               </TabsContent>
 
               <TabsContent value="produccion" className="space-y-4 mt-4">
+                {modoVariante ? (
+                  <div className="rounded-md bg-muted/50 border p-4 text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground">Produccion heredada de la base</p>
+                    <p className="mt-1">La ruta de produccion y los servicios se heredan automaticamente del modelo base seleccionado.</p>
+                  </div>
+                ) : (
+                <>
                 <div className="space-y-2">
                   <Label>Ruta de Produccion</Label>
                   <p className="text-xs text-muted-foreground">Define la secuencia de estados para los registros de este modelo</p>
@@ -570,6 +753,8 @@ export const Modelos = () => {
                   </div>
                   {formData.pt_item_id && <p className="text-xs text-green-600">PT vinculado correctamente</p>}
                 </div>
+                </>
+                )}
               </TabsContent>
             </Tabs>
 
