@@ -185,7 +185,7 @@ export const ReporteTiemposMuertos = () => {
                       <td className="p-2.5 text-center">
                         <Button
                           type="button" variant="ghost" size="icon" className="h-6 w-6"
-                          onClick={() => navigate(`/registros/${item.registro_id}`)}
+                          onClick={() => navigate(`/registros/editar/${item.registro_id}`)}
                           title="Abrir registro"
                         >
                           <ExternalLink className="h-3 w-3" />

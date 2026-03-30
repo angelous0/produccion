@@ -85,7 +85,7 @@ export const NotificacionesBell = () => {
                   <div
                     key={a.movimiento_id}
                     className="flex items-start gap-3 px-4 py-3 border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => { navigate(`/registros/${a.registro_id}`); setOpen(false); }}
+                    onClick={() => { navigate(`/registros/editar/${a.registro_id}`); setOpen(false); }}
                     data-testid={`alerta-${a.n_corte}`}
                   >
                     <div className="flex-shrink-0 mt-0.5">

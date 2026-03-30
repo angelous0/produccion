@@ -164,7 +164,7 @@ export const Dashboard = () => {
                 <div
                   key={a.movimiento_id}
                   className="flex items-start gap-2.5 p-3 rounded-lg border bg-white hover:shadow-sm cursor-pointer transition-all"
-                  onClick={() => navigate(`/registros/${a.registro_id}`)}
+                  onClick={() => navigate(`/registros/editar/${a.registro_id}`)}
                   data-testid={`dashboard-alerta-${a.n_corte}`}
                 >
                   <div className="flex-shrink-0 mt-0.5">

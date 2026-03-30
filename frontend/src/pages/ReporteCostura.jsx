@@ -829,7 +829,7 @@ export const ReporteCostura = () => {
                       </td>
                       <td className="p-2 text-center">
                         <div className="flex items-center justify-center gap-0.5">
-                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigate(`/registros/${item.registro_id}`)} title="Abrir registro">
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigate(`/registros/editar/${item.registro_id}`)} title="Abrir registro">
                             <ExternalLink className="h-3 w-3" />
                           </Button>
                           <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIncDialog(item)} title="Agregar incidencia">
@@ -1004,8 +1004,7 @@ export const ReporteCostura = () => {
                                 <div className="flex items-center justify-center gap-0.5">
                                   <Button
                                     type="button" variant="ghost" size="icon" className="h-6 w-6"
-                                    onClick={() => navigate(`/registros/${item.registro_id}`)}
-                                    title="Abrir registro"
+                                    onClick={() => navigate(`/registros/editar/${item.registro_id}`)}                                    title="Abrir registro"
                                     data-testid={`open-registro-${item.movimiento_id}`}
                                   >
                                     <ExternalLink className="h-3 w-3" />
