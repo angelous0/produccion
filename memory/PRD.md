@@ -323,7 +323,8 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 
 ## Cambios Recientes (2026-03-30)
 - **Jerarquia Base/Variante de Modelos**: prod_modelos ahora soporta base_id y hilo_especifico_id. Bases definen marca/tipo/entalle/tela/hilo/ruta; variantes heredan de base + hilo especifico con BOM propio
-- **UI Modelos**: Botones "Nueva Base" y "Nueva Variante", badge Jerarquia, columna Hilo Esp., filtro tipo modelo, dialog modo variante con auto-nombre
+- **UI Modelos separada en 2 paginas**: /bases (solo bases con contador de modelos/variantes) y /modelos (solo variantes con columna Base y Hilo Esp.)
+- **Menu lateral actualizado**: Bases → Modelos → Registros como jerarquia visual clara
 - **Reportes**: Columna hilo_especifico en Reporte Operativo y Tiempos Muertos (tabla + Excel + PDF)
 - **RegistroForm**: Eliminado selector hilo_especifico (ahora hereda del modelo), agregado campo fecha_entrega_final, eliminado campo observaciones
 - **Exportacion Tiempos Muertos**: Botones Excel/PDF con estilos profesionales

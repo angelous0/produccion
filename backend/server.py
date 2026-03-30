@@ -2246,7 +2246,8 @@ async def get_modelos(
                     inv.codigo as pt_item_codigo,
                     ln.nombre as linea_negocio_nombre,
                     base_m.nombre as base_nombre,
-                    COALESCE(reg_count.total, 0) as registros_count
+                    COALESCE(reg_count.total, 0) as registros_count,
+                    COALESCE(var_count.total, 0) as variantes_count
                 FROM prod_modelos m
                 LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
                 LEFT JOIN prod_tipos t ON m.tipo_id = t.id
@@ -2261,6 +2262,9 @@ async def get_modelos(
                 LEFT JOIN LATERAL (
                     SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
                 ) reg_count ON true
+                LEFT JOIN LATERAL (
+                    SELECT COUNT(*) as total FROM prod_modelos v WHERE v.base_id = m.id
+                ) var_count ON true
                 WHERE ($1 = '' OR ($1 = 'base' AND m.base_id IS NULL) OR ($1 = 'variante' AND m.base_id IS NOT NULL))
                 ORDER BY m.created_at DESC
             """, tipo_modelo)
@@ -2334,7 +2338,8 @@ async def get_modelos(
                 inv.codigo as pt_item_codigo,
                 ln.nombre as linea_negocio_nombre,
                 base_m.nombre as base_nombre,
-                COALESCE(reg_count.total, 0) as registros_count
+                COALESCE(reg_count.total, 0) as registros_count,
+                COALESCE(var_count.total, 0) as variantes_count
             FROM prod_modelos m
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
             LEFT JOIN prod_tipos t ON m.tipo_id = t.id
@@ -2349,6 +2354,9 @@ async def get_modelos(
             LEFT JOIN LATERAL (
                 SELECT COUNT(*) as total FROM prod_registros r WHERE r.modelo_id = m.id
             ) reg_count ON true
+            LEFT JOIN LATERAL (
+                SELECT COUNT(*) as total FROM prod_modelos v WHERE v.base_id = m.id
+            ) var_count ON true
             WHERE {where_clause}
             ORDER BY m.created_at DESC
             LIMIT ${param_idx} OFFSET ${param_idx + 1}

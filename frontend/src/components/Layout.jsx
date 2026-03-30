@@ -86,6 +86,7 @@ const navItems = [
   { to: '/tallas-catalogo', icon: Ruler, label: 'Tallas' },
   { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
   { to: '/colores-generales', icon: Palette, label: 'Colores Generales' },
+  { to: '/bases', icon: Layers, label: 'Bases' },
   { to: '/modelos', icon: Box, label: 'Modelos' },
   { to: '/registros', icon: ClipboardList, label: 'Registros' },
 ];

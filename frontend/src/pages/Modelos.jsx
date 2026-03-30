@@ -25,7 +25,7 @@ import { SearchableSelect } from '../components/SearchableSelect';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export const Modelos = () => {
+export const Modelos = ({ modo: modoProp }) => {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ export const Modelos = () => {
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroEntalle, setFiltroEntalle] = useState('todos');
   const [filtroTela, setFiltroTela] = useState('todos');
-  const [filtroTipoModelo, setFiltroTipoModelo] = useState('');
+  const [filtroTipoModelo, setFiltroTipoModelo] = useState(modoProp || '');
 
   // Opciones de filtro desde el servidor
   const [filtroOpciones, setFiltroOpciones] = useState({ marcas: [], tipos: [], entalles: [], telas: [] });
@@ -316,18 +316,26 @@ export const Modelos = () => {
     <div className="space-y-4" data-testid="modelos-page">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Modelos</h2>
-          <p className="text-muted-foreground">Bases, variantes (con hilo especifico) y BOM</p>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {modoProp === 'base' ? 'Bases' : modoProp === 'variante' ? 'Modelos' : 'Modelos'}
+          </h2>
+          <p className="text-muted-foreground">
+            {modoProp === 'base' ? 'Modelos base con marca, tipo, entalle, tela, hilo y ruta' : modoProp === 'variante' ? 'Variantes de base con hilo especifico y BOM propio' : 'Bases, variantes (con hilo especifico) y BOM'}
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleNew(false)} data-testid="btn-nueva-base">
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Base
-          </Button>
-          <Button onClick={() => handleNew(true)} data-testid="btn-nueva-variante">
-            <Copy className="h-4 w-4 mr-2" />
-            Nueva Variante
-          </Button>
+          {modoProp !== 'variante' && (
+            <Button variant="outline" onClick={() => handleNew(false)} data-testid="btn-nueva-base">
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Base
+            </Button>
+          )}
+          {modoProp !== 'base' && (
+            <Button onClick={() => handleNew(true)} data-testid="btn-nueva-variante">
+              <Copy className="h-4 w-4 mr-2" />
+              {modoProp === 'variante' ? 'Nuevo Modelo' : 'Nueva Variante'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -384,16 +392,18 @@ export const Modelos = () => {
             {filtroOpciones.telas.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroTipoModelo || 'todos'} onValueChange={(v) => setFiltroTipoModelo(v === 'todos' ? '' : v)}>
-          <SelectTrigger className="w-[150px]" data-testid="filtro-tipo-modelo">
-            <SelectValue placeholder="Tipo Modelo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            <SelectItem value="base">Solo Bases</SelectItem>
-            <SelectItem value="variante">Solo Variantes</SelectItem>
-          </SelectContent>
-        </Select>
+        {!modoProp && (
+          <Select value={filtroTipoModelo || 'todos'} onValueChange={(v) => setFiltroTipoModelo(v === 'todos' ? '' : v)}>
+            <SelectTrigger className="w-[150px]" data-testid="filtro-tipo-modelo">
+              <SelectValue placeholder="Tipo Modelo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="base">Solo Bases</SelectItem>
+              <SelectItem value="variante">Solo Variantes</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
         {hayFiltrosActivos && (
           <Button variant="ghost" size="sm" onClick={limpiarFiltros} data-testid="btn-limpiar-filtros">
             <X className="h-4 w-4 mr-1" /> Limpiar
@@ -412,15 +422,17 @@ export const Modelos = () => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead className="min-w-[160px]">Nombre</TableHead>
-                  <TableHead className="w-[90px]">Jerarquia</TableHead>
+                  {!modoProp && <TableHead className="w-[90px]">Jerarquia</TableHead>}
+                  {modoProp === 'variante' && <TableHead>Base</TableHead>}
                   <TableHead>Linea</TableHead>
                   <TableHead>Marca</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Entalle</TableHead>
                   <TableHead>Tela</TableHead>
                   <TableHead>Hilo</TableHead>
-                  <TableHead>Hilo Esp.</TableHead>
+                  {modoProp !== 'base' && <TableHead>Hilo Esp.</TableHead>}
                   <TableHead>Ruta Prod.</TableHead>
+                  {modoProp === 'base' && <TableHead className="text-center">Modelos</TableHead>}
                   <TableHead className="text-center">Registros</TableHead>
                   <TableHead className="w-[110px]">Acciones</TableHead>
                 </TableRow>
@@ -428,11 +440,11 @@ export const Modelos = () => {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8">Cargando...</TableCell>
+                    <TableCell colSpan={14} className="text-center py-8">Cargando...</TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay modelos que coincidan con los filtros' : 'No hay modelos registrados'}
                     </TableCell>
                   </TableRow>
@@ -440,13 +452,22 @@ export const Modelos = () => {
                   items.map((item) => (
                     <TableRow key={item.id} className="data-table-row" data-testid={`modelo-row-${item.id}`}>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
-                      <TableCell>
-                        {item.base_id ? (
-                          <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700 bg-blue-50">Variante</Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-[10px]">Base</Badge>
-                        )}
-                      </TableCell>
+                      {!modoProp && (
+                        <TableCell>
+                          {item.base_id ? (
+                            <Badge variant="outline" className="text-[10px] border-blue-300 text-blue-700 bg-blue-50">Variante</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[10px]">Base</Badge>
+                          )}
+                        </TableCell>
+                      )}
+                      {modoProp === 'variante' && (
+                        <TableCell className="text-sm">
+                          {item.base_nombre ? (
+                            <span className="text-blue-700 font-medium">{item.base_nombre}</span>
+                          ) : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                      )}
                       <TableCell className="text-xs">
                         {item.linea_negocio_nombre 
                           ? <Badge variant="secondary" className="text-[10px]">{item.linea_negocio_nombre}</Badge>
@@ -457,7 +478,9 @@ export const Modelos = () => {
                       <TableCell className="text-sm">{item.entalle_nombre || '-'}</TableCell>
                       <TableCell className="text-sm">{item.tela_nombre || '-'}</TableCell>
                       <TableCell className="text-sm">{item.hilo_nombre || '-'}</TableCell>
-                      <TableCell className="text-sm">{item.hilo_especifico_nombre || '-'}</TableCell>
+                      {modoProp !== 'base' && (
+                        <TableCell className="text-sm">{item.hilo_especifico_nombre || '-'}</TableCell>
+                      )}
                       <TableCell>
                         {item.ruta_nombre ? (
                           <Badge variant="outline" className="text-xs whitespace-nowrap">
@@ -468,6 +491,24 @@ export const Modelos = () => {
                           <span className="text-muted-foreground text-xs">Sin ruta</span>
                         )}
                       </TableCell>
+                      {modoProp === 'base' && (
+                        <TableCell className="text-center">
+                          {item.variantes_count > 0 ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs font-semibold text-purple-600 hover:text-purple-800 hover:bg-purple-50"
+                              onClick={() => navigate('/modelos')}
+                              data-testid={`ver-variantes-${item.id}`}
+                            >
+                              {item.variantes_count}
+                              <ExternalLink className="h-3 w-3 ml-1" />
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">0</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="text-center">
                         {item.registros_count > 0 ? (
                           <Button
@@ -486,8 +527,8 @@ export const Modelos = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          {!item.base_id && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCrearVariante(item)} title="Crear Variante" data-testid={`crear-variante-${item.id}`}>
+                          {modoProp === 'base' && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCrearVariante(item)} title="Crear Modelo" data-testid={`crear-variante-${item.id}`}>
                               <Copy className="h-3.5 w-3.5 text-blue-600" />
                             </Button>
                           )}
@@ -768,3 +809,7 @@ export const Modelos = () => {
     </div>
   );
 };
+
+
+export const ModelosBases = () => <Modelos modo="base" />;
+export const ModelosVariantes = () => <Modelos modo="variante" />;
