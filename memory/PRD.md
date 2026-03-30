@@ -243,7 +243,17 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Testing: 100% backend (7/7) y 100% frontend
 - **Exportacion Excel/PDF Profesional** (2026-03-30):
   - Boton Excel: descarga .xlsx con anchos de columna, fechas dd-mm-yyyy
-  - Boton PDF: jsPDF landscape con KPIs, colores por riesgo, urgentes en rojo, dias altos resaltados, fechas dd-mm-yyyy, avance bajo en rojo, incidencias resaltadas, paginacion con footer
+  - Boton PDF: jsPDF landscape con KPIs, colores por riesgo, urgentes en rojo, dias altos resaltados, fechas dd-mm-yyyy, avance bajo en rojo, incidencias resaltadas, paginacion con footer, columna Obs con motivos de riesgo
+  - Normal sin color en PDF ni en tabla web
+- **Vista Tabla Plana** (2026-03-30):
+  - Toggle Agrupado/Tabla en header del reporte
+  - Vista plana: persona como columna, ordenamiento global por dias (mezcla personas)
+  - Header Dias clickable para invertir orden
+- **Sistema de Alertas de Produccion** (2026-03-30):
+  - Endpoint GET /api/reportes-produccion/alertas-produccion (calcula vencidos, criticos, paralizados)
+  - Campana en header con badge rojo de cantidad, dropdown con lista de alertas, auto-refresh 60s
+  - Bloque de alertas en Dashboard con tarjetas clickables por lote, KPIs resumen (vencidos/criticos/paralizados)
+  - Al hacer clic en alerta navega al registro
   - Eliminado CSV, reemplazado por Excel+PDF
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas

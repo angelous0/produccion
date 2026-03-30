@@ -70,6 +70,7 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { NotificacionesBell } from './NotificacionesBell';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -223,6 +224,7 @@ export const Layout = () => {
           </div>
           
           <div className="ml-auto flex items-center gap-2">
+            <NotificacionesBell />
             <Button
               variant="ghost"
               size="icon"

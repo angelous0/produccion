@@ -1282,3 +1282,132 @@ async def get_avance_historial(
             }
             for r in rows
         ]
+
+
+
+@router.get("/alertas-produccion")
+async def alertas_produccion():
+    """Devuelve alertas activas: lotes vencidos, críticos, paralizados, sin actualizar."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        hoy = date.today()
+        
+        # Query all active movimientos across all services
+        rows = await conn.fetch("""
+            SELECT 
+                m.id as movimiento_id,
+                m.registro_id,
+                r.n_corte,
+                r.urgente,
+                s.nombre as servicio_nombre,
+                mod.nombre as modelo_nombre,
+                pp.nombre as persona_nombre,
+                m.cantidad_enviada,
+                m.avance_porcentaje,
+                m.fecha_inicio,
+                m.fecha_fin,
+                m.avance_updated_at,
+                COALESCE(m.fecha_esperada_movimiento, m.fecha_fin) as fecha_esperada,
+                (SELECT COUNT(*) FROM produccion.prod_incidencia i 
+                 WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas,
+                (SELECT COUNT(*) FROM produccion.prod_paralizacion p 
+                 WHERE p.registro_id = r.id AND p.activa = true) as paralizaciones_activas
+            FROM produccion.prod_movimientos_produccion m
+            JOIN produccion.prod_registros r ON r.id = m.registro_id
+            JOIN produccion.prod_servicios_produccion s ON s.id = m.servicio_id
+            LEFT JOIN produccion.prod_modelos mod ON mod.id = r.modelo_id
+            LEFT JOIN produccion.prod_personas_produccion pp ON pp.id = m.persona_id
+            WHERE m.avance_porcentaje < 100
+              AND m.fecha_inicio IS NOT NULL
+            ORDER BY m.fecha_inicio ASC
+        """)
+        
+        alertas = []
+        resumen = {"vencidos": 0, "criticos": 0, "paralizados": 0, "sin_actualizar": 0, "total": 0}
+        
+        for row in rows:
+            avance = row["avance_porcentaje"] or 0
+            fecha_esperada = row["fecha_esperada"]
+            fecha_inicio = row["fecha_inicio"]
+            incidencias = row["incidencias_abiertas"]
+            paralizados = row["paralizaciones_activas"]
+            
+            # Días transcurridos
+            dias = (hoy - fecha_inicio).days if fecha_inicio else 0
+            
+            # Días sin actualizar
+            dias_sin_act = None
+            if row["avance_updated_at"]:
+                dias_sin_act = (hoy - row["avance_updated_at"].date()).days
+            elif fecha_inicio:
+                dias_sin_act = dias
+            
+            # Lógica de riesgo (misma del reporte costura)
+            nivel = 'normal'
+            if fecha_esperada and hoy > fecha_esperada and avance < 100:
+                nivel = 'vencido'
+            else:
+                score = 0
+                if dias_sin_act is not None and dias_sin_act >= 5: score += 3
+                elif dias_sin_act is not None and dias_sin_act >= 3: score += 1
+                if fecha_esperada:
+                    dias_entrega = (fecha_esperada - hoy).days
+                    if dias_entrega <= 2 and avance < 70: score += 3
+                    elif dias_entrega <= 5 and avance < 50: score += 1
+                if incidencias >= 2: score += 2
+                elif incidencias >= 1: score += 1
+                if score >= 3: nivel = 'critico'
+                elif score >= 1: nivel = 'atencion'
+            
+            # Solo incluir alertas relevantes (no normales)
+            motivos = []
+            if nivel == 'vencido':
+                motivos.append('Fecha vencida')
+                resumen["vencidos"] += 1
+            if nivel == 'critico':
+                resumen["criticos"] += 1
+            if paralizados > 0:
+                motivos.append('Producción paralizada')
+                resumen["paralizados"] += 1
+            if dias_sin_act is not None and dias_sin_act >= 5:
+                motivos.append(f'{dias_sin_act}d sin actualizar')
+                resumen["sin_actualizar"] += 1
+            if fecha_esperada:
+                dias_entrega = (fecha_esperada - hoy).days
+                if dias_entrega <= 2 and avance < 70:
+                    motivos.append(f'Entrega en {dias_entrega}d, avance {avance}%')
+            if incidencias >= 1:
+                motivos.append(f'{incidencias} incidencia{"s" if incidencias > 1 else ""}')
+            if row["urgente"]:
+                motivos.append('Urgente')
+            
+            if nivel in ('vencido', 'critico') or paralizados > 0:
+                alertas.append({
+                    "movimiento_id": str(row["movimiento_id"]),
+                    "registro_id": str(row["registro_id"]),
+                    "n_corte": row["n_corte"],
+                    "urgente": row["urgente"],
+                    "servicio": row["servicio_nombre"],
+                    "modelo": row["modelo_nombre"],
+                    "persona": row["persona_nombre"],
+                    "avance": avance,
+                    "dias": dias,
+                    "dias_sin_actualizar": dias_sin_act,
+                    "nivel": nivel,
+                    "motivos": motivos,
+                    "motivo_texto": '; '.join(motivos),
+                    "incidencias": incidencias,
+                    "paralizado": paralizados > 0,
+                })
+        
+        resumen["total"] = len(alertas)
+        
+        # Ordenar: paralizados primero, luego vencidos, luego críticos, luego por días desc
+        prioridad = {'vencido': 0, 'critico': 1, 'atencion': 2, 'normal': 3}
+        alertas.sort(key=lambda a: (
+            0 if a["paralizado"] else 1,
+            prioridad.get(a["nivel"], 3),
+            -(a["dias"] or 0),
+        ))
+        
+        return {"alertas": alertas, "resumen": resumen}

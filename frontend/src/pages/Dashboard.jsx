@@ -22,7 +22,10 @@ import {
   Package,
   PackageX,
   Users,
-  Activity
+  Activity,
+  Clock,
+  PauseCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { getStatusClass } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -68,18 +71,21 @@ const StatCard = ({ title, value, icon: Icon, description, trend }) => (
 export const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [chartData, setChartData] = useState(null);
+  const [alertas, setAlertas] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, chartRes] = await Promise.all([
+        const [statsRes, chartRes, alertasRes] = await Promise.all([
           axios.get(`${API}/stats`),
-          axios.get(`${API}/stats/charts`)
+          axios.get(`${API}/stats/charts`),
+          axios.get(`${API}/reportes-produccion/alertas-produccion`).catch(() => ({ data: null })),
         ]);
         setStats(statsRes.data);
         setChartData(chartRes.data);
+        setAlertas(alertasRes.data);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -115,6 +121,91 @@ export const Dashboard = () => {
         <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
         <p className="text-muted-foreground">Resumen del módulo de producción textil</p>
       </div>
+
+      {/* Alertas de Producción */}
+      {alertas && alertas.resumen?.total > 0 && (
+        <Card className="border-red-200 bg-red-50/30" data-testid="dashboard-alertas">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-base">Alertas de Producción</CardTitle>
+                  <CardDescription className="text-xs">{alertas.resumen.total} lotes requieren atención</CardDescription>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {alertas.resumen.vencidos > 0 && (
+                  <div className="text-center px-3 py-1 rounded-md bg-zinc-800 text-white">
+                    <p className="text-lg font-bold leading-tight">{alertas.resumen.vencidos}</p>
+                    <p className="text-[10px] opacity-80">Vencidos</p>
+                  </div>
+                )}
+                {alertas.resumen.criticos > 0 && (
+                  <div className="text-center px-3 py-1 rounded-md bg-red-100 text-red-800">
+                    <p className="text-lg font-bold leading-tight">{alertas.resumen.criticos}</p>
+                    <p className="text-[10px]">Críticos</p>
+                  </div>
+                )}
+                {alertas.resumen.paralizados > 0 && (
+                  <div className="text-center px-3 py-1 rounded-md bg-amber-100 text-amber-800">
+                    <p className="text-lg font-bold leading-tight">{alertas.resumen.paralizados}</p>
+                    <p className="text-[10px]">Paralizados</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {alertas.alertas.slice(0, 6).map((a) => (
+                <div
+                  key={a.movimiento_id}
+                  className="flex items-start gap-2.5 p-3 rounded-lg border bg-white hover:shadow-sm cursor-pointer transition-all"
+                  onClick={() => navigate(`/registros/${a.registro_id}`)}
+                  data-testid={`dashboard-alerta-${a.n_corte}`}
+                >
+                  <div className="flex-shrink-0 mt-0.5">
+                    {a.paralizado ? (
+                      <PauseCircle className="h-5 w-5 text-amber-500" />
+                    ) : a.nivel === 'vencido' ? (
+                      <Clock className="h-5 w-5 text-zinc-700" />
+                    ) : (
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-sm">Corte {a.n_corte}</span>
+                      {a.urgente && <span className="text-[10px] font-bold text-red-600">URG</span>}
+                      <Badge variant="outline" className={`text-[10px] px-1 ${
+                        a.nivel === 'vencido' ? 'bg-zinc-800 text-white border-zinc-700' : 'bg-red-100 text-red-700 border-red-200'
+                      }`}>{a.nivel === 'vencido' ? 'Vencido' : 'Crítico'}</Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">{a.servicio} · {a.persona}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{a.motivo_texto}</p>
+                    <div className="flex gap-3 mt-1">
+                      <span className="text-[10px] text-muted-foreground">{a.dias}d</span>
+                      <span className="text-[10px] text-muted-foreground">Avance: {a.avance}%</span>
+                    </div>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+            {alertas.alertas.length > 6 && (
+              <button
+                className="mt-3 text-xs text-primary hover:underline w-full text-center"
+                onClick={() => navigate('/reportes/costura')}
+              >
+                Ver todas las alertas ({alertas.alertas.length})
+              </button>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats principales */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
