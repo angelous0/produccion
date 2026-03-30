@@ -1764,7 +1764,7 @@ export const RegistroForm = () => {
                   </Label>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4 pt-2">
+                <div className="grid grid-cols-3 gap-4 pt-2">
                   <div className="space-y-2">
                     <Label htmlFor="fecha_entrega_final">Fecha Entrega Final</Label>
                     <Input
@@ -1793,16 +1793,6 @@ export const RegistroForm = () => {
                       onChange={(e) => setFormData({ ...formData, lq_odoo_id: e.target.value })}
                       placeholder="Ej: EDUARD-LQ"
                       data-testid="input-lq-odoo-id"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="observaciones">Observaciones</Label>
-                    <Input
-                      id="observaciones"
-                      value={formData.observaciones}
-                      onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                      placeholder="Notas u observaciones"
-                      data-testid="input-observaciones"
                     />
                   </div>
                 </div>
