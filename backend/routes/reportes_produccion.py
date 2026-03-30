@@ -1466,11 +1466,19 @@ async def reporte_tiempos_muertos(
                 r.urgente,
                 mod.nombre as modelo_nombre,
                 marca.nombre as marca_nombre,
+                COALESCE(tp.nombre, '') as tipo_nombre,
+                COALESCE(en.nombre, '') as entalle_nombre,
+                COALESCE(te.nombre, '') as tela_nombre,
+                COALESCE(he.nombre, '') as hilo_especifico_nombre,
                 COALESCE(ts.siguiente_iniciado, false) as siguiente_iniciado
             FROM ultimo_terminado ut
             JOIN produccion.prod_registros r ON r.id = ut.registro_id
             LEFT JOIN produccion.prod_modelos mod ON mod.id = r.modelo_id
             LEFT JOIN produccion.prod_marcas marca ON marca.id = mod.marca_id
+            LEFT JOIN produccion.prod_tipos tp ON tp.id = mod.tipo_id
+            LEFT JOIN produccion.prod_entalles en ON en.id = mod.entalle_id
+            LEFT JOIN produccion.prod_telas te ON te.id = mod.tela_id
+            LEFT JOIN produccion.prod_hilos_especificos he ON he.id = r.hilo_especifico_id
             LEFT JOIN tiene_siguiente ts ON ts.registro_id = ut.registro_id
             ORDER BY ut.fecha_fin ASC
         """)
@@ -1504,6 +1512,10 @@ async def reporte_tiempos_muertos(
                 "urgente": row["urgente"],
                 "modelo": row["modelo_nombre"],
                 "marca": row["marca_nombre"],
+                "tipo": row["tipo_nombre"],
+                "entalle": row["entalle_nombre"],
+                "tela": row["tela_nombre"],
+                "hilo_especifico": row["hilo_especifico_nombre"],
                 "ultimo_servicio": row["ultimo_servicio"],
                 "ultima_persona": row["ultima_persona"],
                 "fecha_termino": str(fecha_fin) if fecha_fin else None,

@@ -70,6 +70,11 @@ export const ReporteTiemposMuertos = () => {
       items = items.filter(b =>
         (b.n_corte || '').toLowerCase().includes(q) ||
         (b.modelo || '').toLowerCase().includes(q) ||
+        (b.marca || '').toLowerCase().includes(q) ||
+        (b.tipo || '').toLowerCase().includes(q) ||
+        (b.entalle || '').toLowerCase().includes(q) ||
+        (b.tela || '').toLowerCase().includes(q) ||
+        (b.hilo_especifico || '').toLowerCase().includes(q) ||
         (b.ultimo_servicio || '').toLowerCase().includes(q) ||
         (b.ultima_persona || '').toLowerCase().includes(q) ||
         (b.estado_actual || '').toLowerCase().includes(q)
@@ -85,10 +90,15 @@ export const ReporteTiemposMuertos = () => {
     if (!filtered.length) return;
     const XLSX = (await import('xlsx')).default || await import('xlsx');
     const wsData = [
-      ['Corte', 'Modelo', 'Último Servicio', 'Persona', 'Terminó', 'Estado Actual', 'Días Parado', 'Nivel'],
+      ['Corte', 'Modelo', 'Marca', 'Tipo', 'Entalle', 'Tela', 'Hilo Esp.', 'Último Servicio', 'Persona', 'Terminó', 'Estado Actual', 'Días Parado', 'Nivel'],
       ...filtered.map(r => [
         r.n_corte + (r.urgente ? ' (URG)' : ''),
         r.modelo || '',
+        r.marca || '',
+        r.tipo || '',
+        r.entalle || '',
+        r.tela || '',
+        r.hilo_especifico || '',
         r.ultimo_servicio,
         r.ultima_persona || '',
         fmtDate(r.fecha_termino),
@@ -98,7 +108,7 @@ export const ReporteTiemposMuertos = () => {
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [{wch:12},{wch:20},{wch:18},{wch:18},{wch:14},{wch:16},{wch:12},{wch:12}];
+    ws['!cols'] = [{wch:12},{wch:20},{wch:14},{wch:14},{wch:14},{wch:14},{wch:16},{wch:18},{wch:18},{wch:14},{wch:16},{wch:12},{wch:12}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Tiempos Muertos');
     XLSX.writeFile(wb, `tiempos_muertos_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -150,10 +160,15 @@ export const ReporteTiemposMuertos = () => {
     const nivelColors = { critico: [254,226,226], atencion: [254,243,199], espera: [219,234,254] };
     const nivelTextColors = { critico: [153,27,27], atencion: [146,64,14], espera: [30,64,175] };
 
-    const headers = [['Corte', 'Modelo', 'Último Servicio', 'Persona', 'Terminó', 'Estado Actual', 'Días Parado', 'Nivel']];
+    const headers = [['Corte', 'Modelo', 'Marca', 'Tipo', 'Entalle', 'Tela', 'Hilo Esp.', 'Últ. Servicio', 'Persona', 'Terminó', 'Estado', 'Días', 'Nivel']];
     const body = filtered.map(r => [
       r.n_corte,
       r.modelo || '',
+      r.marca || '',
+      r.tipo || '',
+      r.entalle || '',
+      r.tela || '',
+      r.hilo_especifico || '',
       r.ultimo_servicio,
       r.ultima_persona || '',
       fmtDate(r.fecha_termino),
@@ -167,17 +182,22 @@ export const ReporteTiemposMuertos = () => {
       head: headers,
       body: body,
       theme: 'grid',
-      styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220,220,220], lineWidth: 0.2 },
-      headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 7, fontStyle: 'bold', halign: 'center' },
+      styles: { fontSize: 6.5, cellPadding: 1.5, lineColor: [220,220,220], lineWidth: 0.2 },
+      headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 6, fontStyle: 'bold', halign: 'center' },
       columnStyles: {
-        0: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 32 },
-        3: { cellWidth: 32 },
-        4: { cellWidth: 24, halign: 'center' },
-        5: { cellWidth: 30, halign: 'center' },
-        6: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
-        7: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
+        0: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 24 },
+        2: { cellWidth: 18 },
+        3: { cellWidth: 18 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 18 },
+        7: { cellWidth: 24 },
+        8: { cellWidth: 22 },
+        9: { cellWidth: 18, halign: 'center' },
+        10: { cellWidth: 22, halign: 'center' },
+        11: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+        12: { cellWidth: 18, halign: 'center', fontStyle: 'bold' },
       },
       didParseCell: (data) => {
         if (data.section !== 'body') return;
@@ -191,7 +211,7 @@ export const ReporteTiemposMuertos = () => {
         }
 
         // Días parado: color by severity
-        if (data.column.index === 6) {
+        if (data.column.index === 11) {
           if (row.dias_parado >= 7) {
             data.cell.styles.fillColor = [254, 226, 226];
             data.cell.styles.textColor = [153, 27, 27];
@@ -202,7 +222,7 @@ export const ReporteTiemposMuertos = () => {
         }
 
         // Nivel: color badge
-        if (data.column.index === 7 && row.nivel !== 'ok') {
+        if (data.column.index === 12 && row.nivel !== 'ok') {
           const bg = nivelColors[row.nivel];
           const tc = nivelTextColors[row.nivel];
           if (bg) {
@@ -292,6 +312,11 @@ export const ReporteTiemposMuertos = () => {
                 <tr className="bg-muted/60 border-b">
                   <th className="text-left p-2.5 font-medium text-muted-foreground">Corte</th>
                   <th className="text-left p-2.5 font-medium text-muted-foreground">Modelo</th>
+                  <th className="text-left p-2.5 font-medium text-muted-foreground">Marca</th>
+                  <th className="text-left p-2.5 font-medium text-muted-foreground">Tipo</th>
+                  <th className="text-left p-2.5 font-medium text-muted-foreground">Entalle</th>
+                  <th className="text-left p-2.5 font-medium text-muted-foreground">Tela</th>
+                  <th className="text-left p-2.5 font-medium text-muted-foreground">Hilo Esp.</th>
                   <th className="text-left p-2.5 font-medium text-muted-foreground">Último Servicio</th>
                   <th className="text-left p-2.5 font-medium text-muted-foreground">Persona</th>
                   <th className="text-center p-2.5 font-medium text-muted-foreground">Terminó</th>
@@ -316,6 +341,11 @@ export const ReporteTiemposMuertos = () => {
                         {item.urgente && <span className="ml-1 text-[9px] text-red-600 font-bold">URG</span>}
                       </td>
                       <td className="p-2.5 whitespace-nowrap">{item.modelo || '-'}</td>
+                      <td className="p-2.5 whitespace-nowrap text-muted-foreground">{item.marca || '-'}</td>
+                      <td className="p-2.5 whitespace-nowrap text-muted-foreground">{item.tipo || '-'}</td>
+                      <td className="p-2.5 whitespace-nowrap text-muted-foreground">{item.entalle || '-'}</td>
+                      <td className="p-2.5 whitespace-nowrap text-muted-foreground">{item.tela || '-'}</td>
+                      <td className="p-2.5 whitespace-nowrap text-muted-foreground">{item.hilo_especifico || '-'}</td>
                       <td className="p-2.5 whitespace-nowrap font-medium">{item.ultimo_servicio}</td>
                       <td className="p-2.5 whitespace-nowrap text-muted-foreground">{item.ultima_persona || '-'}</td>
                       <td className="p-2.5 text-center whitespace-nowrap">{fmtDate(item.fecha_termino)}</td>
