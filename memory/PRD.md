@@ -241,6 +241,10 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Usuario registrador: al crear incidencia se guarda el usuario actual, se muestra en sub-fila expandida
   - Simulacion datos: 6 personas, 7 modelos, 17 registros, 13 incidencias, 3 paralizaciones
   - Testing: 100% backend (7/7) y 100% frontend
+- **Exportacion Excel/PDF Profesional** (2026-03-30):
+  - Boton Excel: descarga .xlsx con anchos de columna, fechas dd-mm-yyyy
+  - Boton PDF: jsPDF landscape con KPIs, colores por riesgo, urgentes en rojo, dias altos resaltados, fechas dd-mm-yyyy, avance bajo en rojo, incidencias resaltadas, paginacion con footer
+  - Eliminado CSV, reemplazado por Excel+PDF
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos

@@ -294,43 +294,224 @@ export const ReporteCostura = () => {
 
   const hasActiveFilters = filtroPersona !== '__all__' || filtroRiesgo !== '__all__' || filtroConIncidencias !== '__all__' || filtroVencidos !== '__all__' || filtroSinActualizar !== '__all__' || filtroTerminados !== 'en_curso' || filtroBusqueda.trim();
 
-  const handleExportCSV = () => {
-    if (!grouped.length) return;
-    const headers = ['Persona', 'Tipo', 'Corte', 'Modelo', 'Tipo Prenda', 'Entalle', 'Tela', 'Cant.', 'Inicio', 'F. Esperada', 'Días', 'Avance %', 'Últ. Act.', 'D/s Act.', 'Inc.', 'Riesgo'];
+  const fmtDate = (d) => { if (!d) return '-'; const dt = new Date(d + 'T00:00:00'); return `${String(dt.getDate()).padStart(2,'0')}-${String(dt.getMonth()+1).padStart(2,'0')}-${dt.getFullYear()}`; };
+
+  const getExportRows = () => {
     const rows = [];
     for (const grupo of grouped) {
       for (const item of grupo.items) {
-        rows.push([
-          grupo.persona_nombre,
-          grupo.persona_tipo,
-          item.n_corte + (item.urgente ? ' URG' : ''),
-          item.modelo_nombre || '',
-          item.tipo_nombre || '',
-          item.entalle_nombre || '',
-          item.tela_nombre || '',
-          item.cantidad_enviada || '',
-          item.fecha_inicio || '',
-          item.fecha_esperada || '',
-          item.dias_transcurridos ?? '',
-          item.avance_porcentaje ?? '',
-          item.avance_updated_at ? new Date(item.avance_updated_at).toLocaleDateString('es-PE') : '',
-          item.dias_sin_actualizar ?? '',
-          item.incidencias_abiertas || 0,
-          (RIESGO_CONFIG[item.nivel_riesgo] || RIESGO_CONFIG.normal).label,
-        ]);
+        rows.push({
+          persona: grupo.persona_nombre,
+          tipo_persona: grupo.persona_tipo,
+          corte: item.n_corte,
+          urgente: item.urgente,
+          modelo: item.modelo_nombre || '',
+          tipo_prenda: item.tipo_nombre || '',
+          entalle: item.entalle_nombre || '',
+          tela: item.tela_nombre || '',
+          cantidad: item.cantidad_enviada || 0,
+          inicio: item.fecha_inicio,
+          esperada: item.fecha_esperada,
+          dias: item.dias_transcurridos,
+          avance: item.avance_porcentaje ?? 0,
+          ult_act: item.avance_updated_at ? new Date(item.avance_updated_at).toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}) : '-',
+          dias_sin_act: item.dias_sin_actualizar,
+          incidencias: item.incidencias_abiertas || 0,
+          riesgo: item.nivel_riesgo || 'normal',
+          riesgo_label: (RIESGO_CONFIG[item.nivel_riesgo] || RIESGO_CONFIG.normal).label,
+        });
       }
     }
-    const esc = (v) => { const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
-    const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `reporte_costura_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Reporte exportado');
+    return rows;
+  };
+
+  const handleExportExcel = async () => {
+    if (!grouped.length) return;
+    const XLSX = (await import('xlsx')).default || await import('xlsx');
+    const rows = getExportRows();
+    const wsData = [
+      ['Persona', 'Tipo', 'Corte', 'Modelo', 'Tipo Prenda', 'Entalle', 'Tela', 'Cant.', 'Inicio', 'F. Esperada', 'Días', 'Avance %', 'Últ. Act.', 'D/s Act.', 'Inc.', 'Riesgo'],
+      ...rows.map(r => [
+        r.persona, r.tipo_persona, r.corte + (r.urgente ? ' (URG)' : ''), r.modelo, r.tipo_prenda, r.entalle, r.tela,
+        r.cantidad, fmtDate(r.inicio), fmtDate(r.esperada), r.dias ?? '', r.avance, r.ult_act, r.dias_sin_act ?? '', r.incidencias, r.riesgo_label,
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [
+      {wch:20},{wch:9},{wch:10},{wch:18},{wch:15},{wch:12},{wch:10},{wch:7},{wch:12},{wch:12},{wch:6},{wch:9},{wch:11},{wch:8},{wch:5},{wch:10},
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Costura');
+    XLSX.writeFile(wb, `reporte_costura_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast.success('Excel exportado');
+  };
+
+  const handleExportPDF = async () => {
+    if (!grouped.length) return;
+    const jsPDFMod = await import('jspdf');
+    const jsPDF = jsPDFMod.default || jsPDFMod.jsPDF;
+    const autoTableMod = await import('jspdf-autotable');
+    const autoTable = autoTableMod.default || autoTableMod.applyPlugin;
+    const rows = getExportRows();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Reporte Operativo — Costura', 14, 15);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text(`Generado: ${new Date().toLocaleString('es-PE')}  |  Registros: ${rows.length}  |  Prendas: ${rows.reduce((s,r)=>s+r.cantidad,0).toLocaleString()}`, 14, 20);
+    doc.setTextColor(0);
+
+    // KPI bar
+    const kpiY = 24;
+    const kpiItems = [
+      { label: 'Costureros', val: kpis.costureros_activos || 0 },
+      { label: 'Registros', val: kpis.registros_activos || 0 },
+      { label: 'Prendas', val: kpis.total_prendas?.toLocaleString() || 0 },
+      { label: 'Vencidos', val: kpis.registros_vencidos || 0, danger: true },
+      { label: 'Críticos', val: kpis.registros_criticos || 0, danger: true },
+      { label: 'Incidencias', val: kpis.incidencias_abiertas || 0, danger: true },
+    ];
+    const kpiW = (pageW - 28) / kpiItems.length;
+    kpiItems.forEach((k, i) => {
+      const x = 14 + i * kpiW;
+      doc.setFillColor(k.danger && k.val > 0 ? 254 : 245, k.danger && k.val > 0 ? 242 : 245, k.danger && k.val > 0 ? 242 : 245);
+      doc.roundedRect(x, kpiY, kpiW - 2, 10, 1.5, 1.5, 'F');
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(k.label.toUpperCase(), x + 2, kpiY + 3.5);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(k.danger && k.val > 0 ? 180 : 30, k.danger && k.val > 0 ? 30 : 30, k.danger && k.val > 0 ? 30 : 30);
+      doc.text(String(k.val), x + 2, kpiY + 8.5);
+    });
+    doc.setTextColor(0);
+
+    // Color maps
+    const riesgoColors = { normal: [220,252,231], atencion: [254,243,199], critico: [254,226,226], vencido: [63,63,70] };
+    const riesgoTextColors = { normal: [22,101,52], atencion: [146,64,14], critico: [153,27,27], vencido: [255,255,255] };
+
+    const headers = [['Persona','Corte','Modelo','Tipo','Entalle','Tela','Cant.','Inicio','F. Esp.','Días','Avance','D/s Act.','Inc.','Riesgo']];
+    const body = rows.map(r => [
+      r.persona,
+      r.corte,
+      r.modelo,
+      r.tipo_prenda,
+      r.entalle,
+      r.tela,
+      r.cantidad.toLocaleString(),
+      fmtDate(r.inicio),
+      fmtDate(r.esperada),
+      r.dias != null ? String(r.dias) : '-',
+      r.avance + '%',
+      r.dias_sin_act != null ? String(r.dias_sin_act) : '-',
+      String(r.incidencias),
+      r.riesgo_label,
+    ]);
+
+    autoTable(doc, {
+      startY: 36,
+      head: headers,
+      body: body,
+      theme: 'grid',
+      styles: { fontSize: 7, cellPadding: 1.5, lineColor: [220,220,220], lineWidth: 0.2 },
+      headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 6.5, fontStyle: 'bold', halign: 'center' },
+      columnStyles: {
+        0: { cellWidth: 28 },
+        1: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 17 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 12, halign: 'right' },
+        7: { cellWidth: 18, halign: 'center' },
+        8: { cellWidth: 18, halign: 'center' },
+        9: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
+        10: { cellWidth: 14, halign: 'center' },
+        11: { cellWidth: 14, halign: 'center' },
+        12: { cellWidth: 10, halign: 'center' },
+        13: { cellWidth: 17, halign: 'center', fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return;
+        const row = rows[data.row.index];
+        if (!row) return;
+
+        // Urgente: Corte cell red background
+        if (data.column.index === 1 && row.urgente) {
+          data.cell.styles.fillColor = [254, 226, 226];
+          data.cell.styles.textColor = [153, 27, 27];
+        }
+
+        // Riesgo cell colored
+        if (data.column.index === 13) {
+          const bg = riesgoColors[row.riesgo] || riesgoColors.normal;
+          const tc = riesgoTextColors[row.riesgo] || riesgoTextColors.normal;
+          data.cell.styles.fillColor = bg;
+          data.cell.styles.textColor = tc;
+          data.cell.styles.fontStyle = 'bold';
+        }
+
+        // Días: highlight high values
+        if (data.column.index === 9 && row.dias != null) {
+          if (row.dias >= 15) {
+            data.cell.styles.fillColor = [254, 226, 226];
+            data.cell.styles.textColor = [153, 27, 27];
+          } else if (row.dias >= 10) {
+            data.cell.styles.fillColor = [254, 243, 199];
+            data.cell.styles.textColor = [146, 64, 14];
+          }
+        }
+
+        // Dias sin actualizar: highlight >= 5
+        if (data.column.index === 11 && row.dias_sin_act != null) {
+          if (row.dias_sin_act >= 5) {
+            data.cell.styles.textColor = [153, 27, 27];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (row.dias_sin_act >= 3) {
+            data.cell.styles.textColor = [146, 64, 14];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+
+        // Incidencias: red if > 0
+        if (data.column.index === 12 && row.incidencias > 0) {
+          data.cell.styles.fillColor = [254, 226, 226];
+          data.cell.styles.textColor = [153, 27, 27];
+          data.cell.styles.fontStyle = 'bold';
+        }
+
+        // Avance: color by %
+        if (data.column.index === 10) {
+          if (row.avance >= 80) data.cell.styles.textColor = [22, 101, 52];
+          else if (row.avance <= 30) { data.cell.styles.textColor = [153, 27, 27]; data.cell.styles.fontStyle = 'bold'; }
+        }
+
+        // Alternate row for same persona
+        if (data.row.index > 0 && rows[data.row.index - 1]?.persona !== row.persona) {
+          // Light separator line is already handled by grid theme
+        }
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Footer
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(6);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${totalPages}`, pageW - 14, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+      doc.text('Producción Textil — Reporte Costura', 14, doc.internal.pageSize.getHeight() - 5);
+    }
+
+    doc.save(`reporte_costura_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast.success('PDF exportado');
   };
 
   const clearFilters = () => {
@@ -364,8 +545,11 @@ export const ReporteCostura = () => {
           <Button variant="outline" size="sm" onClick={fetchData} data-testid="btn-refresh">
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} /> Actualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!grouped.length} data-testid="btn-exportar">
-            <Download className="h-3.5 w-3.5 mr-1" /> Exportar
+          <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!grouped.length} data-testid="btn-exportar-excel">
+            <Download className="h-3.5 w-3.5 mr-1" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={!grouped.length} data-testid="btn-exportar-pdf">
+            <Download className="h-3.5 w-3.5 mr-1" /> PDF
           </Button>
         </div>
       </div>
