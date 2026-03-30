@@ -235,6 +235,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Nuevo endpoint GET /api/reportes-produccion/costura/avance-historial/{movimiento_id}
   - Endpoint PUT avance ahora registra automaticamente en historial con usuario
   - UI: Dialog modal "Historial de Avance" accesible desde icono reloj en columna Avance, muestra cronologia con diferencias (+N%) y usuario/fecha
+- **Mejoras Reporte Costura** (2026-03-30):
+  - Exportar CSV: boton descarga archivo con 16 columnas, formato UTF-8 con BOM para Excel
+  - Incidencia con Paraliza: checkbox en dialog, advertencia roja, boton rojo "Crear y Paralizar"
+  - Usuario registrador: al crear incidencia se guarda el usuario actual, se muestra en sub-fila expandida
+  - Simulacion datos: 6 personas, 7 modelos, 17 registros, 13 incidencias, 3 paralizaciones
+  - Testing: 100% backend (7/7) y 100% frontend
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos
