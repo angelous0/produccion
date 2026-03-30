@@ -152,8 +152,9 @@ export const ReporteCostura = () => {
   const [incMotivo, setIncMotivo] = useState('');
   const [incParaliza, setIncParaliza] = useState(false);
 
-  // Ordenación y estado de incidencias
+  // Ordenación, vista y estado de incidencias
   const [sortDiasDesc, setSortDiasDesc] = useState(true);
+  const [vistaPlana, setVistaPlana] = useState(false);
   const [expandedInc, setExpandedInc] = useState({});
   const [incidenciasPorRegistro, setIncidenciasPorRegistro] = useState({});
   const [resolverDialog, setResolverDialog] = useState(null);
@@ -283,6 +284,23 @@ export const ReporteCostura = () => {
     }
     return groups;
   }, [data, filtroBusqueda, sortDiasDesc]);
+
+  // Vista plana: todos los items en una sola lista, ordenados por días globalmente
+  const flatItems = useMemo(() => {
+    if (!grouped.length) return [];
+    const all = [];
+    for (const g of grouped) {
+      for (const item of g.items) {
+        all.push({ ...item, _persona_nombre: g.persona_nombre, _persona_tipo: g.persona_tipo });
+      }
+    }
+    all.sort((a, b) => {
+      const da = a.dias_transcurridos ?? -1;
+      const db = b.dias_transcurridos ?? -1;
+      return sortDiasDesc ? db - da : da - db;
+    });
+    return all;
+  }, [grouped, sortDiasDesc]);
 
   const togglePersona = (pid) => {
     setExpandedPersonas(prev => ({ ...prev, [pid]: !prev[pid] }));
@@ -587,6 +605,10 @@ export const ReporteCostura = () => {
             <button type="button" onClick={() => setFiltroTerminados('en_curso')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'en_curso' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>En curso</button>
             <button type="button" onClick={() => setFiltroTerminados('todos')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'todos' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
           </div>
+          <div className="flex items-center rounded-lg border text-sm overflow-hidden" data-testid="toggle-vista">
+            <button type="button" onClick={() => setVistaPlana(false)} className={`px-3 py-1.5 text-xs font-medium transition-colors ${!vistaPlana ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Agrupado</button>
+            <button type="button" onClick={() => setVistaPlana(true)} className={`px-3 py-1.5 text-xs font-medium transition-colors ${vistaPlana ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Tabla</button>
+          </div>
           <Button variant="outline" size="sm" onClick={() => setShowFilters(f => !f)} data-testid="toggle-filtros">
             <Filter className="h-3.5 w-3.5 mr-1" />
             Filtros
@@ -697,12 +719,159 @@ export const ReporteCostura = () => {
         </Card>
       )}
 
-      {/* Tabla agrupada */}
+      {/* Contenido principal */}
       {loading ? (
         <div className="text-center py-12 text-muted-foreground">Cargando reporte...</div>
       ) : grouped.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">No hay movimientos de costura registrados</div>
+      ) : vistaPlana ? (
+        /* ===== VISTA TABLA PLANA ===== */
+        <Card data-testid="tabla-costura-plana">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-muted/60 border-b">
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Persona</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Corte</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Modelo</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tipo</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Entalle</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tela</th>
+                  <th className="text-right p-2 font-medium text-muted-foreground whitespace-nowrap">Cant.</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Inicio</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">F. Esperada</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap cursor-pointer select-none hover:text-foreground group" onClick={() => setSortDiasDesc(p => !p)}>
+                    Días {sortDiasDesc ? <ChevronDown className="inline h-3 w-3" /> : <ChevronRight className="inline h-3 w-3 rotate-[-90deg]" />}
+                  </th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Avance</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Últ. Act.</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">D/s Act.</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Inc.</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Riesgo</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Obs.</th>
+                  <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flatItems.map((item) => {
+                  const cfg = RIESGO_CONFIG[item.nivel_riesgo] || RIESGO_CONFIG.normal;
+                  const diasSinAct = item.dias_sin_actualizar;
+                  return (
+                    <Fragment key={item.movimiento_id}>
+                    <tr className={`border-t hover:bg-muted/30 transition-colors ${cfg.rowClass}`} data-testid={`flat-row-${item.movimiento_id}`}>
+                      <td className="p-2 whitespace-nowrap font-medium">
+                        {item._persona_nombre}
+                        <Badge variant="outline" className="ml-1 text-[9px] py-0">{item._persona_tipo}</Badge>
+                      </td>
+                      <td className="p-2 font-mono font-semibold whitespace-nowrap">
+                        {item.n_corte}
+                        {item.urgente && <span className="ml-1 text-[9px] text-red-600 font-bold">URG</span>}
+                      </td>
+                      <td className="p-2 whitespace-nowrap max-w-[120px] truncate" title={item.modelo_nombre}>{item.modelo_nombre || '-'}</td>
+                      <td className="p-2 whitespace-nowrap">{item.tipo_nombre || '-'}</td>
+                      <td className="p-2 whitespace-nowrap">{item.entalle_nombre || '-'}</td>
+                      <td className="p-2 whitespace-nowrap">{item.tela_nombre || '-'}</td>
+                      <td className="p-2 text-right font-mono">{item.cantidad_enviada?.toLocaleString() || '-'}</td>
+                      <td className="p-2 text-center whitespace-nowrap">{item.fecha_inicio ? new Date(item.fecha_inicio + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
+                      <td className="p-2 text-center whitespace-nowrap">{item.fecha_esperada ? new Date(item.fecha_esperada + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
+                      <td className={`p-2 text-center font-mono font-bold whitespace-nowrap ${
+                        (item.dias_transcurridos ?? 0) >= 15 ? 'bg-red-100 text-red-700' :
+                        (item.dias_transcurridos ?? 0) >= 10 ? 'bg-amber-100 text-amber-700' :
+                        (item.dias_transcurridos ?? 0) >= 7 ? 'text-amber-600' : ''
+                      }`}>
+                        {item.dias_transcurridos ?? '-'}
+                      </td>
+                      <td className="p-2 text-center">
+                        <AvanceEditor movimientoId={item.movimiento_id} currentValue={item.avance_porcentaje} onSaved={fetchData} nCorte={item.n_corte} />
+                      </td>
+                      <td className="p-2 text-center whitespace-nowrap text-muted-foreground">
+                        {item.avance_updated_at ? new Date(item.avance_updated_at).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}
+                      </td>
+                      <td className={`p-2 text-center font-mono ${diasSinAct != null && diasSinAct >= 5 ? 'text-red-600 font-bold' : diasSinAct != null && diasSinAct >= 3 ? 'text-amber-600 font-semibold' : ''}`}>
+                        {diasSinAct ?? '-'}
+                      </td>
+                      <td className="p-2 text-center">
+                        {item.incidencias_abiertas > 0 ? (
+                          <button onClick={() => toggleIncidencias(item.registro_id)} className="inline-flex items-center gap-0.5 hover:bg-muted rounded px-1 py-0.5 transition-colors" title="Ver incidencias">
+                            <Badge variant="destructive" className="text-[10px] px-1.5">{item.incidencias_abiertas}</Badge>
+                            <Eye className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        ) : <span className="text-muted-foreground">0</span>}
+                      </td>
+                      <td className="p-2 text-center">
+                        {item.nivel_riesgo === 'normal' ? (
+                          <span className="text-[10px] text-muted-foreground">—</span>
+                        ) : (
+                          <Badge className={`${cfg.color} text-[10px] border`}>{cfg.label}</Badge>
+                        )}
+                      </td>
+                      <td className="p-2 text-left max-w-[180px]">
+                        {item.nivel_riesgo !== 'normal' && (
+                          <span className="text-[10px] text-muted-foreground leading-tight">{buildObsText(item)}</span>
+                        )}
+                      </td>
+                      <td className="p-2 text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigate(`/registros/${item.registro_id}`)} title="Abrir registro">
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIncDialog(item)} title="Agregar incidencia">
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedInc[item.registro_id] && (
+                      <tr className="bg-amber-50/30">
+                        <td colSpan={17} className="p-0">
+                          <div className="px-4 py-2 space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Incidencias — Corte {item.n_corte}</span>
+                              <Button type="button" variant="ghost" size="sm" className="h-5 text-[10px]" onClick={() => setExpandedInc(prev => ({ ...prev, [item.registro_id]: false }))}>
+                                <X className="h-3 w-3 mr-0.5" /> Cerrar
+                              </Button>
+                            </div>
+                            {!incidenciasPorRegistro[item.registro_id] ? (
+                              <p className="text-xs text-muted-foreground">Cargando...</p>
+                            ) : incidenciasPorRegistro[item.registro_id].filter(i => i.estado === 'ABIERTA').length === 0 ? (
+                              <p className="text-xs text-muted-foreground">Sin incidencias abiertas</p>
+                            ) : (
+                              incidenciasPorRegistro[item.registro_id].filter(i => i.estado === 'ABIERTA').map(inc => (
+                                <div key={inc.id} className="flex items-center gap-3 p-2 rounded border bg-white text-xs">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <Badge variant="destructive" className="text-[10px]">ABIERTA</Badge>
+                                      <span className="font-medium">{inc.motivo_nombre || inc.tipo}</span>
+                                      {inc.paraliza && <Badge variant="outline" className="text-[10px] border-red-300 text-red-600">Paraliza</Badge>}
+                                    </div>
+                                    {inc.comentario && <p className="text-muted-foreground mt-0.5">{inc.comentario}</p>}
+                                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                                      {inc.usuario && <span className="font-medium">{inc.usuario} · </span>}
+                                      {inc.fecha_hora ? new Date(inc.fecha_hora).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button" variant="outline" size="sm" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50 shrink-0"
+                                    onClick={() => setResolverDialog({ id: inc.id, registro_id: item.registro_id, motivo: inc.motivo_nombre || inc.tipo, comentario: inc.comentario })}
+                                  >
+                                    <Check className="h-3 w-3 mr-1" /> Resolver
+                                  </Button>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       ) : (
+        /* ===== VISTA AGRUPADA (acordeón) ===== */
         <div className="space-y-2" data-testid="tabla-costura">
           {grouped.map((grupo) => {
             const isExpanded = expandedPersonas[grupo.persona_id] !== false; // default expanded
