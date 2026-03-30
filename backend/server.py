@@ -314,6 +314,7 @@ async def ensure_fase2_tables():
         await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS base_id VARCHAR NULL")
         await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS hilo_especifico_id VARCHAR NULL")
         await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS muestra_modelo_id VARCHAR NULL")
+        await conn.execute("ALTER TABLE prod_modelos ADD COLUMN IF NOT EXISTS muestra_base_id VARCHAR NULL")
 
 
 
@@ -601,6 +602,7 @@ class ModeloBase(BaseModel):
     base_id: Optional[str] = None
     hilo_especifico_id: Optional[str] = None
     muestra_modelo_id: Optional[str] = None
+    muestra_base_id: Optional[str] = None
 
 class ModeloCreate(ModeloBase):
     pass
@@ -2266,6 +2268,36 @@ async def get_muestras_modelos(search: str = ""):
         return {"error": str(e), "items": []}
 
 
+@api_router.get("/muestras-bases")
+async def get_muestras_bases(search: str = ""):
+    try:
+        pool = await get_muestra_pool()
+        async with pool.acquire() as conn:
+            query = """
+                SELECT b.id, b.nombre,
+                    h.nombre as hilo_nombre,
+                    m.nombre as marca_nombre, tp.nombre as tipo_nombre,
+                    e.nombre as entalle_nombre, t.nombre as tela_nombre
+                FROM muestra.bases b
+                LEFT JOIN muestra.hilos h ON h.id = b.hilo_id
+                LEFT JOIN muestra.muestras_base mb ON mb.id = b.muestra_base_id
+                LEFT JOIN muestra.marcas m ON m.id = mb.marca_id
+                LEFT JOIN muestra.tipos_producto tp ON tp.id = mb.tipo_producto_id
+                LEFT JOIN muestra.entalles e ON e.id = mb.entalle_id
+                LEFT JOIN muestra.telas t ON t.id = mb.tela_id
+                WHERE b.activo = true
+            """
+            if search:
+                query += " AND (LOWER(b.nombre) LIKE $1 OR LOWER(m.nombre) LIKE $1 OR LOWER(tp.nombre) LIKE $1)"
+                rows = await conn.fetch(query + " ORDER BY b.nombre", f"%{search.lower()}%")
+            else:
+                rows = await conn.fetch(query + " ORDER BY b.nombre")
+            return [dict(r) for r in rows]
+    except Exception as e:
+        return {"error": str(e), "items": []}
+
+
+
 @api_router.get("/modelos")
 async def get_modelos(
     limit: int = 50,
@@ -2325,18 +2357,38 @@ async def get_modelos(
 
             # Resolve muestra names from external DB
             muestra_ids = [d['muestra_modelo_id'] for d in result if d.get('muestra_modelo_id')]
-            if muestra_ids:
+            muestra_base_ids = [d['muestra_base_id'] for d in result if d.get('muestra_base_id')]
+            if muestra_ids or muestra_base_ids:
                 try:
                     m_pool = await get_muestra_pool()
                     async with m_pool.acquire() as m_conn:
-                        m_rows = await m_conn.fetch(
-                            "SELECT m.id, m.nombre, h.nombre as hilo_nombre FROM muestra.modelos m LEFT JOIN muestra.hilos h ON h.id = m.hilo_id WHERE m.id = ANY($1::text[])",
-                            muestra_ids
-                        )
-                        m_map = {str(r['id']): f"{r['nombre'].replace('Modelo - ', '').replace('Modelo -', '')} ({r['hilo_nombre'] or '-'})" for r in m_rows}
-                        for d in result:
-                            if d.get('muestra_modelo_id'):
-                                d['muestra_nombre'] = m_map.get(d['muestra_modelo_id'], '')
+                        if muestra_ids:
+                            m_rows = await m_conn.fetch(
+                                "SELECT m.id, m.nombre, h.nombre as hilo_nombre FROM muestra.modelos m LEFT JOIN muestra.hilos h ON h.id = m.hilo_id WHERE m.id = ANY($1::text[])",
+                                muestra_ids
+                            )
+                            m_map = {str(r['id']): f"{r['nombre'].replace('Modelo - ', '').replace('Modelo -', '')} ({r['hilo_nombre'] or '-'})" for r in m_rows}
+                            for d in result:
+                                if d.get('muestra_modelo_id'):
+                                    d['muestra_nombre'] = m_map.get(d['muestra_modelo_id'], '')
+                        if muestra_base_ids:
+                            b_rows = await m_conn.fetch(
+                                """SELECT b.id, b.nombre, m.nombre as marca, tp.nombre as tipo, e.nombre as entalle, t.nombre as tela
+                                FROM muestra.bases b
+                                LEFT JOIN muestra.muestras_base mb ON mb.id = b.muestra_base_id
+                                LEFT JOIN muestra.marcas m ON m.id = mb.marca_id
+                                LEFT JOIN muestra.tipos_producto tp ON tp.id = mb.tipo_producto_id
+                                LEFT JOIN muestra.entalles e ON e.id = mb.entalle_id
+                                LEFT JOIN muestra.telas t ON t.id = mb.tela_id
+                                WHERE b.id = ANY($1::text[])""",
+                                muestra_base_ids
+                            )
+                            b_map = {str(r['id']): r['nombre'] for r in b_rows}
+                            b_info_map = {str(r['id']): f"Marca: {r['marca'] or '-'} | Tipo: {r['tipo'] or '-'} | Entalle: {r['entalle'] or '-'} | Tela: {r['tela'] or '-'}" for r in b_rows}
+                            for d in result:
+                                if d.get('muestra_base_id'):
+                                    d['muestra_base_nombre'] = b_map.get(d['muestra_base_id'], '')
+                                    d['muestra_base_info'] = b_info_map.get(d['muestra_base_id'], '')
                 except Exception:
                     pass
 
@@ -2912,11 +2964,12 @@ async def create_modelo(input: ModeloCreate):
         base_id = modelo.base_id or None
         hilo_especifico_id = modelo.hilo_especifico_id or None
         muestra_modelo_id = modelo.muestra_modelo_id or None
+        muestra_base_id = modelo.muestra_base_id or None
         await conn.execute(
             """INSERT INTO prod_modelos (id, nombre, marca_id, tipo_id, entalle_id, tela_id, hilo_id, 
-               ruta_produccion_id, servicios_ids, pt_item_id, linea_negocio_id, base_id, hilo_especifico_id, muestra_modelo_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)""",
+               ruta_produccion_id, servicios_ids, pt_item_id, linea_negocio_id, base_id, hilo_especifico_id, muestra_modelo_id, muestra_base_id, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)""",
             modelo.id, modelo.nombre, modelo.marca_id, modelo.tipo_id, modelo.entalle_id, modelo.tela_id,
-            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.linea_negocio_id, base_id, hilo_especifico_id, muestra_modelo_id, modelo.created_at.replace(tzinfo=None)
+            modelo.hilo_id, modelo.ruta_produccion_id, servicios_json, pt_item_id, modelo.linea_negocio_id, base_id, hilo_especifico_id, muestra_modelo_id, muestra_base_id, modelo.created_at.replace(tzinfo=None)
         )
     return modelo
 
@@ -2932,11 +2985,12 @@ async def update_modelo(modelo_id: str, input: ModeloCreate):
         base_id = input.base_id or None
         hilo_especifico_id = input.hilo_especifico_id or None
         muestra_modelo_id = input.muestra_modelo_id or None
+        muestra_base_id = input.muestra_base_id or None
         await conn.execute(
             """UPDATE prod_modelos SET nombre=$1, marca_id=$2, tipo_id=$3, entalle_id=$4, tela_id=$5, hilo_id=$6,
-               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9, linea_negocio_id=$10, base_id=$12, hilo_especifico_id=$13, muestra_modelo_id=$14 WHERE id=$11""",
+               ruta_produccion_id=$7, servicios_ids=$8, pt_item_id=$9, linea_negocio_id=$10, base_id=$12, hilo_especifico_id=$13, muestra_modelo_id=$14, muestra_base_id=$15 WHERE id=$11""",
             input.nombre, input.marca_id, input.tipo_id, input.entalle_id, input.tela_id, input.hilo_id,
-            input.ruta_produccion_id, servicios_json, pt_item_id, input.linea_negocio_id, modelo_id, base_id, hilo_especifico_id, muestra_modelo_id
+            input.ruta_produccion_id, servicios_json, pt_item_id, input.linea_negocio_id, modelo_id, base_id, hilo_especifico_id, muestra_modelo_id, muestra_base_id
         )
         return {**row_to_dict(result), **input.model_dump()}
 

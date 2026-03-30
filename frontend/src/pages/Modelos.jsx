@@ -38,7 +38,7 @@ export const Modelos = ({ modo: modoProp }) => {
   const [formData, setFormData] = useState({
     nombre: '', marca_id: '', tipo_id: '', entalle_id: '',
     tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
-    linea_negocio_id: '', base_id: '', hilo_especifico_id: '', muestra_modelo_id: '',
+    linea_negocio_id: '', base_id: '', hilo_especifico_id: '', muestra_modelo_id: '', muestra_base_id: '',
   });
 
   // Datos para los selects del dialog
@@ -54,6 +54,7 @@ export const Modelos = ({ modo: modoProp }) => {
   const [lineasNegocio, setLineasNegocio] = useState([]);
   const [bases, setBases] = useState([]);
   const [muestrasModelos, setMuestrasModelos] = useState([]);
+  const [muestrasBases, setMuestrasBases] = useState([]);
 
   // Filtros server-side
   const [searchTerm, setSearchTerm] = useState('');
@@ -108,7 +109,7 @@ export const Modelos = ({ modo: modoProp }) => {
 
   const fetchRelatedData = async () => {
     try {
-      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, heRes, rutasRes, srvRes, ptRes, lnRes, basesRes, muestrasRes] = await Promise.all([
+      const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, heRes, rutasRes, srvRes, ptRes, lnRes, basesRes, muestrasRes, muestrasBasesRes] = await Promise.all([
         axios.get(`${API}/marcas`),
         axios.get(`${API}/tipos`),
         axios.get(`${API}/entalles`),
@@ -121,6 +122,7 @@ export const Modelos = ({ modo: modoProp }) => {
         axios.get(`${API}/lineas-negocio`),
         axios.get(`${API}/modelos?all=true`),
         axios.get(`${API}/muestras-modelos`),
+        axios.get(`${API}/muestras-bases`),
       ]);
       setMarcas(marcasRes.data);
       setTipos(tiposRes.data);
@@ -135,6 +137,8 @@ export const Modelos = ({ modo: modoProp }) => {
       setBases(basesRes.data.filter(m => !m.base_id));
       const mData = Array.isArray(muestrasRes.data) ? muestrasRes.data : [];
       setMuestrasModelos(mData);
+      const mbData = Array.isArray(muestrasBasesRes.data) ? muestrasBasesRes.data : [];
+      setMuestrasBases(mbData);
     } catch (error) {
       toast.error('Error al cargar datos relacionados');
     }
@@ -170,6 +174,7 @@ export const Modelos = ({ modo: modoProp }) => {
         base_id: formData.base_id || null,
         hilo_especifico_id: formData.hilo_especifico_id || null,
         muestra_modelo_id: formData.muestra_modelo_id || null,
+        muestra_base_id: formData.muestra_base_id || null,
       };
       // Si es variante, heredar campos de la base
       if (modoVariante && formData.base_id) {
@@ -205,7 +210,7 @@ export const Modelos = ({ modo: modoProp }) => {
     setFormData({
       nombre: '', marca_id: '', tipo_id: '', entalle_id: '',
       tela_id: '', hilo_id: '', ruta_produccion_id: '', servicios_ids: [], pt_item_id: '',
-      linea_negocio_id: '', base_id: '', hilo_especifico_id: '', muestra_modelo_id: '',
+      linea_negocio_id: '', base_id: '', hilo_especifico_id: '', muestra_modelo_id: '', muestra_base_id: '',
     });
     setModoVariante(false);
   };
@@ -222,6 +227,7 @@ export const Modelos = ({ modo: modoProp }) => {
       base_id: item.base_id || '',
       hilo_especifico_id: item.hilo_especifico_id || '',
       muestra_modelo_id: item.muestra_modelo_id || '',
+      muestra_base_id: item.muestra_base_id || '',
     });
     fetchRelatedData();
     setDialogOpen(true);
@@ -258,7 +264,8 @@ export const Modelos = ({ modo: modoProp }) => {
       linea_negocio_id: baseItem.linea_negocio_id ? String(baseItem.linea_negocio_id) : '',
       base_id: baseItem.id,
       hilo_especifico_id: '',
-      muestra_modelo_id: baseItem.muestra_modelo_id || '',
+      muestra_modelo_id: '',
+      muestra_base_id: baseItem.muestra_base_id || '',
     });
     fetchRelatedData();
     setDialogOpen(true);
@@ -429,7 +436,7 @@ export const Modelos = ({ modo: modoProp }) => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead className="min-w-[160px]">Nombre</TableHead>
-                  {modoProp !== 'base' && <TableHead>Muestra</TableHead>}
+                  <TableHead>Muestra</TableHead>
                   {!modoProp && <TableHead className="w-[90px]">Jerarquia</TableHead>}
                   {modoProp === 'variante' && <TableHead>Base</TableHead>}
                   <TableHead>Linea</TableHead>
@@ -460,13 +467,17 @@ export const Modelos = ({ modo: modoProp }) => {
                   items.map((item) => (
                     <TableRow key={item.id} className="data-table-row" data-testid={`modelo-row-${item.id}`}>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
-                      {modoProp !== 'base' && (
-                        <TableCell className="text-xs">
-                          {item.muestra_nombre
+                      <TableCell className="text-xs">
+                        {modoProp === 'base' ? (
+                          item.muestra_base_nombre
+                            ? <Badge variant="outline" className="text-[10px] border-violet-300 text-violet-700 bg-violet-50 whitespace-nowrap">{item.muestra_base_nombre}</Badge>
+                            : <span className="text-muted-foreground">-</span>
+                        ) : (
+                          item.muestra_nombre
                             ? <Badge variant="outline" className="text-[10px] border-violet-300 text-violet-700 bg-violet-50 whitespace-nowrap">{item.muestra_nombre}</Badge>
-                            : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                      )}
+                            : <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       {!modoProp && (
                         <TableCell>
                           {item.base_id ? (
@@ -663,7 +674,27 @@ export const Modelos = ({ modo: modoProp }) => {
                         <Label htmlFor="nombre">Nombre *</Label>
                         <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del modelo base" required data-testid="input-nombre-modelo" />
                       </div>
+                      <div className="space-y-2">
+                        <Label>Base Muestra</Label>
+                        <SearchableSelect
+                          value={formData.muestra_base_id}
+                          onValueChange={(v) => setFormData({ ...formData, muestra_base_id: v })}
+                          options={muestrasBases.map(m => ({ id: m.id, nombre: m.nombre }))}
+                          placeholder="Vincular con muestra..."
+                          searchPlaceholder="Buscar base muestra..."
+                          testId="select-muestra-base"
+                        />
+                      </div>
                     </div>
+                    {formData.muestra_base_id && (() => {
+                      const mb = muestrasBases.find(m => m.id === formData.muestra_base_id);
+                      return mb ? (
+                        <div className="rounded-md bg-violet-50 border border-violet-200 p-3 text-xs space-y-1">
+                          <p className="font-medium text-violet-800">Referencia de muestra: {mb.nombre}</p>
+                          <p className="text-violet-600">Marca: {mb.marca_nombre || '-'} | Tipo: {mb.tipo_nombre || '-'} | Entalle: {mb.entalle_nombre || '-'} | Tela: {mb.tela_nombre || '-'}</p>
+                        </div>
+                      ) : null;
+                    })()}
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label>Linea de Negocio</Label>
