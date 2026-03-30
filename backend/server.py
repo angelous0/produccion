@@ -2261,7 +2261,7 @@ async def get_muestras_modelos(search: str = ""):
                     WHERE m.activo = true
                     ORDER BY m.orden, m.nombre
                 """)
-            return [dict(r) for r in rows]
+            return [{**dict(r), "nombre": r["nombre"].replace("Modelo - ", "").replace("Modelo -", "")} for r in rows]
     except Exception as e:
         return {"error": str(e), "items": []}
 
@@ -2333,7 +2333,7 @@ async def get_modelos(
                             "SELECT m.id, m.nombre, h.nombre as hilo_nombre FROM muestra.modelos m LEFT JOIN muestra.hilos h ON h.id = m.hilo_id WHERE m.id = ANY($1::text[])",
                             muestra_ids
                         )
-                        m_map = {str(r['id']): f"{r['nombre']} ({r['hilo_nombre'] or '-'})" for r in m_rows}
+                        m_map = {str(r['id']): f"{r['nombre'].replace('Modelo - ', '').replace('Modelo -', '')} ({r['hilo_nombre'] or '-'})" for r in m_rows}
                         for d in result:
                             if d.get('muestra_modelo_id'):
                                 d['muestra_nombre'] = m_map.get(d['muestra_modelo_id'], '')
