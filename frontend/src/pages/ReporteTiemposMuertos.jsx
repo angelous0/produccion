@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
 import {
   Clock, AlertTriangle, PauseCircle, ExternalLink, RefreshCw,
-  Search, ChevronDown, ChevronRight, Timer,
+  Search, ChevronDown, ChevronRight, Timer, Download,
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -80,6 +80,153 @@ export const ReporteTiemposMuertos = () => {
   }, [data, busqueda, sortDesc]);
 
   const resumen = data?.resumen || {};
+
+  const handleExportExcel = async () => {
+    if (!filtered.length) return;
+    const XLSX = (await import('xlsx')).default || await import('xlsx');
+    const wsData = [
+      ['Corte', 'Modelo', 'Último Servicio', 'Persona', 'Terminó', 'Estado Actual', 'Días Parado', 'Nivel'],
+      ...filtered.map(r => [
+        r.n_corte + (r.urgente ? ' (URG)' : ''),
+        r.modelo || '',
+        r.ultimo_servicio,
+        r.ultima_persona || '',
+        fmtDate(r.fecha_termino),
+        r.estado_actual,
+        r.dias_parado,
+        (NIVEL_CONFIG[r.nivel] || NIVEL_CONFIG.ok).label,
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:12},{wch:20},{wch:18},{wch:18},{wch:14},{wch:16},{wch:12},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tiempos Muertos');
+    XLSX.writeFile(wb, `tiempos_muertos_${new Date().toISOString().slice(0,10)}.xlsx`);
+    toast.success('Excel exportado');
+  };
+
+  const handleExportPDF = async () => {
+    if (!filtered.length) return;
+    const jsPDFMod = await import('jspdf');
+    const jsPDF = jsPDFMod.default || jsPDFMod.jsPDF;
+    const autoTable = (await import('jspdf-autotable')).default;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tiempos Muertos — Lotes Parados', 14, 15);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text(`Generado: ${new Date().toLocaleString('es-PE')}  |  Lotes: ${filtered.length}  |  Días acumulados: ${resumen.dias_perdidos || 0}`, 14, 20);
+    doc.setTextColor(0);
+
+    // KPI bar
+    const kpiY = 24;
+    const kpiItems = [
+      { label: 'Lotes Parados', val: resumen.total || 0 },
+      { label: 'En Espera', val: resumen.en_espera || 0, danger: true },
+      { label: 'Críticos (7+d)', val: resumen.criticos || 0, danger: true },
+      { label: 'Días Acumulados', val: resumen.dias_perdidos || 0, danger: true },
+    ];
+    const kpiW = (pageW - 28) / kpiItems.length;
+    kpiItems.forEach((k, i) => {
+      const x = 14 + i * kpiW;
+      doc.setFillColor(k.danger && k.val > 0 ? 254 : 245, k.danger && k.val > 0 ? 242 : 245, k.danger && k.val > 0 ? 242 : 245);
+      doc.roundedRect(x, kpiY, kpiW - 2, 10, 1.5, 1.5, 'F');
+      doc.setFontSize(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      doc.text(k.label.toUpperCase(), x + 2, kpiY + 3.5);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(k.danger && k.val > 0 ? 180 : 30, k.danger && k.val > 0 ? 30 : 30, k.danger && k.val > 0 ? 30 : 30);
+      doc.text(String(k.val), x + 2, kpiY + 8.5);
+    });
+    doc.setTextColor(0);
+
+    const nivelColors = { critico: [254,226,226], atencion: [254,243,199], espera: [219,234,254] };
+    const nivelTextColors = { critico: [153,27,27], atencion: [146,64,14], espera: [30,64,175] };
+
+    const headers = [['Corte', 'Modelo', 'Último Servicio', 'Persona', 'Terminó', 'Estado Actual', 'Días Parado', 'Nivel']];
+    const body = filtered.map(r => [
+      r.n_corte,
+      r.modelo || '',
+      r.ultimo_servicio,
+      r.ultima_persona || '',
+      fmtDate(r.fecha_termino),
+      r.estado_actual,
+      String(r.dias_parado),
+      (NIVEL_CONFIG[r.nivel] || NIVEL_CONFIG.ok).label,
+    ]);
+
+    autoTable(doc, {
+      startY: 36,
+      head: headers,
+      body: body,
+      theme: 'grid',
+      styles: { fontSize: 7.5, cellPadding: 2, lineColor: [220,220,220], lineWidth: 0.2 },
+      headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 7, fontStyle: 'bold', halign: 'center' },
+      columnStyles: {
+        0: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+        1: { cellWidth: 38 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 32 },
+        4: { cellWidth: 24, halign: 'center' },
+        5: { cellWidth: 30, halign: 'center' },
+        6: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+        7: { cellWidth: 24, halign: 'center', fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section !== 'body') return;
+        const row = filtered[data.row.index];
+        if (!row) return;
+
+        // Urgente: corte red
+        if (data.column.index === 0 && row.urgente) {
+          data.cell.styles.fillColor = [254, 226, 226];
+          data.cell.styles.textColor = [153, 27, 27];
+        }
+
+        // Días parado: color by severity
+        if (data.column.index === 6) {
+          if (row.dias_parado >= 7) {
+            data.cell.styles.fillColor = [254, 226, 226];
+            data.cell.styles.textColor = [153, 27, 27];
+          } else if (row.dias_parado >= 3) {
+            data.cell.styles.fillColor = [254, 243, 199];
+            data.cell.styles.textColor = [146, 64, 14];
+          }
+        }
+
+        // Nivel: color badge
+        if (data.column.index === 7 && row.nivel !== 'ok') {
+          const bg = nivelColors[row.nivel];
+          const tc = nivelTextColors[row.nivel];
+          if (bg) {
+            data.cell.styles.fillColor = bg;
+            data.cell.styles.textColor = tc;
+          }
+        }
+      },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Footer
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(6);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${totalPages}`, pageW - 14, doc.internal.pageSize.getHeight() - 5, { align: 'right' });
+      doc.text('Producción Textil — Tiempos Muertos', 14, doc.internal.pageSize.getHeight() - 5);
+    }
+
+    doc.save(`tiempos_muertos_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast.success('PDF exportado');
+  };
 
   return (
     <div className="space-y-4" data-testid="reporte-tiempos-muertos">
