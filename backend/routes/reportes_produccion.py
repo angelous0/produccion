@@ -1419,130 +1419,111 @@ async def reporte_tiempos_muertos(
     incluir_resueltos: bool = Query(False),
     user=Depends(get_current_user)
 ):
-    """Calcula brechas de tiempo entre servicios consecutivos de cada registro."""
+    """Lotes parados: último servicio terminado sin actividad posterior."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         hoy = date.today()
 
-        # Todos los movimientos agrupados por registro, ordenados por fecha de creación
+        # Para cada registro, encontrar el último movimiento terminado
+        # y verificar si hay algún movimiento posterior que haya iniciado
         rows = await conn.fetch("""
-            SELECT 
-                m.id as movimiento_id,
-                m.registro_id,
-                m.servicio_id,
-                s.nombre as servicio_nombre,
-                m.fecha_inicio,
-                m.fecha_fin,
-                m.avance_porcentaje,
-                m.persona_id,
-                pp.nombre as persona_nombre,
-                m.created_at,
+            WITH ultimo_terminado AS (
+                SELECT DISTINCT ON (m.registro_id)
+                    m.registro_id,
+                    m.id as movimiento_id,
+                    m.servicio_id,
+                    s.nombre as servicio_nombre,
+                    m.persona_id,
+                    pp.nombre as persona_nombre,
+                    m.fecha_fin,
+                    m.cantidad_enviada,
+                    m.created_at as mov_created
+                FROM produccion.prod_movimientos_produccion m
+                JOIN produccion.prod_servicios_produccion s ON s.id = m.servicio_id
+                LEFT JOIN produccion.prod_personas_produccion pp ON pp.id = m.persona_id
+                WHERE m.fecha_fin IS NOT NULL
+                ORDER BY m.registro_id, m.fecha_fin DESC, m.created_at DESC
+            ),
+            tiene_siguiente AS (
+                SELECT ut.registro_id,
+                       bool_or(m2.fecha_inicio IS NOT NULL) as siguiente_iniciado
+                FROM ultimo_terminado ut
+                LEFT JOIN produccion.prod_movimientos_produccion m2
+                    ON m2.registro_id = ut.registro_id
+                    AND m2.created_at > ut.mov_created
+                    AND m2.id != ut.movimiento_id
+                GROUP BY ut.registro_id
+            )
+            SELECT
+                ut.registro_id,
+                ut.movimiento_id,
+                ut.servicio_nombre as ultimo_servicio,
+                ut.persona_nombre as ultima_persona,
+                ut.fecha_fin as fecha_termino,
+                ut.cantidad_enviada,
                 r.n_corte,
-                r.estado as registro_estado,
+                r.estado as estado_actual,
                 r.urgente,
                 mod.nombre as modelo_nombre,
-                marca.nombre as marca_nombre
-            FROM produccion.prod_movimientos_produccion m
-            JOIN produccion.prod_registros r ON r.id = m.registro_id
-            JOIN produccion.prod_servicios_produccion s ON s.id = m.servicio_id
-            LEFT JOIN produccion.prod_personas_produccion pp ON pp.id = m.persona_id
+                marca.nombre as marca_nombre,
+                COALESCE(ts.siguiente_iniciado, false) as siguiente_iniciado
+            FROM ultimo_terminado ut
+            JOIN produccion.prod_registros r ON r.id = ut.registro_id
             LEFT JOIN produccion.prod_modelos mod ON mod.id = r.modelo_id
             LEFT JOIN produccion.prod_marcas marca ON marca.id = mod.marca_id
-            ORDER BY m.registro_id, m.created_at
+            LEFT JOIN tiene_siguiente ts ON ts.registro_id = ut.registro_id
+            ORDER BY ut.fecha_fin ASC
         """)
 
-        # Agrupar por registro
-        registros = {}
-        for row in rows:
-            rid = str(row["registro_id"])
-            if rid not in registros:
-                registros[rid] = {
-                    "registro_id": rid,
-                    "n_corte": row["n_corte"],
-                    "estado": row["registro_estado"],
-                    "urgente": row["urgente"],
-                    "modelo": row["modelo_nombre"],
-                    "marca": row["marca_nombre"],
-                    "movimientos": [],
-                }
-            registros[rid]["movimientos"].append(dict(row))
-
-        brechas = []
+        items = []
         resumen = {"total": 0, "en_espera": 0, "criticos": 0, "dias_perdidos": 0}
 
-        for reg in registros.values():
-            movs = reg["movimientos"]
-            for i in range(len(movs) - 1):
-                actual = movs[i]
-                siguiente = movs[i + 1]
+        for row in rows:
+            fecha_fin = row["fecha_termino"]
+            siguiente = row["siguiente_iniciado"]
+            dias_parado = (hoy - fecha_fin).days if fecha_fin else 0
 
-                fecha_fin_actual = actual["fecha_fin"]
-                fecha_inicio_sig = siguiente["fecha_inicio"]
+            en_espera = not siguiente
 
-                if not fecha_fin_actual:
-                    continue  # El servicio actual aún no termina
+            # Filtro por defecto: solo los que están en espera
+            if not incluir_resueltos and not en_espera:
+                continue
 
-                if fecha_inicio_sig:
-                    dias_brecha = (fecha_inicio_sig - fecha_fin_actual).days
-                    en_espera = False
+            nivel = 'ok'
+            if en_espera:
+                if dias_parado >= 7:
+                    nivel = 'critico'
+                elif dias_parado >= 3:
+                    nivel = 'atencion'
                 else:
-                    dias_brecha = (hoy - fecha_fin_actual).days
-                    en_espera = True
+                    nivel = 'espera'
 
-                if dias_brecha < 0:
-                    dias_brecha = 0
+            items.append({
+                "registro_id": str(row["registro_id"]),
+                "n_corte": row["n_corte"],
+                "urgente": row["urgente"],
+                "modelo": row["modelo_nombre"],
+                "marca": row["marca_nombre"],
+                "ultimo_servicio": row["ultimo_servicio"],
+                "ultima_persona": row["ultima_persona"],
+                "fecha_termino": str(fecha_fin) if fecha_fin else None,
+                "estado_actual": row["estado_actual"],
+                "dias_parado": dias_parado,
+                "en_espera": en_espera,
+                "nivel": nivel,
+            })
 
-                # Solo incluir si hay brecha > 0 o está en espera
-                if dias_brecha == 0 and not en_espera:
-                    if not incluir_resueltos:
-                        continue
+            if en_espera:
+                resumen["en_espera"] += 1
+                resumen["dias_perdidos"] += dias_parado
+            if nivel == 'critico':
+                resumen["criticos"] += 1
 
-                nivel = 'ok'
-                if en_espera:
-                    if dias_brecha >= 7:
-                        nivel = 'critico'
-                    elif dias_brecha >= 3:
-                        nivel = 'atencion'
-                    else:
-                        nivel = 'espera'
-                elif dias_brecha >= 5:
-                    nivel = 'lento'
-                elif dias_brecha >= 2:
-                    nivel = 'aceptable'
-
-                # Filtro en_curso: solo mostrar los que están en espera
-                if not incluir_resueltos and not en_espera:
-                    continue
-
-                brecha = {
-                    "registro_id": reg["registro_id"],
-                    "n_corte": reg["n_corte"],
-                    "urgente": reg["urgente"],
-                    "modelo": reg["modelo"],
-                    "marca": reg["marca"],
-                    "servicio_anterior": actual["servicio_nombre"],
-                    "persona_anterior": actual["persona_nombre"],
-                    "fecha_fin_anterior": str(fecha_fin_actual) if fecha_fin_actual else None,
-                    "servicio_siguiente": siguiente["servicio_nombre"],
-                    "persona_siguiente": siguiente["persona_nombre"],
-                    "fecha_inicio_siguiente": str(fecha_inicio_sig) if fecha_inicio_sig else None,
-                    "dias_brecha": dias_brecha,
-                    "en_espera": en_espera,
-                    "nivel": nivel,
-                }
-                brechas.append(brecha)
-
-                if en_espera:
-                    resumen["en_espera"] += 1
-                if nivel == 'critico':
-                    resumen["criticos"] += 1
-                resumen["dias_perdidos"] += dias_brecha
-
-        resumen["total"] = len(brechas)
+        resumen["total"] = len(items)
 
         # Ordenar: en espera primero, luego por días desc
-        brechas.sort(key=lambda b: (0 if b["en_espera"] else 1, -b["dias_brecha"]))
+        items.sort(key=lambda a: (0 if a["en_espera"] else 1, -a["dias_parado"]))
 
-        return {"brechas": brechas, "resumen": resumen}
+        return {"items": items, "resumen": resumen}
 
         return {"alertas": alertas, "resumen": resumen}
