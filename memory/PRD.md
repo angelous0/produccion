@@ -327,7 +327,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - **Menu lateral actualizado**: Bases → Modelos → Registros como jerarquia visual clara
 - **Reportes**: Columna hilo_especifico en Reporte Operativo y Tiempos Muertos (tabla + Excel + PDF)
 - **RegistroForm**: Eliminado selector hilo_especifico (ahora hereda del modelo), agregado campo fecha_entrega_final, eliminado campo observaciones
-- **Exportacion Tiempos Muertos**: Botones Excel/PDF con estilos profesionales
+- **Conexion BD externa de Muestras**: Endpoint `/api/muestras-modelos` lee modelos desde BD `datos` en 72.60.241.216:9090, schema `muestra`. Campo `muestra_modelo_id` en prod_modelos para vincular. Nombre de muestra resuelto y mostrado en tabla y dialog.
 
 ## Backlog Actualizado
 ### P1
