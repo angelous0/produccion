@@ -266,7 +266,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Filtro En espera / Todos: muestra solo lotes parados o historico completo
   - Niveles: Critico (7+d), Atencion (3+d), En espera, Lento, Aceptable, OK
   - Acceso desde sidebar "Tiempos Muertos"
-  - Eliminado CSV, reemplazado por Excel+PDF
+  - Exportacion Excel (.xlsx) y PDF (jsPDF landscape) con KPIs, colores por nivel, urgentes en rojo, dias altos resaltados, paginacion con footer
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas
 - [ ] Reportes y KPIs de Trazabilidad: perdidas por servicio, fallados por responsable, arreglos vencidos

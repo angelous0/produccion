@@ -241,6 +241,12 @@ export const ReporteTiemposMuertos = () => {
             <button type="button" onClick={() => setFiltro('en_curso')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtro === 'en_curso' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>En espera</button>
             <button type="button" onClick={() => setFiltro('todos')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtro === 'todos' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
           </div>
+          <Button variant="outline" size="sm" onClick={handleExportExcel} disabled={!filtered.length} data-testid="btn-exportar-excel-tm">
+            <Download className="h-3.5 w-3.5 mr-1" /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={!filtered.length} data-testid="btn-exportar-pdf-tm">
+            <Download className="h-3.5 w-3.5 mr-1" /> PDF
+          </Button>
           <Button variant="outline" size="sm" onClick={fetchData} data-testid="btn-refresh-tm">
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} /> Actualizar
           </Button>
