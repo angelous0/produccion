@@ -1,0 +1,51 @@
+{
+  "summary": "Tested 3 new features in Reporte Operativo de Costura: 1) Export CSV button - works correctly, downloads CSV with all report data. 2) Paraliza producción checkbox in incidencia dialog - shows warning, changes button to 'Crear y Paralizar', creates paralizacion in backend. 3) Usuario field shown in expanded incidencia sub-row - new incidencias show the user who created them. All backend tests pass (7/7). All frontend UI tests pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_verified": [
+    "Export CSV button (data-testid='btn-exportar') downloads reporte_costura_YYYY-MM-DD.csv",
+    "CSV contains all 16 columns: Persona, Tipo, Corte, Modelo, Tipo Prenda, Entalle, Tela, Cant., Inicio, F. Esperada, Días, Avance %, Últ. Act., D/s Act., Inc., Riesgo",
+    "Export button is disabled when no data (grouped.length === 0)",
+    "Incidencia dialog has 'Paraliza producción' checkbox (data-testid='inc-rapida-paraliza')",
+    "When paraliza checkbox is checked, red warning message appears",
+    "When paraliza checkbox is checked, button text changes to 'Crear y Paralizar' with red background",
+    "POST /api/incidencias with paraliza=true creates paralizacion and sets registro estado_operativo='PARALIZADA'",
+    "POST /api/incidencias with paraliza=false works as before (no paralizacion created)",
+    "POST /api/incidencias accepts 'usuario' field and saves it",
+    "GET /api/incidencias/{registro_id} returns 'usuario' field for each incidencia",
+    "Expanded incidencia sub-row shows 'usuario · fecha_hora' format",
+    "Dialog cleanup on close: motivo, comentario, paraliza all reset to default values",
+    "Resolving incidencia with paralizacion lifts the paralizacion automatically"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_incidencia_paraliza.py",
+    "/app/test_reports/pytest/pytest_incidencia_paraliza.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Code is well-structured with proper data-testid attributes for all new UI elements",
+    "handleExportCSV correctly escapes CSV values with quotes and handles special characters",
+    "handleIncidenciaRapida sends user.nombre_completo || user.username || 'Usuario' as usuario field",
+    "Dialog onOpenChange handler properly resets all state (incParaliza, incMotivo, incComentario)",
+    "Backend POST /api/incidencias correctly creates paralizacion when paraliza=true and auto-publishes to conversacion"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_incidencia_paraliza.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 passed)",
+    "frontend": "100% (all UI tests passed)"
+  },
+  "test_credentials": "username: eduard, password: eduard123",
+  "seed_data_creation": "Created test incidencia with usuario='Eduard' to verify usuario field display",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 3 new features for Reporte Costura are working: Export CSV, Paraliza checkbox, Usuario in incidencias. Old incidencias in DB don't have usuario field (will show empty), only new incidencias created from frontend will show the user name. Test data: Corte 106 has a test incidencia with usuario='Eduard'."
+}

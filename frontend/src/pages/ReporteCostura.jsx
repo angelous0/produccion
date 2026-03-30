@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Separator } from '../components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
+import { Checkbox } from '../components/ui/checkbox';
 import { toast } from 'sonner';
+import { useAuth } from '../context/AuthContext';
 import {
   ChevronDown, ChevronRight, Users, Package, AlertTriangle, Clock, FileWarning,
-  ExternalLink, Plus, Pencil, Filter, X, RefreshCw, History, Eye, Check
+  ExternalLink, Plus, Pencil, Filter, X, RefreshCw, History, Eye, Check, Download
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -127,6 +129,7 @@ const AvanceEditor = ({ movimientoId, currentValue, onSaved, nCorte }) => {
 
 export const ReporteCostura = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedPersonas, setExpandedPersonas] = useState({});
@@ -147,6 +150,7 @@ export const ReporteCostura = () => {
   const [incSaving, setIncSaving] = useState(false);
   const [motivos, setMotivos] = useState([]);
   const [incMotivo, setIncMotivo] = useState('');
+  const [incParaliza, setIncParaliza] = useState(false);
 
   // Incidencias expandidas por registro e resolver
   const [expandedInc, setExpandedInc] = useState({});
@@ -266,14 +270,22 @@ export const ReporteCostura = () => {
         registro_id: incDialog.registro_id,
         motivo_id: incMotivo,
         comentario: incComentario,
-        paraliza: false,
+        paraliza: incParaliza,
+        usuario: user?.nombre_completo || user?.username || 'Usuario',
       });
-      toast.success('Incidencia creada');
+      toast.success(incParaliza ? 'Incidencia creada — Producción paralizada' : 'Incidencia creada');
       setIncDialog(null);
       setIncComentario('');
       setIncMotivo('');
+      setIncParaliza(false);
       fetchData();
-    } catch { toast.error('Error al crear incidencia'); }
+      // Refresh incidencias if expanded
+      if (expandedInc[incDialog.registro_id]) {
+        fetchIncidencias(incDialog.registro_id);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al crear incidencia');
+    }
     setIncSaving(false);
   };
 
@@ -281,6 +293,45 @@ export const ReporteCostura = () => {
   const personas = data?.filtros?.personas || [];
 
   const hasActiveFilters = filtroPersona !== '__all__' || filtroRiesgo !== '__all__' || filtroConIncidencias !== '__all__' || filtroVencidos !== '__all__' || filtroSinActualizar !== '__all__' || filtroTerminados !== 'en_curso' || filtroBusqueda.trim();
+
+  const handleExportCSV = () => {
+    if (!grouped.length) return;
+    const headers = ['Persona', 'Tipo', 'Corte', 'Modelo', 'Tipo Prenda', 'Entalle', 'Tela', 'Cant.', 'Inicio', 'F. Esperada', 'Días', 'Avance %', 'Últ. Act.', 'D/s Act.', 'Inc.', 'Riesgo'];
+    const rows = [];
+    for (const grupo of grouped) {
+      for (const item of grupo.items) {
+        rows.push([
+          grupo.persona_nombre,
+          grupo.persona_tipo,
+          item.n_corte + (item.urgente ? ' URG' : ''),
+          item.modelo_nombre || '',
+          item.tipo_nombre || '',
+          item.entalle_nombre || '',
+          item.tela_nombre || '',
+          item.cantidad_enviada || '',
+          item.fecha_inicio || '',
+          item.fecha_esperada || '',
+          item.dias_transcurridos ?? '',
+          item.avance_porcentaje ?? '',
+          item.avance_updated_at ? new Date(item.avance_updated_at).toLocaleDateString('es-PE') : '',
+          item.dias_sin_actualizar ?? '',
+          item.incidencias_abiertas || 0,
+          (RIESGO_CONFIG[item.nivel_riesgo] || RIESGO_CONFIG.normal).label,
+        ]);
+      }
+    }
+    const esc = (v) => { const s = String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s; };
+    const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `reporte_costura_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Reporte exportado');
+  };
 
   const clearFilters = () => {
     setFiltroPersona('__all__');
@@ -312,6 +363,9 @@ export const ReporteCostura = () => {
           </Button>
           <Button variant="outline" size="sm" onClick={fetchData} data-testid="btn-refresh">
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} /> Actualizar
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={!grouped.length} data-testid="btn-exportar">
+            <Download className="h-3.5 w-3.5 mr-1" /> Exportar
           </Button>
         </div>
       </div>
@@ -553,6 +607,7 @@ export const ReporteCostura = () => {
                                             </div>
                                             {inc.comentario && <p className="text-muted-foreground mt-0.5">{inc.comentario}</p>}
                                             <p className="text-[10px] text-muted-foreground mt-0.5">
+                                              {inc.usuario && <span className="font-medium">{inc.usuario} · </span>}
                                               {inc.fecha_hora ? new Date(inc.fecha_hora).toLocaleString('es-PE', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''}
                                             </p>
                                           </div>
@@ -584,10 +639,10 @@ export const ReporteCostura = () => {
       )}
 
       {/* Dialog incidencia rápida */}
-      <Dialog open={!!incDialog} onOpenChange={(open) => { if (!open) setIncDialog(null); }}>
+      <Dialog open={!!incDialog} onOpenChange={(open) => { if (!open) { setIncDialog(null); setIncParaliza(false); setIncMotivo(''); setIncComentario(''); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Incidencia rápida — Corte {incDialog?.n_corte}</DialogTitle>
+            <DialogTitle>Incidencia — Corte {incDialog?.n_corte}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -603,11 +658,27 @@ export const ReporteCostura = () => {
               <label className="text-xs text-muted-foreground">Comentario (opcional)</label>
               <Textarea value={incComentario} onChange={e => setIncComentario(e.target.value)} rows={2} className="text-sm" data-testid="inc-rapida-comentario" />
             </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Checkbox
+                id="paraliza-check"
+                checked={incParaliza}
+                onCheckedChange={setIncParaliza}
+                data-testid="inc-rapida-paraliza"
+              />
+              <label htmlFor="paraliza-check" className="text-sm font-medium leading-none cursor-pointer select-none">
+                Paraliza producción
+              </label>
+            </div>
+            {incParaliza && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+                Al activar esta opción, el registro quedará paralizado hasta que se resuelva esta incidencia.
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setIncDialog(null)}>Cancelar</Button>
-            <Button onClick={handleIncidenciaRapida} disabled={!incMotivo || incSaving} data-testid="inc-rapida-guardar">
-              {incSaving ? 'Guardando...' : 'Crear Incidencia'}
+            <Button variant="ghost" onClick={() => { setIncDialog(null); setIncParaliza(false); setIncMotivo(''); setIncComentario(''); }}>Cancelar</Button>
+            <Button onClick={handleIncidenciaRapida} disabled={!incMotivo || incSaving} className={incParaliza ? 'bg-red-600 hover:bg-red-700' : ''} data-testid="inc-rapida-guardar">
+              {incSaving ? 'Guardando...' : incParaliza ? 'Crear y Paralizar' : 'Crear Incidencia'}
             </Button>
           </DialogFooter>
         </DialogContent>
