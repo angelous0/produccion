@@ -250,6 +250,7 @@ export const ReporteCostura = () => {
         (i.tipo_nombre || '').toLowerCase().includes(q) ||
         (i.entalle_nombre || '').toLowerCase().includes(q) ||
         (i.tela_nombre || '').toLowerCase().includes(q) ||
+        (i.hilo_especifico || '').toLowerCase().includes(q) ||
         (i.persona_nombre || '').toLowerCase().includes(q)
       );
     }
@@ -357,6 +358,7 @@ export const ReporteCostura = () => {
           tipo_prenda: item.tipo_nombre || '',
           entalle: item.entalle_nombre || '',
           tela: item.tela_nombre || '',
+          hilo_especifico: item.hilo_especifico || '',
           cantidad: item.cantidad_enviada || 0,
           inicio: item.fecha_inicio,
           esperada: item.fecha_esperada,
@@ -378,15 +380,15 @@ export const ReporteCostura = () => {
     const XLSX = (await import('xlsx')).default || await import('xlsx');
     const rows = getExportRows();
     const wsData = [
-      ['Persona', 'Tipo', 'Corte', 'Modelo', 'Tipo Prenda', 'Entalle', 'Tela', 'Cant.', 'Inicio', 'F. Esperada', 'Días', 'Avance %', 'Últ. Act.', 'D/s Act.', 'Inc.', 'Riesgo'],
+      ['Persona', 'Tipo', 'Corte', 'Modelo', 'Tipo Prenda', 'Entalle', 'Tela', 'Hilo Esp.', 'Cant.', 'Inicio', 'F. Esperada', 'Días', 'Avance %', 'Últ. Act.', 'D/s Act.', 'Inc.', 'Riesgo'],
       ...rows.map(r => [
-        r.persona, r.tipo_persona, r.corte + (r.urgente ? ' (URG)' : ''), r.modelo, r.tipo_prenda, r.entalle, r.tela,
+        r.persona, r.tipo_persona, r.corte + (r.urgente ? ' (URG)' : ''), r.modelo, r.tipo_prenda, r.entalle, r.tela, r.hilo_especifico,
         r.cantidad, fmtDate(r.inicio), fmtDate(r.esperada), r.dias ?? '', r.avance, r.ult_act, r.dias_sin_act ?? '', r.incidencias, r.riesgo_label,
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [
-      {wch:20},{wch:9},{wch:10},{wch:18},{wch:15},{wch:12},{wch:10},{wch:7},{wch:12},{wch:12},{wch:6},{wch:9},{wch:11},{wch:8},{wch:5},{wch:10},
+      {wch:20},{wch:9},{wch:10},{wch:18},{wch:15},{wch:12},{wch:10},{wch:14},{wch:7},{wch:12},{wch:12},{wch:6},{wch:9},{wch:11},{wch:8},{wch:5},{wch:10},
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Costura');
@@ -464,7 +466,7 @@ export const ReporteCostura = () => {
       return motivos.join('; ') || r.riesgo_label;
     };
 
-    const headers = [['Persona','Corte','Modelo','Tipo','Entalle','Tela','Cant.','Inicio','F. Esp.','Días','Avance','D/s Act.','Inc.','Riesgo','Obs.']];
+    const headers = [['Persona','Corte','Modelo','Tipo','Entalle','Tela','Hilo Esp.','Cant.','Inicio','F. Esp.','Días','Avance','D/s Act.','Inc.','Riesgo','Obs.']];
     const body = rows.map(r => [
       r.persona,
       r.corte,
@@ -472,6 +474,7 @@ export const ReporteCostura = () => {
       r.tipo_prenda,
       r.entalle,
       r.tela,
+      r.hilo_especifico,
       r.cantidad.toLocaleString(),
       fmtDate(r.inicio),
       fmtDate(r.esperada),
@@ -488,24 +491,25 @@ export const ReporteCostura = () => {
       head: headers,
       body: body,
       theme: 'grid',
-      styles: { fontSize: 7, cellPadding: 1.5, lineColor: [220,220,220], lineWidth: 0.2 },
-      headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 6.5, fontStyle: 'bold', halign: 'center' },
+      styles: { fontSize: 6.5, cellPadding: 1.5, lineColor: [220,220,220], lineWidth: 0.2 },
+      headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 6, fontStyle: 'bold', halign: 'center' },
       columnStyles: {
-        0: { cellWidth: 24 },
+        0: { cellWidth: 22 },
         1: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 16 },
-        4: { cellWidth: 14 },
-        5: { cellWidth: 12 },
-        6: { cellWidth: 10, halign: 'right' },
-        7: { cellWidth: 16, halign: 'center' },
-        8: { cellWidth: 16, halign: 'center' },
-        9: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
-        10: { cellWidth: 12, halign: 'center' },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 14 },
+        4: { cellWidth: 13 },
+        5: { cellWidth: 11 },
+        6: { cellWidth: 14 },
+        7: { cellWidth: 9, halign: 'right' },
+        8: { cellWidth: 15, halign: 'center' },
+        9: { cellWidth: 15, halign: 'center' },
+        10: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
         11: { cellWidth: 11, halign: 'center' },
-        12: { cellWidth: 8, halign: 'center' },
-        13: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
-        14: { cellWidth: 38, fontSize: 6 },
+        12: { cellWidth: 10, halign: 'center' },
+        13: { cellWidth: 8, halign: 'center' },
+        14: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
+        15: { cellWidth: 34, fontSize: 5.5 },
       },
       didParseCell: (data) => {
         if (data.section !== 'body') return;
@@ -519,7 +523,7 @@ export const ReporteCostura = () => {
         }
 
         // Riesgo cell colored — solo si NO es normal
-        if (data.column.index === 13 && row.riesgo !== 'normal') {
+        if (data.column.index === 14 && row.riesgo !== 'normal') {
           const bg = riesgoColors[row.riesgo];
           const tc = riesgoTextColors[row.riesgo];
           if (bg) {
@@ -530,7 +534,7 @@ export const ReporteCostura = () => {
         }
 
         // Días: highlight high values
-        if (data.column.index === 9 && row.dias != null) {
+        if (data.column.index === 10 && row.dias != null) {
           if (row.dias >= 15) {
             data.cell.styles.fillColor = [254, 226, 226];
             data.cell.styles.textColor = [153, 27, 27];
@@ -541,7 +545,7 @@ export const ReporteCostura = () => {
         }
 
         // Dias sin actualizar: highlight >= 5
-        if (data.column.index === 11 && row.dias_sin_act != null) {
+        if (data.column.index === 12 && row.dias_sin_act != null) {
           if (row.dias_sin_act >= 5) {
             data.cell.styles.textColor = [153, 27, 27];
             data.cell.styles.fontStyle = 'bold';
@@ -552,14 +556,14 @@ export const ReporteCostura = () => {
         }
 
         // Incidencias: red if > 0
-        if (data.column.index === 12 && row.incidencias > 0) {
+        if (data.column.index === 13 && row.incidencias > 0) {
           data.cell.styles.fillColor = [254, 226, 226];
           data.cell.styles.textColor = [153, 27, 27];
           data.cell.styles.fontStyle = 'bold';
         }
 
         // Avance: color by %
-        if (data.column.index === 10) {
+        if (data.column.index === 11) {
           if (row.avance >= 80) data.cell.styles.textColor = [22, 101, 52];
           else if (row.avance <= 30) { data.cell.styles.textColor = [153, 27, 27]; data.cell.styles.fontStyle = 'bold'; }
         }
@@ -753,6 +757,7 @@ export const ReporteCostura = () => {
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tipo</th>
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Entalle</th>
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tela</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Hilo Esp.</th>
                   <th className="text-right p-2 font-medium text-muted-foreground whitespace-nowrap">Cant.</th>
                   <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Inicio</th>
                   <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">F. Esperada</th>
@@ -788,6 +793,7 @@ export const ReporteCostura = () => {
                       <td className="p-2 whitespace-nowrap">{item.tipo_nombre || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{item.entalle_nombre || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{item.tela_nombre || '-'}</td>
+                      <td className="p-2 whitespace-nowrap text-muted-foreground">{item.hilo_especifico || '-'}</td>
                       <td className="p-2 text-right font-mono">{item.cantidad_enviada?.toLocaleString() || '-'}</td>
                       <td className="p-2 text-center whitespace-nowrap">{item.fecha_inicio ? new Date(item.fecha_inicio + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
                       <td className="p-2 text-center whitespace-nowrap">{item.fecha_esperada ? new Date(item.fecha_esperada + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
@@ -961,6 +967,7 @@ export const ReporteCostura = () => {
                               <td className="p-2 whitespace-nowrap">{item.tipo_nombre || '-'}</td>
                               <td className="p-2 whitespace-nowrap">{item.entalle_nombre || '-'}</td>
                               <td className="p-2 whitespace-nowrap">{item.tela_nombre || '-'}</td>
+                              <td className="p-2 whitespace-nowrap text-muted-foreground">{item.hilo_especifico || '-'}</td>
                               <td className="p-2 text-right font-mono">{item.cantidad_enviada?.toLocaleString() || '-'}</td>
                               <td className="p-2 text-center whitespace-nowrap">{item.fecha_inicio ? new Date(item.fecha_inicio + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
                               <td className="p-2 text-center whitespace-nowrap">{item.fecha_esperada ? new Date(item.fecha_esperada + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : (item.fecha_fin ? new Date(item.fecha_fin + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-')}</td>

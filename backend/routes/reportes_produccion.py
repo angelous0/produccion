@@ -1056,6 +1056,7 @@ async def reporte_costura(
                 tipo.nombre as tipo_nombre,
                 ent.nombre as entalle_nombre,
                 tela.nombre as tela_nombre,
+                COALESCE(he.nombre, '') as hilo_especifico_nombre,
                 s.nombre as servicio_nombre,
                 (SELECT COUNT(*) FROM produccion.prod_incidencia i
                  WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas
@@ -1068,6 +1069,7 @@ async def reporte_costura(
             LEFT JOIN produccion.prod_tipos tipo ON tipo.id = mod.tipo_id
             LEFT JOIN produccion.prod_entalles ent ON ent.id = mod.entalle_id
             LEFT JOIN produccion.prod_telas tela ON tela.id = mod.tela_id
+            LEFT JOIN produccion.prod_hilos_especificos he ON he.id = r.hilo_especifico_id
             WHERE ($3 = FALSE OR LOWER(s.nombre) = LOWER($1))
               AND ($2 = TRUE OR m.fecha_fin IS NULL)
             ORDER BY p.nombre, r.n_corte
@@ -1144,6 +1146,7 @@ async def reporte_costura(
                 "tipo_nombre": d['tipo_nombre'],
                 "entalle_nombre": d['entalle_nombre'],
                 "tela_nombre": d['tela_nombre'],
+                "hilo_especifico": d['hilo_especifico_nombre'],
                 "cantidad_enviada": d['cantidad_enviada'],
                 "cantidad_recibida": d['cantidad_recibida'],
                 "avance_porcentaje": d['avance_porcentaje'],
