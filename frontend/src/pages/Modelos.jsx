@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useSaving } from '../hooks/useSaving';
@@ -107,7 +107,10 @@ export const Modelos = ({ modo: modoProp }) => {
     } catch (e) {}
   };
 
+  const relatedLoaded = useRef(false);
+
   const fetchRelatedData = async () => {
+    if (relatedLoaded.current) return;
     try {
       const [marcasRes, tiposRes, entallesRes, telasRes, hilosRes, heRes, rutasRes, srvRes, ptRes, lnRes, basesRes, muestrasRes, muestrasBasesRes] = await Promise.all([
         axios.get(`${API}/marcas`),
@@ -139,6 +142,7 @@ export const Modelos = ({ modo: modoProp }) => {
       setMuestrasModelos(mData);
       const mbData = Array.isArray(muestrasBasesRes.data) ? muestrasBasesRes.data : [];
       setMuestrasBases(mbData);
+      relatedLoaded.current = true;
     } catch (error) {
       toast.error('Error al cargar datos relacionados');
     }
@@ -146,6 +150,7 @@ export const Modelos = ({ modo: modoProp }) => {
 
   useEffect(() => {
     fetchFiltros();
+    fetchRelatedData();
   }, []);
 
   // Reload when filters change
