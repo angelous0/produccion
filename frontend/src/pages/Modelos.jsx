@@ -670,6 +670,23 @@ export const Modelos = ({ modo: modoProp }) => {
                         <p>Ruta: {bases.find(b => b.id === formData.base_id)?.ruta_nombre || 'Sin ruta'}</p>
                       </div>
                     )}
+                    <div className="space-y-2 border-t pt-4">
+                      <Label>Articulo PT (Producto Terminado)</Label>
+                      <p className="text-xs text-muted-foreground">Item de inventario valorizado que se creara al cerrar la produccion</p>
+                      <div className="flex gap-2">
+                        <Select value={formData.pt_item_id || 'none'} onValueChange={(value) => setFormData({ ...formData, pt_item_id: value === 'none' ? '' : value })}>
+                          <SelectTrigger data-testid="select-pt-item" className="flex-1"><SelectValue placeholder="Seleccionar PT..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin PT asignado</SelectItem>
+                            {itemsPT.map((pt) => <SelectItem key={pt.id} value={pt.id}>{pt.codigo} - {pt.nombre}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Button type="button" variant="outline" size="sm" onClick={handleCrearPT} data-testid="btn-crear-pt" title="Crear PT automatico con el nombre del modelo">
+                          <Plus className="h-4 w-4 mr-1" /> Crear PT
+                        </Button>
+                      </div>
+                      {formData.pt_item_id && <p className="text-xs text-green-600">PT vinculado correctamente</p>}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -830,23 +847,6 @@ export const Modelos = ({ modo: modoProp }) => {
                     })}
                     {servicios.length === 0 && <p className="col-span-3 text-xs text-muted-foreground text-center py-2">No hay servicios disponibles</p>}
                   </div>
-                </div>
-                <div className="space-y-2 border-t pt-4">
-                  <Label>Articulo PT (Producto Terminado)</Label>
-                  <p className="text-xs text-muted-foreground">Item de inventario valorizado que se creara al cerrar la produccion</p>
-                  <div className="flex gap-2">
-                    <Select value={formData.pt_item_id || 'none'} onValueChange={(value) => setFormData({ ...formData, pt_item_id: value === 'none' ? '' : value })}>
-                      <SelectTrigger data-testid="select-pt-item" className="flex-1"><SelectValue placeholder="Seleccionar PT..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin PT asignado</SelectItem>
-                        {itemsPT.map((pt) => <SelectItem key={pt.id} value={pt.id}>{pt.codigo} - {pt.nombre}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Button type="button" variant="outline" size="sm" onClick={handleCrearPT} data-testid="btn-crear-pt" title="Crear PT automatico con el nombre del modelo">
-                      <Plus className="h-4 w-4 mr-1" /> Crear PT
-                    </Button>
-                  </div>
-                  {formData.pt_item_id && <p className="text-xs text-green-600">PT vinculado correctamente</p>}
                 </div>
                 </>
                 )}

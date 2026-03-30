@@ -334,6 +334,9 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Boton "Seleccionar todas" para marcar/desmarcar todas las tallas disponibles
   - Boton "Agregar" muestra cantidad seleccionada y agrega todas las tallas de golpe
   - Las tallas ya asignadas se filtran automaticamente de las opciones disponibles
+- **Articulo PT movido a Modelos/Variantes** (2026-03-30):
+  - Campo "Articulo PT (Producto Terminado)" reubicado de pestaña Produccion (Bases) a pestaña General (Variantes)
+  - El PT es especifico de cada variante, no de la base
 
 ## Backlog Actualizado
 ### P1
