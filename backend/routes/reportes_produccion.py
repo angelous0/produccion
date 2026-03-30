@@ -1028,6 +1028,8 @@ async def reporte_costura(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Si servicio_nombre es __todos__, no filtrar por servicio
+        filtro_servicio = servicio_nombre != '__todos__'
         rows = await conn.fetch("""
             SELECT
                 m.id as movimiento_id,
@@ -1066,10 +1068,10 @@ async def reporte_costura(
             LEFT JOIN produccion.prod_tipos tipo ON tipo.id = mod.tipo_id
             LEFT JOIN produccion.prod_entalles ent ON ent.id = mod.entalle_id
             LEFT JOIN produccion.prod_telas tela ON tela.id = mod.tela_id
-            WHERE LOWER(s.nombre) = LOWER($1)
+            WHERE ($3 = FALSE OR LOWER(s.nombre) = LOWER($1))
               AND ($2 = TRUE OR m.fecha_fin IS NULL)
             ORDER BY p.nombre, r.n_corte
-        """, servicio_nombre, incluir_terminados)
+        """, servicio_nombre, incluir_terminados, filtro_servicio)
 
         hoy = date.today()
         results = []

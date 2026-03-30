@@ -143,6 +143,8 @@ export const ReporteCostura = () => {
   const [filtroSinActualizar, setFiltroSinActualizar] = useState('__all__');
   const [filtroTerminados, setFiltroTerminados] = useState('en_curso');
   const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [filtroServicio, setFiltroServicio] = useState('Costura');
+  const [servicios, setServicios] = useState([]);
 
   // Incidencia rápida
   const [incDialog, setIncDialog] = useState(null);
@@ -197,6 +199,7 @@ export const ReporteCostura = () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.append('servicio_nombre', filtroServicio);
       if (filtroPersona !== '__all__') params.append('persona_id', filtroPersona);
       if (filtroRiesgo !== '__all__') params.append('riesgo', filtroRiesgo);
       if (filtroConIncidencias === 'si') params.append('con_incidencias', 'true');
@@ -212,10 +215,11 @@ export const ReporteCostura = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [filtroPersona, filtroRiesgo, filtroConIncidencias, filtroVencidos, filtroSinActualizar, filtroTerminados]);
+  useEffect(() => { fetchData(); }, [filtroServicio, filtroPersona, filtroRiesgo, filtroConIncidencias, filtroVencidos, filtroSinActualizar, filtroTerminados]);
 
   useEffect(() => {
     axios.get(`${API}/api/motivos-incidencia`).then(r => setMotivos(r.data)).catch(() => {});
+    axios.get(`${API}/api/servicios-produccion`).then(r => setServicios(r.data || [])).catch(() => {});
   }, []);
 
   // Generar texto de observación de riesgo
@@ -336,7 +340,7 @@ export const ReporteCostura = () => {
   const kpis = data?.kpis || {};
   const personas = data?.filtros?.personas || [];
 
-  const hasActiveFilters = filtroPersona !== '__all__' || filtroRiesgo !== '__all__' || filtroConIncidencias !== '__all__' || filtroVencidos !== '__all__' || filtroSinActualizar !== '__all__' || filtroTerminados !== 'en_curso' || filtroBusqueda.trim();
+  const hasActiveFilters = filtroPersona !== '__all__' || filtroRiesgo !== '__all__' || filtroConIncidencias !== '__all__' || filtroVencidos !== '__all__' || filtroSinActualizar !== '__all__' || filtroTerminados !== 'en_curso' || filtroServicio !== 'Costura' || filtroBusqueda.trim();
 
   const fmtDate = (d) => { if (!d) return '-'; const dt = new Date(d + 'T00:00:00'); return `${String(dt.getDate()).padStart(2,'0')}-${String(dt.getMonth()+1).padStart(2,'0')}-${dt.getFullYear()}`; };
 
@@ -403,7 +407,7 @@ export const ReporteCostura = () => {
     // Title
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('Reporte Operativo — Costura', 14, 15);
+    doc.text(`Reporte Operativo — ${filtroServicio === '__todos__' ? 'Todos los Servicios' : filtroServicio}`, 14, 15);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(120);
@@ -413,7 +417,7 @@ export const ReporteCostura = () => {
     // KPI bar
     const kpiY = 24;
     const kpiItems = [
-      { label: 'Costureros', val: kpis.costureros_activos || 0 },
+      { label: 'Personas', val: kpis.costureros_activos || 0 },
       { label: 'Registros', val: kpis.registros_activos || 0 },
       { label: 'Prendas', val: kpis.total_prendas?.toLocaleString() || 0 },
       { label: 'Vencidos', val: kpis.registros_vencidos || 0, danger: true },
@@ -597,10 +601,16 @@ export const ReporteCostura = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Reporte Operativo — Costura</h2>
+          <h2 className="text-xl font-bold tracking-tight">Reporte Operativo</h2>
           <p className="text-sm text-muted-foreground">Seguimiento diario por costurero</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border text-sm overflow-hidden" data-testid="toggle-servicio">
+            <button type="button" onClick={() => setFiltroServicio('__todos__')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroServicio === '__todos__' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
+            {servicios.map(s => (
+              <button key={s.id} type="button" onClick={() => setFiltroServicio(s.nombre)} className={`px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${filtroServicio === s.nombre ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>{s.nombre}</button>
+            ))}
+          </div>
           <div className="flex items-center rounded-lg border text-sm overflow-hidden" data-testid="toggle-estado-rapido">
             <button type="button" onClick={() => setFiltroTerminados('en_curso')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'en_curso' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>En curso</button>
             <button type="button" onClick={() => setFiltroTerminados('todos')} className={`px-3 py-1.5 text-xs font-medium transition-colors ${filtroTerminados === 'todos' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Todos</button>
@@ -628,7 +638,7 @@ export const ReporteCostura = () => {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2" data-testid="kpis-costura">
-        <KpiCard label="Costureros" value={kpis.costureros_activos || 0} icon={Users} />
+        <KpiCard label="Personas" value={kpis.costureros_activos || 0} icon={Users} />
         <KpiCard label="Registros" value={kpis.registros_activos || 0} icon={Package} />
         <KpiCard label="Prendas" value={(kpis.total_prendas || 0).toLocaleString()} icon={Package} />
         <KpiCard label="Vencidos" value={kpis.registros_vencidos || 0} icon={Clock} accent={kpis.registros_vencidos > 0 ? 'bg-zinc-100 border-zinc-300' : ''} />
@@ -732,6 +742,7 @@ export const ReporteCostura = () => {
               <thead>
                 <tr className="bg-muted/60 border-b">
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Persona</th>
+                  {filtroServicio === '__todos__' && <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Servicio</th>}
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Corte</th>
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Modelo</th>
                   <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tipo</th>
@@ -763,6 +774,7 @@ export const ReporteCostura = () => {
                         {item._persona_nombre}
                         <Badge variant="outline" className="ml-1 text-[9px] py-0">{item._persona_tipo}</Badge>
                       </td>
+                      {filtroServicio === '__todos__' && <td className="p-2 whitespace-nowrap text-xs">{item.servicio_nombre}</td>}
                       <td className="p-2 font-mono font-semibold whitespace-nowrap">
                         {item.n_corte}
                         {item.urgente && <span className="ml-1 text-[9px] text-red-600 font-bold">URG</span>}
@@ -823,7 +835,7 @@ export const ReporteCostura = () => {
                     </tr>
                     {expandedInc[item.registro_id] && (
                       <tr className="bg-amber-50/30">
-                        <td colSpan={17} className="p-0">
+                        <td colSpan={filtroServicio === '__todos__' ? 18 : 17} className="p-0">
                           <div className="px-4 py-2 space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Incidencias — Corte {item.n_corte}</span>
@@ -908,6 +920,7 @@ export const ReporteCostura = () => {
                       <thead>
                         <tr className="bg-muted/60">
                           <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Corte</th>
+                          {filtroServicio === '__todos__' && <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Servicio</th>}
                           <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Modelo</th>
                           <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Tipo</th>
                           <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Entalle</th>
@@ -938,6 +951,7 @@ export const ReporteCostura = () => {
                                 {item.n_corte}
                                 {item.urgente && <span className="ml-1 text-[9px] text-red-600 font-bold">URG</span>}
                               </td>
+                              {filtroServicio === '__todos__' && <td className="p-2 whitespace-nowrap text-xs">{item.servicio_nombre}</td>}
                               <td className="p-2 whitespace-nowrap max-w-[120px] truncate" title={item.modelo_nombre}>{item.modelo_nombre || '-'}</td>
                               <td className="p-2 whitespace-nowrap">{item.tipo_nombre || '-'}</td>
                               <td className="p-2 whitespace-nowrap">{item.entalle_nombre || '-'}</td>
@@ -1005,7 +1019,7 @@ export const ReporteCostura = () => {
                             {/* Sub-fila: incidencias expandidas */}
                             {expandedInc[item.registro_id] && (
                               <tr className="bg-amber-50/30">
-                                <td colSpan={16} className="p-0">
+                                <td colSpan={filtroServicio === '__todos__' ? 17 : 16} className="p-0">
                                   <div className="px-4 py-2 space-y-1.5">
                                     <div className="flex items-center justify-between">
                                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Incidencias — Corte {item.n_corte}</span>

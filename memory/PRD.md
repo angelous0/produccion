@@ -254,6 +254,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Campana en header con badge rojo de cantidad, dropdown con lista de alertas, auto-refresh 60s
   - Bloque de alertas en Dashboard con tarjetas clickables por lote, KPIs resumen (vencidos/criticos/paralizados)
   - Al hacer clic en alerta navega al registro
+- **Reporte Operativo Multi-Servicio** (2026-03-30):
+  - Selector de servicio en header: Todos | Corte | Bordado | Estampado | Costura | etc
+  - Columna "Servicio" se muestra automaticamente al seleccionar "Todos"
+  - Backend acepta servicio_nombre=__todos__ para no filtrar por servicio
+  - Titulo y PDF dinamicos segun servicio seleccionado
+  - Renombrado de "Op. Costura" a "Rep. Operativo" en sidebar
   - Eliminado CSV, reemplazado por Excel+PDF
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas

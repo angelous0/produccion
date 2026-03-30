@@ -134,7 +134,7 @@ const reportesProduccionItems = [
   { to: '/reportes/balance-terceros', icon: Users, label: 'Balance Terceros' },
   { to: '/reportes/lotes-fraccionados', icon: GitBranch, label: 'Fraccionados' },
   { to: '/reportes/trazabilidad-general', icon: Shield, label: 'Trazabilidad' },
-  { to: '/reportes/costura', icon: Scissors, label: 'Op. Costura' },
+  { to: '/reportes/costura', icon: Scissors, label: 'Rep. Operativo' },
 ];
 
 function ScrollToTop() {
