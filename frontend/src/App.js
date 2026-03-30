@@ -50,6 +50,7 @@ import { MatrizProduccion } from "./pages/MatrizProduccion";
 import TrazabilidadReporte from "./pages/TrazabilidadReporte";
 import { ReporteStockBajo } from "./pages/ReporteStockBajo";
 import { ReporteCostura } from "./pages/ReporteCostura";
+import { ReporteTiemposMuertos } from "./pages/ReporteTiemposMuertos";
 import { Loader2 } from "lucide-react";
 
 // Componente de ruta protegida
@@ -154,6 +155,7 @@ function AppRoutes() {
         <Route path="reportes/matriz" element={<MatrizProduccion />} />
         <Route path="reportes/trazabilidad-general" element={<TrazabilidadReporte />} />
         <Route path="reportes/costura" element={<ReporteCostura />} />
+        <Route path="reportes/tiempos-muertos" element={<ReporteTiemposMuertos />} />
       </Route>
       
       {/* Redirigir cualquier ruta desconocida a login */}

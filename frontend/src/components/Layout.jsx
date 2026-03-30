@@ -66,6 +66,7 @@ import {
   TrendingUp,
   Grid3X3,
   PackageX,
+  Timer,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -135,6 +136,7 @@ const reportesProduccionItems = [
   { to: '/reportes/lotes-fraccionados', icon: GitBranch, label: 'Fraccionados' },
   { to: '/reportes/trazabilidad-general', icon: Shield, label: 'Trazabilidad' },
   { to: '/reportes/costura', icon: Scissors, label: 'Rep. Operativo' },
+  { to: '/reportes/tiempos-muertos', icon: Timer, label: 'Tiempos Muertos' },
 ];
 
 function ScrollToTop() {

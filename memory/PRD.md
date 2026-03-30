@@ -260,6 +260,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Backend acepta servicio_nombre=__todos__ para no filtrar por servicio
   - Titulo y PDF dinamicos segun servicio seleccionado
   - Renombrado de "Op. Costura" a "Rep. Operativo" en sidebar
+- **Reporte Tiempos Muertos** (2026-03-30):
+  - Endpoint GET /api/reportes-produccion/tiempos-muertos (calcula brechas entre servicios)
+  - Pagina /reportes/tiempos-muertos con tabla de brechas, KPIs, busqueda, ordenamiento
+  - Filtro En espera / Todos: muestra solo lotes parados o historico completo
+  - Niveles: Critico (7+d), Atencion (3+d), En espera, Lento, Aceptable, OK
+  - Acceso desde sidebar "Tiempos Muertos"
   - Eliminado CSV, reemplazado por Excel+PDF
 - [ ] Logica en modulo Finanzas para cargos internos
 - [ ] Reportes P1: Productividad persona/servicio, Incidencias/Glosas, PT generado, Antiguedad, Mermas

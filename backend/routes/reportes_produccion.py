@@ -1412,4 +1412,137 @@ async def alertas_produccion():
             -(a["dias"] or 0),
         ))
         
+
+
+@router.get("/tiempos-muertos")
+async def reporte_tiempos_muertos(
+    incluir_resueltos: bool = Query(False),
+    user=Depends(get_current_user)
+):
+    """Calcula brechas de tiempo entre servicios consecutivos de cada registro."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        hoy = date.today()
+
+        # Todos los movimientos agrupados por registro, ordenados por fecha de creación
+        rows = await conn.fetch("""
+            SELECT 
+                m.id as movimiento_id,
+                m.registro_id,
+                m.servicio_id,
+                s.nombre as servicio_nombre,
+                m.fecha_inicio,
+                m.fecha_fin,
+                m.avance_porcentaje,
+                m.persona_id,
+                pp.nombre as persona_nombre,
+                m.created_at,
+                r.n_corte,
+                r.estado as registro_estado,
+                r.urgente,
+                mod.nombre as modelo_nombre,
+                marca.nombre as marca_nombre
+            FROM produccion.prod_movimientos_produccion m
+            JOIN produccion.prod_registros r ON r.id = m.registro_id
+            JOIN produccion.prod_servicios_produccion s ON s.id = m.servicio_id
+            LEFT JOIN produccion.prod_personas_produccion pp ON pp.id = m.persona_id
+            LEFT JOIN produccion.prod_modelos mod ON mod.id = r.modelo_id
+            LEFT JOIN produccion.prod_marcas marca ON marca.id = mod.marca_id
+            ORDER BY m.registro_id, m.created_at
+        """)
+
+        # Agrupar por registro
+        registros = {}
+        for row in rows:
+            rid = str(row["registro_id"])
+            if rid not in registros:
+                registros[rid] = {
+                    "registro_id": rid,
+                    "n_corte": row["n_corte"],
+                    "estado": row["registro_estado"],
+                    "urgente": row["urgente"],
+                    "modelo": row["modelo_nombre"],
+                    "marca": row["marca_nombre"],
+                    "movimientos": [],
+                }
+            registros[rid]["movimientos"].append(dict(row))
+
+        brechas = []
+        resumen = {"total": 0, "en_espera": 0, "criticos": 0, "dias_perdidos": 0}
+
+        for reg in registros.values():
+            movs = reg["movimientos"]
+            for i in range(len(movs) - 1):
+                actual = movs[i]
+                siguiente = movs[i + 1]
+
+                fecha_fin_actual = actual["fecha_fin"]
+                fecha_inicio_sig = siguiente["fecha_inicio"]
+
+                if not fecha_fin_actual:
+                    continue  # El servicio actual aún no termina
+
+                if fecha_inicio_sig:
+                    dias_brecha = (fecha_inicio_sig - fecha_fin_actual).days
+                    en_espera = False
+                else:
+                    dias_brecha = (hoy - fecha_fin_actual).days
+                    en_espera = True
+
+                if dias_brecha < 0:
+                    dias_brecha = 0
+
+                # Solo incluir si hay brecha > 0 o está en espera
+                if dias_brecha == 0 and not en_espera:
+                    if not incluir_resueltos:
+                        continue
+
+                nivel = 'ok'
+                if en_espera:
+                    if dias_brecha >= 7:
+                        nivel = 'critico'
+                    elif dias_brecha >= 3:
+                        nivel = 'atencion'
+                    else:
+                        nivel = 'espera'
+                elif dias_brecha >= 5:
+                    nivel = 'lento'
+                elif dias_brecha >= 2:
+                    nivel = 'aceptable'
+
+                # Filtro en_curso: solo mostrar los que están en espera
+                if not incluir_resueltos and not en_espera:
+                    continue
+
+                brecha = {
+                    "registro_id": reg["registro_id"],
+                    "n_corte": reg["n_corte"],
+                    "urgente": reg["urgente"],
+                    "modelo": reg["modelo"],
+                    "marca": reg["marca"],
+                    "servicio_anterior": actual["servicio_nombre"],
+                    "persona_anterior": actual["persona_nombre"],
+                    "fecha_fin_anterior": str(fecha_fin_actual) if fecha_fin_actual else None,
+                    "servicio_siguiente": siguiente["servicio_nombre"],
+                    "persona_siguiente": siguiente["persona_nombre"],
+                    "fecha_inicio_siguiente": str(fecha_inicio_sig) if fecha_inicio_sig else None,
+                    "dias_brecha": dias_brecha,
+                    "en_espera": en_espera,
+                    "nivel": nivel,
+                }
+                brechas.append(brecha)
+
+                if en_espera:
+                    resumen["en_espera"] += 1
+                if nivel == 'critico':
+                    resumen["criticos"] += 1
+                resumen["dias_perdidos"] += dias_brecha
+
+        resumen["total"] = len(brechas)
+
+        # Ordenar: en espera primero, luego por días desc
+        brechas.sort(key=lambda b: (0 if b["en_espera"] else 1, -b["dias_brecha"]))
+
+        return {"brechas": brechas, "resumen": resumen}
+
         return {"alertas": alertas, "resumen": resumen}
