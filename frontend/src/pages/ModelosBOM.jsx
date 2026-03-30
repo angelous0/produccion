@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, Box, MoreHorizontal, GripVertical, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, Box, MoreHorizontal, GripVertical, Check } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -19,9 +19,6 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '../components/ui/dialog';
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from '../components/ui/popover';
 
 import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { InventarioCombobox } from '../components/InventarioCombobox';
@@ -65,7 +62,6 @@ export const ModelosTallasTab = ({ modeloId }) => {
   const [selectedTallaIds, setSelectedTallaIds] = useState([]);
   const [verInactivas, setVerInactivas] = useState(false);
   const [addingTallas, setAddingTallas] = useState(false);
-  const [popoverOpen, setPopoverOpen] = useState(false);
   const timersRef = useRef({});
   const [rowState, setRowState] = useState({});
 
@@ -120,7 +116,6 @@ export const ModelosTallasTab = ({ modeloId }) => {
       }
     }
     setSelectedTallaIds([]);
-    setPopoverOpen(false);
     if (added > 0) toast.success(`${added} talla(s) agregada(s)`);
     if (errors > 0) toast.error(`${errors} talla(s) no se pudieron agregar`);
     setAddingTallas(false);
@@ -188,73 +183,60 @@ export const ModelosTallasTab = ({ modeloId }) => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            <div className="space-y-2">
-              <Label>Tallas</Label>
-              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
+          <div className="space-y-2">
+            <Label>Seleccionar tallas a agregar</Label>
+            {availableTallas.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">Todas las tallas del catálogo ya están asignadas.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-2">
+                  <button
                     type="button"
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between font-normal"
-                    data-testid="select-new-talla-multi"
+                    className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                    onClick={selectAllTallas}
+                    data-testid="btn-select-all-tallas"
                   >
-                    {selectedTallaIds.length > 0
-                      ? `${selectedTallaIds.length} talla(s) seleccionada(s)`
-                      : 'Seleccionar tallas...'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[280px] p-0" align="start">
-                  <div className="p-2 border-b">
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 w-full text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors"
-                      onClick={selectAllTallas}
-                      data-testid="btn-select-all-tallas"
-                    >
-                      <Checkbox
-                        checked={availableTallas.length > 0 && selectedTallaIds.length === availableTallas.length}
-                        className="pointer-events-none"
-                      />
-                      <span className="font-medium">Seleccionar todas</span>
-                    </button>
-                  </div>
-                  <div className="max-h-[220px] overflow-y-auto p-1">
-                    {availableTallas.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No hay tallas disponibles
-                      </p>
-                    ) : (
-                      availableTallas.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          className="flex items-center gap-2 w-full text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors"
-                          onClick={() => toggleTallaSelection(t.id)}
-                          data-testid={`talla-option-${t.id}`}
-                        >
-                          <Checkbox
-                            checked={selectedTallaIds.includes(t.id)}
-                            className="pointer-events-none"
-                          />
-                          <span>{t.nombre}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-            <Button
-              type="button"
-              onClick={addTallas}
-              disabled={selectedTallaIds.length === 0 || addingTallas}
-              data-testid="btn-add-talla"
-            >
-              {addingTallas ? 'Agregando...' : `Agregar${selectedTallaIds.length > 0 ? ` (${selectedTallaIds.length})` : ''}`}
-            </Button>
+                    <Checkbox
+                      checked={availableTallas.length > 0 && selectedTallaIds.length === availableTallas.length}
+                      className="pointer-events-none h-3.5 w-3.5"
+                    />
+                    {selectedTallaIds.length === availableTallas.length ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                  </button>
+                  {selectedTallaIds.length > 0 && (
+                    <span className="text-xs text-muted-foreground">{selectedTallaIds.length} seleccionada(s)</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-1.5 border rounded-md p-2.5">
+                  {availableTallas.map((t) => {
+                    const checked = selectedTallaIds.includes(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-sm cursor-pointer transition-colors ${checked ? 'bg-primary/10 border border-primary/30 font-medium' : 'hover:bg-muted border border-transparent text-muted-foreground'}`}
+                        data-testid={`talla-option-${t.id}`}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleTallaSelection(t.id)}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span>{t.nombre}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <Button
+                  type="button"
+                  onClick={addTallas}
+                  disabled={selectedTallaIds.length === 0 || addingTallas}
+                  className="mt-2"
+                  data-testid="btn-add-talla"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  {addingTallas ? 'Agregando...' : `Agregar ${selectedTallaIds.length > 0 ? `(${selectedTallaIds.length})` : ''}`}
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="overflow-auto">
