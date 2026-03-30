@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, Box, MoreHorizontal, GripVertical } from 'lucide-react';
+import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, Box, MoreHorizontal, GripVertical, Check, ChevronsUpDown } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -12,12 +12,16 @@ import {
 } from '../components/ui/table';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '../components/ui/dialog';
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from '../components/ui/popover';
 
 import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { InventarioCombobox } from '../components/InventarioCombobox';
@@ -58,8 +62,10 @@ export const ModelosTallasTab = ({ modeloId }) => {
   const [catalogoTallas, setCatalogoTallas] = useState([]);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newTallaId, setNewTallaId] = useState('');
+  const [selectedTallaIds, setSelectedTallaIds] = useState([]);
   const [verInactivas, setVerInactivas] = useState(false);
+  const [addingTallas, setAddingTallas] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const timersRef = useRef({});
   const [rowState, setRowState] = useState({});
 
@@ -96,18 +102,41 @@ export const ModelosTallasTab = ({ modeloId }) => {
     return verInactivas ? rows : rows.filter((r) => r.activo);
   }, [rows, verInactivas]);
 
-  const addTalla = async (e) => {
+  const addTallas = async (e) => {
     e?.preventDefault?.();
-    if (!newTallaId) { toast.error('Selecciona una talla'); return; }
-    try {
-      const res = await axios.post(`${API}/modelos/${modeloId}/tallas`, {
-        talla_id: newTallaId, orden: rows.length + 1, activo: true,
-      });
-      setRows((prev) => [...prev, res.data]);
-      setNewTallaId('');
-      toast.success('Talla agregada');
-    } catch (e2) {
-      toast.error(e2?.response?.data?.detail || 'Error al agregar talla');
+    if (selectedTallaIds.length === 0) { toast.error('Selecciona al menos una talla'); return; }
+    setAddingTallas(true);
+    let added = 0;
+    let errors = 0;
+    for (const tallaId of selectedTallaIds) {
+      try {
+        const res = await axios.post(`${API}/modelos/${modeloId}/tallas`, {
+          talla_id: tallaId, orden: rows.length + added + 1, activo: true,
+        });
+        setRows((prev) => [...prev, res.data]);
+        added++;
+      } catch {
+        errors++;
+      }
+    }
+    setSelectedTallaIds([]);
+    setPopoverOpen(false);
+    if (added > 0) toast.success(`${added} talla(s) agregada(s)`);
+    if (errors > 0) toast.error(`${errors} talla(s) no se pudieron agregar`);
+    setAddingTallas(false);
+  };
+
+  const toggleTallaSelection = (tallaId) => {
+    setSelectedTallaIds((prev) =>
+      prev.includes(tallaId) ? prev.filter((id) => id !== tallaId) : [...prev, tallaId]
+    );
+  };
+
+  const selectAllTallas = () => {
+    if (selectedTallaIds.length === availableTallas.length) {
+      setSelectedTallaIds([]);
+    } else {
+      setSelectedTallaIds(availableTallas.map((t) => t.id));
     }
   };
 
@@ -161,16 +190,71 @@ export const ModelosTallasTab = ({ modeloId }) => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             <div className="space-y-2">
-              <Label>Talla</Label>
-              <Select value={newTallaId || 'none'} onValueChange={(v) => setNewTallaId(v === 'none' ? '' : v)}>
-                <SelectTrigger data-testid="select-new-talla"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Seleccionar</SelectItem>
-                  {availableTallas.map((t) => (<SelectItem key={t.id} value={t.id}>{t.nombre}</SelectItem>))}
-                </SelectContent>
-              </Select>
+              <Label>Tallas</Label>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal"
+                    data-testid="select-new-talla-multi"
+                  >
+                    {selectedTallaIds.length > 0
+                      ? `${selectedTallaIds.length} talla(s) seleccionada(s)`
+                      : 'Seleccionar tallas...'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-0" align="start">
+                  <div className="p-2 border-b">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 w-full text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors"
+                      onClick={selectAllTallas}
+                      data-testid="btn-select-all-tallas"
+                    >
+                      <Checkbox
+                        checked={availableTallas.length > 0 && selectedTallaIds.length === availableTallas.length}
+                        className="pointer-events-none"
+                      />
+                      <span className="font-medium">Seleccionar todas</span>
+                    </button>
+                  </div>
+                  <div className="max-h-[220px] overflow-y-auto p-1">
+                    {availableTallas.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No hay tallas disponibles
+                      </p>
+                    ) : (
+                      availableTallas.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          className="flex items-center gap-2 w-full text-sm px-2 py-1.5 rounded hover:bg-muted transition-colors"
+                          onClick={() => toggleTallaSelection(t.id)}
+                          data-testid={`talla-option-${t.id}`}
+                        >
+                          <Checkbox
+                            checked={selectedTallaIds.includes(t.id)}
+                            className="pointer-events-none"
+                          />
+                          <span>{t.nombre}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
-            <Button type="button" onClick={addTalla} data-testid="btn-add-talla">Agregar</Button>
+            <Button
+              type="button"
+              onClick={addTallas}
+              disabled={selectedTallaIds.length === 0 || addingTallas}
+              data-testid="btn-add-talla"
+            >
+              {addingTallas ? 'Agregando...' : `Agregar${selectedTallaIds.length > 0 ? ` (${selectedTallaIds.length})` : ''}`}
+            </Button>
           </div>
 
           <div className="overflow-auto">

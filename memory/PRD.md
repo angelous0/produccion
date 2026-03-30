@@ -329,6 +329,12 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - **RegistroForm**: Eliminado selector hilo_especifico (ahora hereda del modelo), agregado campo fecha_entrega_final, eliminado campo observaciones
 - **Conexion BD externa de Muestras**: Endpoint `/api/muestras-modelos` lee modelos desde BD `datos` en 72.60.241.216:9090, schema `muestra`. Campo `muestra_modelo_id` en prod_modelos para vincular. Nombre de muestra resuelto y mostrado en tabla y dialog.
 
+- **Multi-select de Tallas en Bases** (2026-03-30):
+  - Selector de tallas cambiado de select simple a multi-select con checkboxes (Popover + Checkbox)
+  - Boton "Seleccionar todas" para marcar/desmarcar todas las tallas disponibles
+  - Boton "Agregar" muestra cantidad seleccionada y agrega todas las tallas de golpe
+  - Las tallas ya asignadas se filtran automaticamente de las opciones disponibles
+
 ## Backlog Actualizado
 ### P1
 - Filtrar alertas por usuario/servicio
