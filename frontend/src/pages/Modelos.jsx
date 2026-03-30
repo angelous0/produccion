@@ -429,7 +429,7 @@ export const Modelos = ({ modo: modoProp }) => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead className="min-w-[160px]">Nombre</TableHead>
-                  <TableHead>Muestra</TableHead>
+                  {modoProp !== 'base' && <TableHead>Muestra</TableHead>}
                   {!modoProp && <TableHead className="w-[90px]">Jerarquia</TableHead>}
                   {modoProp === 'variante' && <TableHead>Base</TableHead>}
                   <TableHead>Linea</TableHead>
@@ -460,11 +460,13 @@ export const Modelos = ({ modo: modoProp }) => {
                   items.map((item) => (
                     <TableRow key={item.id} className="data-table-row" data-testid={`modelo-row-${item.id}`}>
                       <TableCell className="font-medium">{item.nombre}</TableCell>
-                      <TableCell className="text-xs">
-                        {item.muestra_nombre
-                          ? <Badge variant="outline" className="text-[10px] border-violet-300 text-violet-700 bg-violet-50 whitespace-nowrap">{item.muestra_nombre}</Badge>
-                          : <span className="text-muted-foreground">-</span>}
-                      </TableCell>
+                      {modoProp !== 'base' && (
+                        <TableCell className="text-xs">
+                          {item.muestra_nombre
+                            ? <Badge variant="outline" className="text-[10px] border-violet-300 text-violet-700 bg-violet-50 whitespace-nowrap">{item.muestra_nombre}</Badge>
+                            : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                      )}
                       {!modoProp && (
                         <TableCell>
                           {item.base_id ? (
@@ -660,17 +662,6 @@ export const Modelos = ({ modo: modoProp }) => {
                       <div className="space-y-2">
                         <Label htmlFor="nombre">Nombre *</Label>
                         <Input id="nombre" value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} placeholder="Nombre del modelo base" required data-testid="input-nombre-modelo" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Modelo Muestra</Label>
-                        <SearchableSelect
-                          value={formData.muestra_modelo_id}
-                          onValueChange={(v) => setFormData({ ...formData, muestra_modelo_id: v })}
-                          options={muestrasModelos.map(m => ({ id: m.id, nombre: `${m.nombre} (${m.hilo_nombre || '-'})` }))}
-                          placeholder="Vincular con muestra..."
-                          searchPlaceholder="Buscar modelo muestra..."
-                          testId="select-muestra-modelo-base"
-                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
