@@ -96,6 +96,7 @@ export const RegistroForm = () => {
     lq_odoo_id: '',
     id_odoo: '',
     observaciones: '',
+    fecha_entrega_final: '',
     linea_negocio_id: null,
   });
 
@@ -412,6 +413,7 @@ export const RegistroForm = () => {
         lq_odoo_id: registro.lq_odoo_id || '',
         id_odoo: registro.id_odoo || '',
         observaciones: registro.observaciones || '',
+        fecha_entrega_final: registro.fecha_entrega_final || '',
         skip_validacion_estado: registro.skip_validacion_estado || false,
         linea_negocio_id: registro.linea_negocio_id || null,
       });
@@ -1762,7 +1764,17 @@ export const RegistroForm = () => {
                   </Label>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-2">
+                <div className="grid grid-cols-4 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="fecha_entrega_final">Fecha Entrega Final</Label>
+                    <Input
+                      id="fecha_entrega_final"
+                      type="date"
+                      value={formData.fecha_entrega_final}
+                      onChange={(e) => setFormData({ ...formData, fecha_entrega_final: e.target.value })}
+                      data-testid="input-fecha-entrega-final"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="id_odoo">ID Odoo</Label>
                     <Input

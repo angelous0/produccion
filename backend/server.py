@@ -691,6 +691,7 @@ class RegistroBase(BaseModel):
     empresa_id: Optional[int] = 8
     id_odoo: Optional[str] = None
     observaciones: Optional[str] = None
+    fecha_entrega_final: Optional[str] = None
     linea_negocio_id: Optional[int] = None
 
 class RegistroCreate(RegistroBase):
@@ -3109,9 +3110,15 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         
         tallas_json = json.dumps([t.model_dump() for t in input.tallas])
         dist_json = json.dumps([d.model_dump() for d in input.distribucion_colores])
+        fecha_ef = None
+        if input.fecha_entrega_final:
+            try:
+                fecha_ef = date.fromisoformat(input.fecha_entrega_final)
+            except Exception:
+                fecha_ef = None
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11, lq_odoo_id=$12, linea_negocio_id=$13 WHERE id=$14""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, input.lq_odoo_id, input.linea_negocio_id, registro_id
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11, lq_odoo_id=$12, linea_negocio_id=$13, fecha_entrega_final=$15 WHERE id=$14""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, input.lq_odoo_id, input.linea_negocio_id, registro_id, fecha_ef
         )
         
         # Sincronizar prod_registro_tallas con las cantidades del JSON
