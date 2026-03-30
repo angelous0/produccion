@@ -392,11 +392,31 @@ export const ReporteCostura = () => {
     });
     doc.setTextColor(0);
 
-    // Color maps
-    const riesgoColors = { normal: [220,252,231], atencion: [254,243,199], critico: [254,226,226], vencido: [63,63,70] };
-    const riesgoTextColors = { normal: [22,101,52], atencion: [146,64,14], critico: [153,27,27], vencido: [255,255,255] };
+    // Color maps — normal sin color
+    const riesgoColors = { atencion: [254,243,199], critico: [254,226,226], vencido: [63,63,70] };
+    const riesgoTextColors = { atencion: [146,64,14], critico: [153,27,27], vencido: [255,255,255] };
 
-    const headers = [['Persona','Corte','Modelo','Tipo','Entalle','Tela','Cant.','Inicio','F. Esp.','Días','Avance','D/s Act.','Inc.','Riesgo']];
+    // Build observation text explaining risk
+    const buildObs = (r) => {
+      if (r.riesgo === 'normal') return '';
+      const motivos = [];
+      if (r.riesgo === 'vencido') {
+        motivos.push('Fecha vencida');
+      }
+      if (r.dias_sin_act != null && r.dias_sin_act >= 5) motivos.push(`${r.dias_sin_act}d sin actualizar`);
+      else if (r.dias_sin_act != null && r.dias_sin_act >= 3) motivos.push(`${r.dias_sin_act}d sin actualizar`);
+      if (r.esperada) {
+        const diasEntrega = Math.round((new Date(r.esperada) - new Date()) / 86400000);
+        if (diasEntrega <= 2 && r.avance < 70) motivos.push(`Entrega en ${diasEntrega}d, avance ${r.avance}%`);
+        else if (diasEntrega <= 5 && r.avance < 50) motivos.push(`Entrega en ${diasEntrega}d, avance ${r.avance}%`);
+      }
+      if (r.incidencias >= 2) motivos.push(`${r.incidencias} incidencias`);
+      else if (r.incidencias >= 1) motivos.push(`${r.incidencias} incidencia`);
+      if (r.urgente) motivos.push('Urgente');
+      return motivos.join('; ') || r.riesgo_label;
+    };
+
+    const headers = [['Persona','Corte','Modelo','Tipo','Entalle','Tela','Cant.','Inicio','F. Esp.','Días','Avance','D/s Act.','Inc.','Riesgo','Obs.']];
     const body = rows.map(r => [
       r.persona,
       r.corte,
@@ -412,6 +432,7 @@ export const ReporteCostura = () => {
       r.dias_sin_act != null ? String(r.dias_sin_act) : '-',
       String(r.incidencias),
       r.riesgo_label,
+      buildObs(r),
     ]);
 
     autoTable(doc, {
@@ -422,20 +443,21 @@ export const ReporteCostura = () => {
       styles: { fontSize: 7, cellPadding: 1.5, lineColor: [220,220,220], lineWidth: 0.2 },
       headStyles: { fillColor: [30,41,59], textColor: 255, fontSize: 6.5, fontStyle: 'bold', halign: 'center' },
       columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 13, halign: 'center', fontStyle: 'bold' },
-        2: { cellWidth: 26 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 17 },
-        5: { cellWidth: 15 },
-        6: { cellWidth: 12, halign: 'right' },
-        7: { cellWidth: 18, halign: 'center' },
-        8: { cellWidth: 18, halign: 'center' },
-        9: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
-        10: { cellWidth: 14, halign: 'center' },
-        11: { cellWidth: 14, halign: 'center' },
-        12: { cellWidth: 10, halign: 'center' },
-        13: { cellWidth: 17, halign: 'center', fontStyle: 'bold' },
+        0: { cellWidth: 24 },
+        1: { cellWidth: 11, halign: 'center', fontStyle: 'bold' },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 16 },
+        4: { cellWidth: 14 },
+        5: { cellWidth: 12 },
+        6: { cellWidth: 10, halign: 'right' },
+        7: { cellWidth: 16, halign: 'center' },
+        8: { cellWidth: 16, halign: 'center' },
+        9: { cellWidth: 9, halign: 'center', fontStyle: 'bold' },
+        10: { cellWidth: 12, halign: 'center' },
+        11: { cellWidth: 11, halign: 'center' },
+        12: { cellWidth: 8, halign: 'center' },
+        13: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+        14: { cellWidth: 38, fontSize: 6 },
       },
       didParseCell: (data) => {
         if (data.section !== 'body') return;
@@ -448,13 +470,15 @@ export const ReporteCostura = () => {
           data.cell.styles.textColor = [153, 27, 27];
         }
 
-        // Riesgo cell colored
-        if (data.column.index === 13) {
-          const bg = riesgoColors[row.riesgo] || riesgoColors.normal;
-          const tc = riesgoTextColors[row.riesgo] || riesgoTextColors.normal;
-          data.cell.styles.fillColor = bg;
-          data.cell.styles.textColor = tc;
-          data.cell.styles.fontStyle = 'bold';
+        // Riesgo cell colored — solo si NO es normal
+        if (data.column.index === 13 && row.riesgo !== 'normal') {
+          const bg = riesgoColors[row.riesgo];
+          const tc = riesgoTextColors[row.riesgo];
+          if (bg) {
+            data.cell.styles.fillColor = bg;
+            data.cell.styles.textColor = tc;
+            data.cell.styles.fontStyle = 'bold';
+          }
         }
 
         // Días: highlight high values
