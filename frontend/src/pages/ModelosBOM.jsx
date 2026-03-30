@@ -15,9 +15,13 @@ import { Badge } from '../components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '../components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '../components/ui/dialog';
 
 import { SortableRow, SortableTableWrapper, useSortableTable } from '../components/SortableTable';
 import { InventarioCombobox } from '../components/InventarioCombobox';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { NumericInput } from '../components/ui/numeric-input';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -230,6 +234,9 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
   const [loadingLineas, setLoadingLineas] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
   const [creando, setCreando] = useState(false);
+  const [copiarDialogOpen, setCopiarDialogOpen] = useState(false);
+  const [modelosParaCopiar, setModelosParaCopiar] = useState([]);
+  const [copiarModeloId, setCopiarModeloId] = useState('');
 
   // Load initial data
   const fetchCabeceras = useCallback(async () => {
@@ -477,9 +484,31 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
       });
       return { ...prev, lineas: arr };
     });
+  const abrirCopiarBom = async () => {
+    try {
+      const res = await axios.get(`${API}/modelos?all=true`);
+      const modelos = res.data.filter(m => m.id !== modeloId);
+      setModelosParaCopiar(modelos);
+      setCopiarModeloId('');
+      setCopiarDialogOpen(true);
+    } catch { toast.error('Error al cargar modelos'); }
   };
 
-  // Filtrar inventario por tipo de componente y línea de negocio del modelo
+  const ejecutarCopiarBom = async () => {
+    if (!copiarModeloId || !activeBomId) return;
+    try {
+      const res = await axios.post(`${API}/modelos/${modeloId}/bom/copiar-de/${copiarModeloId}`);
+      toast.success(res.data.message);
+      setCopiarDialogOpen(false);
+      fetchBomDetalle(activeBomId);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error al copiar BOM');
+    }
+  };
+
+
+  };
+
   const getFilteredInventario = (tipoComponente) => {
     const cat = TIPO_TO_CATEGORIA[tipoComponente];
     let filtered = inventario;
@@ -537,6 +566,11 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
               {activeBomId && (
                 <Button type="button" size="sm" variant="outline" onClick={duplicarBom} disabled={creando} data-testid="btn-duplicar-bom">
                   <Copy className="h-4 w-4 mr-1" /> Duplicar
+                </Button>
+              )}
+              {activeBomId && (
+                <Button type="button" size="sm" variant="outline" onClick={abrirCopiarBom} data-testid="btn-copiar-bom-de">
+                  <Copy className="h-4 w-4 mr-1" /> Copiar BOM de...
                 </Button>
               )}
             </div>
@@ -858,6 +892,34 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
           </CardContent>
         )}
       </Card>
+
+      {/* Dialog Copiar BOM de otro modelo */}
+      <Dialog open={copiarDialogOpen} onOpenChange={setCopiarDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Copiar BOM de otro modelo</DialogTitle>
+            <DialogDescription>
+              Selecciona el modelo del cual copiar las lineas BOM. Las lineas que ya existan no se duplicaran.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <SearchableSelect
+              value={copiarModeloId}
+              onValueChange={setCopiarModeloId}
+              options={modelosParaCopiar.map(m => ({ id: m.id, nombre: `${m.nombre} ${m.hilo_especifico_nombre ? '(' + m.hilo_especifico_nombre + ')' : ''}`.trim() }))}
+              placeholder="Buscar modelo..."
+              searchPlaceholder="Buscar modelo..."
+              testId="select-copiar-bom-source"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCopiarDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={ejecutarCopiarBom} disabled={!copiarModeloId} data-testid="btn-ejecutar-copiar-bom">
+              <Copy className="h-4 w-4 mr-1" /> Copiar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

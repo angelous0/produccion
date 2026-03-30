@@ -606,11 +606,11 @@ export const Modelos = ({ modo: modoProp }) => {
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <Tabs defaultValue="general" className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className={`grid w-full ${modoVariante ? 'grid-cols-2' : 'grid-cols-3'}`}>
                 <TabsTrigger value="general">General</TabsTrigger>
-                <TabsTrigger value="tallas">Tallas</TabsTrigger>
-                <TabsTrigger value="bom">BOM / Receta</TabsTrigger>
-                <TabsTrigger value="produccion">Produccion</TabsTrigger>
+                {!modoVariante && <TabsTrigger value="tallas">Tallas</TabsTrigger>}
+                {modoVariante && <TabsTrigger value="bom">BOM / Receta</TabsTrigger>}
+                {!modoVariante && <TabsTrigger value="produccion">Produccion</TabsTrigger>}
               </TabsList>
 
               <TabsContent value="general" className="space-y-4 mt-4">

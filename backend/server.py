@@ -2798,6 +2798,37 @@ async def add_modelo_bom_linea(modelo_id: str, data: ModeloBomLineaCreate, curre
     return row_to_dict(row)
 
 
+@api_router.post("/modelos/{modelo_id}/bom/copiar-de/{source_modelo_id}")
+async def copiar_bom_de_modelo(modelo_id: str, source_modelo_id: str, current_user: dict = Depends(require_permission('modelos', 'editar'))):
+    """Copia todas las líneas BOM activas de un modelo fuente al modelo destino."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        source_lines = await conn.fetch(
+            "SELECT inventario_id, talla_id, unidad_base, cantidad_base, orden FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND activo=true ORDER BY orden",
+            source_modelo_id
+        )
+        if not source_lines:
+            raise HTTPException(status_code=404, detail="El modelo fuente no tiene líneas BOM activas")
+
+        count = 0
+        for sl in source_lines:
+            exists = await conn.fetchval(
+                "SELECT COUNT(*) FROM prod_modelo_bom_linea WHERE modelo_id=$1 AND inventario_id=$2 AND talla_id IS NOT DISTINCT FROM $3 AND activo=true",
+                modelo_id, sl['inventario_id'], sl['talla_id']
+            )
+            if exists and int(exists) > 0:
+                continue
+            new_id = str(uuid4())
+            await conn.execute(
+                "INSERT INTO prod_modelo_bom_linea (id, modelo_id, inventario_id, talla_id, unidad_base, cantidad_base, orden, activo, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,true,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                new_id, modelo_id, sl['inventario_id'], sl['talla_id'], sl['unidad_base'], sl['cantidad_base'], sl['orden']
+            )
+            count += 1
+        return {"message": f"Se copiaron {count} líneas BOM", "lineas_copiadas": count}
+
+
+
+
 @api_router.put("/modelos/{modelo_id}/bom/reorder")
 async def reorder_modelo_bom(modelo_id: str, request: ReorderRequest, current_user: dict = Depends(require_permission('modelos', 'editar'))):
     """Reordena líneas BOM de un modelo."""
