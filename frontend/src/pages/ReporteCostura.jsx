@@ -20,7 +20,7 @@ import {
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const RIESGO_CONFIG = {
-  normal:   { label: 'Normal',   color: 'bg-emerald-100 text-emerald-800 border-emerald-200', dot: 'bg-emerald-500', rowClass: '' },
+  normal:   { label: 'Normal',   color: 'bg-transparent text-muted-foreground border-transparent', dot: 'bg-emerald-500', rowClass: '' },
   atencion: { label: 'Atención', color: 'bg-amber-100 text-amber-800 border-amber-200', dot: 'bg-amber-500', rowClass: 'bg-amber-50/50' },
   critico:  { label: 'Crítico',  color: 'bg-red-100 text-red-800 border-red-200', dot: 'bg-red-500', rowClass: 'bg-red-50/50' },
   vencido:  { label: 'Vencido',  color: 'bg-zinc-800 text-white border-zinc-700', dot: 'bg-zinc-800', rowClass: 'bg-red-50/70' },
@@ -152,7 +152,8 @@ export const ReporteCostura = () => {
   const [incMotivo, setIncMotivo] = useState('');
   const [incParaliza, setIncParaliza] = useState(false);
 
-  // Incidencias expandidas por registro e resolver
+  // Ordenación y estado de incidencias
+  const [sortDiasDesc, setSortDiasDesc] = useState(true);
   const [expandedInc, setExpandedInc] = useState({});
   const [incidenciasPorRegistro, setIncidenciasPorRegistro] = useState({});
   const [resolverDialog, setResolverDialog] = useState(null);
@@ -216,6 +217,22 @@ export const ReporteCostura = () => {
     axios.get(`${API}/api/motivos-incidencia`).then(r => setMotivos(r.data)).catch(() => {});
   }, []);
 
+  // Generar texto de observación de riesgo
+  const buildObsText = (item) => {
+    if (!item || item.nivel_riesgo === 'normal') return '';
+    const m = [];
+    if (item.nivel_riesgo === 'vencido') m.push('Fecha vencida');
+    if (item.dias_sin_actualizar != null && item.dias_sin_actualizar >= 3) m.push(`${item.dias_sin_actualizar}d sin actualizar`);
+    if (item.fecha_esperada) {
+      const de = Math.round((new Date(item.fecha_esperada) - new Date()) / 86400000);
+      if (de <= 2 && item.avance_porcentaje < 70) m.push(`Entrega en ${de}d`);
+      else if (de <= 5 && item.avance_porcentaje < 50) m.push(`Entrega en ${de}d`);
+    }
+    if (item.incidencias_abiertas >= 1) m.push(`${item.incidencias_abiertas} inc.`);
+    if (item.urgente) m.push('Urgente');
+    return m.join('; ') || '';
+  };
+
   // Agrupar items por persona
   const grouped = useMemo(() => {
     if (!data) return [];
@@ -255,8 +272,17 @@ export const ReporteCostura = () => {
       g.total_incidencias += item.incidencias_abiertas;
       if (item.avance_porcentaje != null) { g.avance_sum += item.avance_porcentaje; g.avance_count++; }
     }
-    return Object.values(map).sort((a, b) => (b.total_criticos + b.total_vencidos) - (a.total_criticos + a.total_vencidos) || a.persona_nombre.localeCompare(b.persona_nombre));
-  }, [data, filtroBusqueda]);
+    const groups = Object.values(map).sort((a, b) => (b.total_criticos + b.total_vencidos) - (a.total_criticos + a.total_vencidos) || a.persona_nombre.localeCompare(b.persona_nombre));
+    // Ordenar items dentro de cada grupo por días
+    for (const g of groups) {
+      g.items.sort((a, b) => {
+        const da = a.dias_transcurridos ?? -1;
+        const db = b.dias_transcurridos ?? -1;
+        return sortDiasDesc ? db - da : da - db;
+      });
+    }
+    return groups;
+  }, [data, filtroBusqueda, sortDiasDesc]);
 
   const togglePersona = (pid) => {
     setExpandedPersonas(prev => ({ ...prev, [pid]: !prev[pid] }));
@@ -720,12 +746,15 @@ export const ReporteCostura = () => {
                           <th className="text-right p-2 font-medium text-muted-foreground whitespace-nowrap">Cant.</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Inicio</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">F. Esperada</th>
-                          <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Días</th>
+                          <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap cursor-pointer select-none hover:text-foreground group" onClick={() => setSortDiasDesc(p => !p)}>
+                            Días {sortDiasDesc ? <ChevronDown className="inline h-3 w-3 text-muted-foreground group-hover:text-foreground" /> : <ChevronRight className="inline h-3 w-3 rotate-[-90deg] text-muted-foreground group-hover:text-foreground" />}
+                          </th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Avance</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Últ. Act.</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">D/s Act.</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Inc.</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Riesgo</th>
+                          <th className="text-left p-2 font-medium text-muted-foreground whitespace-nowrap">Obs.</th>
                           <th className="text-center p-2 font-medium text-muted-foreground whitespace-nowrap">Acciones</th>
                         </tr>
                       </thead>
@@ -747,7 +776,13 @@ export const ReporteCostura = () => {
                               <td className="p-2 text-right font-mono">{item.cantidad_enviada?.toLocaleString() || '-'}</td>
                               <td className="p-2 text-center whitespace-nowrap">{item.fecha_inicio ? new Date(item.fecha_inicio + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-'}</td>
                               <td className="p-2 text-center whitespace-nowrap">{item.fecha_esperada ? new Date(item.fecha_esperada + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : (item.fecha_fin ? new Date(item.fecha_fin + 'T00:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : '-')}</td>
-                              <td className="p-2 text-center font-mono">{item.dias_transcurridos ?? '-'}</td>
+                              <td className={`p-2 text-center font-mono font-bold whitespace-nowrap ${
+                                (item.dias_transcurridos ?? 0) >= 15 ? 'bg-red-100 text-red-700' :
+                                (item.dias_transcurridos ?? 0) >= 10 ? 'bg-amber-100 text-amber-700' :
+                                (item.dias_transcurridos ?? 0) >= 7 ? 'text-amber-600' : ''
+                              }`}>
+                                {item.dias_transcurridos ?? '-'}
+                              </td>
                               <td className="p-2 text-center">
                                 <AvanceEditor movimientoId={item.movimiento_id} currentValue={item.avance_porcentaje} onSaved={fetchData} nCorte={item.n_corte} />
                               </td>
@@ -766,7 +801,16 @@ export const ReporteCostura = () => {
                                 ) : <span className="text-muted-foreground">0</span>}
                               </td>
                               <td className="p-2 text-center">
-                                <Badge className={`${cfg.color} text-[10px] border`}>{cfg.label}</Badge>
+                                {item.nivel_riesgo === 'normal' ? (
+                                  <span className="text-[10px] text-muted-foreground">—</span>
+                                ) : (
+                                  <Badge className={`${cfg.color} text-[10px] border`}>{cfg.label}</Badge>
+                                )}
+                              </td>
+                              <td className="p-2 text-left max-w-[180px]">
+                                {item.nivel_riesgo !== 'normal' && (
+                                  <span className="text-[10px] text-muted-foreground leading-tight">{buildObsText(item)}</span>
+                                )}
                               </td>
                               <td className="p-2 text-center">
                                 <div className="flex items-center justify-center gap-0.5">
@@ -792,7 +836,7 @@ export const ReporteCostura = () => {
                             {/* Sub-fila: incidencias expandidas */}
                             {expandedInc[item.registro_id] && (
                               <tr className="bg-amber-50/30">
-                                <td colSpan={15} className="p-0">
+                                <td colSpan={16} className="p-0">
                                   <div className="px-4 py-2 space-y-1.5">
                                     <div className="flex items-center justify-between">
                                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Incidencias — Corte {item.n_corte}</span>
