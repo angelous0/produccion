@@ -568,6 +568,8 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
       });
       return { ...prev, lineas: arr };
     });
+  };
+
   const abrirCopiarBom = async () => {
     try {
       const res = await axios.get(`${API}/modelos?all=true`);
@@ -588,9 +590,6 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Error al copiar BOM');
     }
-  };
-
-
   };
 
   const getFilteredInventario = (tipoComponente) => {
