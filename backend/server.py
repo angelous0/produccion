@@ -3160,7 +3160,7 @@ async def get_registros(
             LEFT JOIN prod_entalles e ON m.entalle_id = e.id
             LEFT JOIN prod_telas te ON m.tela_id = te.id
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
-            LEFT JOIN prod_hilos_especificos he ON r.hilo_especifico_id = he.id
+            LEFT JOIN prod_hilos_especificos he ON COALESCE(r.hilo_especifico_id, m.hilo_especifico_id) = he.id
             LEFT JOIN prod_registros rp ON r.dividido_desde_registro_id = rp.id
             WHERE {where_clause}
             ORDER BY r.fecha_creacion DESC
@@ -7369,14 +7369,20 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
             "query": """
                 SELECT r.n_corte, r.fecha_creacion, r.estado, r.urgente,
                        m.nombre as modelo, ma.nombre as marca, t.nombre as tipo,
+                       en.nombre as entalle, te.nombre as tela,
+                       h.nombre as hilo, he.nombre as hilo_especifico,
                        r.curva
                 FROM prod_registros r
                 LEFT JOIN prod_modelos m ON r.modelo_id = m.id
                 LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
                 LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+                LEFT JOIN prod_entalles en ON m.entalle_id = en.id
+                LEFT JOIN prod_telas te ON m.tela_id = te.id
+                LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+                LEFT JOIN prod_hilos_especificos he ON m.hilo_especifico_id = he.id
                 ORDER BY r.fecha_creacion DESC
             """,
-            "headers": ["N° Corte", "Fecha", "Estado", "Urgente", "Modelo", "Marca", "Tipo", "Curva"]
+            "headers": ["N° Corte", "Fecha", "Estado", "Urgente", "Modelo", "Marca", "Tipo", "Entalle", "Tela", "Hilo", "Hilo Específico", "Curva"]
         },
         "inventario": {
             "query": """

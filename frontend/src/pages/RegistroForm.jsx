@@ -2302,6 +2302,8 @@ export const RegistroForm = () => {
                     <span className="font-medium">{modeloSeleccionado.tela_nombre || '-'}</span>
                     <span className="text-muted-foreground">Hilo</span>
                     <span className="font-medium">{modeloSeleccionado.hilo_nombre || '-'}</span>
+                    <span className="text-muted-foreground">Hilo Específico</span>
+                    <span className="font-medium">{modeloSeleccionado.hilo_especifico_nombre || '-'}</span>
                   </div>
                 </div>
               )}
