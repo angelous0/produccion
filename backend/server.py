@@ -5586,8 +5586,68 @@ async def create_salida(input: SalidaInventarioCreate):
                         updated_at = CURRENT_TIMESTAMP
                     WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
                 """, input.cantidad, input.registro_id, input.item_id)
+            
+            # Liberar reserva correspondiente (actualizar cantidad_liberada)
+            reserva_row = await conn.fetchrow("""
+                SELECT res.id as reserva_id FROM prod_inventario_reservas res
+                WHERE res.registro_id = $1 AND res.estado = 'ACTIVA'
+                ORDER BY res.fecha DESC LIMIT 1
+            """, input.registro_id)
+            if reserva_row:
+                if input.talla_id:
+                    await conn.execute("""
+                        UPDATE prod_inventario_reservas_linea
+                        SET cantidad_liberada = LEAST(cantidad_reservada, cantidad_liberada + $1)
+                        WHERE reserva_id = $2 AND item_id = $3 AND talla_id = $4
+                    """, input.cantidad, reserva_row['reserva_id'], input.item_id, input.talla_id)
+                else:
+                    await conn.execute("""
+                        UPDATE prod_inventario_reservas_linea
+                        SET cantidad_liberada = LEAST(cantidad_reservada, cantidad_liberada + $1)
+                        WHERE reserva_id = $2 AND item_id = $3 AND talla_id IS NULL
+                    """, input.cantidad, reserva_row['reserva_id'], input.item_id)
         
         return salida
+
+
+@api_router.post("/inventario/reconciliar-reservas")
+async def reconciliar_reservas():
+    """Sincroniza cantidad_liberada en reservas con las salidas reales existentes."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Para cada reserva activa, calcular cuánto se ha dado de salida realmente
+        reservas_activas = await conn.fetch("""
+            SELECT rl.id, rl.reserva_id, rl.item_id, rl.talla_id, rl.cantidad_reservada, rl.cantidad_liberada,
+                   res.registro_id
+            FROM produccion.prod_inventario_reservas_linea rl
+            JOIN produccion.prod_inventario_reservas res ON rl.reserva_id = res.id
+            WHERE res.estado = 'ACTIVA' AND (rl.cantidad_reservada - rl.cantidad_liberada) > 0
+        """)
+        corregidas = 0
+        for rl in reservas_activas:
+            # Calcular total de salidas para este item+registro+talla
+            if rl['talla_id']:
+                total_salido = await conn.fetchval("""
+                    SELECT COALESCE(SUM(cantidad), 0) FROM produccion.prod_inventario_salidas
+                    WHERE item_id = $1 AND registro_id = $2 AND talla_id = $3
+                """, rl['item_id'], rl['registro_id'], rl['talla_id'])
+            else:
+                total_salido = await conn.fetchval("""
+                    SELECT COALESCE(SUM(cantidad), 0) FROM produccion.prod_inventario_salidas
+                    WHERE item_id = $1 AND registro_id = $2 AND talla_id IS NULL
+                """, rl['item_id'], rl['registro_id'])
+            
+            nueva_liberada = min(float(rl['cantidad_reservada']), float(total_salido))
+            if nueva_liberada != float(rl['cantidad_liberada']):
+                await conn.execute("""
+                    UPDATE produccion.prod_inventario_reservas_linea
+                    SET cantidad_liberada = $1
+                    WHERE id = $2
+                """, nueva_liberada, rl['id'])
+                corregidas += 1
+        
+        return {"message": f"Reconciliación completada. {corregidas} líneas corregidas."}
+
 
 
 # OPCIÓN 2: Endpoint para Salida Extra (sin validación de reserva)
