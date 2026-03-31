@@ -366,54 +366,54 @@ export const GuiasRemision = () => {
           {selectedGuia && (
             <>
               {/* Contenido imprimible */}
-              <div ref={printRef} className="border rounded-lg p-6 bg-white">
+              <div ref={printRef} className="border rounded-lg p-6 bg-white text-black" style={{ colorScheme: 'light' }}>
                 <div className="header text-center border-b-2 border-black pb-4 mb-6">
-                  <h1 className="text-2xl font-bold">GUÍA DE REMISIÓN</h1>
-                  <p className="text-xl font-mono mt-2">{selectedGuia.numero_guia}</p>
-                  <p className="text-muted-foreground">Fecha: {selectedGuia.fecha ? formatDate(selectedGuia.fecha) : '-'}</p>
+                  <h1 className="text-2xl font-bold text-black">GUÍA DE REMISIÓN</h1>
+                  <p className="text-xl font-mono mt-2 text-black">{selectedGuia.numero_guia}</p>
+                  <p className="text-gray-500">Fecha: {selectedGuia.fecha ? formatDate(selectedGuia.fecha) : '-'}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-xs text-muted-foreground uppercase mb-2">Registro</h3>
-                    <p className="font-semibold">{selectedGuia.modelo_nombre}</p>
-                    <p>N° Corte: {selectedGuia.registro_n_corte}</p>
-                    <p className="text-sm text-muted-foreground mt-2">
+                  <div className="border border-gray-300 rounded-lg p-4">
+                    <h3 className="text-xs text-gray-500 uppercase mb-2">Registro de Producción</h3>
+                    <p className="font-semibold text-black">{selectedGuia.modelo_nombre}</p>
+                    <p className="text-black">N° Corte: {selectedGuia.registro_n_corte}</p>
+                    <p className="text-sm text-gray-500 mt-2">
                       Servicio: {selectedGuia.servicio_nombre}
                     </p>
                   </div>
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-xs text-muted-foreground uppercase mb-2">Destinatario</h3>
-                    <p className="font-semibold">{selectedGuia.persona_nombre}</p>
+                  <div className="border border-gray-300 rounded-lg p-4">
+                    <h3 className="text-xs text-gray-500 uppercase mb-2">Destinatario</h3>
+                    <p className="font-semibold text-black">{selectedGuia.persona_nombre}</p>
                     {selectedGuia.persona_telefono && (
-                      <p>Tel: {selectedGuia.persona_telefono}</p>
+                      <p className="text-black">Tel: {selectedGuia.persona_telefono}</p>
                     )}
                     {selectedGuia.persona_direccion && (
-                      <p className="text-sm">{selectedGuia.persona_direccion}</p>
+                      <p className="text-sm text-black">{selectedGuia.persona_direccion}</p>
                     )}
                   </div>
                 </div>
 
-                <div className="text-center py-6 bg-muted rounded-lg mb-6">
-                  <div className="text-5xl font-bold">{selectedGuia.cantidad}</div>
-                  <div className="text-muted-foreground">Prendas</div>
+                <div className="text-center py-6 bg-gray-100 rounded-lg mb-6">
+                  <div className="text-5xl font-bold text-black">{selectedGuia.cantidad}</div>
+                  <div className="text-gray-500">PRENDAS</div>
                 </div>
 
                 {selectedGuia.observaciones && (
-                  <div className="border rounded-lg p-4 mb-6">
-                    <h3 className="text-xs text-muted-foreground uppercase mb-2">Observaciones</h3>
-                    <p>{selectedGuia.observaciones}</p>
+                  <div className="border border-gray-300 rounded-lg p-4 mb-6">
+                    <h3 className="text-xs text-gray-500 uppercase mb-2">Observaciones</h3>
+                    <p className="text-black">{selectedGuia.observaciones}</p>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-12 mt-12 pt-6">
                   <div className="text-center">
-                    <div className="border-t border-black pt-2 mt-16">
+                    <div className="border-t border-black pt-2 mt-16 text-black">
                       Firma Remitente
                     </div>
                   </div>
                   <div className="text-center">
-                    <div className="border-t border-black pt-2 mt-16">
+                    <div className="border-t border-black pt-2 mt-16 text-black">
                       Firma Destinatario
                     </div>
                   </div>
