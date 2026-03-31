@@ -337,6 +337,14 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - **Articulo PT movido a Modelos/Variantes** (2026-03-30):
   - Campo "Articulo PT (Producto Terminado)" reubicado de pestaña Produccion (Bases) a pestaña General (Variantes)
   - El PT es especifico de cada variante, no de la base
+- **BOM simplificado** (2026-03-31):
+  - Eliminadas columnas: Etapa, Merma %, Cant. Total, Opcional
+  - Eliminado tipo Empaque de los componentes BOM
+- **Modal Detalle de Inventario** (2026-03-31):
+  - Reemplazado el acordeon de reservas por un popup completo con KPIs y 3 pestanas
+  - Ingresos: fecha, cantidad, costo, proveedor, documento
+  - Salidas: fecha, cantidad, costo, registro asociado (N Corte)
+  - Reservas: N Corte, modelo, estado del registro, cantidad reservada
 
 ## Backlog Actualizado
 ### P1

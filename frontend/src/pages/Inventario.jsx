@@ -17,12 +17,13 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, Search, X, PackageX, BookOpen } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, Search, X, PackageX, BookOpen, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportButton } from '../components/ExportButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { NumericInput } from '../components/ui/numeric-input';
 import { useNavigate } from 'react-router-dom';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -43,9 +44,11 @@ export const Inventario = () => {
   const { saving, guard } = useSaving();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [expandedItemId, setExpandedItemId] = useState(null);
-  const [reservasDetalle, setReservasDetalle] = useState(null);
-  const [loadingReservas, setLoadingReservas] = useState(false);
+  const [detalleOpen, setDetalleOpen] = useState(false);
+  const [detalleItem, setDetalleItem] = useState(null);
+  const [detalleKardex, setDetalleKardex] = useState(null);
+  const [detalleReservas, setDetalleReservas] = useState(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [alertasStock, setAlertasStock] = useState(null);
   const navigate = useNavigate();
 
@@ -206,28 +209,33 @@ export const Inventario = () => {
     return 'OK';
   };
 
-  const toggleExpandItem = async (itemId) => {
-    if (expandedItemId === itemId) {
-      setExpandedItemId(null);
-      setReservasDetalle(null);
-      return;
-    }
-    setExpandedItemId(itemId);
-    setLoadingReservas(true);
+  const openDetalle = async (item) => {
+    setDetalleItem(item);
+    setDetalleOpen(true);
+    setLoadingDetalle(true);
+    setDetalleKardex(null);
+    setDetalleReservas(null);
     try {
-      const response = await axios.get(`${API}/inventario/${itemId}/reservas-detalle`);
-      setReservasDetalle(response.data);
-    } catch (error) {
-      toast.error('Error al cargar detalle de reservas');
-      setExpandedItemId(null);
+      const [kardexRes, reservasRes] = await Promise.allSettled([
+        axios.get(`${API}/inventario-kardex/${item.id}`),
+        axios.get(`${API}/inventario/${item.id}/reservas-detalle`),
+      ]);
+      if (kardexRes.status === 'fulfilled') setDetalleKardex(kardexRes.value.data);
+      if (reservasRes.status === 'fulfilled') setDetalleReservas(reservasRes.value.data);
+    } catch {
+      toast.error('Error al cargar detalle');
     } finally {
-      setLoadingReservas(false);
+      setLoadingDetalle(false);
     }
   };
 
-  const hasActiveReservas = (item) => {
-    return !!(item.total_reservado && item.total_reservado > 0);
+  const formatDate = (d) => {
+    if (!d) return '-';
+    const date = new Date(d);
+    return date.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: '2-digit' });
   };
+
+  const formatCurrency = (n) => n != null && n !== 0 ? `S/ ${Number(n).toFixed(2)}` : '-';
 
   return (
     <div className="space-y-4" data-testid="inventario-page">
@@ -331,7 +339,6 @@ export const Inventario = () => {
             <Table>
               <TableHeader>
                 <TableRow className="data-table-header">
-                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Codigo</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Linea</TableHead>
@@ -343,7 +350,7 @@ export const Inventario = () => {
                   <TableHead className="text-right">Valorizado</TableHead>
                   <TableHead className="text-right">Stock Min</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="w-[80px]">Acciones</TableHead>
+                  <TableHead className="w-[110px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -359,25 +366,7 @@ export const Inventario = () => {
                   </TableRow>
                 ) : (
                   items.map((item) => (
-                    <React.Fragment key={item.id}>
-                      <TableRow className="data-table-row" data-testid={`item-row-${item.id}`}>
-                        <TableCell className="p-1">
-                          {hasActiveReservas(item) && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8"
-                                    onClick={() => toggleExpandItem(item.id)}
-                                    data-testid={`expand-reservas-${item.id}`}
-                                  >
-                                    {expandedItemId === item.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Ver detalle de reservas</p></TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </TableCell>
+                    <TableRow key={item.id} className="data-table-row" data-testid={`item-row-${item.id}`}>
                         <TableCell className="font-mono font-medium text-sm">{item.codigo}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -447,6 +436,9 @@ export const Inventario = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDetalle(item)} title="Ver detalle" data-testid={`detalle-item-${item.id}`}>
+                              <Eye className="h-3.5 w-3.5 text-blue-500" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/inventario/kardex?item=${item.id}`)} title="Ver Kardex" data-testid={`kardex-item-${item.id}`}>
                               <BookOpen className="h-3.5 w-3.5 text-primary" />
                             </Button>
@@ -459,51 +451,6 @@ export const Inventario = () => {
                           </div>
                         </TableCell>
                       </TableRow>
-                      {/* Fila expandible reservas */}
-                      {expandedItemId === item.id && (
-                        <TableRow key={`${item.id}-detail`} className="bg-muted/30">
-                          <TableCell colSpan={12} className="p-0">
-                            {loadingReservas ? (
-                              <div className="p-4 text-center text-muted-foreground">Cargando reservas...</div>
-                            ) : reservasDetalle && reservasDetalle.registros.length > 0 ? (
-                              <div className="p-4 space-y-3">
-                                <div className="flex items-center gap-2 text-sm font-medium">
-                                  <Info className="h-4 w-4 text-blue-500" />
-                                  Reservas activas: <span className="text-primary">{reservasDetalle.item_nombre}</span>
-                                </div>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>N Corte</TableHead>
-                                      <TableHead>Modelo</TableHead>
-                                      <TableHead>Estado</TableHead>
-                                      <TableHead className="text-right">Reservado</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {reservasDetalle.registros.map((reg) => (
-                                      <TableRow key={reg.registro_id}>
-                                        <TableCell className="font-mono font-medium">{reg.n_corte}</TableCell>
-                                        <TableCell>{reg.modelo_nombre || '-'}</TableCell>
-                                        <TableCell><Badge variant="outline">{reg.registro_estado}</Badge></TableCell>
-                                        <TableCell className="text-right font-mono text-orange-500 font-semibold">{reg.total_reservado}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                                <div className="flex justify-end text-sm text-muted-foreground pt-2 border-t gap-4">
-                                  <span>Total reservado: <strong className="text-orange-500">{reservasDetalle.total_reservado}</strong></span>
-                                  <span>Stock actual: <strong>{reservasDetalle.stock_actual}</strong></span>
-                                  <span>Disponible: <strong className="text-green-600">{reservasDetalle.stock_disponible}</strong></span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="p-4 text-center text-muted-foreground">No hay reservas activas</div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </React.Fragment>
                   ))
                 )}
               </TableBody>
@@ -603,6 +550,177 @@ export const Inventario = () => {
               <Button type="submit" disabled={saving} data-testid="btn-guardar-item">{editingItem ? 'Actualizar' : 'Crear'}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Detalle de Movimientos */}
+      <Dialog open={detalleOpen} onOpenChange={setDetalleOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              {detalleItem?.nombre}
+            </DialogTitle>
+            <DialogDescription>
+              <span className="font-mono">{detalleItem?.codigo}</span> — {detalleItem?.categoria} — {detalleItem?.unidad_medida}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingDetalle ? (
+            <div className="py-12 text-center text-muted-foreground">Cargando movimientos...</div>
+          ) : (
+            <div className="space-y-4">
+              {/* KPIs resumen */}
+              <div className="grid grid-cols-4 gap-3">
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Stock Actual</p>
+                  <p className="text-lg font-bold font-mono">{detalleItem?.stock_actual ?? 0}</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Reservado</p>
+                  <p className="text-lg font-bold font-mono text-orange-500">{detalleItem?.total_reservado ?? 0}</p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Disponible</p>
+                  <p className={`text-lg font-bold font-mono ${(detalleItem?.stock_disponible ?? 0) <= (detalleItem?.stock_minimo ?? 0) ? 'text-red-500' : 'text-green-600'}`}>
+                    {detalleItem?.stock_disponible ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-md border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">Costo Prom.</p>
+                  <p className="text-lg font-bold font-mono">{formatCurrency(detalleItem?.costo_promedio)}</p>
+                </div>
+              </div>
+
+              <Tabs defaultValue="ingresos">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="ingresos" data-testid="tab-detalle-ingresos">
+                    Ingresos {detalleKardex ? `(${detalleKardex.movimientos.filter(m => m.tipo === 'ingreso').length})` : ''}
+                  </TabsTrigger>
+                  <TabsTrigger value="salidas" data-testid="tab-detalle-salidas">
+                    Salidas {detalleKardex ? `(${detalleKardex.movimientos.filter(m => m.tipo === 'salida').length})` : ''}
+                  </TabsTrigger>
+                  <TabsTrigger value="reservas" data-testid="tab-detalle-reservas">
+                    Reservas {detalleReservas?.registros?.length > 0 ? `(${detalleReservas.registros.length})` : ''}
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Ingresos */}
+                <TabsContent value="ingresos" className="mt-3">
+                  {(() => {
+                    const ingresos = detalleKardex?.movimientos?.filter(m => m.tipo === 'ingreso') || [];
+                    if (ingresos.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin ingresos registrados</p>;
+                    return (
+                      <div className="overflow-x-auto border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead>Fecha</TableHead>
+                              <TableHead className="text-right">Cantidad</TableHead>
+                              <TableHead className="text-right">Costo Unit.</TableHead>
+                              <TableHead className="text-right">Costo Total</TableHead>
+                              <TableHead>Proveedor</TableHead>
+                              <TableHead>Documento</TableHead>
+                              <TableHead>Obs.</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {ingresos.map((m) => (
+                              <TableRow key={m.id}>
+                                <TableCell className="text-sm">{formatDate(m.fecha)}</TableCell>
+                                <TableCell className="text-right font-mono font-medium text-green-600">+{m.cantidad}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(m.costo_unitario)}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(m.costo_total)}</TableCell>
+                                <TableCell className="text-sm">{m.proveedor || '-'}</TableCell>
+                                <TableCell className="text-sm font-mono">{m.numero_documento || '-'}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{m.observaciones || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+
+                {/* Salidas */}
+                <TabsContent value="salidas" className="mt-3">
+                  {(() => {
+                    const salidas = detalleKardex?.movimientos?.filter(m => m.tipo === 'salida') || [];
+                    if (salidas.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin salidas registradas</p>;
+                    return (
+                      <div className="overflow-x-auto border rounded-md">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-muted/50">
+                              <TableHead>Fecha</TableHead>
+                              <TableHead className="text-right">Cantidad</TableHead>
+                              <TableHead className="text-right">Costo Total</TableHead>
+                              <TableHead>Registro</TableHead>
+                              <TableHead>Obs.</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {salidas.map((m) => (
+                              <TableRow key={m.id}>
+                                <TableCell className="text-sm">{formatDate(m.fecha)}</TableCell>
+                                <TableCell className="text-right font-mono font-medium text-red-500">{m.cantidad}</TableCell>
+                                <TableCell className="text-right font-mono text-sm">{formatCurrency(m.costo_total)}</TableCell>
+                                <TableCell>
+                                  {m.registro_n_corte ? (
+                                    <Badge variant="outline" className="font-mono">{m.registro_n_corte}</Badge>
+                                  ) : '-'}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.observaciones || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+
+                {/* Reservas */}
+                <TabsContent value="reservas" className="mt-3">
+                  {(() => {
+                    const registros = detalleReservas?.registros || [];
+                    if (registros.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin reservas pendientes</p>;
+                    return (
+                      <div className="space-y-3">
+                        <div className="overflow-x-auto border rounded-md">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead>N Corte</TableHead>
+                                <TableHead>Modelo</TableHead>
+                                <TableHead>Estado Registro</TableHead>
+                                <TableHead className="text-right">Reservado</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {registros.map((reg) => (
+                                <TableRow key={reg.registro_id}>
+                                  <TableCell className="font-mono font-medium">{reg.n_corte}</TableCell>
+                                  <TableCell className="text-sm">{reg.modelo_nombre || '-'}</TableCell>
+                                  <TableCell><Badge variant="outline">{reg.registro_estado}</Badge></TableCell>
+                                  <TableCell className="text-right font-mono text-orange-500 font-semibold">{reg.total_reservado}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        <div className="flex justify-end text-sm text-muted-foreground gap-4">
+                          <span>Total reservado: <strong className="text-orange-500">{detalleReservas.total_reservado}</strong></span>
+                          <span>Disponible: <strong className="text-green-600">{detalleReservas.stock_disponible}</strong></span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
