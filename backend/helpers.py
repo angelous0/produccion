@@ -1,12 +1,14 @@
-# Shared helper functions
+"""Shared helper functions used across routers."""
 import json
 import uuid
-from datetime import datetime, date
+from db import get_pool
+
 
 def row_to_dict(row):
     if row is None:
         return None
     return dict(row)
+
 
 def parse_jsonb(val):
     if val is None:
@@ -14,6 +16,7 @@ def parse_jsonb(val):
     if isinstance(val, str):
         return json.loads(val)
     return val
+
 
 async def registrar_actividad(
     pool,
@@ -41,11 +44,13 @@ async def registrar_actividad(
             ip_address
         )
 
+
 def limpiar_datos_sensibles(datos: dict) -> dict:
     if not datos:
         return datos
     datos_limpio = dict(datos)
-    for campo in ['password', 'password_hash', 'hashed_password', 'token', 'access_token']:
+    campos_sensibles = ['password', 'password_hash', 'hashed_password', 'token', 'access_token']
+    for campo in campos_sensibles:
         if campo in datos_limpio:
             datos_limpio[campo] = '***'
     return datos_limpio

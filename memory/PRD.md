@@ -342,9 +342,13 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
   - Eliminado tipo Empaque de los componentes BOM
 - **Modal Detalle de Inventario** (2026-03-31):
   - Reemplazado el acordeon de reservas por un popup completo con KPIs y 3 pestanas
-  - Ingresos: fecha, cantidad, costo, proveedor, documento
-  - Salidas: fecha, cantidad, costo, registro asociado (N Corte)
-  - Reservas: N Corte, modelo, estado del registro, cantidad reservada
+  - Ingresos: fecha, cantidad, costo, proveedor, documento con sumatoria
+  - Salidas: agrupadas por registro (N Corte + Modelo) con acordeon para detalle de rollos y sumatoria
+  - Reservas: N Corte, modelo, estado del registro, cantidad reservada con sumatoria
+- **Refactorizacion Backend server.py** (2026-03-31):
+  - Reducido de 7805 a 5461 lineas (-30%)
+  - Extraidos 3 routers modulares: catalogos.py (831 lineas), auth.py (482 lineas), inventario_main.py (1171 lineas)
+  - Creados modulos compartidos: auth_utils.py, models.py, helpers.py
 
 ## Backlog Actualizado
 ### P1
