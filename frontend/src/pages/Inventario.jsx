@@ -17,7 +17,7 @@ import {
 } from '../components/ui/select';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, Search, X, PackageX, BookOpen, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Package, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, Search, X, PackageX, BookOpen, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { ExportButton } from '../components/ExportButton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
@@ -35,6 +35,95 @@ const STOCK_STATUS_OPTIONS = [
   { value: 'stock_bajo', label: 'Stock bajo' },
   { value: 'sin_stock', label: 'Sin stock' },
 ];
+
+const SalidasAgrupadas = ({ salidas, formatDate, formatCurrency }) => {
+  const [expanded, setExpanded] = useState({});
+  if (salidas.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin salidas registradas</p>;
+
+  const totalCant = salidas.reduce((s, m) => s + Math.abs(m.cantidad), 0);
+  const totalCosto = salidas.reduce((s, m) => s + (m.costo_total || 0), 0);
+
+  // Agrupar por registro_id
+  const grupos = {};
+  salidas.forEach((m) => {
+    const key = m.registro_id || '_sin_registro';
+    if (!grupos[key]) {
+      grupos[key] = { n_corte: m.registro_n_corte, modelo: m.modelo_nombre, items: [], totalCant: 0, totalCosto: 0 };
+    }
+    grupos[key].items.push(m);
+    grupos[key].totalCant += Math.abs(m.cantidad);
+    grupos[key].totalCosto += (m.costo_total || 0);
+  });
+
+  const gruposList = Object.entries(grupos);
+  const hayMultiplesPorGrupo = gruposList.some(([, g]) => g.items.length > 1);
+
+  return (
+    <div className="overflow-x-auto border rounded-md">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/50">
+            {hayMultiplesPorGrupo && <TableHead className="w-[36px]"></TableHead>}
+            <TableHead>N Corte</TableHead>
+            <TableHead>Modelo</TableHead>
+            <TableHead>Fecha</TableHead>
+            <TableHead className="text-right">Cantidad</TableHead>
+            <TableHead className="text-right">Costo Total</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {gruposList.map(([key, grupo]) => {
+            const multiItems = grupo.items.length > 1;
+            const isExpanded = expanded[key];
+            return (
+              <React.Fragment key={key}>
+                <TableRow
+                  className={multiItems ? 'cursor-pointer hover:bg-muted/40' : ''}
+                  onClick={multiItems ? () => setExpanded((p) => ({ ...p, [key]: !p[key] })) : undefined}
+                >
+                  {hayMultiplesPorGrupo && (
+                    <TableCell className="p-1">
+                      {multiItems && (isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />)}
+                    </TableCell>
+                  )}
+                  <TableCell className="font-mono font-medium">
+                    {grupo.n_corte ? grupo.n_corte : '-'}
+                    {multiItems && <span className="text-xs text-muted-foreground ml-1">({grupo.items.length} salidas)</span>}
+                  </TableCell>
+                  <TableCell className="text-sm">{grupo.modelo || '-'}</TableCell>
+                  <TableCell className="text-sm">
+                    {multiItems
+                      ? `${formatDate(grupo.items[0].fecha)} - ${formatDate(grupo.items[grupo.items.length - 1].fecha)}`
+                      : formatDate(grupo.items[0].fecha)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-medium text-red-500">-{grupo.totalCant}</TableCell>
+                  <TableCell className="text-right font-mono text-sm">{formatCurrency(grupo.totalCosto)}</TableCell>
+                </TableRow>
+                {multiItems && isExpanded && grupo.items.map((m) => (
+                  <TableRow key={m.id} className="bg-muted/20">
+                    {hayMultiplesPorGrupo && <TableCell></TableCell>}
+                    <TableCell colSpan={2} className="text-xs text-muted-foreground pl-6">
+                      {m.rollo_id ? `Rollo: ${m.rollo_id.substring(0, 8)}...` : 'Detalle'}
+                    </TableCell>
+                    <TableCell className="text-xs">{formatDate(m.fecha)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-red-500">{m.cantidad}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">{formatCurrency(m.costo_total)}</TableCell>
+                  </TableRow>
+                ))}
+              </React.Fragment>
+            );
+          })}
+          <TableRow className="bg-muted/30 font-semibold">
+            {hayMultiplesPorGrupo && <TableCell></TableCell>}
+            <TableCell colSpan={3}>Total</TableCell>
+            <TableCell className="text-right font-mono text-red-500">-{totalCant}</TableCell>
+            <TableCell className="text-right font-mono">{formatCurrency(totalCosto)}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
+  );
+};
 
 export const Inventario = () => {
   const [items, setItems] = useState([]);
@@ -610,6 +699,8 @@ export const Inventario = () => {
                   {(() => {
                     const ingresos = detalleKardex?.movimientos?.filter(m => m.tipo === 'ingreso') || [];
                     if (ingresos.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin ingresos registrados</p>;
+                    const totalCant = ingresos.reduce((s, m) => s + m.cantidad, 0);
+                    const totalCosto = ingresos.reduce((s, m) => s + (m.costo_total || 0), 0);
                     return (
                       <div className="overflow-x-auto border rounded-md">
                         <Table>
@@ -621,7 +712,6 @@ export const Inventario = () => {
                               <TableHead className="text-right">Costo Total</TableHead>
                               <TableHead>Proveedor</TableHead>
                               <TableHead>Documento</TableHead>
-                              <TableHead>Obs.</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -633,9 +723,15 @@ export const Inventario = () => {
                                 <TableCell className="text-right font-mono text-sm">{formatCurrency(m.costo_total)}</TableCell>
                                 <TableCell className="text-sm">{m.proveedor || '-'}</TableCell>
                                 <TableCell className="text-sm font-mono">{m.numero_documento || '-'}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground max-w-[150px] truncate">{m.observaciones || '-'}</TableCell>
                               </TableRow>
                             ))}
+                            <TableRow className="bg-muted/30 font-semibold">
+                              <TableCell>Total</TableCell>
+                              <TableCell className="text-right font-mono text-green-600">+{totalCant}</TableCell>
+                              <TableCell></TableCell>
+                              <TableCell className="text-right font-mono">{formatCurrency(totalCosto)}</TableCell>
+                              <TableCell colSpan={2}></TableCell>
+                            </TableRow>
                           </TableBody>
                         </Table>
                       </div>
@@ -643,42 +739,9 @@ export const Inventario = () => {
                   })()}
                 </TabsContent>
 
-                {/* Salidas */}
+                {/* Salidas agrupadas por registro */}
                 <TabsContent value="salidas" className="mt-3">
-                  {(() => {
-                    const salidas = detalleKardex?.movimientos?.filter(m => m.tipo === 'salida') || [];
-                    if (salidas.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin salidas registradas</p>;
-                    return (
-                      <div className="overflow-x-auto border rounded-md">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50">
-                              <TableHead>Fecha</TableHead>
-                              <TableHead className="text-right">Cantidad</TableHead>
-                              <TableHead className="text-right">Costo Total</TableHead>
-                              <TableHead>Registro</TableHead>
-                              <TableHead>Obs.</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {salidas.map((m) => (
-                              <TableRow key={m.id}>
-                                <TableCell className="text-sm">{formatDate(m.fecha)}</TableCell>
-                                <TableCell className="text-right font-mono font-medium text-red-500">{m.cantidad}</TableCell>
-                                <TableCell className="text-right font-mono text-sm">{formatCurrency(m.costo_total)}</TableCell>
-                                <TableCell>
-                                  {m.registro_n_corte ? (
-                                    <Badge variant="outline" className="font-mono">{m.registro_n_corte}</Badge>
-                                  ) : '-'}
-                                </TableCell>
-                                <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{m.observaciones || '-'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    );
-                  })()}
+                  <SalidasAgrupadas salidas={detalleKardex?.movimientos?.filter(m => m.tipo === 'salida') || []} formatDate={formatDate} formatCurrency={formatCurrency} />
                 </TabsContent>
 
                 {/* Reservas */}
@@ -686,6 +749,7 @@ export const Inventario = () => {
                   {(() => {
                     const registros = detalleReservas?.registros || [];
                     if (registros.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">Sin reservas pendientes</p>;
+                    const totalRes = registros.reduce((s, r) => s + r.total_reservado, 0);
                     return (
                       <div className="space-y-3">
                         <div className="overflow-x-auto border rounded-md">
@@ -707,12 +771,12 @@ export const Inventario = () => {
                                   <TableCell className="text-right font-mono text-orange-500 font-semibold">{reg.total_reservado}</TableCell>
                                 </TableRow>
                               ))}
+                              <TableRow className="bg-muted/30 font-semibold">
+                                <TableCell colSpan={3}>Total</TableCell>
+                                <TableCell className="text-right font-mono text-orange-500">{totalRes}</TableCell>
+                              </TableRow>
                             </TableBody>
                           </Table>
-                        </div>
-                        <div className="flex justify-end text-sm text-muted-foreground gap-4">
-                          <span>Total reservado: <strong className="text-orange-500">{detalleReservas.total_reservado}</strong></span>
-                          <span>Disponible: <strong className="text-green-600">{detalleReservas.stock_disponible}</strong></span>
                         </div>
                       </div>
                     );

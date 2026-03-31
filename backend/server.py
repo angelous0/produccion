@@ -6838,8 +6838,16 @@ async def _get_kardex(item_id: str):
         salidas = await conn.fetch("SELECT * FROM prod_inventario_salidas WHERE item_id = $1", item_id)
         for sal in salidas:
             registro = None
+            modelo_nombre = None
             if sal['registro_id']:
-                registro = await conn.fetchrow("SELECT n_corte FROM prod_registros WHERE id = $1", sal['registro_id'])
+                registro = await conn.fetchrow("""
+                    SELECT r.n_corte, m.nombre as modelo_nombre 
+                    FROM prod_registros r 
+                    LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+                    WHERE r.id = $1
+                """, sal['registro_id'])
+                if registro:
+                    modelo_nombre = registro['modelo_nombre']
             movimientos.append({
                 "id": sal['id'],
                 "tipo": "salida",
@@ -6849,7 +6857,8 @@ async def _get_kardex(item_id: str):
                 "costo_total": float(sal['costo_total']),
                 "registro_id": sal['registro_id'],
                 "registro_n_corte": registro['n_corte'] if registro else None,
-                "observaciones": sal['observaciones']
+                "modelo_nombre": modelo_nombre,
+                "rollo_id": sal.get('rollo_id'),
             })
         
         # Ajustes
