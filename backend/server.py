@@ -5484,7 +5484,7 @@ async def create_salida(input: SalidaInventarioCreate):
                     detail=f"OP {reg['estado'].lower()}: no se puede crear salidas en una orden {reg['estado'].lower()}"
                 )
             
-            # Buscar requerimiento para validar reserva (si existe)
+            # Buscar requerimiento (informativo, no bloquea la salida)
             if input.talla_id:
                 req = await conn.fetchrow("""
                     SELECT * FROM prod_registro_requerimiento_mp
@@ -5495,15 +5495,6 @@ async def create_salida(input: SalidaInventarioCreate):
                     SELECT * FROM prod_registro_requerimiento_mp
                     WHERE registro_id = $1 AND item_id = $2 AND talla_id IS NULL
                 """, input.registro_id, input.item_id)
-            
-            # Si existe requerimiento, validar reserva suficiente
-            if req:
-                reserva_pendiente = float(req['cantidad_reservada']) - float(req['cantidad_consumida'])
-                if input.cantidad > reserva_pendiente:
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Reserva insuficiente. Reservado pendiente: {reserva_pendiente}, Solicitado: {input.cantidad}. Reserva más antes de consumir."
-                    )
         
         # === FIN Validaciones Fase 2 ===
         
@@ -5587,7 +5578,7 @@ async def create_salida(input: SalidaInventarioCreate):
                     WHERE registro_id = $2 AND item_id = $3 AND talla_id IS NULL
                 """, input.cantidad, input.registro_id, input.item_id)
             
-            # Liberar reserva correspondiente (actualizar cantidad_liberada)
+            # Liberar TODA la reserva restante para este item/registro (la materia prima ya se consumió)
             reserva_row = await conn.fetchrow("""
                 SELECT res.id as reserva_id FROM prod_inventario_reservas res
                 WHERE res.registro_id = $1 AND res.estado = 'ACTIVA'
@@ -5597,25 +5588,24 @@ async def create_salida(input: SalidaInventarioCreate):
                 if input.talla_id:
                     await conn.execute("""
                         UPDATE prod_inventario_reservas_linea
-                        SET cantidad_liberada = LEAST(cantidad_reservada, cantidad_liberada + $1)
-                        WHERE reserva_id = $2 AND item_id = $3 AND talla_id = $4
-                    """, input.cantidad, reserva_row['reserva_id'], input.item_id, input.talla_id)
+                        SET cantidad_liberada = cantidad_reservada
+                        WHERE reserva_id = $1 AND item_id = $2 AND talla_id = $3
+                    """, reserva_row['reserva_id'], input.item_id, input.talla_id)
                 else:
                     await conn.execute("""
                         UPDATE prod_inventario_reservas_linea
-                        SET cantidad_liberada = LEAST(cantidad_reservada, cantidad_liberada + $1)
-                        WHERE reserva_id = $2 AND item_id = $3 AND talla_id IS NULL
-                    """, input.cantidad, reserva_row['reserva_id'], input.item_id)
+                        SET cantidad_liberada = cantidad_reservada
+                        WHERE reserva_id = $1 AND item_id = $2 AND talla_id IS NULL
+                    """, reserva_row['reserva_id'], input.item_id)
         
         return salida
 
 
 @api_router.post("/inventario/reconciliar-reservas")
 async def reconciliar_reservas():
-    """Sincroniza cantidad_liberada en reservas con las salidas reales existentes."""
+    """Sincroniza cantidad_liberada en reservas: si ya hubo salida para un item+registro, libera toda la reserva."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Para cada reserva activa, calcular cuánto se ha dado de salida realmente
         reservas_activas = await conn.fetch("""
             SELECT rl.id, rl.reserva_id, rl.item_id, rl.talla_id, rl.cantidad_reservada, rl.cantidad_liberada,
                    res.registro_id
@@ -5625,7 +5615,6 @@ async def reconciliar_reservas():
         """)
         corregidas = 0
         for rl in reservas_activas:
-            # Calcular total de salidas para este item+registro+talla
             if rl['talla_id']:
                 total_salido = await conn.fetchval("""
                     SELECT COALESCE(SUM(cantidad), 0) FROM produccion.prod_inventario_salidas
@@ -5637,13 +5626,13 @@ async def reconciliar_reservas():
                     WHERE item_id = $1 AND registro_id = $2 AND talla_id IS NULL
                 """, rl['item_id'], rl['registro_id'])
             
-            nueva_liberada = min(float(rl['cantidad_reservada']), float(total_salido))
-            if nueva_liberada != float(rl['cantidad_liberada']):
+            # Si ya hubo cualquier salida, liberar TODA la reserva
+            if float(total_salido) > 0 and float(rl['cantidad_liberada']) < float(rl['cantidad_reservada']):
                 await conn.execute("""
                     UPDATE produccion.prod_inventario_reservas_linea
-                    SET cantidad_liberada = $1
-                    WHERE id = $2
-                """, nueva_liberada, rl['id'])
+                    SET cantidad_liberada = cantidad_reservada
+                    WHERE id = $1
+                """, rl['id'])
                 corregidas += 1
         
         return {"message": f"Reconciliación completada. {corregidas} líneas corregidas."}
