@@ -2866,16 +2866,6 @@ export const RegistroForm = () => {
                   data-testid="input-fecha-esperada-movimiento"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="observaciones-mov">Observaciones</Label>
-                <Input
-                  id="observaciones-mov"
-                  value={movimientoFormData.observaciones}
-                  onChange={(e) => setMovimientoFormData({ ...movimientoFormData, observaciones: e.target.value })}
-                  placeholder="Observaciones..."
-                  data-testid="input-observaciones-movimiento"
-                />
-              </div>
             </div>
 
             {/* Cantidad enviada y recibida */}
