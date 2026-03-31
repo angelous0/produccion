@@ -1,7 +1,19 @@
 """Shared helper functions used across routers."""
 import json
 import uuid
+import asyncpg as asyncpg_ext
 from db import get_pool
+
+
+_muestra_pool = None
+async def get_muestra_pool():
+    global _muestra_pool
+    if _muestra_pool is None:
+        _muestra_pool = await asyncpg_ext.create_pool(
+            host="72.60.241.216", port=9090, database="datos",
+            user="admin", password="admin", min_size=1, max_size=3
+        )
+    return _muestra_pool
 
 
 def row_to_dict(row):

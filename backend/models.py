@@ -540,3 +540,7 @@ class ReorderItem(BaseModel):
 
 class ReorderRequest(BaseModel):
     items: List[ReorderItem]
+
+class DivisionLoteRequest(BaseModel):
+    tallas_hijo: list
+    estado_hijo: Optional[str] = None
