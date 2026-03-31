@@ -683,7 +683,7 @@ const MaterialesTab = ({ registroId, totalPrendas, modeloId, lineaNegocioId }) =
               <Button
                 type="button"
                 size="sm"
-                disabled={procesando || Object.values(cantidades).every(v => !v || parseFloat(v) <= 0)}
+                disabled={procesando || (Object.values(cantidades).every(v => !v || parseFloat(v) <= 0) && Object.values(rollosCantidades).every(v => !v || parseFloat(v) <= 0))}
                 onClick={accion === 'salida' ? ejecutarSalida : ejecutarReserva}
                 className={accion === 'salida' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}
                 data-testid="btn-ejecutar-accion"
