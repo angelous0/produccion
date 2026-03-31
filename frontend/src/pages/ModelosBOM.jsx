@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, Box, MoreHorizontal, GripVertical, Check } from 'lucide-react';
+import { Plus, Copy, ChevronDown, ChevronUp, Package, Scissors, Truck, MoreHorizontal, GripVertical, Check } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -32,7 +32,6 @@ const TIPOS_COMPONENTE = [
   { value: 'TELA', label: 'Tela', icon: Scissors },
   { value: 'AVIO', label: 'Avío', icon: Package },
   { value: 'SERVICIO', label: 'Servicio', icon: Truck },
-  { value: 'EMPAQUE', label: 'Empaque', icon: Box },
   { value: 'OTRO', label: 'Otro', icon: MoreHorizontal },
 ];
 
@@ -41,7 +40,6 @@ const TIPO_TO_CATEGORIA = {
   'TELA': 'Telas',
   'AVIO': 'Avios',
   'SERVICIO': null, // Servicios NO usan items de inventario
-  'EMPAQUE': 'Avios',
   'OTRO': null, // muestra todos
 };
 
@@ -294,7 +292,6 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
   const [costoEstandar, setCostoEstandar] = useState(null);
   const [inventario, setInventario] = useState([]);
   const [tallas, setTallas] = useState([]);
-  const [etapas, setEtapas] = useState([]);
   const [serviciosProduccion, setServiciosProduccion] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingLineas, setLoadingLineas] = useState(false);
@@ -336,21 +333,6 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
   useEffect(() => {
     if (!modeloId) return;
     setLoading(true);
-    
-    const loadEtapas = async () => {
-      try {
-        const modRes = await axios.get(`${API}/modelos?all=true`);
-        const modelo = (modRes.data || []).find(m => m.id === modeloId);
-        if (modelo?.ruta_produccion_id) {
-          const rutaRes = await axios.get(`${API}/rutas-produccion/${modelo.ruta_produccion_id}`);
-          return (rutaRes.data?.etapas || []).map(e => ({
-            id: e.servicio_id,
-            nombre: e.servicio_nombre || `Etapa ${e.orden + 1}`
-          }));
-        }
-      } catch { /* ignore */ }
-      return [];
-    };
 
     Promise.all([
       fetchCabeceras(),
@@ -359,12 +341,10 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
         return Array.isArray(d) ? d : d.items || [];
       }).catch(() => []),
       axios.get(`${API}/modelos/${modeloId}/tallas?activo=true`).then(r => r.data).catch(() => []),
-      loadEtapas(),
       axios.get(`${API}/servicios-produccion`).then(r => r.data).catch(() => []),
-    ]).then(([cabs, inv, tal, eta, servs]) => {
+    ]).then(([cabs, inv, tal, servs]) => {
       setInventario(inv || []);
       setTallas(tal || []);
-      setEtapas(eta || []);
       setServiciosProduccion(servs || []);
       if (cabs.length > 0) {
         setActiveBomId(cabs[0].id);
@@ -722,25 +702,21 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
               <div className="py-6 text-center text-muted-foreground">Cargando líneas...</div>
             ) : (
               <div className="overflow-x-auto border rounded-md">
-                <Table className="min-w-[1050px]">
+                <Table className="min-w-[700px]">
                   <TableHeader>
                     <TableRow className="bg-muted/50">
                       <TableHead className="w-[90px]">Tipo</TableHead>
                       <TableHead className="min-w-[200px]">Item</TableHead>
                       <TableHead className="w-[100px]">Talla</TableHead>
-                      <TableHead className="w-[100px]">Etapa</TableHead>
-                      <TableHead className="w-[110px] text-right">Cant. Base</TableHead>
-                      <TableHead className="w-[80px] text-right">Merma %</TableHead>
-                      <TableHead className="w-[100px] text-right">Cant. Total</TableHead>
+                      <TableHead className="w-[110px] text-right">Cantidad</TableHead>
                       <TableHead className="w-[110px] text-right">Costo Unitario</TableHead>
-                      <TableHead className="w-[70px] text-center">Opcional</TableHead>
                       <TableHead className="w-[70px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {lineas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                           Sin líneas. Agrega componentes al BOM.
                         </TableCell>
                       </TableRow>
@@ -800,35 +776,11 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Select value={l.etapa_id || 'none'}
-                            onValueChange={(v) => updateLinea(l.id, { etapa_id: v === 'none' ? null : v })}>
-                            <SelectTrigger className="h-8 text-xs">
-                              <SelectValue placeholder="—" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">—</SelectItem>
-                              {etapas.map(e => (
-                                <SelectItem key={e.id} value={e.id}>{e.nombre}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
                           <NumericInput min="0" step="0.0001"
                             className="text-right font-mono h-8 text-sm w-[120px]"
                             value={l.cantidad_base}
                             onChange={(e) => updateLinea(l.id, { cantidad_base: e.target.value })}
                             data-testid={`bom-cant-base-${l.id}`} />
-                        </TableCell>
-                        <TableCell>
-                          <NumericInput min="0" max="100" step="0.1"
-                            className="text-right font-mono h-8 text-sm"
-                            value={l.merma_pct}
-                            onChange={(e) => updateLinea(l.id, { merma_pct: e.target.value })}
-                            data-testid={`bom-merma-${l.id}`} />
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-medium" data-testid={`bom-cant-total-${l.id}`}>
-                          {formatNum(l.cantidad_total)}
                         </TableCell>
                         <TableCell>
                           {l.tipo_componente === 'SERVICIO' ? (
@@ -846,11 +798,6 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
                               })()}
                             </span>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          <Switch checked={Boolean(l.es_opcional)}
-                            onCheckedChange={(v) => updateLinea(l.id, { es_opcional: v })}
-                            data-testid={`bom-opcional-${l.id}`} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-0.5">
@@ -892,11 +839,10 @@ export const ModelosBOMTab = ({ modeloId, lineaNegocioId }) => {
 
             {/* Leyenda */}
             <div className="text-xs text-muted-foreground space-y-1 border-t pt-3">
-              <p><strong>Talla = Todas</strong> (null): aplica a todas las tallas. Con talla específica, aplica solo a esa.</p>
-              <p><strong>Opc.</strong>: componente opcional, no se suma al costo estándar.</p>
-              <p><strong>Materiales</strong> (Tela, Avío, Empaque): usan items de inventario.</p>
+              <p><strong>Talla = Todas</strong>: aplica a todas las tallas. Con talla específica, aplica solo a esa.</p>
+              <p><strong>Materiales</strong> (Tela, Avío): usan items de inventario.</p>
               <p><strong>Servicios</strong>: usan el catálogo de Servicios de Producción. El costo es editable manualmente por línea.</p>
-              <p><strong>Costo estándar</strong>: referencial, basado en costo promedio actual. No reemplaza el costo real de producción.</p>
+              <p><strong>Costo estándar</strong>: referencial, basado en costo promedio actual.</p>
             </div>
 
             {/* Desglose costo estándar */}
