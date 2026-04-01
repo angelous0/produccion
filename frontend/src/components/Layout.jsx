@@ -110,34 +110,21 @@ const maestrosItems = [
   { to: '/maestros/productividad', icon: BarChart3, label: 'Productividad' },
 ];
 
-const calidadItems = [
-  { to: '/calidad/merma', icon: AlertTriangle, label: 'Merma' },
-  { to: '/calidad/reporte-mermas', icon: BarChart3, label: 'Reporte Mermas' },
-  { to: '/reportes/estados-item', icon: BarChart3, label: 'Reporte Estados' },
-];
+const calidadItems = [];
 
 const documentosItems = [
   { to: '/guias', icon: FileText, label: 'Guías de Remisión' },
 ];
 
-const valorizacionItems = [
-  { to: '/reportes/mp-valorizado', icon: Package, label: 'MP Valorizado' },
-  { to: '/reportes/wip', icon: ClipboardList, label: 'WIP (En Proceso)' },
-  { to: '/reportes/pt-valorizado', icon: Box, label: 'PT Valorizado' },
-];
+const valorizacionItems = [];
 
 const reportesProduccionItems = [
-  { to: '/reportes/dashboard', icon: Activity, label: 'Dashboard' },
   { to: '/reportes/matriz', icon: Grid3X3, label: 'Matriz Dinámica' },
-  { to: '/reportes/en-proceso', icon: ClipboardList, label: 'En Proceso' },
-  { to: '/reportes/wip-etapa', icon: Layers, label: 'WIP por Etapa' },
-  { to: '/reportes/atrasados', icon: AlertTriangle, label: 'Atrasados' },
-  { to: '/reportes/cumplimiento-ruta', icon: TrendingUp, label: 'Cumplimiento Ruta' },
-  { to: '/reportes/balance-terceros', icon: Users, label: 'Balance Terceros' },
-  { to: '/reportes/lotes-fraccionados', icon: GitBranch, label: 'Fraccionados' },
-  { to: '/reportes/trazabilidad-general', icon: Shield, label: 'Trazabilidad' },
-  { to: '/reportes/costura', icon: Scissors, label: 'Rep. Operativo' },
-  { to: '/reportes/tiempos-muertos', icon: Timer, label: 'Tiempos Muertos' },
+  { to: '/reportes/seguimiento', icon: Activity, label: 'Seguimiento' },
+  { to: '/reportes/operativo', icon: Users, label: 'Operativo & Terceros' },
+  { to: '/reportes/lotes', icon: GitBranch, label: 'Lotes & Trazabilidad' },
+  { to: '/reportes/valorizacion', icon: Package, label: 'Valorización' },
+  { to: '/reportes/calidad', icon: Shield, label: 'Calidad' },
 ];
 
 function ScrollToTop() {
@@ -451,29 +438,6 @@ export const Layout = () => {
               </NavLink>
             ))}
 
-            {/* Separador Calidad */}
-            <div className="mt-4 mb-2">
-              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Calidad
-              </p>
-              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
-            </div>
-            {calidadItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-${item.label.toLowerCase()}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
-
             {/* Separador Documentos */}
             <div className="mt-4 mb-2">
               <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
@@ -500,7 +464,7 @@ export const Layout = () => {
             {/* Separador Reportes Producción */}
             <div className="mt-4 mb-2">
               <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Reportes Producción
+                Reportes
               </p>
               {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
@@ -513,29 +477,6 @@ export const Layout = () => {
                   `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
                 }
                 data-testid={`nav-rep-${item.label.toLowerCase().replace(/ /g, '-')}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
-
-            {/* Separador Valorización */}
-            <div className="mt-4 mb-2">
-              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Valorización
-              </p>
-              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
-            </div>
-            {valorizacionItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-${item.label.toLowerCase()}`}
                 title={sidebarCollapsed ? item.label : undefined}
               >
                 <item.icon className="h-5 w-5 flex-shrink-0" />

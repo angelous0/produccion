@@ -51,6 +51,11 @@ import TrazabilidadReporte from "./pages/TrazabilidadReporte";
 import { ReporteStockBajo } from "./pages/ReporteStockBajo";
 import { ReporteCostura } from "./pages/ReporteCostura";
 import { ReporteTiemposMuertos } from "./pages/ReporteTiemposMuertos";
+import { SeguimientoProduccion } from "./pages/SeguimientoProduccion";
+import { OperativoTerceros } from "./pages/OperativoTerceros";
+import { LotesTrazabilidad } from "./pages/LotesTrazabilidad";
+import { ValorizacionConsolidado } from "./pages/ValorizacionConsolidado";
+import { CalidadConsolidado } from "./pages/CalidadConsolidado";
 import { Loader2 } from "lucide-react";
 
 // Componente de ruta protegida
@@ -138,25 +143,32 @@ function AppRoutes() {
         <Route path="maestros/rutas" element={<RutasProduccion />} />
         <Route path="maestros/movimientos" element={<MovimientosProduccion />} />
         <Route path="maestros/productividad" element={<ReporteProductividad />} />
-        <Route path="calidad/merma" element={<CalidadMerma />} />
-        <Route path="calidad/reporte-mermas" element={<ReporteMermas />} />
-        <Route path="reportes/estados-item" element={<ReporteEstadosItem />} />
         <Route path="guias" element={<GuiasRemision />} />
-        <Route path="reportes/mp-valorizado" element={<ReporteMPValorizado />} />
-        <Route path="reportes/wip" element={<ReporteWIP />} />
-        <Route path="reportes/pt-valorizado" element={<ReportePTValorizado />} />
-        <Route path="reportes/dashboard" element={<ReportesProduccionDashboard />} />
-        <Route path="reportes/en-proceso" element={<ReporteEnProceso />} />
-        <Route path="reportes/wip-etapa" element={<ReporteWIPEtapa />} />
-        <Route path="reportes/atrasados" element={<ReporteAtrasados />} />
-        <Route path="reportes/trazabilidad/:registroId" element={<ReporteTrazabilidad />} />
-        <Route path="reportes/cumplimiento-ruta" element={<ReporteCumplimientoRuta />} />
-        <Route path="reportes/balance-terceros" element={<ReporteBalanceTerceros />} />
-        <Route path="reportes/lotes-fraccionados" element={<ReporteLotesFraccionados />} />
+        {/* Rutas consolidadas */}
+        <Route path="reportes/seguimiento" element={<SeguimientoProduccion />} />
+        <Route path="reportes/operativo" element={<OperativoTerceros />} />
+        <Route path="reportes/lotes" element={<LotesTrazabilidad />} />
+        <Route path="reportes/valorizacion" element={<ValorizacionConsolidado />} />
+        <Route path="reportes/calidad" element={<CalidadConsolidado />} />
         <Route path="reportes/matriz" element={<MatrizProduccion />} />
-        <Route path="reportes/trazabilidad-general" element={<TrazabilidadReporte />} />
-        <Route path="reportes/costura" element={<ReporteCostura />} />
-        <Route path="reportes/tiempos-muertos" element={<ReporteTiemposMuertos />} />
+        <Route path="reportes/trazabilidad/:registroId" element={<ReporteTrazabilidad />} />
+        {/* Legacy redirects */}
+        <Route path="reportes/dashboard" element={<Navigate to="/" replace />} />
+        <Route path="reportes/en-proceso" element={<Navigate to="/reportes/seguimiento" replace />} />
+        <Route path="reportes/wip-etapa" element={<Navigate to="/reportes/seguimiento?tab=wip-etapa" replace />} />
+        <Route path="reportes/atrasados" element={<Navigate to="/reportes/seguimiento?tab=atrasados" replace />} />
+        <Route path="reportes/cumplimiento-ruta" element={<Navigate to="/reportes/seguimiento?tab=cumplimiento" replace />} />
+        <Route path="reportes/balance-terceros" element={<Navigate to="/reportes/operativo" replace />} />
+        <Route path="reportes/costura" element={<Navigate to="/reportes/operativo?tab=operativo" replace />} />
+        <Route path="reportes/tiempos-muertos" element={<Navigate to="/reportes/operativo?tab=tiempos" replace />} />
+        <Route path="reportes/lotes-fraccionados" element={<Navigate to="/reportes/lotes" replace />} />
+        <Route path="reportes/trazabilidad-general" element={<Navigate to="/reportes/lotes?tab=trazabilidad" replace />} />
+        <Route path="reportes/mp-valorizado" element={<Navigate to="/reportes/valorizacion" replace />} />
+        <Route path="reportes/wip" element={<Navigate to="/reportes/valorizacion?tab=wip" replace />} />
+        <Route path="reportes/pt-valorizado" element={<Navigate to="/reportes/valorizacion?tab=pt" replace />} />
+        <Route path="calidad/merma" element={<Navigate to="/reportes/calidad" replace />} />
+        <Route path="calidad/reporte-mermas" element={<Navigate to="/reportes/calidad?tab=reporte-mermas" replace />} />
+        <Route path="reportes/estados-item" element={<Navigate to="/reportes/calidad?tab=estados" replace />} />
       </Route>
       
       {/* Redirigir cualquier ruta desconocida a login */}
