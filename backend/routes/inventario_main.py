@@ -8,10 +8,13 @@ from auth_utils import get_current_user
 from models import (
     ItemInventarioCreate, IngresoInventarioCreate,
     SalidaInventarioCreate, AjusteInventarioCreate,
+    IngresoInventario, SalidaInventario, AjusteInventario, ItemInventario,
 )
 from helpers import registrar_actividad, row_to_dict
 from typing import Optional, List
 from pydantic import BaseModel
+
+CATEGORIAS_INVENTARIO = ["Telas", "Avios", "Otros"]
 
 router = APIRouter(prefix="/api")
 
