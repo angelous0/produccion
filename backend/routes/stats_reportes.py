@@ -1068,3 +1068,118 @@ from routes.inventario_main import router as inventario_main_router
 # ==================== DIVISIÓN DE LOTE ====================
 
 
+
+
+# ==================== REPORTE PARALIZADOS ====================
+
+@router.get("/reportes/paralizados")
+async def reporte_paralizados(
+    solo_activas: Optional[str] = None,
+):
+    """Reporte completo de paralizaciones: activas + historial."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT 
+                p.id,
+                p.registro_id,
+                p.movimiento_id,
+                p.fecha_inicio,
+                p.fecha_fin,
+                p.motivo,
+                p.comentario,
+                p.activa,
+                r.n_corte,
+                r.estado as registro_estado,
+                r.urgente,
+                mod.nombre as modelo_nombre,
+                ma.nombre as marca_nombre,
+                -- Último movimiento activo
+                (SELECT sp.nombre FROM prod_movimientos_produccion mp
+                 JOIN prod_servicios_produccion sp ON sp.id = mp.servicio_id
+                 WHERE mp.registro_id = r.id AND mp.avance_porcentaje < 100
+                 ORDER BY mp.fecha_inicio DESC NULLS LAST LIMIT 1) as servicio_actual,
+                (SELECT pp.nombre FROM prod_movimientos_produccion mp
+                 JOIN prod_personas_produccion pp ON pp.id = mp.persona_id
+                 WHERE mp.registro_id = r.id AND mp.avance_porcentaje < 100
+                 ORDER BY mp.fecha_inicio DESC NULLS LAST LIMIT 1) as persona_actual,
+                -- Movimiento vinculado (si tiene)
+                (SELECT sp.nombre FROM prod_servicios_produccion sp
+                 JOIN prod_movimientos_produccion mp ON mp.id = p.movimiento_id AND sp.id = mp.servicio_id
+                 ) as servicio_movimiento,
+                -- Incidencia vinculada
+                (SELECT i.tipo FROM prod_incidencia i 
+                 WHERE i.paralizacion_id = p.id LIMIT 1) as incidencia_tipo,
+                (SELECT i.estado FROM prod_incidencia i 
+                 WHERE i.paralizacion_id = p.id LIMIT 1) as incidencia_estado,
+                -- Cantidad de prendas
+                COALESCE((SELECT SUM(rt.cantidad_real) FROM prod_registro_tallas rt 
+                          WHERE rt.registro_id = r.id), 0) as prendas
+            FROM prod_paralizacion p
+            JOIN prod_registros r ON r.id = p.registro_id
+            LEFT JOIN prod_modelos mod ON mod.id = r.modelo_id
+            LEFT JOIN prod_marcas ma ON ma.id = mod.marca_id
+            ORDER BY p.activa DESC, p.fecha_inicio DESC
+        """)
+
+        from datetime import date
+        hoy = date.today()
+        resultado = []
+        resumen = {"activas": 0, "resueltas": 0, "total": 0, "prendas_afectadas": 0, "dias_promedio": 0}
+        dias_list = []
+
+        for row in rows:
+            d = row_to_dict(row)
+            activa = d.get("activa", False)
+
+            # Filtro
+            if solo_activas == "true" and not activa:
+                continue
+
+            # Calcular días
+            fi = d.get("fecha_inicio")
+            ff = d.get("fecha_fin")
+            if fi:
+                fi_date = fi.date() if hasattr(fi, 'date') else fi
+                if activa:
+                    dias = (hoy - fi_date).days
+                else:
+                    ff_date = ff.date() if ff and hasattr(ff, 'date') else (ff or hoy)
+                    dias = (ff_date - fi_date).days
+            else:
+                dias = 0
+
+            dias_list.append(dias)
+
+            if activa:
+                resumen["activas"] += 1
+                resumen["prendas_afectadas"] += int(d.get("prendas", 0) or 0)
+            else:
+                resumen["resueltas"] += 1
+            resumen["total"] += 1
+
+            # Serializar fechas
+            for f in ("fecha_inicio", "fecha_fin"):
+                if d.get(f):
+                    d[f] = str(d[f])
+
+            d["dias"] = dias
+            d["servicio"] = d.get("servicio_movimiento") or d.get("servicio_actual") or ""
+            d["persona"] = d.get("persona_actual") or ""
+            resultado.append(d)
+
+        if dias_list:
+            resumen["dias_promedio"] = round(sum(dias_list) / len(dias_list), 1)
+
+        # Motivos agrupados
+        motivos_count = {}
+        for r in resultado:
+            m = r.get("motivo") or "Sin motivo"
+            motivos_count[m] = motivos_count.get(m, 0) + 1
+        motivos = [{"motivo": k, "cantidad": v} for k, v in sorted(motivos_count.items(), key=lambda x: -x[1])]
+
+        return {
+            "paralizaciones": resultado,
+            "resumen": resumen,
+            "motivos": motivos,
+        }

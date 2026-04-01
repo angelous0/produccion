@@ -60,6 +60,9 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 ### P0
 - [x] Refactorizacion Backend: server.py modularizado (DONE)
 - [x] Refactorizacion Frontend: RegistroForm.jsx modularizado (DONE 2026-04-01)
+- [x] Reporte Paralizados: KPIs + tabla + historial + filtro solo activas (DONE 2026-04-01)
+- [ ] Restaurar graficos Recharts en Dashboard principal
+- [ ] Verificar paginas de Reportes Consolidados
 - [ ] Trazabilidad Unificada - Frontend (UI de timeline y balance en detalle registro)
 
 ### P1
