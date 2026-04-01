@@ -411,10 +411,10 @@ export const InventarioIngresos = () => {
                         data-testid="combobox-item"
                       >
                         {formData.item_id ? (
-                          <span className="truncate">
-                            <span className="font-mono mr-2">{items.find(i => i.id === formData.item_id)?.codigo}</span>
-                            {(() => { const ln = lineasNegocio.find(l => l.id === items.find(i => i.id === formData.item_id)?.linea_negocio_id); return ln ? <span className="text-xs mr-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ln.nombre}</span> : null; })()}
-                            {items.find(i => i.id === formData.item_id)?.nombre}
+                          <span className="truncate flex items-center gap-2">
+                            <span className="font-mono shrink-0">{items.find(i => i.id === formData.item_id)?.codigo}</span>
+                            <span className="truncate">{items.find(i => i.id === formData.item_id)?.nombre}</span>
+                            {(() => { const ln = lineasNegocio.find(l => l.id === items.find(i => i.id === formData.item_id)?.linea_negocio_id); return ln ? <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{ln.nombre}</span> : null; })()}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">Buscar item...</span>
@@ -422,12 +422,12 @@ export const InventarioIngresos = () => {
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[460px] p-0" align="start">
+                    <PopoverContent className="w-[620px] p-0" align="start">
                       <Command>
-                        <CommandInput placeholder="Buscar por nombre o codigo..." data-testid="search-item" />
+                        <CommandInput placeholder="Buscar por nombre, codigo o linea..." data-testid="search-item" />
                         <CommandList>
                           <CommandEmpty>Sin resultados</CommandEmpty>
-                          <CommandGroup className="max-h-[250px] overflow-auto">
+                          <CommandGroup className="max-h-[280px] overflow-auto">
                             {items.filter(i => i.categoria !== 'PT').map((item) => {
                               const ln = item.linea_negocio_id ? lineasNegocio.find(l => l.id === item.linea_negocio_id) : null;
                               return (
@@ -436,13 +436,14 @@ export const InventarioIngresos = () => {
                                   value={`${item.codigo} ${item.nombre} ${ln?.nombre || ''}`}
                                   onSelect={() => handleItemChange(item.id)}
                                   data-testid={`item-option-${item.id}`}
+                                  className="flex items-center gap-2"
                                 >
-                                  <Check className={cn("mr-2 h-4 w-4", formData.item_id === item.id ? "opacity-100" : "opacity-0")} />
-                                  <span className="font-mono text-xs mr-2 text-muted-foreground">{item.codigo}</span>
-                                  {ln && <span className="text-xs mr-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{ln.nombre}</span>}
+                                  <Check className={cn("h-4 w-4 shrink-0", formData.item_id === item.id ? "opacity-100" : "opacity-0")} />
+                                  <span className="font-mono text-xs text-muted-foreground shrink-0">{item.codigo}</span>
                                   <span className="truncate">{item.nombre}</span>
+                                  {ln && <span className="ml-auto text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{ln.nombre}</span>}
                                   {item.control_por_rollos && (
-                                    <Badge variant="outline" className="ml-auto text-xs shrink-0">Rollos</Badge>
+                                    <Badge variant="outline" className="text-[10px] shrink-0">Rollos</Badge>
                                   )}
                                 </CommandItem>
                               );
