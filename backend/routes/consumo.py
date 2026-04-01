@@ -197,7 +197,7 @@ async def registrar_wip(conn, empresa_id: int, orden_id: str, origen_tipo: str,
 async def get_consumos(
     orden_id: Optional[str] = None,
     item_id: Optional[str] = None,
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """Lista consumos de MP con filtros"""

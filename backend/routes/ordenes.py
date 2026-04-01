@@ -58,7 +58,7 @@ ESTADOS_OP = ['ABIERTA', 'EN_PROCESO', 'CERRADA', 'ANULADA']
 
 @router.get("/ordenes")
 async def get_ordenes(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     estado_op: Optional[str] = None,
     etapa_id: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
@@ -406,7 +406,7 @@ async def get_resumen_wip(
 
 @router.get("/etapas")
 async def get_etapas(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """Lista etapas productivas"""

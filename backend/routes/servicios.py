@@ -92,7 +92,7 @@ async def actualizar_wip_servicio(conn, servicio_id: str, nuevo_costo: float, fe
 async def get_servicios_orden(
     orden_id: Optional[str] = None,
     estado: Optional[str] = None,
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """Lista servicios por orden con filtros"""

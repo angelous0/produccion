@@ -20,7 +20,7 @@ from helpers import row_to_dict
 
 @router.get("/reportes/mp-valorizado")
 async def get_mp_valorizado(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -99,7 +99,7 @@ async def get_mp_valorizado(
 
 @router.get("/reportes/wip")
 async def get_wip_valorizado(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -170,7 +170,7 @@ async def get_wip_valorizado(
 
 @router.get("/reportes/pt-valorizado")
 async def get_pt_valorizado(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -342,7 +342,7 @@ async def get_kardex_item(
 
 @router.get("/reportes/ordenes")
 async def get_reporte_ordenes(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     estado_op: Optional[str] = None,
     fecha_desde: Optional[date] = None,
     fecha_hasta: Optional[date] = None,
@@ -437,7 +437,7 @@ async def get_reporte_ordenes(
 
 @router.get("/reportes/resumen-general")
 async def get_resumen_general(
-    empresa_id: int = Query(8),
+    empresa_id: int = Query(7),
     current_user: dict = Depends(get_current_user)
 ):
     """

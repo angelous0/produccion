@@ -62,7 +62,11 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Refactorizacion Frontend: RegistroForm.jsx modularizado (DONE 2026-04-01)
 - [x] Reporte Paralizados: KPIs + tabla + historial + filtro solo activas (DONE 2026-04-01)
 - [x] Mejora Layout Registro: Sistema de 3 pestanas (General/Produccion/Control) (DONE 2026-04-01)
-- [ ] Restaurar graficos Recharts en Dashboard principal
+- [x] Restaurar graficos Recharts en Dashboard principal
+- [x] Fix empresa_id default 8->7 en todos los endpoints de reportes (DONE 2026-04-01)
+- [x] Fix alertas-produccion missing return statement (DONE 2026-04-01)
+- [x] Fix WIP por Etapa sin prendas (DONE 2026-04-01)
+- [x] Datos demo completos: 8 modelos, 13 registros, 43 movimientos, mermas, fallados, arreglos (DONE 2026-04-01)
 - [ ] Verificar paginas de Reportes Consolidados
 - [ ] Trazabilidad Unificada - Frontend (UI de timeline y balance en detalle registro)
 
