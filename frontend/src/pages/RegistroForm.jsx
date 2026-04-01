@@ -6,6 +6,8 @@ import axios from 'axios';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Save, Scissors } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { ClipboardList, Play, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
@@ -638,48 +640,90 @@ export const RegistroForm = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* COLUMNA IZQUIERDA */}
           <div className="space-y-4 min-w-0">
-            <RegistroDatosCard
-              formData={formData} setFormData={setFormData} divisionInfo={divisionInfo}
-              navigate={navigate} esCierreable={esCierreable} cierreExistente={cierreExistente}
-              cierrePreview={cierrePreview} cierreLoading={cierreLoading} ejecutandoCierre={ejecutandoCierre}
-              onEjecutarCierre={handleEjecutarCierre} onDescargarBalancePDF={descargarBalancePDF}
-              modelos={modelos} modeloPopoverOpen={modeloPopoverOpen} setModeloPopoverOpen={setModeloPopoverOpen}
-              modeloSearch={modeloSearch} setModeloSearch={setModeloSearch} onModeloChange={handleModeloChange}
-              lineasNegocio={lineasNegocio} itemsInventario={itemsInventario} modeloSeleccionado={modeloSeleccionado}
-              onReunificar={handleReunificar} isEditing={isEditing} hilosEspecificos={hilosEspecificos}
-            />
+            {!isEditing ? (
+              /* Modo creación: sin pestañas */
+              <>
+                <RegistroDatosCard
+                  formData={formData} setFormData={setFormData} divisionInfo={divisionInfo}
+                  navigate={navigate} esCierreable={esCierreable} cierreExistente={cierreExistente}
+                  cierrePreview={cierrePreview} cierreLoading={cierreLoading} ejecutandoCierre={ejecutandoCierre}
+                  onEjecutarCierre={handleEjecutarCierre} onDescargarBalancePDF={descargarBalancePDF}
+                  modelos={modelos} modeloPopoverOpen={modeloPopoverOpen} setModeloPopoverOpen={setModeloPopoverOpen}
+                  modeloSearch={modeloSearch} setModeloSearch={setModeloSearch} onModeloChange={handleModeloChange}
+                  lineasNegocio={lineasNegocio} itemsInventario={itemsInventario} modeloSeleccionado={modeloSeleccionado}
+                  onReunificar={handleReunificar} isEditing={isEditing} hilosEspecificos={hilosEspecificos}
+                />
+                <RegistroTallasCard
+                  tallasSeleccionadas={tallasSeleccionadas} tallasDisponibles={tallasDisponibles}
+                  onAddTalla={handleAddTalla} onCantidadChange={handleTallaCantidadChange}
+                  onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores()}
+                  onOpenColoresDialog={handleOpenColoresDialog} distribucionColores={distribucionColores}
+                />
+              </>
+            ) : (
+              /* Modo edición: con pestañas */
+              <Tabs defaultValue="produccion" className="space-y-3">
+                <TabsList className="h-9 w-full justify-start">
+                  <TabsTrigger value="general" className="text-xs gap-1.5" data-testid="tab-general">
+                    <ClipboardList className="h-3.5 w-3.5" /> General
+                  </TabsTrigger>
+                  <TabsTrigger value="produccion" className="text-xs gap-1.5" data-testid="tab-produccion">
+                    <Play className="h-3.5 w-3.5" /> Produccion
+                  </TabsTrigger>
+                  <TabsTrigger value="control" className="text-xs gap-1.5" data-testid="tab-control">
+                    <ShieldAlert className="h-3.5 w-3.5" /> Control
+                    {incidencias.filter(i => i.estado === 'ABIERTA').length > 0 && (
+                      <span className="ml-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold">
+                        {incidencias.filter(i => i.estado === 'ABIERTA').length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
 
-            <RegistroTallasCard
-              tallasSeleccionadas={tallasSeleccionadas} tallasDisponibles={tallasDisponibles}
-              onAddTalla={handleAddTalla} onCantidadChange={handleTallaCantidadChange}
-              onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores()}
-              onOpenColoresDialog={handleOpenColoresDialog} distribucionColores={distribucionColores}
-            />
+                {/* TAB GENERAL: Datos + Tallas + Colores */}
+                <TabsContent value="general" className="space-y-4 mt-0">
+                  <RegistroDatosCard
+                    formData={formData} setFormData={setFormData} divisionInfo={divisionInfo}
+                    navigate={navigate} esCierreable={esCierreable} cierreExistente={cierreExistente}
+                    cierrePreview={cierrePreview} cierreLoading={cierreLoading} ejecutandoCierre={ejecutandoCierre}
+                    onEjecutarCierre={handleEjecutarCierre} onDescargarBalancePDF={descargarBalancePDF}
+                    modelos={modelos} modeloPopoverOpen={modeloPopoverOpen} setModeloPopoverOpen={setModeloPopoverOpen}
+                    modeloSearch={modeloSearch} setModeloSearch={setModeloSearch} onModeloChange={handleModeloChange}
+                    lineasNegocio={lineasNegocio} itemsInventario={itemsInventario} modeloSeleccionado={modeloSeleccionado}
+                    onReunificar={handleReunificar} isEditing={isEditing} hilosEspecificos={hilosEspecificos}
+                  />
+                  <RegistroTallasCard
+                    tallasSeleccionadas={tallasSeleccionadas} tallasDisponibles={tallasDisponibles}
+                    onAddTalla={handleAddTalla} onCantidadChange={handleTallaCantidadChange}
+                    onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores()}
+                    onOpenColoresDialog={handleOpenColoresDialog} distribucionColores={distribucionColores}
+                  />
+                </TabsContent>
 
-            {isEditing && (
-              <Card><CardContent className="pt-4">
-                <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} lineaNegocioId={formData.linea_negocio_id} />
-              </CardContent></Card>
-            )}
+                {/* TAB PRODUCCION: Movimientos + Materiales */}
+                <TabsContent value="produccion" className="space-y-4 mt-0">
+                  <RegistroMovimientosCard
+                    movimientosProduccion={movimientosProduccion} serviciosProduccion={serviciosProduccion}
+                    isParalizado={isParalizado} onOpenDialog={handleOpenMovimientoDialog}
+                    onDelete={handleDeleteMovimiento} onGenerarGuia={handleGenerarGuia}
+                    totalCantidad={getTotalCantidadMovimientos()}
+                  />
+                  <Card><CardContent className="pt-4">
+                    <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} lineaNegocioId={formData.linea_negocio_id} />
+                  </CardContent></Card>
+                </TabsContent>
 
-            {isEditing && (
-              <RegistroMovimientosCard
-                movimientosProduccion={movimientosProduccion} serviciosProduccion={serviciosProduccion}
-                isParalizado={isParalizado} onOpenDialog={handleOpenMovimientoDialog}
-                onDelete={handleDeleteMovimiento} onGenerarGuia={handleGenerarGuia}
-                totalCantidad={getTotalCantidadMovimientos()}
-              />
-            )}
-
-            {isEditing && <TrazabilidadPanel registroId={id} servicios={serviciosProduccion} personas={personasProduccion} />}
-
-            {isEditing && (
-              <RegistroIncidenciasCard
-                incidencias={incidencias} showResueltas={showResueltas}
-                onToggleResueltas={() => setShowResueltas(prev => !prev)}
-                onResolver={handleResolverIncidencia} onEliminar={handleEliminarIncidencia}
-                onNueva={() => { setIncidenciaForm({ motivo_id: '', comentario: '', paraliza: false }); setIncidenciaDialogOpen(true); }}
-              />
+                {/* TAB CONTROL: Incidencias + Trazabilidad */}
+                <TabsContent value="control" className="space-y-4 mt-0">
+                  <RegistroIncidenciasCard
+                    incidencias={incidencias} showResueltas={showResueltas}
+                    onToggleResueltas={() => setShowResueltas(prev => !prev)}
+                    onResolver={handleResolverIncidencia} onEliminar={handleEliminarIncidencia}
+                    onNueva={() => { setIncidenciaForm({ motivo_id: '', comentario: '', paraliza: false }); setIncidenciaDialogOpen(true); }}
+                  />
+                  <TrazabilidadPanel registroId={id} servicios={serviciosProduccion} personas={personasProduccion} />
+                </TabsContent>
+              </Tabs>
             )}
 
             {/* Mobile buttons */}
