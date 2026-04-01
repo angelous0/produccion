@@ -1985,3 +1985,6 @@ async def reunificar_lote(registro_id: str):
         
         return {
             "mensaje": f"Lote reunificado exitosamente con {padre['tallas']}",
+            "padre_id": padre_id,
+            "tallas_reunificadas": nuevas_tallas,
+        }
