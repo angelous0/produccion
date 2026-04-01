@@ -11,6 +11,7 @@ from auth_utils import get_current_user
 from helpers import row_to_dict, parse_jsonb
 from typing import Optional, List
 from pydantic import BaseModel
+from models import ESTADOS_PRODUCCION
 
 router = APIRouter(prefix="/api")
 
