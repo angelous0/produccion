@@ -413,6 +413,7 @@ export const InventarioIngresos = () => {
                         {formData.item_id ? (
                           <span className="truncate">
                             <span className="font-mono mr-2">{items.find(i => i.id === formData.item_id)?.codigo}</span>
+                            {(() => { const ln = lineasNegocio.find(l => l.id === items.find(i => i.id === formData.item_id)?.linea_negocio_id); return ln ? <span className="text-xs mr-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ln.nombre}</span> : null; })()}
                             {items.find(i => i.id === formData.item_id)?.nombre}
                           </span>
                         ) : (
@@ -427,21 +428,25 @@ export const InventarioIngresos = () => {
                         <CommandList>
                           <CommandEmpty>Sin resultados</CommandEmpty>
                           <CommandGroup className="max-h-[250px] overflow-auto">
-                            {items.filter(i => i.categoria !== 'PT').map((item) => (
-                              <CommandItem
-                                key={item.id}
-                                value={`${item.codigo} ${item.nombre}`}
-                                onSelect={() => handleItemChange(item.id)}
-                                data-testid={`item-option-${item.id}`}
-                              >
-                                <Check className={cn("mr-2 h-4 w-4", formData.item_id === item.id ? "opacity-100" : "opacity-0")} />
-                                <span className="font-mono text-xs mr-2 text-muted-foreground">{item.codigo}</span>
-                                <span className="truncate">{item.nombre}</span>
-                                {item.control_por_rollos && (
-                                  <Badge variant="outline" className="ml-auto text-xs shrink-0">Rollos</Badge>
-                                )}
-                              </CommandItem>
-                            ))}
+                            {items.filter(i => i.categoria !== 'PT').map((item) => {
+                              const ln = item.linea_negocio_id ? lineasNegocio.find(l => l.id === item.linea_negocio_id) : null;
+                              return (
+                                <CommandItem
+                                  key={item.id}
+                                  value={`${item.codigo} ${item.nombre} ${ln?.nombre || ''}`}
+                                  onSelect={() => handleItemChange(item.id)}
+                                  data-testid={`item-option-${item.id}`}
+                                >
+                                  <Check className={cn("mr-2 h-4 w-4", formData.item_id === item.id ? "opacity-100" : "opacity-0")} />
+                                  <span className="font-mono text-xs mr-2 text-muted-foreground">{item.codigo}</span>
+                                  {ln && <span className="text-xs mr-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">{ln.nombre}</span>}
+                                  <span className="truncate">{item.nombre}</span>
+                                  {item.control_por_rollos && (
+                                    <Badge variant="outline" className="ml-auto text-xs shrink-0">Rollos</Badge>
+                                  )}
+                                </CommandItem>
+                              );
+                            })}
                           </CommandGroup>
                         </CommandList>
                       </Command>
