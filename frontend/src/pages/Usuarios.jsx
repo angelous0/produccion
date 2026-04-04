@@ -580,6 +580,49 @@ export const Usuarios = () => {
                     </div>
                   </div>
 
+                  {/* Estados permitidos */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold">Estados de produccion permitidos</p>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px]"
+                          onClick={() => setOperativos({ estados_permitidos: [] })}>
+                          Todos
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Si no marcas ninguno, puede cambiar a todos los estados. Si marcas algunos, solo puede cambiar a esos.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                      {estructura.permisos_operativos?.estados_disponibles?.map((estado) => {
+                        const estadosPerms = operativos.estados_permitidos || [];
+                        const checked = estadosPerms.includes(estado);
+                        return (
+                          <label key={estado} className="flex items-center gap-2 p-1.5 rounded border text-[11px] cursor-pointer hover:bg-accent/50"
+                            data-testid={`estado-${estado}`}>
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => {
+                                const current = [...(operativos.estados_permitidos || [])];
+                                const idx = current.indexOf(estado);
+                                if (idx >= 0) current.splice(idx, 1);
+                                else current.push(estado);
+                                setOperativos({ estados_permitidos: current });
+                              }}
+                            />
+                            {estado}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {(operativos.estados_permitidos || []).length > 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Restringido a {(operativos.estados_permitidos || []).length} estado(s)
+                      </p>
+                    )}
+                  </div>
+
                   {/* Acciones de Inventario */}
                   <div>
                     <p className="text-sm font-semibold mb-2">Acciones de inventario/materiales</p>

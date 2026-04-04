@@ -13,10 +13,17 @@ export const RegistroHeader = ({
   estados, usaRuta, rutaNombre, analisisEstado,
   loading, id, navigate, API,
   autoGuardarEstado, setForzarEstadoDialog, setSugerenciaMovDialog,
-  handleSubmit,
+  handleSubmit, permisos,
 }) => {
 
+  const canChangeStates = permisos?.canAction?.('cambiar_estados') !== false;
+  const canChangeToState = (estado) => permisos?.canChangeToState?.(estado) !== false;
+
   const handleEstadoChange = async (value) => {
+    if (!canChangeStates || !canChangeToState(value)) {
+      toast.error('No tienes permiso para cambiar a este estado');
+      return;
+    }
     if (usaRuta && id) {
       try {
         const resp = await axios.post(`${API}/registros/${id}/validar-cambio-estado`, { nuevo_estado: value });
@@ -64,19 +71,24 @@ export const RegistroHeader = ({
               key={estados.length > 0 && formData.estado ? formData.estado : 'est-loading'}
               value={formData.estado}
               onValueChange={handleEstadoChange}
+              disabled={isParalizado || !canChangeStates}
             >
-              <SelectTrigger data-testid="select-estado" className={`w-[220px] h-9 text-sm font-semibold ${isParalizado ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado}>
+              <SelectTrigger data-testid="select-estado" className={`w-[220px] h-9 text-sm font-semibold ${(isParalizado || !canChangeStates) ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado || !canChangeStates}>
                 <SelectValue placeholder="Seleccionar estado" />
               </SelectTrigger>
               <SelectContent>
-                {estados.map((e, idx) => (
-                  <SelectItem key={e} value={e}>
-                    <span className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground font-mono w-5">{idx + 1}.</span>
-                      {e}
-                    </span>
-                  </SelectItem>
-                ))}
+                {estados.map((e, idx) => {
+                  const allowed = canChangeToState(e);
+                  return (
+                    <SelectItem key={e} value={e} disabled={!allowed}>
+                      <span className={`flex items-center gap-2 ${!allowed ? 'opacity-40' : ''}`}>
+                        <span className="text-xs text-muted-foreground font-mono w-5">{idx + 1}.</span>
+                        {e}
+                        {!allowed && <span className="text-[9px] text-red-400 ml-1">sin permiso</span>}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             {usaRuta && rutaNombre && (
@@ -101,14 +113,18 @@ export const RegistroHeader = ({
                 const currentIdx = estados.indexOf(formData.estado);
                 const isPast = idx < currentIdx;
                 const isCurrent = idx === currentIdx;
+                const allowed = canChangeStates && canChangeToState(e);
                 return (
                   <div key={e} className="flex items-center gap-0.5 shrink-0">
                     {idx > 0 && <div className={`w-3 h-0.5 ${isPast ? 'bg-primary' : 'bg-muted-foreground/20'}`} />}
-                    <div className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap cursor-pointer transition-colors ${
+                    <div className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap transition-colors ${
                       isCurrent ? 'bg-primary text-primary-foreground font-semibold' :
                       isPast ? 'bg-primary/20 text-primary' :
                       'bg-muted text-muted-foreground'
-                    }`} onClick={() => handleEstadoChange(e)}>{e}</div>
+                    } ${allowed && !isCurrent ? 'cursor-pointer hover:ring-1 hover:ring-primary/50' : ''} ${!allowed && !isCurrent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                      onClick={() => allowed && handleEstadoChange(e)}
+                      title={!allowed ? 'Sin permiso para este estado' : e}
+                    >{e}</div>
                   </div>
                 );
               })}

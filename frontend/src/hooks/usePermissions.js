@@ -27,7 +27,9 @@ export const usePermissions = (tabla) => {
       canService: () => true,
       canAction: () => true,
       canInventoryAction: () => true,
+      canChangeToState: () => true,
       serviciosPermitidos: [],
+      estadosPermitidos: [],
       todosServicios: true,
     };
   }
@@ -44,7 +46,9 @@ export const usePermissions = (tabla) => {
       canService: () => false,
       canAction: () => false,
       canInventoryAction: () => false,
+      canChangeToState: () => false,
       serviciosPermitidos: [],
+      estadosPermitidos: [],
       todosServicios: false,
     };
   }
@@ -57,6 +61,7 @@ export const usePermissions = (tabla) => {
   const todosServicios = serviciosPermitidos.length === 0; // vacío = todos permitidos
   const accionesProduccion = operativos.acciones_produccion || {};
   const accionesInventario = operativos.acciones_inventario || {};
+  const estadosPermitidos = operativos.estados_permitidos || []; // vacío = todos
 
   // Check if user can operate on a specific service
   const canService = (servicioId) => {
@@ -77,6 +82,12 @@ export const usePermissions = (tabla) => {
     return accionesInventario[actionKey] === true;
   };
 
+  // Check if user can change to a specific state
+  const canChangeToState = (estado) => {
+    if (estadosPermitidos.length === 0) return true; // vacío = todos
+    return estadosPermitidos.includes(estado);
+  };
+
   return {
     canView: permisosTabla.ver !== false,
     canCreate: permisosTabla.crear === true,
@@ -87,7 +98,9 @@ export const usePermissions = (tabla) => {
     canService,
     canAction,
     canInventoryAction,
+    canChangeToState,
     serviciosPermitidos,
+    estadosPermitidos,
     todosServicios,
   };
 };

@@ -389,6 +389,13 @@ async def get_estructura_permisos():
         ],
         "permisos_operativos": {
             "servicios_disponibles": servicios_list,
+            "estados_disponibles": [
+                "Para Corte", "Corte", "Para Estampado", "Estampado",
+                "Para Costura", "Costura", "Bordado",
+                "Para Atraque", "Atraque", "Para Lavanderia", "Lavanderia",
+                "Para Acabado", "Acabado", "Para Aacabado",
+                "Producto Terminado", "Tienda",
+            ],
             "acciones_produccion": [
                 {"key": "crear_movimientos", "nombre": "Crear movimientos de produccion"},
                 {"key": "editar_movimientos", "nombre": "Editar/eliminar movimientos"},

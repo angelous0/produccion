@@ -637,7 +637,7 @@ export const RegistroForm = () => {
         rutaNombre={rutaNombre} analisisEstado={analisisEstado} loading={loading} id={id}
         navigate={navigate} API={API} autoGuardarEstado={autoGuardarEstado}
         setForzarEstadoDialog={setForzarEstadoDialog} setSugerenciaMovDialog={setSugerenciaMovDialog}
-        handleSubmit={handleSubmit}
+        handleSubmit={handleSubmit} permisos={perms}
       />
 
       <form onSubmit={handleSubmit}>
