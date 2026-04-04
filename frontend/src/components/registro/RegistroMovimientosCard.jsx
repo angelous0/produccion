@@ -9,28 +9,33 @@ import { Plus, Play, Cog, Users, Calendar, Pencil, FileText, Trash2 } from 'luci
 
 export const RegistroMovimientosCard = ({
   movimientosProduccion, serviciosProduccion, isParalizado,
-  onOpenDialog, onDelete, onGenerarGuia, totalCantidad,
+  onOpenDialog, onDelete, onGenerarGuia, totalCantidad, permisos,
 }) => {
   const showAvance = serviciosProduccion.some(s => s.usa_avance_porcentaje && movimientosProduccion.some(m => m.servicio_id === s.id));
+  const canCreate = permisos?.canAction?.('crear_movimientos') !== false;
+  const canEditMov = permisos?.canAction?.('editar_movimientos') !== false;
+  const canCheckService = (servicioId) => permisos?.canService?.(servicioId) !== false;
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Play className="h-5 w-5" />
-          Movimientos de Producción
+          Movimientos de Produccion
         </CardTitle>
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => onOpenDialog()}
-          disabled={isParalizado}
-          className={isParalizado ? 'opacity-50 cursor-not-allowed' : ''}
-          data-testid="btn-nuevo-movimiento"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Agregar Movimiento
-        </Button>
+        {canCreate && (
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => onOpenDialog()}
+            disabled={isParalizado}
+            className={isParalizado ? 'opacity-50 cursor-not-allowed' : ''}
+            data-testid="btn-nuevo-movimiento"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Agregar Movimiento
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {movimientosProduccion.length > 0 ? (
@@ -139,15 +144,19 @@ export const RegistroMovimientosCard = ({
                         )}
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button type="button" variant="ghost" size="icon" onClick={() => onOpenDialog(mov)} disabled={isParalizado} className={isParalizado ? 'opacity-30' : ''} data-testid={`edit-movimiento-${mov.id}`}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button type="button" variant="ghost" size="icon" onClick={() => onGenerarGuia(mov.id)} title="Generar Guía de Remisión" data-testid={`guia-movimiento-${mov.id}`}>
+                            {canEditMov && canCheckService(mov.servicio_id) && (
+                              <Button type="button" variant="ghost" size="icon" onClick={() => onOpenDialog(mov)} disabled={isParalizado} className={isParalizado ? 'opacity-30' : ''} data-testid={`edit-movimiento-${mov.id}`}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button type="button" variant="ghost" size="icon" onClick={() => onGenerarGuia(mov.id)} title="Generar Guia de Remision" data-testid={`guia-movimiento-${mov.id}`}>
                               <FileText className="h-4 w-4 text-blue-500" />
                             </Button>
-                            <Button type="button" variant="ghost" size="icon" onClick={() => onDelete(mov.id)} disabled={isParalizado} className={isParalizado ? 'opacity-30' : ''} data-testid={`delete-movimiento-${mov.id}`}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {canEditMov && canCheckService(mov.servicio_id) && (
+                              <Button type="button" variant="ghost" size="icon" onClick={() => onDelete(mov.id)} disabled={isParalizado} className={isParalizado ? 'opacity-30' : ''} data-testid={`delete-movimiento-${mov.id}`}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

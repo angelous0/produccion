@@ -3,8 +3,14 @@ import { useAuth } from '../context/AuthContext';
 /**
  * Hook para verificar permisos del usuario actual
  * 
- * Uso:
+ * Uso basico:
  * const { canView, canCreate, canEdit, canDelete, isReadOnly } = usePermissions('registros');
+ * 
+ * Uso operativo:
+ * const { canService, canAction, canInventoryAction } = usePermissions('registros');
+ * canService('id-servicio-costura') // true/false
+ * canAction('crear_movimientos')    // true/false
+ * canInventoryAction('dar_salida_mp') // true/false
  */
 export const usePermissions = (tabla) => {
   const { user, isAdmin } = useAuth();
@@ -18,6 +24,11 @@ export const usePermissions = (tabla) => {
       canDelete: true,
       isReadOnly: false,
       isAdmin: true,
+      canService: () => true,
+      canAction: () => true,
+      canInventoryAction: () => true,
+      serviciosPermitidos: [],
+      todosServicios: true,
     };
   }
 
@@ -30,20 +41,54 @@ export const usePermissions = (tabla) => {
       canDelete: false,
       isReadOnly: true,
       isAdmin: false,
+      canService: () => false,
+      canAction: () => false,
+      canInventoryAction: () => false,
+      serviciosPermitidos: [],
+      todosServicios: false,
     };
   }
 
-  // Usuario normal - verificar permisos específicos
+  // Usuario normal - verificar permisos especificos
   const permisos = user?.permisos || {};
   const permisosTabla = permisos[tabla] || {};
+  const operativos = permisos._operativos || {};
+  const serviciosPermitidos = operativos.servicios_permitidos || [];
+  const todosServicios = serviciosPermitidos.length === 0; // vacío = todos permitidos
+  const accionesProduccion = operativos.acciones_produccion || {};
+  const accionesInventario = operativos.acciones_inventario || {};
+
+  // Check if user can operate on a specific service
+  const canService = (servicioId) => {
+    if (todosServicios) return true;
+    return serviciosPermitidos.includes(servicioId);
+  };
+
+  // Check production action
+  const canAction = (actionKey) => {
+    // Si no hay operativos definidos, permitir todo (backward compatibility)
+    if (!operativos.acciones_produccion) return true;
+    return accionesProduccion[actionKey] === true;
+  };
+
+  // Check inventory action
+  const canInventoryAction = (actionKey) => {
+    if (!operativos.acciones_inventario) return true;
+    return accionesInventario[actionKey] === true;
+  };
 
   return {
-    canView: permisosTabla.ver !== false, // Por defecto puede ver
+    canView: permisosTabla.ver !== false,
     canCreate: permisosTabla.crear === true,
     canEdit: permisosTabla.editar === true,
     canDelete: permisosTabla.eliminar === true,
     isReadOnly: !permisosTabla.crear && !permisosTabla.editar && !permisosTabla.eliminar,
     isAdmin: false,
+    canService,
+    canAction,
+    canInventoryAction,
+    serviciosPermitidos,
+    todosServicios,
   };
 };
 

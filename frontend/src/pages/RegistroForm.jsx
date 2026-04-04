@@ -14,6 +14,7 @@ import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
 import MaterialesTab from '../components/MaterialesTab';
 import { ConversacionPanel, ConversacionTrigger } from '../components/ConversacionPanel';
 import { useAuth } from '../context/AuthContext';
+import usePermissions from '../hooks/usePermissions';
 
 // Subcomponentes modulares
 import {
@@ -31,6 +32,9 @@ export const RegistroForm = () => {
   const { id } = useParams();
   const isEditing = Boolean(id);
   const { user } = useAuth();
+  const perms = usePermissions('registros');
+  const permsMovimientos = usePermissions('movimientos_produccion');
+  const permsInventario = usePermissions('inventario_salidas');
 
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
@@ -707,9 +711,12 @@ export const RegistroForm = () => {
                     isParalizado={isParalizado} onOpenDialog={handleOpenMovimientoDialog}
                     onDelete={handleDeleteMovimiento} onGenerarGuia={handleGenerarGuia}
                     totalCantidad={getTotalCantidadMovimientos()}
+                    permisos={permsMovimientos}
                   />
                   <Card><CardContent className="pt-4">
-                    <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} lineaNegocioId={formData.linea_negocio_id} />
+                    <MaterialesTab registroId={id} totalPrendas={1} modeloId={formData.modelo_id} lineaNegocioId={formData.linea_negocio_id}
+                      permisos={permsInventario}
+                    />
                   </CardContent></Card>
                 </TabsContent>
 
@@ -720,6 +727,7 @@ export const RegistroForm = () => {
                     onToggleResueltas={() => setShowResueltas(prev => !prev)}
                     onResolver={handleResolverIncidencia} onEliminar={handleEliminarIncidencia}
                     onNueva={() => { setIncidenciaForm({ motivo_id: '', comentario: '', paraliza: false }); setIncidenciaDialogOpen(true); }}
+                    permisos={perms}
                   />
                   <TrazabilidadPanel registroId={id} servicios={serviciosProduccion} personas={personasProduccion} />
                 </TabsContent>
@@ -732,7 +740,7 @@ export const RegistroForm = () => {
                 <Save className="h-4 w-4 mr-2" />
                 {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
               </Button>
-              {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && (
+              {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && perms.canAction('dividir_lotes') && (
                 <Button type="button" variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={handleOpenDivision} data-testid="btn-dividir-lote-mobile">
                   <Scissors className="h-4 w-4 mr-2" /> Dividir Lote
                 </Button>
@@ -750,6 +758,7 @@ export const RegistroForm = () => {
             loading={loading} navigate={navigate} onSubmit={handleSubmit}
             onOpenDivision={handleOpenDivision} id={id} API={API}
             convOpen={convOpen} setConvOpen={setConvOpen} user={user}
+            permisos={perms}
           />
         </div>
       </form>

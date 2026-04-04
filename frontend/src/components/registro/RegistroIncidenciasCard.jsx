@@ -7,8 +7,11 @@ import { AlertTriangle, Plus, ChevronDown, ChevronUp, Check, Trash2 } from 'luci
 
 export const RegistroIncidenciasCard = ({
   incidencias, showResueltas, onToggleResueltas,
-  onResolver, onEliminar, onNueva,
+  onResolver, onEliminar, onNueva, permisos,
 }) => {
+  const canRegister = permisos?.canAction?.('registrar_incidencias') !== false;
+  const canResolve = permisos?.canAction?.('resolver_incidencias') !== false;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -20,9 +23,11 @@ export const RegistroIncidenciasCard = ({
               <Badge variant="destructive" className="ml-1">{incidencias.filter(i => i.estado === 'ABIERTA').length} abiertas</Badge>
             )}
           </CardTitle>
-          <Button type="button" size="sm" variant="outline" onClick={onNueva} data-testid="btn-nueva-incidencia">
-            <Plus className="h-4 w-4 mr-1" /> Nueva
-          </Button>
+          {canRegister && (
+            <Button type="button" size="sm" variant="outline" onClick={onNueva} data-testid="btn-nueva-incidencia">
+              <Plus className="h-4 w-4 mr-1" /> Nueva
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -50,12 +55,16 @@ export const RegistroIncidenciasCard = ({
                   </p>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onResolver(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
-                    <Check className="h-4 w-4 text-green-600" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEliminar(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
+                  {canResolve && (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onResolver(inc.id)} title="Resolver" data-testid={`resolver-incidencia-${inc.id}`}>
+                      <Check className="h-4 w-4 text-green-600" />
+                    </Button>
+                  )}
+                  {canRegister && (
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEliminar(inc.id)} title="Eliminar" data-testid={`eliminar-incidencia-${inc.id}`}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

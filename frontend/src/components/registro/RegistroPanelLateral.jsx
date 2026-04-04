@@ -36,7 +36,7 @@ export const RegistroPanelLateral = ({
   lineasNegocio, isParalizado, isEditing,
   movimientosProduccion, incidencias,
   loading, navigate, onSubmit, onOpenDivision,
-  id, API, convOpen, setConvOpen, user,
+  id, API, convOpen, setConvOpen, user, permisos,
 }) => {
   return (
     <div className="hidden lg:block">
@@ -91,7 +91,7 @@ export const RegistroPanelLateral = ({
             <Save className="h-4 w-4 mr-2" />
             {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
           </Button>
-          {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && (
+          {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && permisos?.canAction?.('dividir_lotes') !== false && (
             <Button type="button" variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={onOpenDivision} data-testid="btn-dividir-lote">
               <Scissors className="h-3.5 w-3.5 mr-1.5" /> Dividir Lote
             </Button>

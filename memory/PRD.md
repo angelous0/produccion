@@ -68,6 +68,7 @@ Sistema de gestion de produccion textil con flujo de trabajo completo: desde cor
 - [x] Fix WIP por Etapa sin prendas (DONE 2026-04-01)
 - [x] Datos demo completos: 8 modelos, 13 registros, 43 movimientos, mermas, fallados, arreglos (DONE 2026-04-01)
 - [x] BOMs completos: 8 BOMs con materiales, 72 requerimientos, 14 reservas, 60 salidas MP (DONE 2026-04-01)
+- [x] Sistema de Permisos Granulares: servicios, acciones produccion/inventario (DONE 2026-04-04)
 - [ ] Verificar paginas de Reportes Consolidados
 - [ ] Trazabilidad Unificada - Frontend (UI de timeline y balance en detalle registro)
 

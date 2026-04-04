@@ -225,6 +225,50 @@ export const Usuarios = () => {
     setPermisos(newPermisos);
   };
 
+  // ===== Operativos =====
+  const operativos = permisos._operativos || {};
+  const serviciosPermitidos = operativos.servicios_permitidos || [];
+  const accionesProduccion = operativos.acciones_produccion || {};
+  const accionesInventario = operativos.acciones_inventario || {};
+
+  const setOperativos = (op) => {
+    setPermisos(prev => ({ ...prev, _operativos: { ...prev._operativos, ...op } }));
+  };
+
+  const toggleServicio = (sid) => {
+    const current = [...serviciosPermitidos];
+    const idx = current.indexOf(sid);
+    if (idx >= 0) current.splice(idx, 1);
+    else current.push(sid);
+    setOperativos({ servicios_permitidos: current });
+  };
+
+  const toggleAccionProd = (key) => {
+    setOperativos({
+      acciones_produccion: { ...accionesProduccion, [key]: !accionesProduccion[key] }
+    });
+  };
+
+  const toggleAccionInv = (key) => {
+    setOperativos({
+      acciones_inventario: { ...accionesInventario, [key]: !accionesInventario[key] }
+    });
+  };
+
+  const selectAllServicios = (all) => {
+    if (all) {
+      setOperativos({ servicios_permitidos: [] }); // vacío = todos
+    }
+  };
+
+  const selectNoneServicios = () => {
+    const allIds = estructura.permisos_operativos?.servicios_disponibles?.map(s => s.id) || [];
+    // Deselecting all = setting to the full list, which then means "none" by negation
+    // Actually: vacío = todos, con IDs = solo esos
+    // So if user wants to restrict, they select specific services
+    setOperativos({ servicios_permitidos: [] }); 
+  };
+
   const handleNew = () => {
     setEditingUser(null);
     resetForm();
@@ -463,18 +507,100 @@ export const Usuarios = () => {
 
       {/* Dialog Editar Permisos */}
       <Dialog open={permisosDialogOpen} onOpenChange={setPermisosDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-500" />
               Permisos de {editingUser?.nombre_completo || editingUser?.username}
             </DialogTitle>
             <DialogDescription>
-              Configura los permisos por tabla. Marca las acciones permitidas.
+              Configura permisos por modulo y permisos operativos granulares.
             </DialogDescription>
           </DialogHeader>
           
-          <Accordion type="multiple" className="w-full" defaultValue={estructura.categorias?.map(c => c.nombre)}>
+          <Accordion type="multiple" className="w-full" defaultValue={['operativos']}>
+            {/* ===== PERMISOS OPERATIVOS ===== */}
+            <AccordionItem value="operativos">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-amber-500" />
+                  <span className="font-semibold">Permisos Operativos</span>
+                  <Badge variant="secondary" className="text-[10px] ml-1">Granular</Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-5 pl-2">
+                  {/* Servicios Permitidos */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold">Servicios permitidos para movimientos</p>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px]"
+                          onClick={() => setOperativos({ servicios_permitidos: [] })}>
+                          Todos
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Si no marcas ninguno, tiene acceso a todos. Si marcas algunos, solo puede operar en esos servicios.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {estructura.permisos_operativos?.servicios_disponibles?.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 p-2 rounded border text-xs cursor-pointer hover:bg-accent/50"
+                          data-testid={`servicio-${s.nombre}`}>
+                          <Checkbox
+                            checked={serviciosPermitidos.includes(s.id)}
+                            onCheckedChange={() => toggleServicio(s.id)}
+                          />
+                          {s.nombre}
+                        </label>
+                      ))}
+                    </div>
+                    {serviciosPermitidos.length > 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        Restringido a {serviciosPermitidos.length} servicio(s)
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Acciones de Produccion */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Acciones de produccion</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {estructura.permisos_operativos?.acciones_produccion?.map((a) => (
+                        <label key={a.key} className="flex items-center gap-2 p-2 rounded border text-xs cursor-pointer hover:bg-accent/50"
+                          data-testid={`accion-prod-${a.key}`}>
+                          <Checkbox
+                            checked={accionesProduccion[a.key] || false}
+                            onCheckedChange={() => toggleAccionProd(a.key)}
+                          />
+                          {a.nombre}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Acciones de Inventario */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Acciones de inventario/materiales</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {estructura.permisos_operativos?.acciones_inventario?.map((a) => (
+                        <label key={a.key} className="flex items-center gap-2 p-2 rounded border text-xs cursor-pointer hover:bg-accent/50"
+                          data-testid={`accion-inv-${a.key}`}>
+                          <Checkbox
+                            checked={accionesInventario[a.key] || false}
+                            onCheckedChange={() => toggleAccionInv(a.key)}
+                          />
+                          {a.nombre}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* ===== PERMISOS POR MODULO ===== */}
             {estructura.categorias?.map((categoria) => {
               const Icon = CATEGORIA_ICONS[categoria.nombre] || Database;
               return (
@@ -516,7 +642,7 @@ export const Usuarios = () => {
             <Button type="button" variant="outline" onClick={() => setPermisosDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSavePermisos}>
+            <Button onClick={handleSavePermisos} data-testid="btn-guardar-permisos">
               Guardar Permisos
             </Button>
           </DialogFooter>

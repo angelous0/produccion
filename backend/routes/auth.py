@@ -315,15 +315,23 @@ async def reset_password_usuario(user_id: str, current_user: dict = Depends(get_
 @router.get("/permisos/estructura")
 async def get_estructura_permisos():
     """Retorna la estructura de permisos disponibles agrupados por categoría"""
+    # Obtener servicios de producción para permisos operativos
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        servicios = await conn.fetch(
+            "SELECT id, nombre FROM prod_servicios_produccion ORDER BY nombre"
+        )
+        servicios_list = [{"id": s["id"], "nombre": s["nombre"]} for s in servicios]
+
     return {
         "categorias": [
             {
-                "nombre": "Producción",
+                "nombre": "Produccion",
                 "icono": "Play",
                 "tablas": [
                     {"key": "registros", "nombre": "Registros", "acciones": ["ver", "crear", "editar", "eliminar"]},
-                    {"key": "movimientos_produccion", "nombre": "Movimientos de Producción", "acciones": ["ver", "crear", "editar", "eliminar"]},
-                    {"key": "guias_remision", "nombre": "Guías de Remisión", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "movimientos_produccion", "nombre": "Movimientos de Produccion", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "guias_remision", "nombre": "Guias de Remision", "acciones": ["ver", "crear", "editar", "eliminar"]},
                 ]
             },
             {
@@ -346,7 +354,7 @@ async def get_estructura_permisos():
                     {"key": "entalles", "nombre": "Entalles", "acciones": ["ver", "crear", "editar", "eliminar"]},
                     {"key": "telas", "nombre": "Telas", "acciones": ["ver", "crear", "editar", "eliminar"]},
                     {"key": "hilos", "nombre": "Hilos", "acciones": ["ver", "crear", "editar", "eliminar"]},
-                    {"key": "hilos_especificos", "nombre": "Hilos Específicos", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "hilos_especificos", "nombre": "Hilos Especificos", "acciones": ["ver", "crear", "editar", "eliminar"]},
                     {"key": "tallas", "nombre": "Tallas", "acciones": ["ver", "crear", "editar", "eliminar"]},
                     {"key": "colores", "nombre": "Colores", "acciones": ["ver", "crear", "editar", "eliminar"]},
                     {"key": "colores_generales", "nombre": "Colores Generales", "acciones": ["ver", "crear", "editar", "eliminar"]},
@@ -354,12 +362,12 @@ async def get_estructura_permisos():
                 ]
             },
             {
-                "nombre": "Configuración",
+                "nombre": "Configuracion",
                 "icono": "Settings",
                 "tablas": [
                     {"key": "servicios_produccion", "nombre": "Servicios", "acciones": ["ver", "crear", "editar", "eliminar"]},
                     {"key": "personas_produccion", "nombre": "Personas", "acciones": ["ver", "crear", "editar", "eliminar"]},
-                    {"key": "rutas_produccion", "nombre": "Rutas de Producción", "acciones": ["ver", "crear", "editar", "eliminar"]},
+                    {"key": "rutas_produccion", "nombre": "Rutas de Produccion", "acciones": ["ver", "crear", "editar", "eliminar"]},
                 ]
             },
             {
@@ -378,7 +386,27 @@ async def get_estructura_permisos():
                     {"key": "reporte_movimientos", "nombre": "Reporte Movimientos", "acciones": ["ver"]},
                 ]
             },
-        ]
+        ],
+        "permisos_operativos": {
+            "servicios_disponibles": servicios_list,
+            "acciones_produccion": [
+                {"key": "crear_movimientos", "nombre": "Crear movimientos de produccion"},
+                {"key": "editar_movimientos", "nombre": "Editar/eliminar movimientos"},
+                {"key": "cambiar_estados", "nombre": "Cambiar estados de registros"},
+                {"key": "registrar_incidencias", "nombre": "Registrar incidencias/paralizaciones"},
+                {"key": "resolver_incidencias", "nombre": "Resolver incidencias/paralizaciones"},
+                {"key": "dividir_lotes", "nombre": "Dividir lotes"},
+                {"key": "cerrar_lotes", "nombre": "Cerrar/finalizar lotes"},
+            ],
+            "acciones_inventario": [
+                {"key": "crear_items", "nombre": "Crear items de inventario"},
+                {"key": "registrar_ingresos", "nombre": "Registrar ingresos"},
+                {"key": "dar_salida_mp", "nombre": "Dar salida de materia prima"},
+                {"key": "reservar_materiales", "nombre": "Reservar materiales"},
+                {"key": "ajustes_stock", "nombre": "Ajustes de stock"},
+                {"key": "gestionar_bom", "nombre": "Gestionar BOM de modelos"},
+            ],
+        }
     }
 
 # ==================== ENDPOINTS HISTORIAL DE ACTIVIDAD ====================
