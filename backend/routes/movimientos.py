@@ -143,19 +143,19 @@ async def create_movimiento(input: MovimientoCreate):
         if input.fecha_inicio:
             try:
                 fecha_inicio = datetime.strptime(input.fecha_inicio, '%Y-%m-%d').date()
-            except:
+            except (ValueError, TypeError):
                 pass
         if input.fecha_fin:
             try:
                 fecha_fin = datetime.strptime(input.fecha_fin, '%Y-%m-%d').date()
-            except:
+            except (ValueError, TypeError):
                 pass
         
         fecha_esperada = None
         if input.fecha_esperada_movimiento:
             try:
                 fecha_esperada = datetime.strptime(input.fecha_esperada_movimiento, '%Y-%m-%d').date()
-            except:
+            except (ValueError, TypeError):
                 pass
         
         await conn.execute(
@@ -217,19 +217,19 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
         if input.fecha_inicio:
             try:
                 fecha_inicio = datetime.strptime(input.fecha_inicio, '%Y-%m-%d').date()
-            except:
+            except (ValueError, TypeError):
                 pass
         if input.fecha_fin:
             try:
                 fecha_fin = datetime.strptime(input.fecha_fin, '%Y-%m-%d').date()
-            except:
+            except (ValueError, TypeError):
                 pass
         
         fecha_esperada = None
         if input.fecha_esperada_movimiento:
             try:
                 fecha_esperada = datetime.strptime(input.fecha_esperada_movimiento, '%Y-%m-%d').date()
-            except:
+            except (ValueError, TypeError):
                 pass
         
         await conn.execute(
@@ -390,7 +390,7 @@ async def create_guia_remision(input: GuiaRemisionCreate):
         if ultima and ultima['numero_guia']:
             try:
                 num = int(ultima['numero_guia'].replace('GR-', '')) + 1
-            except:
+            except (ValueError, TypeError):
                 num = 1
         else:
             num = 1
@@ -443,7 +443,7 @@ async def create_guia_from_movimiento(movimiento_id: str):
         if ultima and ultima['numero_guia']:
             try:
                 num = int(ultima['numero_guia'].replace('GR-', '')) + 1
-            except:
+            except (ValueError, TypeError):
                 num = 1
         else:
             num = 1

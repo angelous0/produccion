@@ -1,86 +1,103 @@
-# PRD - Produccion Textil
+# Sistema de Produccion Textil - PRD
 
-## Original Problem Statement
-Sistema de gestion de produccion textil con flujo de trabajo completo: desde corte hasta almacen PT. Incluye gestion de inventario FIFO, BOM, movimientos de produccion, cierre de produccion, control operativo por movimiento, division de lotes, reportes de produccion P0, y trazabilidad unificada de cantidades.
+## Problema Original
+Sistema de gestion de produccion textil full-stack con trazabilidad unificada de lotes, permisos granulares y reportes operativos.
 
-## What's Been Implemented
-- Flujo de produccion completo con linea de tiempo de estado
-- Panel de cierre integrado en RegistroForm
-- Proteccion anti doble-click con hook useSaving() en 21+ paginas
-- Control Operativo: fecha_esperada por movimiento, alertas, incidencias, paralizaciones
-- Personal Interno/Externo: tipo_persona y unidad_interna
-- Vinculacion Bidireccional Estado-Movimientos (sugerencias, bloqueos, auto-guardado)
-- Division de Lote (Split): dividir, reunificar, nomenclatura automatica
-- Performance: GET registros 5.8s->0.5s, GET modelos 3.3s->0.5s
-- Rutas editables inline
-- **Modulo Reportes P0**: Dashboard KPIs, En Proceso, WIP por Etapa, Atrasados, Trazabilidad, Cumplimiento Ruta, Balance Terceros, Lotes Fraccionados
-- **Matriz Dinamica de Produccion**: Filas=Item, Columnas=Estados, Toggle Registros/Prendas, Fusion columnas, Pop-up modal
-- **Trazabilidad Unificada**: Backend completo con Fallados, Arreglos, Timeline, Balance
-- **Migracion MariaDB -> PostgreSQL**
-- **Optimizacion Performance**: Paginacion server-side, Eliminacion N+1 queries
-- **UI/UX Mejoras**: Multi-select tallas, BOM simplificado, Modal inventario, Hilo Especifico, Guias impresion
-- **Refactorizacion Backend** (2026-03-28): server.py de 7805 a ~1088 lineas, routers modulares
-- **Refactorizacion Frontend** (2026-04-01): RegistroForm.jsx de 3354 a 789 lineas, 7 subcomponentes extraidos
+## Stack
+- Backend: FastAPI + asyncpg + PostgreSQL
+- Frontend: React + Tailwind + Shadcn/UI
+- BD: PostgreSQL (schema `produccion`)
 
-## Code Architecture
-```
-/app
-├── backend/
-│   ├── auth_utils.py
-│   ├── helpers.py
-│   ├── models.py (Pydantic + constants like ESTADOS_PRODUCCION)
-│   ├── server.py (~1088 lines, entrypoint)
-│   └── routes/
-│       ├── auth.py
-│       ├── catalogos.py
-│       ├── inventario_main.py
-│       ├── modelos.py
-│       ├── registros_main.py (~1990 lines)
-│       ├── movimientos.py
-│       ├── stats_reportes.py
-│       ├── trazabilidad.py
-│       └── ...
-└── frontend/
-    └── src/
-        ├── components/
-        │   └── registro/    <-- NEW modular subcomponents
-        │       ├── index.js
-        │       ├── RegistroHeader.jsx (151 lines)
-        │       ├── RegistroDatosCard.jsx (251 lines)
-        │       ├── RegistroTallasCard.jsx (118 lines)
-        │       ├── RegistroMovimientosCard.jsx (179 lines)
-        │       ├── RegistroIncidenciasCard.jsx (116 lines)
-        │       ├── RegistroPanelLateral.jsx (144 lines)
-        │       └── RegistroDialogs.jsx (728 lines)
-        └── pages/
-            └── RegistroForm.jsx (789 lines - orchestrator only)
-```
+## Credenciales
+- Admin: `eduard` / `eduard123`
+- empresa_id estandarizado: **7** (en todo el sistema)
 
-## Prioritized Backlog
-### P0
-- [x] Refactorizacion Backend: server.py modularizado (DONE)
-- [x] Refactorizacion Frontend: RegistroForm.jsx modularizado (DONE 2026-04-01)
-- [x] Reporte Paralizados: KPIs + tabla + historial + filtro solo activas (DONE 2026-04-01)
-- [x] Mejora Layout Registro: Sistema de 3 pestanas (General/Produccion/Control) (DONE 2026-04-01)
-- [x] Restaurar graficos Recharts en Dashboard principal
-- [x] Fix empresa_id default 8->7 en todos los endpoints de reportes (DONE 2026-04-01)
-- [x] Fix alertas-produccion missing return statement (DONE 2026-04-01)
-- [x] Fix WIP por Etapa sin prendas (DONE 2026-04-01)
-- [x] Datos demo completos: 8 modelos, 13 registros, 43 movimientos, mermas, fallados, arreglos (DONE 2026-04-01)
-- [x] BOMs completos: 8 BOMs con materiales, 72 requerimientos, 14 reservas, 60 salidas MP (DONE 2026-04-01)
-- [x] Sistema de Permisos Granulares: servicios, acciones produccion/inventario (DONE 2026-04-04)
-- [ ] Verificar paginas de Reportes Consolidados
-- [ ] Trazabilidad Unificada - Frontend (UI de timeline y balance en detalle registro)
+## Funcionalidades Implementadas
+
+### Core
+- Gestion de registros de produccion (CRUD completo)
+- Modelos, marcas, tipos, entalles, telas, hilos, tallas, colores
+- Rutas de produccion con etapas
+- Movimientos entre servicios/personas
+- Incidencias con paralizacion
+
+### Trazabilidad Unificada (Completa)
+- Backend: CRUD fallados, arreglos, liquidacion directa
+- Resumen de cantidades (balance del lote)
+- Timeline unificado (movimientos + mermas + fallados + arreglos + divisiones)
+- Reporte general de trazabilidad
+- Mermas automaticas cuando cantidad_enviada != cantidad_recibida
+- Frontend: TrazabilidadPanel integrado en pestana "Control"
+
+### Permisos Granulares
+- servicios_permitidos, acciones_produccion, acciones_inventario, estados_permitidos
+- Hook usePermissions para frontend
+- Restriccion visual en timeline y dropdown de estados
+
+### Reportes
+- Dashboard con KPIs reactivos
+- Matriz de produccion (fusión columnas, modal enriquecido, colores)
+- Seguimiento: En Proceso, WIP Etapa, Atrasados, Cumplimiento Ruta, Paralizados
+- Operativo: Balance Terceros, Costura, Tiempos Muertos
+- Lotes: Trazabilidad, Fraccionados
+- Calidad: Mermas, Estados Item
+- Valorizacion: MP, WIP, PT
+
+### Inventario FIFO
+- Items, ingresos, salidas, ajustes, rollos, kardex
+- BOM (Bill of Materials) con explosion
+- Reservas y consumo de materia prima
+
+### UI/UX
+- RegistroForm con pestanas (General, Produccion, Control)
+- Panel lateral contextual
+- Tema oscuro/claro
+
+## Limpieza realizada (05-Abr-2026)
+- Estandarizado empresa_id = 7 en 10 archivos y 5 tablas BD
+- Eliminados 8 archivos muertos (2723 lineas): scripts de migracion, tests sueltos
+- Corregidos todos los bare except: a except especificos
+- Conectado ReporteParalizados al menu de Seguimiento
+- Fix bug: variable cantidad_inicial usada antes de definirse en trazabilidad.py
+- Migracion automatica en startup para normalizar empresa_id
+
+## Backlog Priorizado
 
 ### P1
-- [ ] Reportes y KPIs de Trazabilidad (perdidas por servicio, fallados por responsable)
+- Reportes/KPIs de Trazabilidad (perdidas por servicio, fallados por responsable, arreglos vencidos)
 
 ### P2
-- [ ] Filtrar alertas por usuario/servicio
-- [ ] Exportacion a Excel/PDF
+- Filtrar alertas (campana) por servicios del usuario
+- Filtrar Sidebar por permisos con usePermissions
 
 ### P3
-- [ ] Permisos granulares con usePermissions
+- Exportacion a Excel/PDF
+- Lazy loading en frontend
 
-## Credentials
-- Login: eduard / eduard123
+## Arquitectura de Archivos Clave
+```
+backend/
+  server.py          - Startup, DDL, middleware (1089 lineas)
+  auth.py            - Utilidades JWT, get_current_user
+  auth_utils.py      - Helpers de auth
+  db.py              - Pool PostgreSQL
+  helpers.py         - row_to_dict, utilidades
+  routes/
+    auth.py          - Login, usuarios, permisos
+    registros_main.py - CRUD registros (1991 lineas)
+    trazabilidad.py  - Fallados, arreglos, balance, timeline
+    movimientos.py   - Movimientos produccion, mermas auto
+    reportes_produccion.py - Dashboard, matriz, KPIs
+    + 15 routers mas
+
+frontend/src/
+  pages/
+    RegistroForm.jsx - Detalle registro (3 pestanas)
+    Registros.jsx    - Listado con RegistroDetalleFase2
+    Dashboard.jsx    - KPIs principales
+  components/
+    TrazabilidadPanel.jsx - Balance + timeline + CRUD fallados/arreglos
+    registro/        - Subcomponentes modulares
+  hooks/
+    usePermissions.js - Permisos granulares
+```

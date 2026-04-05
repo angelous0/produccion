@@ -127,7 +127,7 @@ async def get_registros(
                     try:
                         fecha = date_type.fromisoformat(str(d['fecha_entrega_final']))
                         d['estado_operativo'] = 'EN_RIESGO' if fecha < date_type.today() else 'NORMAL'
-                    except:
+                    except (ValueError, TypeError):
                         d['estado_operativo'] = 'NORMAL'
                 else:
                     d['estado_operativo'] = 'NORMAL'

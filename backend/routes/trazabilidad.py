@@ -22,18 +22,18 @@ from helpers import row_to_dict
 
 def safe_int(v):
     try: return int(v or 0)
-    except: return 0
+    except (ValueError, TypeError): return 0
 
 def safe_float(v):
     try: return float(v or 0)
-    except: return 0.0
+    except (ValueError, TypeError): return 0.0
 
 def parse_jsonb(val):
     if val is None: return []
     if isinstance(val, list): return val
     if isinstance(val, str):
         try: return json.loads(val)
-        except: return []
+        except (ValueError, json.JSONDecodeError): return []
     return val
 
 DIAS_LIMITE_ARREGLO = 3
@@ -310,7 +310,7 @@ async def get_arreglos(
                     lim = date.fromisoformat(str(d["fecha_limite"])[:10])
                     if lim < date.today() and not d.get("fecha_retorno"):
                         d["vencido"] = True
-                except:
+                except (ValueError, TypeError):
                     pass
             result.append(d)
         return result
@@ -561,7 +561,7 @@ async def resumen_cantidades(
                     lim = a["fecha_limite"] if isinstance(a["fecha_limite"], date) else date.fromisoformat(str(a["fecha_limite"])[:10])
                     if lim < date.today():
                         arreglos_vencidos += safe_int(a["cantidad_enviada"])
-                except:
+                except (ValueError, TypeError):
                     pass
 
         # Liquidación from arreglos resultado_final
@@ -689,7 +689,7 @@ async def reporte_trazabilidad(
                         lim = a["fecha_limite"] if isinstance(a["fecha_limite"], date) else date.fromisoformat(str(a["fecha_limite"])[:10])
                         if lim < date.today():
                             vencidos += safe_int(a["cantidad_enviada"])
-                    except:
+                    except (ValueError, TypeError):
                         pass
 
             divididos = safe_int(await conn.fetchval(
@@ -847,7 +847,7 @@ async def trazabilidad_completa(
                 try:
                     lim = d["fecha_limite"] if isinstance(d["fecha_limite"], date) else date.fromisoformat(str(d["fecha_limite"])[:10])
                     vencido = lim < date.today() and not d.get("fecha_retorno")
-                except:
+                except (ValueError, TypeError):
                     pass
             eventos.append({
                 "tipo_evento": "ARREGLO",

@@ -25,7 +25,7 @@ def parse_jsonb(val):
     if isinstance(val, str):
         try:
             return json.loads(val)
-        except:
+        except (ValueError, json.JSONDecodeError):
             return []
     return val
 
@@ -33,14 +33,14 @@ def parse_jsonb(val):
 def safe_float(v):
     try:
         return float(v or 0)
-    except:
+    except (ValueError, TypeError):
         return 0.0
 
 
 def safe_int(v):
     try:
         return int(v or 0)
-    except:
+    except (ValueError, TypeError):
         return 0
 
 

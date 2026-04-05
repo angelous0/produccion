@@ -844,7 +844,7 @@ async def backup_info(current_user: dict = Depends(get_current_user)):
             try:
                 count = await conn.fetchval(f"SELECT COUNT(*) FROM {table}")
                 info["tables"].append({"name": table, "count": count})
-            except:
+            except Exception:
                 info["tables"].append({"name": table, "count": 0, "error": True})
     
     return info

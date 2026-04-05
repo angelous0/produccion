@@ -316,7 +316,7 @@ async def update_registro_control(registro_id: str, data: dict):
                 try:
                     parsed = datetime.strptime(val, '%Y-%m-%d').date()
                     params.append(parsed)
-                except:
+                except (ValueError, TypeError):
                     params.append(None)
             else:
                 params.append(None)
