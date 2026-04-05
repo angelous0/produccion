@@ -26,7 +26,7 @@ class TallaCantidad(BaseModel):
 
 
 class OrdenCreate(BaseModel):
-    empresa_id: int = 8
+    empresa_id: int = 7
     n_corte: str
     modelo_id: str
     pt_item_id: Optional[str] = None

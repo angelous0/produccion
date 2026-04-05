@@ -20,7 +20,7 @@ from helpers import row_to_dict
 # ==================== PYDANTIC MODELS ====================
 
 class ServicioOrdenCreate(BaseModel):
-    empresa_id: int = 8
+    empresa_id: int = 7
     orden_id: str
     servicio_id: Optional[str] = None
     persona_id: Optional[str] = None

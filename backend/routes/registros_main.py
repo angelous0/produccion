@@ -849,7 +849,7 @@ async def generar_requerimiento_mp(registro_id: str, bom_id: str = Query(None)):
         
         created = 0
         updated = 0
-        empresa_id = registro.get('empresa_id') or 8
+        empresa_id = registro.get('empresa_id') or 7
         
         for bom in bom_lineas:
             item_id = bom['inventario_id']

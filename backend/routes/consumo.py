@@ -20,7 +20,7 @@ from helpers import row_to_dict
 # ==================== PYDANTIC MODELS ====================
 
 class ConsumoCreate(BaseModel):
-    empresa_id: int = 8
+    empresa_id: int = 7
     orden_id: str
     item_id: str
     rollo_id: Optional[str] = None
@@ -31,7 +31,7 @@ class ConsumoCreate(BaseModel):
 
 
 class ConsumoMultiRollo(BaseModel):
-    empresa_id: int = 8
+    empresa_id: int = 7
     orden_id: str
     item_id: str
     talla_id: Optional[str] = None

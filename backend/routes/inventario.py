@@ -32,7 +32,7 @@ class ItemBase(BaseModel):
 
 
 class ItemCreate(ItemBase):
-    empresa_id: int = 8
+    empresa_id: int = 7
 
 
 class ItemUpdate(BaseModel):

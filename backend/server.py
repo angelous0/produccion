@@ -723,7 +723,7 @@ class RegistroBase(BaseModel):
     hilo_especifico_id: Optional[str] = None
     pt_item_id: Optional[str] = None
     lq_odoo_id: Optional[str] = None
-    empresa_id: Optional[int] = 8
+    empresa_id: Optional[int] = 7
     id_odoo: Optional[str] = None
     observaciones: Optional[str] = None
     fecha_entrega_final: Optional[str] = None
@@ -1041,11 +1041,12 @@ async def startup():
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
         # Campo para vincular producto de liquidación en Odoo
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS lq_odoo_id VARCHAR NULL")
-        # Fix: corregir items con empresa_id inválido (1 no es válido)
-        await conn.execute("""
-            UPDATE prod_inventario SET empresa_id = 8
-            WHERE empresa_id = 1
-        """)
+        # Fix: estandarizar empresa_id = 7 en todas las tablas de produccion
+        for tabla in [
+            'prod_inventario', 'prod_inventario_reservas', 'prod_inventario_reservas_linea',
+            'prod_inventario_salidas', 'prod_registro_requerimiento_mp'
+        ]:
+            await conn.execute(f"UPDATE {tabla} SET empresa_id = 7 WHERE empresa_id != 7")
     # Tablas de trazabilidad unificada (fallados, arreglos)
     await init_trazabilidad_tables()
 

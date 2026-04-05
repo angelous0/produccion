@@ -722,8 +722,8 @@ async def create_salida(input: SalidaInventarioCreate):
         salida.costo_total = costo_total
         salida.detalle_fifo = detalle_fifo
         
-        # empresa_id: preferir del registro, luego del item, fallback 8
-        empresa_id = 8
+        # empresa_id: preferir del registro, luego del item, fallback 7
+        empresa_id = 7
         # linea_negocio_id: heredar del registro si existe
         linea_negocio_id = input.linea_negocio_id
         if input.registro_id:
@@ -919,8 +919,8 @@ async def create_salida_extra(input: SalidaExtraCreate):
         fecha = datetime.now(timezone.utc)
         observaciones = f"[EXTRA] {input.motivo}. {input.observaciones}".strip()
         
-        # empresa_id: preferir del registro, luego del item, fallback 8
-        empresa_id = 8
+        # empresa_id: preferir del registro, luego del item, fallback 7
+        empresa_id = 7
         if input.registro_id:
             reg = await conn.fetchrow("SELECT empresa_id FROM prod_registros WHERE id = $1", input.registro_id)
             if reg and reg['empresa_id']:
