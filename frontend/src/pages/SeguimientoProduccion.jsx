@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Activity, Layers, AlertTriangle, TrendingUp } from 'lucide-react';
+import { Activity, Layers, AlertTriangle, TrendingUp, PauseCircle } from 'lucide-react';
 import { ReporteEnProceso } from './ReporteEnProceso';
 import { ReporteWIPEtapa } from './ReporteWIPEtapa';
 import { ReporteAtrasados } from './ReporteAtrasados';
 import { ReporteCumplimientoRuta } from './ReporteCumplimientoRuta';
+import { ReporteParalizados } from './ReporteParalizados';
 
 export const SeguimientoProduccion = () => {
   const [searchParams] = useSearchParams();
@@ -32,12 +33,16 @@ export const SeguimientoProduccion = () => {
           <TabsTrigger value="cumplimiento" className="text-xs gap-1.5" data-testid="tab-cumplimiento">
             <TrendingUp className="h-3.5 w-3.5" /> Cumplimiento Ruta
           </TabsTrigger>
+          <TabsTrigger value="paralizados" className="text-xs gap-1.5" data-testid="tab-paralizados">
+            <PauseCircle className="h-3.5 w-3.5" /> Paralizados
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="en-proceso"><ReporteEnProceso /></TabsContent>
         <TabsContent value="wip-etapa"><ReporteWIPEtapa /></TabsContent>
         <TabsContent value="atrasados"><ReporteAtrasados /></TabsContent>
         <TabsContent value="cumplimiento"><ReporteCumplimientoRuta /></TabsContent>
+        <TabsContent value="paralizados"><ReporteParalizados /></TabsContent>
       </Tabs>
     </div>
   );

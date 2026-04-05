@@ -571,11 +571,6 @@ async def resumen_cantidades(
         total_segunda = no_rep_segunda + sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a.get("resultado_final") == "SEGUNDA")
         total_descarte = no_rep_descarte + sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a.get("resultado_final") == "DESCARTE")
 
-        # PT ingresadas (check if registro has pt_item_id or estado = Producto Terminado)
-        ingresadas_pt = 0
-        if reg["estado"] in ("Producto Terminado", "Almacén PT"):
-            ingresadas_pt = cantidad_inicial - safe_int(merma_total) - fallados_detectados + arreglos_resueltos
-
         # Balance padre-hijos
         hijos = await conn.fetch(
             "SELECT id, n_corte, estado FROM prod_registros WHERE dividido_desde_registro_id = $1", registro_id
