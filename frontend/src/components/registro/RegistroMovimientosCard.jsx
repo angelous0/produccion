@@ -5,7 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../ui/table';
-import { Plus, Play, Cog, Users, Calendar, Pencil, FileText, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
+import { Plus, Play, Cog, Users, Calendar, Pencil, FileText, Trash2, MoreHorizontal } from 'lucide-react';
 
 export const RegistroMovimientosCard = ({
   movimientosProduccion, serviciosProduccion, isParalizado,
@@ -52,7 +55,7 @@ export const RegistroMovimientosCard = ({
                     <TableHead className="text-right">Recibida</TableHead>
                     <TableHead className="text-right">Merma</TableHead>
                     {showAvance && <TableHead className="text-center">Avance</TableHead>}
-                    <TableHead className="w-[100px] text-right">Acciones</TableHead>
+                    <TableHead className="w-[50px] text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -143,30 +146,48 @@ export const RegistroMovimientosCard = ({
                           </TableCell>
                         )}
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            {canEditMov && canCheckService(mov.servicio_id) && (
-                              <Button type="button" variant="ghost" size="icon" onClick={() => onOpenDialog(mov)} disabled={isParalizado} className={isParalizado ? 'opacity-30' : ''} data-testid={`edit-movimiento-${mov.id}`}>
-                                <Pencil className="h-4 w-4" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" data-testid={`acciones-movimiento-${mov.id}`}>
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            )}
-                            <Button type="button" variant="ghost" size="icon" onClick={() => onGenerarGuia(mov.id)} title="Generar Guia de Remision" data-testid={`guia-movimiento-${mov.id}`}>
-                              <FileText className="h-4 w-4 text-blue-500" />
-                            </Button>
-                            {canEditMov && canCheckService(mov.servicio_id) && (
-                              <Button type="button" variant="ghost" size="icon" onClick={() => onDelete(mov.id)} disabled={isParalizado} className={isParalizado ? 'opacity-30' : ''} data-testid={`delete-movimiento-${mov.id}`}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {canEditMov && canCheckService(mov.servicio_id) && (
+                                <DropdownMenuItem onClick={() => onOpenDialog(mov)} disabled={isParalizado} data-testid={`edit-movimiento-${mov.id}`}>
+                                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => onGenerarGuia(mov.id)} data-testid={`guia-movimiento-${mov.id}`}>
+                                <FileText className="h-3.5 w-3.5 mr-2 text-blue-500" />
+                                Generar Guia
+                              </DropdownMenuItem>
+                              {canEditMov && canCheckService(mov.servicio_id) && (
+                                <DropdownMenuItem onClick={() => onDelete(mov.id)} disabled={isParalizado} className="text-destructive" data-testid={`delete-movimiento-${mov.id}`}>
+                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
                   })}
                   <TableRow className="bg-muted/30">
-                    <TableCell colSpan={6} className="font-semibold">Total Recibidas</TableCell>
-                    <TableCell className="text-right font-mono font-bold text-primary" colSpan={showAvance ? 3 : 2}>
-                      {totalCantidad}
+                    <TableCell colSpan={4} className="font-semibold text-xs text-muted-foreground">Cantidad efectiva (ultima recibida)</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                      {movimientosProduccion.length > 0 ? movimientosProduccion[0].cantidad_enviada : '-'}
                     </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary" colSpan={showAvance ? 3 : 2}>
+                      {movimientosProduccion.length > 0
+                        ? (movimientosProduccion[movimientosProduccion.length - 1].cantidad_recibida
+                          ?? movimientosProduccion[movimientosProduccion.length - 1].cantidad
+                          ?? '-')
+                        : '-'}
+                    </TableCell>
+                    <TableCell />
                   </TableRow>
                 </TableBody>
               </Table>

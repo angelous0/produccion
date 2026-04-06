@@ -3,8 +3,11 @@ import axios from 'axios';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
-import { Save, Scissors, ArrowRight } from 'lucide-react';
+import { Save, Scissors, ArrowRight, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { ConversacionPanel, ConversacionTrigger } from '../ConversacionPanel';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
 // Mini-componente para stats de conversación
 const ConversacionStats = ({ registroId, API }) => {
@@ -56,7 +59,22 @@ export const RegistroPanelLateral = ({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Prendas</span>
-              <span className="font-mono font-bold text-base">{tallasSeleccionadas.reduce((sum, t) => sum + (t.cantidad || 0), 0)}</span>
+              {(() => {
+                const cantOriginal = tallasSeleccionadas.reduce((sum, t) => sum + (t.cantidad || 0), 0);
+                const ultimoMov = movimientosProduccion && movimientosProduccion.length > 0
+                  ? movimientosProduccion[movimientosProduccion.length - 1] : null;
+                const cantEfectiva = ultimoMov
+                  ? (ultimoMov.cantidad_recibida ?? ultimoMov.cantidad ?? cantOriginal) : cantOriginal;
+                const hayMerma = cantEfectiva < cantOriginal;
+                return hayMerma ? (
+                  <span className="font-mono text-base" data-testid="prendas-efectivas">
+                    <span className="line-through text-muted-foreground text-sm mr-1.5">{cantOriginal}</span>
+                    <span className="font-bold text-amber-600">{cantEfectiva}</span>
+                  </span>
+                ) : (
+                  <span className="font-mono font-bold text-base" data-testid="prendas-efectivas">{cantOriginal}</span>
+                );
+              })()}
             </div>
             {formData.linea_negocio_id && (
               <div className="flex items-center justify-between">
@@ -91,14 +109,26 @@ export const RegistroPanelLateral = ({
             <Save className="h-4 w-4 mr-2" />
             {loading ? 'Guardando...' : (isEditing ? 'Actualizar Registro' : 'Crear Registro')}
           </Button>
-          {isEditing && tallasSeleccionadas.some(t => t.cantidad > 0) && permisos?.canAction?.('dividir_lotes') !== false && (
-            <Button type="button" variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-50" onClick={onOpenDivision} data-testid="btn-dividir-lote">
-              <Scissors className="h-3.5 w-3.5 mr-1.5" /> Dividir Lote
+          <div className="flex gap-2">
+            <Button type="button" variant="ghost" size="sm" className="flex-1 text-muted-foreground" onClick={() => navigate('/registros')}>
+              Cancelar
             </Button>
-          )}
-          <Button type="button" variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => navigate('/registros')}>
-            Cancelar
-          </Button>
+            {isEditing && permisos?.canAction?.('dividir_lotes') !== false && tallasSeleccionadas.some(t => t.cantidad > 0) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="outline" size="sm" className="px-2" data-testid="btn-mas-acciones">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onOpenDivision} data-testid="btn-dividir-lote">
+                    <Scissors className="h-3.5 w-3.5 mr-2" />
+                    Dividir Lote
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
 
         {/* Datos del Modelo */}
