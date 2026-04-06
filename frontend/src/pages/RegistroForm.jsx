@@ -436,8 +436,19 @@ export const RegistroForm = () => {
     return 0;
   };
 
+  // Cantidad efectiva = ultima cantidad_recibida (refleja mermas) o cantidad original si no hay movimientos
+  const calcularCantidadEfectiva = () => {
+    if (movimientosProduccion && movimientosProduccion.length > 0) {
+      const ultimo = movimientosProduccion[movimientosProduccion.length - 1];
+      const recibida = ultimo.cantidad_recibida ?? ultimo.cantidad ?? 0;
+      if (recibida > 0) return recibida;
+    }
+    return calcularCantidadTotalRegistro();
+  };
+
   const handleOpenMovimientoDialog = (movimiento = null) => {
     const cantidadTotal = calcularCantidadTotalRegistro();
+    const cantidadEfectiva = calcularCantidadEfectiva();
     if (movimiento) {
       setEditingMovimiento(movimiento);
       setMovimientoFormData({
@@ -459,7 +470,7 @@ export const RegistroForm = () => {
       setEditingMovimiento(null);
       setMovimientoFormData({
         servicio_id: '', persona_id: '', fecha_inicio: new Date().toISOString().split('T')[0], fecha_fin: '',
-        cantidad_enviada: cantidadTotal, cantidad_recibida: cantidadTotal, tarifa_aplicada: 0,
+        cantidad_enviada: cantidadEfectiva, cantidad_recibida: cantidadEfectiva, tarifa_aplicada: 0,
         fecha_esperada_movimiento: '', responsable_movimiento: '', observaciones: '', avance_porcentaje: null,
       });
       setPersonasFiltradas([]);
@@ -636,11 +647,11 @@ export const RegistroForm = () => {
 
   // Abrir movimiento pre-llenado desde sugerencia
   const handleOpenMovimientoPrelleno = (sug) => {
-    const cantidadTotal = calcularCantidadTotalRegistro();
+    const cantidadEfectiva = calcularCantidadEfectiva();
     setEditingMovimiento(null);
     setMovimientoFormData({
       servicio_id: sug.servicio_id, persona_id: '', fecha_inicio: new Date().toISOString().split('T')[0], fecha_fin: '',
-      cantidad_enviada: cantidadTotal, cantidad_recibida: cantidadTotal, tarifa_aplicada: 0, fecha_esperada_movimiento: '', observaciones: '',
+      cantidad_enviada: cantidadEfectiva, cantidad_recibida: cantidadEfectiva, tarifa_aplicada: 0, fecha_esperada_movimiento: '', observaciones: '',
     });
     const filtradas = personasProduccion.filter(p => {
       const tieneEnDetalle = (p.servicios_detalle || []).some(s => s.servicio_id === sug.servicio_id);
