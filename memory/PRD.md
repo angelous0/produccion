@@ -53,6 +53,17 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - Datos del modelo se mantienen visibles por peticion del usuario
 - Cantidad sugerida en nuevos movimientos usa ultima cantidad_recibida, no cantidad original
 
+### Optimizacion de Performance - Registros (06-Abr-2026)
+- Backend: Detalle registro de 2.63s a 0.79s (3.3x mas rapido) - JOINs en vez de N+1 queries
+- Backend: Listado de 0.97s a 0.75s - COUNT(*) OVER() window function elimina 1 round-trip
+- Backend: Materiales optimizado con batch queries en vez de N queries individuales
+- BD: 15 indices creados (movimientos, mermas, fallados, arreglos, incidencias, registros estado/fecha/modelo)
+- Frontend: Code splitting con React.lazy - 50+ paginas lazy loaded
+- Frontend: Lazy loading de tabs en RegistroForm (produccion/control cargan solo al activarse)
+- Frontend: Eliminada llamada duplicada a modelos API en fetchRegistro
+- Frontend: useMemo para calulos de tallasDisponibles, tieneColores, totalCantidadMovimientos
+- Testing: 100% pass rate iteration_46 (19/19 backend, 10/10 frontend)
+
 ### Modulo de Auditoria - Fase 1 (06-Abr-2026)
 - Tabla centralizada `produccion.audit_log` con JSONB (datos_antes, datos_despues)
 - Helper `audit_log()` atomico dentro de transacciones PostgreSQL
