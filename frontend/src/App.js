@@ -55,6 +55,7 @@ import { SeguimientoProduccion } from "./pages/SeguimientoProduccion";
 import { OperativoTerceros } from "./pages/OperativoTerceros";
 import { LotesTrazabilidad } from "./pages/LotesTrazabilidad";
 import { TransferenciasLinea } from "./pages/TransferenciasLinea";
+import { AuditoriaLogs } from "./pages/AuditoriaLogs";
 import { ValorizacionConsolidado } from "./pages/ValorizacionConsolidado";
 import { CalidadConsolidado } from "./pages/CalidadConsolidado";
 import { Loader2 } from "lucide-react";
@@ -115,6 +116,7 @@ function AppRoutes() {
       }>
         <Route index element={<Dashboard />} />
         <Route path="usuarios" element={<Usuarios />} />
+        <Route path="auditoria" element={<AuditoriaLogs />} />
         <Route path="historial-actividad" element={<HistorialActividad />} />
         <Route path="backups" element={<Backups />} />
         <Route path="marcas" element={<Marcas />} />

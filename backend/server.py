@@ -43,6 +43,7 @@ from routes.control_produccion import router as control_produccion_router
 from routes.reportes_produccion import router as reportes_produccion_router
 from routes.trazabilidad import router as trazabilidad_router, init_trazabilidad_tables
 from routes.transferencias_linea import router as transferencias_linea_router, init_transferencias_tables
+from routes.auditoria import router as auditoria_router, init_audit_tables
 from routes.conversacion import router as conversacion_router
 
 ROOT_DIR = Path(__file__).parent
@@ -1066,6 +1067,8 @@ async def startup():
     await init_trazabilidad_tables()
     # Tablas de transferencias internas entre lineas de negocio
     await init_transferencias_tables()
+    # Tabla de auditoria
+    await init_audit_tables()
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -1103,4 +1106,5 @@ app.include_router(control_produccion_router)
 app.include_router(reportes_produccion_router)
 app.include_router(trazabilidad_router)
 app.include_router(transferencias_linea_router)
+app.include_router(auditoria_router)
 app.include_router(conversacion_router)

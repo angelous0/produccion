@@ -17,6 +17,7 @@ sys.path.insert(0, '/app/backend')
 from db import get_pool
 from auth import get_current_user
 from helpers import row_to_dict
+from routes.auditoria import audit_log, get_usuario
 
 router = APIRouter(prefix="/api", tags=["transferencias-linea"])
 
@@ -561,6 +562,12 @@ async def confirmar_transferencia(
                 ), 0) WHERE id = $1
             """, item_id)
 
+            # Auditoria (dentro de transaccion - atomico)
+            await audit_log(conn, get_usuario(user), "CONFIRM", "inventario", "prod_transferencias_linea", transferencia_id,
+                datos_antes={"estado": "BORRADOR", "cantidad": cantidad},
+                datos_despues={"estado": "CONFIRMADO", "costo_total": round(costo_total, 4), "capas_consumidas": len(detalle_fifo_salida)},
+                linea_negocio_id=linea_origen_id, referencia=transf['codigo'])
+
         return {
             "id": transferencia_id,
             "codigo": transf['codigo'],
@@ -598,6 +605,13 @@ async def cancelar_transferencia(
                 motivo_cancelacion = $3
             WHERE id = $4
         """, user.get('nombre', 'sistema'), ahora, input.motivo_cancelacion, transferencia_id)
+
+        # Auditoria (best-effort - no transaccion explicita)
+        from routes.auditoria import audit_log_safe
+        await audit_log_safe(conn, get_usuario(user), "CANCEL", "inventario", "prod_transferencias_linea", transferencia_id,
+            datos_antes={"estado": "BORRADOR", "cantidad": float(transf['cantidad'] or 0)},
+            datos_despues={"estado": "CANCELADO", "motivo_cancelacion": input.motivo_cancelacion},
+            referencia=transf['codigo'])
 
         return {
             "id": transferencia_id,

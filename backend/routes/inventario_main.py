@@ -11,6 +11,7 @@ from models import (
     IngresoInventario, SalidaInventario, AjusteInventario, ItemInventario,
 )
 from helpers import registrar_actividad, row_to_dict
+from routes.auditoria import audit_log_safe, get_usuario
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -408,7 +409,7 @@ async def get_ingresos():
         return result
 
 @router.post("/inventario-ingresos")
-async def create_ingreso(input: IngresoInventarioCreate):
+async def create_ingreso(input: IngresoInventarioCreate, current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
         item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
@@ -460,6 +461,11 @@ async def create_ingreso(input: IngresoInventarioCreate):
                 FROM prod_inventario_ingresos WHERE item_id = $1 AND cantidad_disponible > 0
             ), 0) WHERE id = $1
         """, input.item_id)
+        
+        await audit_log_safe(conn, get_usuario(current_user), "CREATE", "inventario", "prod_inventario_ingresos", ingreso.id,
+            datos_despues={"item_id": input.item_id, "cantidad": cantidad, "costo_unitario": input.costo_unitario,
+                           "proveedor": input.proveedor, "linea_negocio_id": input.linea_negocio_id},
+            linea_negocio_id=input.linea_negocio_id)
         
         return ingreso
 
@@ -620,7 +626,7 @@ async def get_salidas(registro_id: str = None):
         return result
 
 @router.post("/inventario-salidas")
-async def create_salida(input: SalidaInventarioCreate):
+async def create_salida(input: SalidaInventarioCreate, current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
         item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
@@ -789,6 +795,11 @@ async def create_salida(input: SalidaInventarioCreate):
                         SET cantidad_liberada = cantidad_reservada
                         WHERE reserva_id = $1 AND item_id = $2 AND talla_id IS NULL
                     """, reserva_row['reserva_id'], input.item_id)
+        
+        await audit_log_safe(conn, get_usuario(current_user), "CREATE", "inventario", "prod_inventario_salidas", salida.id,
+            datos_despues={"item_id": input.item_id, "cantidad": input.cantidad, "costo_total": round(costo_total, 4),
+                           "registro_id": input.registro_id, "capas_fifo": len(detalle_fifo)},
+            linea_negocio_id=linea_negocio_id, referencia=input.registro_id)
         
         return salida
 
@@ -1068,7 +1079,7 @@ async def get_ajustes():
         return result
 
 @router.post("/inventario-ajustes")
-async def create_ajuste(input: AjusteInventarioCreate):
+async def create_ajuste(input: AjusteInventarioCreate, current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
         item = await conn.fetchrow("SELECT * FROM prod_inventario WHERE id = $1", input.item_id)
@@ -1128,6 +1139,12 @@ async def create_ajuste(input: AjusteInventarioCreate):
                 else:  # salida
                     await conn.execute("UPDATE prod_inventario_rollos SET metraje_disponible = metraje_disponible - $1 WHERE id = $2", input.cantidad, input.rollo_id)
                     await conn.execute("UPDATE prod_inventario_ingresos SET cantidad_disponible = cantidad_disponible - $1 WHERE id = $2", input.cantidad, rollo['ingreso_id'])
+        
+        stock_antes = float(item['stock_actual'])
+        stock_despues = stock_antes + incremento
+        await audit_log_safe(conn, get_usuario(current_user), "UPDATE", "inventario", "prod_inventario_ajustes", ajuste.id,
+            datos_antes={"stock_actual": stock_antes},
+            datos_despues={"stock_actual": stock_despues, "tipo": input.tipo, "cantidad": input.cantidad, "motivo": input.motivo})
         
         return ajuste
 

@@ -10,6 +10,7 @@ from models import (
     ReservaCreateInput, LiberarReservaInput, ESTADOS_PRODUCCION, DivisionLoteRequest,
 )
 from helpers import row_to_dict, parse_jsonb, registrar_actividad
+from routes.auditoria import audit_log_safe, get_usuario
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -211,7 +212,7 @@ async def get_registro(registro_id: str):
         return d
 
 @router.post("/registros")
-async def create_registro(input: RegistroCreate):
+async def create_registro(input: RegistroCreate, current_user: dict = Depends(get_current_user)):
     registro = Registro(**input.model_dump())
     # Sanitizar FKs opcionales: string vacío → None
     registro.pt_item_id = registro.pt_item_id or None
@@ -232,6 +233,11 @@ async def create_registro(input: RegistroCreate):
             registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None),
             registro.pt_item_id, registro.empresa_id, registro.id_odoo, registro.observaciones, registro.linea_negocio_id
         )
+        cant_total = sum(t.cantidad for t in registro.tallas) if registro.tallas else 0
+        await audit_log_safe(conn, get_usuario(current_user), "CREATE", "produccion", "prod_registros", registro.id,
+            datos_despues={"n_corte": registro.n_corte, "modelo_id": registro.modelo_id, "estado": registro.estado,
+                           "cantidad": cant_total, "linea_negocio_id": registro.linea_negocio_id, "urgente": registro.urgente},
+            linea_negocio_id=registro.linea_negocio_id)
     return registro
 
 @router.put("/registros/{registro_id}/skip-validacion")
@@ -248,7 +254,7 @@ async def toggle_skip_validacion(registro_id: str, body: dict):
 
 
 @router.put("/registros/{registro_id}")
-async def update_registro(registro_id: str, input: RegistroCreate):
+async def update_registro(registro_id: str, input: RegistroCreate, current_user: dict = Depends(get_current_user)):
     # Sanitizar FKs opcionales: string vacío → None
     input.pt_item_id = input.pt_item_id or None
     input.hilo_especifico_id = input.hilo_especifico_id or None
@@ -258,6 +264,10 @@ async def update_registro(registro_id: str, input: RegistroCreate):
         result = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
         if not result:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
+        
+        # Capturar datos_antes para auditoria
+        datos_antes = {"estado": result.get('estado'), "n_corte": result.get('n_corte'),
+                       "linea_negocio_id": result.get('linea_negocio_id'), "urgente": result.get('urgente')}
         
         # Validar cambio de línea de negocio si hay consumos/movimientos
         old_linea = result.get('linea_negocio_id')
@@ -300,6 +310,12 @@ async def update_registro(registro_id: str, input: RegistroCreate):
                        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
                     str(uuid.uuid4()), registro_id, td['talla_id'], cant, empresa_id
                 )
+        
+        datos_despues = {"estado": input.estado, "n_corte": input.n_corte,
+                         "linea_negocio_id": input.linea_negocio_id, "urgente": input.urgente}
+        await audit_log_safe(conn, get_usuario(current_user), "UPDATE", "produccion", "prod_registros", registro_id,
+            datos_antes=datos_antes, datos_despues=datos_despues,
+            linea_negocio_id=input.linea_negocio_id)
         
         return {**row_to_dict(result), **input.model_dump()}
 

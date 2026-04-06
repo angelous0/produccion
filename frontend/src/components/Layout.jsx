@@ -68,6 +68,7 @@ import {
   PackageX,
   Timer,
   ArrowRightLeft,
+  ShieldCheck,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -286,6 +287,10 @@ export const Layout = () => {
                     <DropdownMenuItem onClick={() => navigate('/backups')} data-testid="menu-backups">
                       <Database className="h-4 w-4 mr-2" />
                       Copias de Seguridad
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate('/auditoria')} data-testid="menu-auditoria">
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      Auditoria
                     </DropdownMenuItem>
                   </>
                 )}

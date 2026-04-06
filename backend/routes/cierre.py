@@ -13,6 +13,7 @@ import json
 from db import get_pool
 from auth import get_current_user
 from helpers import row_to_dict
+from routes.auditoria import audit_log, get_usuario
 
 router = APIRouter(prefix="/api", tags=["cierre"])
 
@@ -393,6 +394,14 @@ async def ejecutar_cierre(registro_id: str, data: CierreRegistroInput, current_u
                 UPDATE prod_registros SET estado = 'CERRADA', estado_op = 'CERRADA' WHERE id = $1
             """, registro_id)
 
+            # Auditoria (dentro de transaccion - atomico)
+            await audit_log(conn, get_usuario(current_user), "CONFIRM", "produccion", "prod_registro_cierre", registro_id,
+                datos_despues={"estado_cierre": "CERRADO", "costo_mp": round(costo_mp, 2),
+                               "costo_servicios": round(costo_servicios, 2), "otros_costos": round(otros_costos, 2),
+                               "costo_total_final": round(costo_total_final, 2), "qty_terminada": qty_terminada},
+                observacion=data.observacion_cierre, linea_negocio_id=reg.get('linea_negocio_id'),
+                referencia=cierre_id)
+
             return {
                 "message": f"Cierre completado para OP {reg['n_corte']}",
                 "cierre_id": cierre_id,
@@ -513,8 +522,15 @@ async def reabrir_cierre(registro_id: str, data: ReaperturaInput, current_user: 
                 UPDATE prod_registros SET estado = 'Producto Terminado', estado_op = 'EN_PROCESO' WHERE id = $1
             """, registro_id)
 
+            # Auditoria (dentro de transaccion - atomico)
+            reg_row = await conn.fetchrow("SELECT linea_negocio_id FROM prod_registros WHERE id = $1", registro_id)
+            await audit_log(conn, get_usuario(current_user), "REOPEN", "produccion", "prod_registro_cierre", registro_id,
+                datos_antes={"estado_cierre": "CERRADO", "costo_total": float(cierre['costo_total_final'] or 0)},
+                datos_despues={"estado_cierre": "REABIERTO", "motivo_reapertura": data.motivo.strip()},
+                linea_negocio_id=reg_row['linea_negocio_id'] if reg_row else None)
+
             return {
-                "message": f"Cierre reabierto exitosamente",
+                "message": "Cierre reabierto exitosamente",
                 "registro_id": registro_id,
                 "reabierto_por": usuario,
                 "reabierto_at": ahora.isoformat(),

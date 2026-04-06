@@ -7,6 +7,7 @@ from db import get_pool
 from auth_utils import get_current_user
 from models import MovimientoCreate, MermaCreate, GuiaRemisionCreate
 from helpers import row_to_dict, parse_jsonb, registrar_actividad
+from routes.auditoria import audit_log_safe, get_usuario
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -102,7 +103,7 @@ async def get_movimientos(
         return {"items": result, "total": total, "limit": limit, "offset": offset}
 
 @router.post("/movimientos-produccion")
-async def create_movimiento(input: MovimientoCreate):
+async def create_movimiento(input: MovimientoCreate, current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
         reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", input.registro_id)
@@ -179,6 +180,13 @@ async def create_movimiento(input: MovimientoCreate):
                 diferencia, "Diferencia automática", datetime.now()
             )
         
+        servicio_row = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", input.servicio_id)
+        await audit_log_safe(conn, get_usuario(current_user), "CREATE", "produccion", "prod_movimientos_produccion", movimiento.id,
+            datos_despues={"servicio": servicio_row['nombre'] if servicio_row else input.servicio_id,
+                           "cantidad_enviada": input.cantidad_enviada, "cantidad_recibida": input.cantidad_recibida,
+                           "diferencia": diferencia, "registro_id": input.registro_id},
+            referencia=input.registro_id)
+        
         return movimiento
 
 @router.put("/movimientos-produccion/{movimiento_id}")
@@ -251,11 +259,19 @@ async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
         return {**row_to_dict(result), **input.model_dump(), "diferencia": diferencia, "costo_calculado": costo_calculado, "tarifa_aplicada": tarifa}
 
 @router.delete("/movimientos-produccion/{movimiento_id}")
-async def delete_movimiento(movimiento_id: str):
+async def delete_movimiento(movimiento_id: str, current_user: dict = Depends(get_current_user)):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        mov = await conn.fetchrow("SELECT servicio_id, registro_id, cantidad_enviada, cantidad_recibida FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
         await conn.execute("DELETE FROM prod_mermas WHERE movimiento_id = $1", movimiento_id)
         await conn.execute("DELETE FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
+        if mov:
+            servicio_row = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", mov['servicio_id'])
+            await audit_log_safe(conn, get_usuario(current_user), "DELETE", "produccion", "prod_movimientos_produccion", movimiento_id,
+                datos_antes={"servicio": servicio_row['nombre'] if servicio_row else mov['servicio_id'],
+                             "cantidad_enviada": float(mov['cantidad_enviada'] or 0), "cantidad_recibida": float(mov['cantidad_recibida'] or 0),
+                             "registro_id": mov['registro_id']},
+                referencia=mov['registro_id'])
         return {"message": "Movimiento eliminado"}
 
 # ==================== ENDPOINTS MERMAS ====================
