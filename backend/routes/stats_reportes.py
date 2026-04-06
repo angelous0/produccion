@@ -3,7 +3,7 @@ import json
 import uuid
 import io
 import csv
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from db import get_pool
@@ -998,6 +998,43 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
                 ORDER BY m.nombre
             """,
             "headers": ["Nombre", "Marca", "Tipo", "Entalle", "Tela"]
+        },
+        "mermas": {
+            "query": """
+                SELECT r.n_corte, sp.nombre as servicio, pp.nombre as persona,
+                       m.cantidad, m.tipo, m.motivo, m.fecha
+                FROM prod_mermas m
+                LEFT JOIN prod_registros r ON m.registro_id = r.id
+                LEFT JOIN prod_servicios_produccion sp ON m.servicio_id = sp.id
+                LEFT JOIN prod_personas_produccion pp ON m.persona_id = pp.id
+                ORDER BY m.fecha DESC NULLS LAST
+            """,
+            "headers": ["N° Corte", "Servicio", "Persona", "Cantidad", "Tipo", "Motivo", "Fecha"]
+        },
+        "fallados": {
+            "query": """
+                SELECT r.n_corte, sp.nombre as servicio_deteccion,
+                       f.cantidad_detectada, f.cantidad_reparable, f.cantidad_no_reparable,
+                       f.motivo, f.estado, f.destino_no_reparable, f.fecha_deteccion
+                FROM prod_fallados f
+                LEFT JOIN prod_registros r ON f.registro_id = r.id
+                LEFT JOIN prod_servicios_produccion sp ON f.servicio_detectado_id = sp.id
+                ORDER BY f.created_at DESC
+            """,
+            "headers": ["N° Corte", "Servicio Deteccion", "Detectadas", "Reparables", "No Reparables", "Motivo", "Estado", "Destino", "Fecha"]
+        },
+        "arreglos": {
+            "query": """
+                SELECT r.n_corte, sp.nombre as servicio_destino, pp.nombre as persona,
+                       a.tipo, a.cantidad_enviada, a.cantidad_resuelta, a.cantidad_no_resuelta,
+                       a.estado, a.resultado_final, a.fecha_envio, a.fecha_limite, a.fecha_retorno
+                FROM prod_arreglos a
+                LEFT JOIN prod_registros r ON a.registro_id = r.id
+                LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
+                LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
+                ORDER BY a.created_at DESC
+            """,
+            "headers": ["N° Corte", "Servicio Destino", "Persona", "Tipo", "Enviadas", "Resueltas", "No Resueltas", "Estado", "Resultado", "F. Envio", "F. Limite", "F. Retorno"]
         }
     }
     

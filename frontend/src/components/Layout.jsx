@@ -72,6 +72,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { NotificacionesBell } from './NotificacionesBell';
+import { usePermissions, RUTA_A_TABLA } from '../hooks/usePermissions';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -140,6 +141,26 @@ export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { canView: canViewRegistros } = usePermissions('registros');
+
+  // Filtrar items del sidebar segun permisos del usuario
+  const filterNavItems = (items) => {
+    if (isAdmin()) return items;
+    return items.filter(item => {
+      const tabla = RUTA_A_TABLA[item.to];
+      if (!tabla) return true; // rutas sin restriccion (dashboard, reportes)
+      const permisos = user?.permisos || {};
+      const perm = permisos[tabla];
+      if (!perm) return true; // si no hay permisos definidos, mostrar
+      return perm.ver !== false;
+    });
+  };
+
+  const filteredNavItems = filterNavItems(navItems);
+  const filteredInventarioItems = filterNavItems(inventarioItems);
+  const filteredMaestrosItems = filterNavItems(maestrosItems);
+  const filteredDocumentosItems = filterNavItems(documentosItems);
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
@@ -372,7 +393,7 @@ export const Layout = () => {
           </Button>
 
           <nav className={`flex flex-col gap-1 p-4 overflow-y-auto h-full ${sidebarCollapsed ? 'md:items-center md:px-2' : ''}`} data-testid="sidebar-nav">
-            {navItems.map((item) => (
+            {filteredNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -389,7 +410,8 @@ export const Layout = () => {
               </NavLink>
             ))}
             
-            {/* Separador Inventario */}
+            {filteredInventarioItems.length > 0 && (
+            <>
             <div className="mt-4 mb-2">
               <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Inventario FIFO
@@ -397,7 +419,7 @@ export const Layout = () => {
               {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
             
-            {inventarioItems.map((item) => (
+            {filteredInventarioItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -413,8 +435,12 @@ export const Layout = () => {
                 <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
+            </>
+            )}
 
             {/* Separador Maestros */}
+            {filteredMaestrosItems.length > 0 && (
+            <>
             <div className="mt-4 mb-2">
               <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Maestros
@@ -422,7 +448,7 @@ export const Layout = () => {
               {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
             
-            {maestrosItems.map((item) => (
+            {filteredMaestrosItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -437,15 +463,19 @@ export const Layout = () => {
                 <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
+            </>
+            )}
 
             {/* Separador Documentos */}
+            {filteredDocumentosItems.length > 0 && (
+            <>
             <div className="mt-4 mb-2">
               <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
                 Documentos
               </p>
               {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
             </div>
-            {documentosItems.map((item) => (
+            {filteredDocumentosItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -460,6 +490,8 @@ export const Layout = () => {
                 <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
               </NavLink>
             ))}
+            </>
+            )}
 
             {/* Separador Reportes Producción */}
             <div className="mt-4 mb-2">

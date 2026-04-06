@@ -893,3 +893,125 @@ async def trazabilidad_completa(
             "eventos": eventos,
             "total_eventos": len(eventos),
         }
+
+
+# ==================== REPORTES KPI TRAZABILIDAD ====================
+
+@router.get("/reportes/trazabilidad-kpis")
+async def reportes_trazabilidad_kpis(
+    current_user: dict = Depends(get_current_user),
+):
+    """KPIs consolidados de trazabilidad: mermas por servicio, fallados, arreglos vencidos."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+
+        # 1. Mermas por servicio
+        mermas_servicio = await conn.fetch("""
+            SELECT sp.nombre as servicio, 
+                   COUNT(*) as eventos,
+                   COALESCE(SUM(m.cantidad), 0) as total_prendas
+            FROM prod_mermas m
+            LEFT JOIN prod_servicios_produccion sp ON m.servicio_id = sp.id
+            GROUP BY sp.nombre
+            ORDER BY total_prendas DESC
+        """)
+
+        # 2. Fallados por servicio de deteccion
+        fallados_servicio = await conn.fetch("""
+            SELECT sp.nombre as servicio,
+                   COUNT(*) as eventos,
+                   COALESCE(SUM(f.cantidad_detectada), 0) as total_detectadas,
+                   COALESCE(SUM(f.cantidad_reparable), 0) as reparables,
+                   COALESCE(SUM(f.cantidad_no_reparable), 0) as no_reparables
+            FROM prod_fallados f
+            LEFT JOIN prod_servicios_produccion sp ON f.servicio_detectado_id = sp.id
+            GROUP BY sp.nombre
+            ORDER BY total_detectadas DESC
+        """)
+
+        # 3. Arreglos vencidos (pendientes con fecha_limite pasada)
+        arreglos_vencidos = await conn.fetch("""
+            SELECT a.id, a.registro_id, r.n_corte, 
+                   sp.nombre as servicio_destino,
+                   pp.nombre as persona_destino,
+                   a.cantidad_enviada, a.fecha_envio, a.fecha_limite,
+                   a.estado, a.tipo,
+                   (CURRENT_DATE - a.fecha_limite::date) as dias_vencido
+            FROM prod_arreglos a
+            JOIN prod_registros r ON a.registro_id = r.id
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
+            WHERE a.estado IN ('PENDIENTE', 'EN_PROCESO')
+              AND a.fecha_limite < CURRENT_DATE
+            ORDER BY a.fecha_limite ASC
+        """)
+
+        # 4. Resumen general de fallados por estado
+        fallados_estado = await conn.fetch("""
+            SELECT f.estado, COUNT(*) as cantidad, 
+                   COALESCE(SUM(f.cantidad_detectada), 0) as prendas
+            FROM prod_fallados f
+            GROUP BY f.estado
+            ORDER BY cantidad DESC
+        """)
+
+        # 5. Top registros con mas perdidas (mermas + fallados)
+        top_perdidas = await conn.fetch("""
+            SELECT r.id, r.n_corte, m.nombre as modelo,
+                   COALESCE((SELECT SUM(cantidad) FROM prod_mermas WHERE registro_id = r.id), 0) as mermas,
+                   COALESCE((SELECT SUM(cantidad_detectada) FROM prod_fallados WHERE registro_id = r.id), 0) as fallados,
+                   COALESCE((SELECT SUM(rt.cantidad_real) FROM prod_registro_tallas rt WHERE rt.registro_id = r.id), 0) as total_prendas
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            WHERE r.estado NOT IN ('Anulada', 'Tienda')
+            ORDER BY (COALESCE((SELECT SUM(cantidad) FROM prod_mermas WHERE registro_id = r.id), 0) + 
+                      COALESCE((SELECT SUM(cantidad_detectada) FROM prod_fallados WHERE registro_id = r.id), 0)) DESC
+            LIMIT 10
+        """)
+
+        # 6. Arreglos por responsable/servicio
+        arreglos_responsable = await conn.fetch("""
+            SELECT COALESCE(sp.nombre, pp.nombre, 'Sin asignar') as responsable,
+                   COUNT(*) as total_arreglos,
+                   SUM(CASE WHEN a.estado = 'RESUELTO' THEN 1 ELSE 0 END) as resueltos,
+                   SUM(CASE WHEN a.estado IN ('PENDIENTE','EN_PROCESO') THEN 1 ELSE 0 END) as pendientes,
+                   COALESCE(SUM(a.cantidad_enviada), 0) as prendas_enviadas,
+                   COALESCE(SUM(a.cantidad_resuelta), 0) as prendas_resueltas
+            FROM prod_arreglos a
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
+            GROUP BY COALESCE(sp.nombre, pp.nombre, 'Sin asignar')
+            ORDER BY total_arreglos DESC
+        """)
+
+        # Totales generales
+        totales_mermas = await conn.fetchrow("SELECT COUNT(*) as eventos, COALESCE(SUM(cantidad),0) as prendas FROM prod_mermas")
+        totales_fallados = await conn.fetchrow("SELECT COUNT(*) as eventos, COALESCE(SUM(cantidad_detectada),0) as prendas FROM prod_fallados")
+        totales_arreglos = await conn.fetchrow("SELECT COUNT(*) as total, SUM(CASE WHEN estado='RESUELTO' THEN 1 ELSE 0 END) as resueltos, SUM(CASE WHEN estado IN ('PENDIENTE','EN_PROCESO') THEN 1 ELSE 0 END) as pendientes FROM prod_arreglos")
+
+        return {
+            "kpis": {
+                "mermas_total": safe_int(totales_mermas["prendas"]),
+                "mermas_eventos": safe_int(totales_mermas["eventos"]),
+                "fallados_total": safe_int(totales_fallados["prendas"]),
+                "fallados_eventos": safe_int(totales_fallados["eventos"]),
+                "arreglos_total": safe_int(totales_arreglos["total"]),
+                "arreglos_resueltos": safe_int(totales_arreglos["resueltos"]),
+                "arreglos_pendientes": safe_int(totales_arreglos["pendientes"]),
+                "arreglos_vencidos": len(arreglos_vencidos),
+            },
+            "mermas_por_servicio": [row_to_dict(r) for r in mermas_servicio],
+            "fallados_por_servicio": [row_to_dict(r) for r in fallados_servicio],
+            "fallados_por_estado": [row_to_dict(r) for r in fallados_estado],
+            "arreglos_vencidos": [
+                {**row_to_dict(r), "fecha_envio": str(r["fecha_envio"]) if r["fecha_envio"] else None,
+                 "fecha_limite": str(r["fecha_limite"]) if r["fecha_limite"] else None}
+                for r in arreglos_vencidos
+            ],
+            "arreglos_por_responsable": [row_to_dict(r) for r in arreglos_responsable],
+            "top_perdidas": [
+                {**row_to_dict(r), "perdida_total": safe_int(r["mermas"]) + safe_int(r["fallados"]),
+                 "porcentaje": round((safe_int(r["mermas"]) + safe_int(r["fallados"])) / max(safe_int(r["total_prendas"]),1) * 100, 1)}
+                for r in top_perdidas
+            ],
+        }

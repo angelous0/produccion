@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Bell, AlertTriangle, Clock, PauseCircle, ExternalLink, X } from 'lucide-react';
+import { usePermissions } from '../hooks/usePermissions';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -17,6 +18,7 @@ export const NotificacionesBell = () => {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState(null);
   const ref = useRef(null);
+  const { canService, todosServicios, serviciosPermitidos, isAdmin } = usePermissions('registros');
 
   const fetchAlertas = async () => {
     try {
@@ -38,7 +40,12 @@ export const NotificacionesBell = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  const total = data?.resumen?.total || 0;
+  // Filtrar alertas por servicios permitidos del usuario
+  const filteredAlertas = (data?.alertas || []).filter(a => {
+    if (isAdmin || todosServicios) return true;
+    return canService(a.servicio_id);
+  });
+  const total = filteredAlertas.length;
 
   return (
     <div className="relative" ref={ref}>
@@ -79,7 +86,7 @@ export const NotificacionesBell = () => {
                 Sin alertas activas
               </div>
             ) : (
-              data.alertas.map((a) => {
+              filteredAlertas.map((a) => {
                 const style = NIVEL_STYLES[a.nivel] || NIVEL_STYLES.critico;
                 return (
                   <div

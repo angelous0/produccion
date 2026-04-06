@@ -1303,6 +1303,7 @@ async def alertas_produccion():
             SELECT 
                 m.id as movimiento_id,
                 m.registro_id,
+                m.servicio_id,
                 r.n_corte,
                 r.urgente,
                 s.nombre as servicio_nombre,
@@ -1394,6 +1395,7 @@ async def alertas_produccion():
                     "n_corte": row["n_corte"],
                     "urgente": row["urgente"],
                     "servicio": row["servicio_nombre"],
+                    "servicio_id": str(row["servicio_id"]),
                     "modelo": row["modelo_nombre"],
                     "persona": row["persona_nombre"],
                     "avance": avance,

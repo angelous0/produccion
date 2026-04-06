@@ -87,7 +87,10 @@ async def get_registros(
                 (SELECT COUNT(*) FROM prod_incidencia i WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas,
                 (SELECT row_to_json(p.*) FROM prod_paralizacion p WHERE p.registro_id = r.id AND p.activa = TRUE LIMIT 1) as paralizacion_json,
                 (SELECT COUNT(*) FROM prod_movimientos_produccion mp WHERE mp.registro_id = r.id AND mp.fecha_esperada_movimiento < CURRENT_DATE) as movs_vencidos,
-                (SELECT COUNT(*) FROM prod_registros rh WHERE rh.dividido_desde_registro_id = r.id) as cantidad_divisiones
+                (SELECT COUNT(*) FROM prod_registros rh WHERE rh.dividido_desde_registro_id = r.id) as cantidad_divisiones,
+                (SELECT COALESCE(SUM(cantidad),0) FROM prod_mermas pm WHERE pm.registro_id = r.id) as mermas_total,
+                (SELECT COALESCE(SUM(cantidad_detectada),0) FROM prod_fallados pf WHERE pf.registro_id = r.id) as fallados_total,
+                (SELECT COUNT(*) FROM prod_arreglos pa WHERE pa.registro_id = r.id AND pa.estado IN ('PENDIENTE','EN_PROCESO') AND pa.fecha_limite < CURRENT_DATE) as arreglos_vencidos
             FROM prod_registros r
             LEFT JOIN prod_modelos m ON r.modelo_id = m.id
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id

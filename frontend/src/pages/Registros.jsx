@@ -686,19 +686,20 @@ export const Registros = () => {
                   <TableHead>Estado</TableHead>
                   <TableHead>Fecha Final</TableHead>
                   <TableHead>Operativo</TableHead>
+                  <TableHead>Salud</TableHead>
                   <TableHead className="w-[140px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8">
+                    <TableCell colSpan={16} className="text-center py-8">
                       Cargando...
                     </TableCell>
                   </TableRow>
                 ) : displayItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
                       {hayFiltrosActivos ? 'No hay registros que coincidan con los filtros' : 'No hay registros'}
                     </TableCell>
                   </TableRow>
@@ -750,6 +751,31 @@ export const Registros = () => {
                       </TableCell>
                       <TableCell>
                         {getEstadoOperativoBadge(item.estado_operativo)}
+                      </TableCell>
+                      <TableCell data-testid={`salud-${item.id}`}>
+                        <div className="flex items-center gap-1">
+                          {(item.mermas_total > 0 || item.fallados_total > 0 || item.arreglos_vencidos > 0) ? (
+                            <>
+                              {item.mermas_total > 0 && (
+                                <span title={`${item.mermas_total} mermas`} className="flex h-5 min-w-[20px] px-1 items-center justify-center rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[9px] font-bold gap-0.5">
+                                  <AlertTriangle className="h-3 w-3" />{item.mermas_total}
+                                </span>
+                              )}
+                              {item.fallados_total > 0 && (
+                                <span title={`${item.fallados_total} fallados`} className="flex h-5 min-w-[20px] px-1 items-center justify-center rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-[9px] font-bold gap-0.5">
+                                  <Package className="h-3 w-3" />{item.fallados_total}
+                                </span>
+                              )}
+                              {item.arreglos_vencidos > 0 && (
+                                <span title={`${item.arreglos_vencidos} arreglos vencidos`} className="flex h-5 min-w-[20px] px-1 items-center justify-center rounded bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-[9px] font-bold gap-0.5">
+                                  <Clock className="h-3 w-3" />{item.arreglos_vencidos}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">OK</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
