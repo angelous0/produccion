@@ -66,6 +66,11 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - UI exclusiva admin: tabla, filtros (usuario/modulo/accion/fecha), paginacion, detalle expandible antes/despues
 - Testing: 100% pass rate iteration_45 (17/17 backend, frontend 100%)
 
+### Fix Historial de Actividad (06-Abr-2026)
+- Problema: Solo mostraba logins, no acciones de produccion/inventario
+- Fix: Se agrego registrar_actividad() a 7 endpoints: crear/editar registro, crear/eliminar movimiento, crear ingreso/salida/ajuste inventario
+- Ahora el historial muestra: "Creo registro X", "Edito registro X", "Creo movimiento en Servicio", "Ingreso de N uds", etc.
+
 ### Permisos Granulares
 - servicios, acciones, estados por usuario
 - Sidebar y alertas filtrados por permisos

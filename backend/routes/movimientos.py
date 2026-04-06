@@ -181,13 +181,16 @@ async def create_movimiento(input: MovimientoCreate, current_user: dict = Depend
             )
         
         servicio_row = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", input.servicio_id)
+        servicio_nombre = servicio_row['nombre'] if servicio_row else input.servicio_id
         await audit_log_safe(conn, get_usuario(current_user), "CREATE", "produccion", "prod_movimientos_produccion", movimiento.id,
-            datos_despues={"servicio": servicio_row['nombre'] if servicio_row else input.servicio_id,
+            datos_despues={"servicio": servicio_nombre,
                            "cantidad_enviada": input.cantidad_enviada, "cantidad_recibida": input.cantidad_recibida,
                            "diferencia": diferencia, "registro_id": input.registro_id},
             referencia=input.registro_id)
-        
-        return movimiento
+    await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "crear",
+        tabla_afectada="registros", registro_id=input.registro_id,
+        descripcion=f"Creo movimiento en {servicio_nombre}: {input.cantidad_enviada} env / {input.cantidad_recibida} rec")
+    return movimiento
 
 @router.put("/movimientos-produccion/{movimiento_id}")
 async def update_movimiento(movimiento_id: str, input: MovimientoCreate):
@@ -267,12 +270,17 @@ async def delete_movimiento(movimiento_id: str, current_user: dict = Depends(get
         await conn.execute("DELETE FROM prod_movimientos_produccion WHERE id = $1", movimiento_id)
         if mov:
             servicio_row = await conn.fetchrow("SELECT nombre FROM prod_servicios_produccion WHERE id = $1", mov['servicio_id'])
+            servicio_nombre = servicio_row['nombre'] if servicio_row else str(mov['servicio_id'])
             await audit_log_safe(conn, get_usuario(current_user), "DELETE", "produccion", "prod_movimientos_produccion", movimiento_id,
-                datos_antes={"servicio": servicio_row['nombre'] if servicio_row else mov['servicio_id'],
+                datos_antes={"servicio": servicio_nombre,
                              "cantidad_enviada": float(mov['cantidad_enviada'] or 0), "cantidad_recibida": float(mov['cantidad_recibida'] or 0),
                              "registro_id": mov['registro_id']},
                 referencia=mov['registro_id'])
-        return {"message": "Movimiento eliminado"}
+    if mov:
+        await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "eliminar",
+            tabla_afectada="registros", registro_id=mov['registro_id'],
+            descripcion=f"Elimino movimiento de {servicio_nombre}")
+    return {"message": "Movimiento eliminado"}
 
 # ==================== ENDPOINTS MERMAS ====================
 

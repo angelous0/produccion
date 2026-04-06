@@ -466,8 +466,12 @@ async def create_ingreso(input: IngresoInventarioCreate, current_user: dict = De
             datos_despues={"item_id": input.item_id, "cantidad": cantidad, "costo_unitario": input.costo_unitario,
                            "proveedor": input.proveedor, "linea_negocio_id": input.linea_negocio_id},
             linea_negocio_id=input.linea_negocio_id)
-        
-        return ingreso
+        item_row = await conn.fetchrow("SELECT nombre FROM prod_inventario WHERE id = $1", input.item_id)
+        item_nombre = item_row['nombre'] if item_row else input.item_id
+    await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "crear",
+        tabla_afectada="inventario", registro_id=ingreso.id, registro_nombre=item_nombre,
+        descripcion=f"Ingreso de {cantidad} uds de {item_nombre}")
+    return ingreso
 
 class IngresoUpdateData(BaseModel):
     proveedor: str = ""
@@ -800,8 +804,12 @@ async def create_salida(input: SalidaInventarioCreate, current_user: dict = Depe
             datos_despues={"item_id": input.item_id, "cantidad": input.cantidad, "costo_total": round(costo_total, 4),
                            "registro_id": input.registro_id, "capas_fifo": len(detalle_fifo)},
             linea_negocio_id=linea_negocio_id, referencia=input.registro_id)
-        
-        return salida
+        item_row = await conn.fetchrow("SELECT nombre FROM prod_inventario WHERE id = $1", input.item_id)
+        item_nombre = item_row['nombre'] if item_row else input.item_id
+    await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "crear",
+        tabla_afectada="inventario", registro_id=salida.id, registro_nombre=item_nombre,
+        descripcion=f"Salida de {input.cantidad} uds de {item_nombre}")
+    return salida
 
 
 @router.post("/inventario/reconciliar-reservas")
@@ -1145,8 +1153,10 @@ async def create_ajuste(input: AjusteInventarioCreate, current_user: dict = Depe
         await audit_log_safe(conn, get_usuario(current_user), "UPDATE", "inventario", "prod_inventario_ajustes", ajuste.id,
             datos_antes={"stock_actual": stock_antes},
             datos_despues={"stock_actual": stock_despues, "tipo": input.tipo, "cantidad": input.cantidad, "motivo": input.motivo})
-        
-        return ajuste
+    await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "editar",
+        tabla_afectada="inventario", registro_id=ajuste.id, registro_nombre=item['nombre'],
+        descripcion=f"Ajuste {input.tipo} de {input.cantidad} uds en {item['nombre']}: {input.motivo}")
+    return ajuste
 
 class AjusteUpdateData(BaseModel):
     motivo: str = ""

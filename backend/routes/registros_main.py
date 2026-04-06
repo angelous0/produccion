@@ -238,6 +238,9 @@ async def create_registro(input: RegistroCreate, current_user: dict = Depends(ge
             datos_despues={"n_corte": registro.n_corte, "modelo_id": registro.modelo_id, "estado": registro.estado,
                            "cantidad": cant_total, "linea_negocio_id": registro.linea_negocio_id, "urgente": registro.urgente},
             linea_negocio_id=registro.linea_negocio_id)
+    await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "crear",
+        tabla_afectada="registros", registro_id=registro.id, registro_nombre=registro.n_corte,
+        descripcion=f"Creo registro {registro.n_corte} ({cant_total} prendas)")
     return registro
 
 @router.put("/registros/{registro_id}/skip-validacion")
@@ -316,8 +319,10 @@ async def update_registro(registro_id: str, input: RegistroCreate, current_user:
         await audit_log_safe(conn, get_usuario(current_user), "UPDATE", "produccion", "prod_registros", registro_id,
             datos_antes=datos_antes, datos_despues=datos_despues,
             linea_negocio_id=input.linea_negocio_id)
-        
-        return {**row_to_dict(result), **input.model_dump()}
+    await registrar_actividad(pool, current_user['id'], current_user.get('username', ''), "editar",
+        tabla_afectada="registros", registro_id=registro_id, registro_nombre=input.n_corte,
+        descripcion=f"Edito registro {input.n_corte}")
+    return {**row_to_dict(result), **input.model_dump()}
 
 @router.delete("/registros/{registro_id}")
 async def delete_registro(registro_id: str):
