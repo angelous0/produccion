@@ -67,6 +67,7 @@ import {
   Grid3X3,
   PackageX,
   Timer,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -101,6 +102,7 @@ const inventarioItems = [
   { to: '/inventario/movimientos', icon: FileText, label: 'Movimientos' },
   { to: '/inventario/kardex', icon: BookOpen, label: 'Kardex' },
   { to: '/inventario/alertas-stock', icon: PackageX, label: 'Alertas Stock' },
+  { to: '/inventario/transferencias-linea', icon: ArrowRightLeft, label: 'Transferencias' },
 ];
 
 const maestrosItems = [

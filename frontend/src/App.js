@@ -54,6 +54,7 @@ import { ReporteTiemposMuertos } from "./pages/ReporteTiemposMuertos";
 import { SeguimientoProduccion } from "./pages/SeguimientoProduccion";
 import { OperativoTerceros } from "./pages/OperativoTerceros";
 import { LotesTrazabilidad } from "./pages/LotesTrazabilidad";
+import { TransferenciasLinea } from "./pages/TransferenciasLinea";
 import { ValorizacionConsolidado } from "./pages/ValorizacionConsolidado";
 import { CalidadConsolidado } from "./pages/CalidadConsolidado";
 import { Loader2 } from "lucide-react";
@@ -138,6 +139,7 @@ function AppRoutes() {
         <Route path="inventario/movimientos" element={<ReporteMovimientos />} />
         <Route path="inventario/kardex" element={<Kardex />} />
         <Route path="inventario/alertas-stock" element={<ReporteStockBajo />} />
+        <Route path="inventario/transferencias-linea" element={<TransferenciasLinea />} />
         <Route path="maestros/servicios" element={<ServiciosProduccion />} />
         <Route path="maestros/personas" element={<PersonasProduccion />} />
         <Route path="maestros/rutas" element={<RutasProduccion />} />

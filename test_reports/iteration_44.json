@@ -1,0 +1,60 @@
+{
+  "summary": "Comprehensive testing of Transferencias Linea (Internal Transfers between Business Lines) feature. All 23 backend API tests passed. Frontend UI verified: page loads, sidebar link present, filters work, create modal with FIFO estimation, detail modal with traceability, confirm and cancel flows.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_verified": [
+    "GET /api/transferencias-linea - List transfers with pagination - PASS",
+    "GET /api/transferencias-linea?estado=BORRADOR - Filter by estado BORRADOR - PASS",
+    "GET /api/transferencias-linea?estado=CONFIRMADO - Filter by estado CONFIRMADO - PASS",
+    "GET /api/transferencias-linea/stock-por-linea/{item_id} - Stock breakdown by business line - PASS",
+    "GET /api/transferencias-linea/estimar-costo - FIFO cost estimation before creating - PASS",
+    "POST /api/transferencias-linea - Create draft transfer - PASS",
+    "POST /api/transferencias-linea - Validation: linea_origen != linea_destino - PASS",
+    "POST /api/transferencias-linea - Validation: item must exist - PASS",
+    "POST /api/transferencias-linea - Validation: cantidad > 0 - PASS",
+    "POST /api/transferencias-linea - Validation: cantidad <= stock disponible - PASS",
+    "GET /api/transferencias-linea/{id} - Get transfer detail with FIFO layers - PASS",
+    "POST /api/transferencias-linea/{id}/confirmar - Confirm transfer (atomic FIFO operation) - PASS",
+    "POST /api/transferencias-linea/{id}/confirmar - Cannot confirm already confirmed - PASS",
+    "POST /api/transferencias-linea/{id}/cancelar - Cancel draft with motivo - PASS",
+    "POST /api/transferencias-linea/{id}/cancelar - Cannot cancel confirmed transfer - PASS",
+    "GET /api/lineas-negocio - List business lines for dropdown - PASS",
+    "GET /api/inventario?all=true - List items for dropdown - PASS",
+    "Frontend: Page /inventario/transferencias-linea loads correctly - PASS",
+    "Frontend: Sidebar shows 'Transferencias' under 'INVENTARIO FIFO' section - PASS",
+    "Frontend: Table displays transfers with proper columns - PASS",
+    "Frontend: Search filter works - PASS",
+    "Frontend: Estado filter works - PASS",
+    "Frontend: Nueva Transferencia modal opens - PASS",
+    "Frontend: Item selection loads stock por linea table - PASS",
+    "Frontend: FIFO cost estimation displays capas and totals - PASS",
+    "Frontend: Detail modal shows transfer info and FIFO traceability - PASS",
+    "Frontend: Confirm button available for BORRADOR transfers - PASS",
+    "Frontend: Cancel button available for BORRADOR transfers - PASS"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_transferencias_linea.py",
+    "/app/test_reports/pytest/pytest_transferencias_linea.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_transferencias_linea.py"
+  ],
+  "success_rate": {
+    "backend": "100% (23/23 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": "username: eduard, password: eduard123",
+  "seed_data_creation": "Created test transfers during testing: TRF-20260406-003 (CONFIRMADO), TRF-20260406-004 (CANCELADO), TRF-20260406-005 (BORRADOR)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Transferencias Linea feature fully tested. Key test data: item_id=d402f7c9-9c4c-4a05-8f43-7589288828b0 (Cierre YKK #5 Metal), lineas: 26 (Pantalon denim), 27 (Polo), 28 (Pantalon Qepo). Existing confirmed transfer TRF-20260406-001 moved 50 units with costo_total=468.50. FIFO traceability working: detalles array contains ingreso_origen_id, ingreso_destino_id, cantidad, costo_unitario. Tables: prod_transferencias_linea (master), prod_transferencias_linea_detalle (FIFO traceability). prod_inventario_salidas has tipo='TRANSFERENCIA' column."
+}
