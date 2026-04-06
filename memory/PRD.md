@@ -47,11 +47,24 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 
 ### Mejoras UX Layout Registro (06-Abr-2026)
 - "Total Recibidas" reemplazado por "Cantidad efectiva (ultima recibida)" - muestra 232 en vez de 1192
-- Panel lateral: Prendas muestra original tachado + efectiva en ambar (240 → 232)
+- Panel lateral: Prendas muestra original tachado + efectiva en ambar (240 -> 232)
 - Acciones de fila en menu "..." en vez de 3 iconos sueltos
 - "Dividir Lote" movido a menu secundario (...)
 - Datos del modelo se mantienen visibles por peticion del usuario
 - Cantidad sugerida en nuevos movimientos usa ultima cantidad_recibida, no cantidad original
+
+### Modulo de Auditoria - Fase 1 (06-Abr-2026)
+- Tabla centralizada `produccion.audit_log` con JSONB (datos_antes, datos_despues)
+- Helper `audit_log()` atomico dentro de transacciones PostgreSQL
+- Helper `audit_log_safe()` best-effort para operaciones no criticas
+- 11 endpoints criticos instrumentados:
+  - registros_main.py: CREATE, UPDATE
+  - movimientos.py: CREATE, DELETE
+  - cierre.py: CONFIRM (atomico), REOPEN (atomico)
+  - inventario_main.py: CREATE ingreso, CREATE salida, UPDATE ajuste
+  - transferencias_linea.py: CONFIRM (atomico), CANCEL
+- UI exclusiva admin: tabla, filtros (usuario/modulo/accion/fecha), paginacion, detalle expandible antes/despues
+- Testing: 100% pass rate iteration_45 (17/17 backend, frontend 100%)
 
 ### Permisos Granulares
 - servicios, acciones, estados por usuario
@@ -74,7 +87,7 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - Auto-llenado desde BOM
 
 ### P2
-- Refactorizar registros_main.py
+- Refactorizar registros_main.py y server.py (modularizar)
 - Lazy loading en frontend
 - Logging estructurado en backend
 
@@ -85,18 +98,21 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 ## Arquitectura Clave
 ```
 backend/routes/
+  auditoria.py         - Auditoria: helper + endpoints GET
   transferencias_linea.py - Transferencias internas entre lineas
-  cierre.py           - Cierre de produccion (consolidado)
-  trazabilidad.py     - Fallados, arreglos, balance, KPIs
-  registros_main.py   - CRUD registros
+  cierre.py            - Cierre de produccion (consolidado)
+  trazabilidad.py      - Fallados, arreglos, balance, KPIs
+  registros_main.py    - CRUD registros
   reportes_produccion.py - Dashboard, matriz, alertas
-  inventario_main.py  - FIFO, ingresos, salidas, ajustes
+  inventario_main.py   - FIFO, ingresos, salidas, ajustes
+  movimientos.py       - Movimientos de produccion
 
 frontend/src/
   pages/
-    TransferenciasLinea.jsx - Transferencias entre lineas
-    RegistroForm.jsx   - Formulario principal (calcularCantidadEfectiva)
+    AuditoriaLogs.jsx       - UI de auditoria (admin)
+    TransferenciasLinea.jsx  - Transferencias entre lineas
+    RegistroForm.jsx         - Formulario principal
   components/registro/
-    RegistroPanelLateral.jsx - Panel derecho con prendas tachadas
-    RegistroMovimientosCard.jsx - Movimientos con menu "..." y cantidad efectiva
+    RegistroPanelLateral.jsx - Panel derecho
+    RegistroMovimientosCard.jsx - Movimientos con menu "..."
 ```

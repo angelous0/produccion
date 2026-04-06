@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "../components/ui/button";
@@ -209,9 +209,8 @@ export const AuditoriaLogs = () => {
                   const accionClass = ACCION_COLORS[log.accion] || "bg-gray-100 text-gray-700";
                   const moduloClass = MODULO_COLORS[log.modulo] || "bg-gray-100 text-gray-700";
                   return (
-                    <>
+                    <React.Fragment key={log.id}>
                       <TableRow
-                        key={log.id}
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => toggleExpand(log.id)}
                         data-testid={`log-row-${log.id}`}
@@ -254,7 +253,7 @@ export const AuditoriaLogs = () => {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })
               )}
