@@ -457,6 +457,20 @@ async def reabrir_cierre(registro_id: str, data: ReaperturaInput, current_user: 
             if cierre.get("estado_cierre") != "CERRADO":
                 raise HTTPException(status_code=400, detail="El cierre ya esta reabierto o no tiene estado CERRADO")
 
+            # Validar que el PT generado no tenga movimientos posteriores
+            if cierre.get("pt_ingreso_id"):
+                salidas_pt = await conn.fetchval("""
+                    SELECT COUNT(*) FROM prod_inventario_salidas
+                    WHERE item_id = (SELECT item_id FROM prod_inventario_ingresos WHERE id = $1)
+                      AND created_at > $2
+                """, cierre["pt_ingreso_id"], cierre.get("created_at") or cierre.get("fecha"))
+                if salidas_pt and salidas_pt > 0:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"No se puede reabrir: el PT generado ya tiene {salidas_pt} salida(s) de inventario posteriores al cierre. "
+                               "Revierta esas salidas primero para evitar inconsistencias de stock."
+                    )
+
             usuario = current_user.get("username", current_user.get("nombre", "sistema"))
             ahora = datetime.now()
 

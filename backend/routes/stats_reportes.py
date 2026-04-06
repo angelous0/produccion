@@ -1091,7 +1091,7 @@ from routes.rollos import router as rollos_router
 from routes.ordenes import router as ordenes_router
 from routes.consumo import router as consumo_router
 from routes.servicios import router as servicios_router
-from routes.cierre_v2 import router as cierre_v2_router
+from routes.cierre import router as cierre_router
 from routes.reportes import router as reportes_router
 from routes.integracion_finanzas import router as integracion_finanzas_router
 from routes.control_produccion import router as control_produccion_router
