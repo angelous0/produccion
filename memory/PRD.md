@@ -1,7 +1,7 @@
 # Sistema de Produccion Textil - PRD
 
 ## Problema Original
-Sistema de gestion de produccion textil full-stack con trazabilidad unificada de lotes, permisos granulares y reportes operativos.
+Sistema de gestion de produccion textil full-stack con trazabilidad unificada, permisos granulares, reportes operativos y cierre de costos auditables.
 
 ## Stack
 - Backend: FastAPI + asyncpg + PostgreSQL
@@ -10,7 +10,7 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada de
 
 ## Credenciales
 - Admin: `eduard` / `eduard123`
-- empresa_id estandarizado: **7** (en todo el sistema)
+- empresa_id estandarizado: **7**
 
 ## Funcionalidades Implementadas
 
@@ -21,96 +21,78 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada de
 - Movimientos entre servicios/personas
 - Incidencias con paralizacion
 
-### Trazabilidad Unificada (Completa)
+### Cierre de Produccion (Consolidado - 06-Abr-2026)
+- **Archivo unico oficial**: `routes/cierre.py` (unificado desde cierre.py + cierre_v2.py)
+- **cierre_v2.py deprecado** (desmontado del server, queda como referencia)
+- Fuentes de costo oficiales:
+  - `costo_mp` = prod_inventario_salidas (FIFO real)
+  - `costo_servicios` = prod_movimientos_produccion.costo_calculado
+  - `otros_costos` = prod_registro_costos_servicio
+  - `costo_total_final` = costo_mp + costo_servicios + otros_costos
+  - `costo_unitario_final` = costo_total_final / qty_terminada_real
+- **Congelamiento**: snapshot_json guarda desglose completo al cerrar (no se recalcula)
+- **Reapertura controlada**: requiere motivo (5+ chars), revierte stock PT, guarda trazabilidad
+- **Validaciones pre-cierre**: registro existe, no cerrado, qty>0, PT asignado, estado compatible
+- **Ingreso PT automatico**: genera ingreso FIFO con costo unitario calculado
+- **Frontend**: Preview desglose → Confirmar → Badge CERRADO → Historial reapertura
+- **PDF Balance**: genera PDF detallado con costos congelados
+
+### Tabla prod_registro_cierre (migrada)
+Columnas nuevas agregadas: merma_qty, otros_costos, costo_unitario_final, cerrado_por, observacion_cierre, estado_cierre, snapshot_json, reabierto_por, reabierto_at, motivo_reapertura
+
+### Endpoints oficiales de cierre
+- `GET /api/registros/{id}/preview-cierre` - Preview con validaciones
+- `POST /api/registros/{id}/cierre-produccion` - Ejecutar cierre
+- `GET /api/registros/{id}/cierre-produccion` - Leer cierre congelado
+- `POST /api/registros/{id}/reabrir-cierre` - Reapertura controlada
+- `GET /api/registros/{id}/balance-pdf` - PDF balance
+- `PUT /api/registros/{id}/pt-item` - Asignar PT
+
+### Trazabilidad Unificada
 - Backend: CRUD fallados, arreglos, liquidacion directa
-- Resumen de cantidades (balance del lote)
-- Timeline unificado (movimientos + mermas + fallados + arreglos + divisiones)
-- Reporte general de trazabilidad
-- Mermas automaticas cuando cantidad_enviada != cantidad_recibida
-- Frontend: TrazabilidadPanel integrado en pestana "Control"
+- Timeline unificado, resumen de cantidades, mermas automaticas
+- Frontend: TrazabilidadPanel en pestana Control
 
 ### Permisos Granulares
-- servicios_permitidos, acciones_produccion, acciones_inventario, estados_permitidos
-- Hook usePermissions para frontend
-- Restriccion visual en timeline y dropdown de estados
-- Sidebar filtrado por permisos del usuario
-- Alertas (campana) filtradas por servicios permitidos
+- servicios, acciones, estados permitidos por usuario
+- Sidebar y alertas filtrados por permisos
 
 ### Reportes
 - Dashboard con KPIs reactivos
-- Matriz de produccion (fusion columnas, modal enriquecido, colores)
-- Seguimiento: En Proceso, WIP Etapa, Atrasados, Cumplimiento Ruta, Paralizados
-- Operativo: Balance Terceros, Costura, Tiempos Muertos
-- Lotes: Trazabilidad, Fraccionados, KPIs Calidad (mermas/fallados/arreglos por servicio/responsable)
-- Calidad: Mermas, Estados Item
-- Valorizacion: MP, WIP, PT
-
-### Semaforo de Salud del Lote
-- Columna "Salud" en listado de registros
-- Indicadores visuales: mermas (ambar), fallados (rojo), arreglos vencidos (rosa)
-- "OK" verde cuando no hay novedades
-
-### Exportacion CSV
-- Registros, inventario, movimientos, productividad, personas, modelos
-- Mermas, fallados, arreglos (nuevo)
-- Compatible con Excel (BOM UTF-8)
+- Matriz de produccion, Seguimiento (5 tabs incluyendo Paralizados)
+- KPIs de Calidad (mermas/fallados/arreglos por servicio)
+- Semaforo de Salud del Lote en listado
 
 ### Inventario FIFO
-- Items, ingresos, salidas, ajustes, rollos, kardex
-- BOM (Bill of Materials) con explosion
-- Reservas y consumo de materia prima
+- Items, ingresos, salidas, kardex, BOM, reservas, consumo
 
-### UI/UX
-- RegistroForm con pestanas (General, Produccion, Control)
-- Panel lateral contextual
-- Tema oscuro/claro
-
-## Limpieza realizada
-- Estandarizado empresa_id = 7 en 10 archivos y 5 tablas BD
-- Eliminados 8 archivos muertos (2723 lineas)
-- Corregidos todos los bare except a excepciones especificas
-- Migracion automatica en startup para normalizar empresa_id
+### Exportacion CSV
+- Registros, inventario, movimientos, mermas, fallados, arreglos
 
 ## Backlog Priorizado
 
-### P1
-- (Nada pendiente critico)
-
 ### P2
-- Lazy loading en frontend (todas las paginas cargan de golpe)
+- Lazy loading en frontend
 - Logging estructurado en backend
+- Refactorizar registros_main.py (1991 lineas)
 
 ### P3
 - Exportacion PDF ademas de CSV
 - Rate limiting en API
-- Refactorizar registros_main.py (1991 lineas)
 
-## Arquitectura de Archivos Clave
+## Arquitectura Clave
 ```
-backend/
-  server.py          - Startup, DDL, middleware
-  auth.py            - Utilidades JWT, get_current_user
-  routes/
-    auth.py          - Login, usuarios, permisos
-    registros_main.py - CRUD registros (con salud del lote)
-    trazabilidad.py  - Fallados, arreglos, balance, timeline, KPIs
-    movimientos.py   - Movimientos produccion, mermas auto
-    reportes_produccion.py - Dashboard, matriz, alertas (con servicio_id)
-    stats_reportes.py - Export CSV (mermas, fallados, arreglos)
-    + 15 routers mas
+backend/routes/
+  cierre.py           - UNICO archivo de cierre (consolidado)
+  cierre_v2.py        - DEPRECADO (desmontado, referencia)
+  trazabilidad.py     - Fallados, arreglos, balance, KPIs
+  registros_main.py   - CRUD registros (con salud del lote)
+  reportes_produccion.py - Dashboard, matriz, alertas
+  auth.py             - Login, usuarios, permisos
 
 frontend/src/
+  components/registro/
+    RegistroDatosCard.jsx - Panel de cierre con badge/reapertura/snapshot
   pages/
-    RegistroForm.jsx       - Detalle registro (3 pestanas)
-    Registros.jsx          - Listado con columna Salud
-    ReporteTrazabilidadKPIs.jsx - KPIs calidad (mermas/fallados/arreglos)
-    LotesTrazabilidad.jsx  - Hub con 3 pestanas
-    SeguimientoProduccion.jsx - 5 pestanas incluyendo Paralizados
-  components/
-    TrazabilidadPanel.jsx  - Balance + timeline + CRUD
-    NotificacionesBell.jsx - Alertas filtradas por permisos
-    Layout.jsx             - Sidebar filtrado por permisos
-    ExportButton.jsx       - Boton reutilizable de exportacion
-  hooks/
-    usePermissions.js      - Permisos granulares con RUTA_A_TABLA
+    RegistroForm.jsx   - Orchestrador con handleReabrirCierre
 ```
