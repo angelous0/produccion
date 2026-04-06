@@ -65,18 +65,10 @@ async def get_registros(
 
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
 
-        # Count total
-        count_row = await conn.fetchrow(f"""
-            SELECT COUNT(*) as total
-            FROM prod_registros r
-            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
-            WHERE {where_clause}
-        """, *params)
-        total = count_row['total']
-
-        # Get paginated data
+        # Un solo query: count con window function + data paginada
         rows = await conn.fetch(f"""
             SELECT r.*,
+                COUNT(*) OVER() as _total_count,
                 m.nombre as modelo_nombre,
                 ma.nombre as marca_nombre,
                 t.nombre as tipo_nombre,
@@ -106,10 +98,13 @@ async def get_registros(
             LIMIT ${param_idx} OFFSET ${param_idx + 1}
         """, *params, limit, offset)
 
+        total = rows[0]['_total_count'] if rows else 0
+
         result = []
         from datetime import date as date_type
         for r in rows:
             d = row_to_dict(r)
+            d.pop('_total_count', None)
             d['tallas'] = parse_jsonb(d.get('tallas'))
             d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
             if d.get('fecha_entrega_final'):
@@ -150,14 +145,35 @@ async def get_registros_estados():
 async def get_registro(registro_id: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
+        # Un solo query con JOINs en lugar de N+1
+        row = await conn.fetchrow("""
+            SELECT r.*,
+                m.nombre as modelo_nombre,
+                ma.nombre as marca_nombre,
+                t.nombre as tipo_nombre,
+                e.nombre as entalle_nombre,
+                te.nombre as tela_nombre,
+                h.nombre as hilo_nombre,
+                he.nombre as hilo_especifico_nombre,
+                pt.nombre as pt_item_nombre,
+                pt.codigo as pt_item_codigo
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN prod_tipos t ON m.tipo_id = t.id
+            LEFT JOIN prod_entalles e ON m.entalle_id = e.id
+            LEFT JOIN prod_telas te ON m.tela_id = te.id
+            LEFT JOIN prod_hilos h ON m.hilo_id = h.id
+            LEFT JOIN prod_hilos_especificos he ON COALESCE(r.hilo_especifico_id, m.hilo_especifico_id) = he.id
+            LEFT JOIN prod_inventario pt ON r.pt_item_id = pt.id
+            WHERE r.id = $1
+        """, registro_id)
         if not row:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         d = row_to_dict(row)
-        tallas_raw = parse_jsonb(d.get('tallas'))
         d['distribucion_colores'] = parse_jsonb(d.get('distribucion_colores'))
         
-        # Obtener tallas de la tabla prod_registro_tallas (si existen)
+        # Tallas: un solo query con JOIN
         tallas_tabla = await conn.fetch("""
             SELECT rt.talla_id, rt.cantidad_real, tc.nombre as talla_nombre
             FROM prod_registro_tallas rt
@@ -167,48 +183,29 @@ async def get_registro(registro_id: str):
         """, registro_id)
         
         if tallas_tabla:
-            # Usar datos de la tabla (más actualizados)
-            tallas_enriquecidas = [{
+            d['tallas'] = [{
                 'talla_id': str(t['talla_id']),
                 'talla_nombre': t['talla_nombre'] or '',
                 'cantidad': int(t['cantidad_real']) if t['cantidad_real'] else 0
             } for t in tallas_tabla]
         else:
-            # Fallback al campo JSONB
-            tallas_enriquecidas = []
-            for t in tallas_raw:
-                talla_id = t.get('talla_id')
-                if talla_id:
-                    talla_info = await conn.fetchrow("SELECT nombre FROM prod_tallas_catalogo WHERE id = $1", talla_id)
-                    tallas_enriquecidas.append({
-                        'talla_id': talla_id,
-                        'talla_nombre': talla_info['nombre'] if talla_info else '',
-                        'cantidad': t.get('cantidad', 0)
-                    })
-        d['tallas'] = tallas_enriquecidas
-        
-        modelo = await conn.fetchrow("SELECT * FROM prod_modelos WHERE id = $1", d.get('modelo_id'))
-        if modelo:
-            d['modelo_nombre'] = modelo['nombre']
-            marca = await conn.fetchrow("SELECT nombre FROM prod_marcas WHERE id = $1", modelo['marca_id'])
-            tipo = await conn.fetchrow("SELECT nombre FROM prod_tipos WHERE id = $1", modelo['tipo_id'])
-            entalle = await conn.fetchrow("SELECT nombre FROM prod_entalles WHERE id = $1", modelo['entalle_id'])
-            tela = await conn.fetchrow("SELECT nombre FROM prod_telas WHERE id = $1", modelo['tela_id'])
-            hilo = await conn.fetchrow("SELECT nombre FROM prod_hilos WHERE id = $1", modelo['hilo_id'])
-            d['marca_nombre'] = marca['nombre'] if marca else None
-            d['tipo_nombre'] = tipo['nombre'] if tipo else None
-            d['entalle_nombre'] = entalle['nombre'] if entalle else None
-            d['tela_nombre'] = tela['nombre'] if tela else None
-            d['hilo_nombre'] = hilo['nombre'] if hilo else None
-        # Enriquecer hilo específico
-        if d.get('hilo_especifico_id'):
-            hilo_esp = await conn.fetchrow("SELECT nombre FROM prod_hilos_especificos WHERE id = $1", d.get('hilo_especifico_id'))
-            d['hilo_especifico_nombre'] = hilo_esp['nombre'] if hilo_esp else None
-        # Enriquecer PT item
-        if d.get('pt_item_id'):
-            pt_item = await conn.fetchrow("SELECT id, codigo, nombre FROM prod_inventario WHERE id = $1", d['pt_item_id'])
-            d['pt_item_nombre'] = pt_item['nombre'] if pt_item else None
-            d['pt_item_codigo'] = pt_item['codigo'] if pt_item else None
+            # Fallback al JSONB - enriquecer con un solo query batch
+            tallas_raw = parse_jsonb(d.get('tallas'))
+            talla_ids = [t.get('talla_id') for t in tallas_raw if t.get('talla_id')]
+            if talla_ids:
+                talla_nombres = await conn.fetch(
+                    "SELECT id, nombre FROM prod_tallas_catalogo WHERE id = ANY($1)", talla_ids)
+                nombres_map = {str(tn['id']): tn['nombre'] for tn in talla_nombres}
+                d['tallas'] = [{
+                    'talla_id': t.get('talla_id', ''),
+                    'talla_nombre': nombres_map.get(t.get('talla_id'), ''),
+                    'cantidad': t.get('cantidad', 0)
+                } for t in tallas_raw]
+            else:
+                d['tallas'] = tallas_raw
+
+        if d.get('fecha_entrega_final'):
+            d['fecha_entrega_final'] = str(d['fecha_entrega_final'])
         return d
 
 @router.post("/registros")
@@ -992,8 +989,8 @@ async def get_materiales_consolidado(registro_id: str):
     """Vista consolidada: requerimiento + reservas + salidas de un registro en una sola respuesta."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        registro = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
-        if not registro:
+        existe = await conn.fetchval("SELECT 1 FROM prod_registros WHERE id = $1", registro_id)
+        if not existe:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
         
         # 1) Requerimiento
@@ -1008,33 +1005,36 @@ async def get_materiales_consolidado(registro_id: str):
             ORDER BY i.nombre, tc.orden NULLS FIRST
         """, registro_id)
         
-        # 2) Reservas activas con detalle de líneas
-        reservas = await conn.fetch("""
-            SELECT r.id, r.estado, r.created_at as fecha
+        # 2) Reservas activas con detalle de lineas (un solo query)
+        reservas_raw = await conn.fetch("""
+            SELECT r.id as reserva_id, r.estado, r.created_at as fecha,
+                   rl.id as linea_id, rl.item_id, rl.talla_id, rl.cantidad_reservada, rl.cantidad_liberada,
+                   i.codigo as item_codigo, i.nombre as item_nombre, i.unidad_medida as item_unidad,
+                   tc.nombre as talla_nombre
             FROM prod_inventario_reservas r
+            LEFT JOIN prod_inventario_reservas_linea rl ON rl.reserva_id = r.id
+            LEFT JOIN prod_inventario i ON rl.item_id = i.id
+            LEFT JOIN prod_tallas_catalogo tc ON rl.talla_id = tc.id
             WHERE r.registro_id = $1
             ORDER BY r.created_at DESC
         """, registro_id)
         
-        reservas_list = []
-        for res in reservas:
-            lineas_r = await conn.fetch("""
-                SELECT rl.*, i.codigo as item_codigo, i.nombre as item_nombre, i.unidad_medida as item_unidad,
-                       tc.nombre as talla_nombre
-                FROM prod_inventario_reservas_linea rl
-                JOIN prod_inventario i ON rl.item_id = i.id
-                LEFT JOIN prod_tallas_catalogo tc ON rl.talla_id = tc.id
-                WHERE rl.reserva_id = $1
-            """, res['id'])
-            reservas_list.append({
-                "id": res['id'],
-                "estado": res['estado'],
-                "fecha": str(res['fecha']) if res['fecha'] else None,
-                "lineas": [{
-                    **row_to_dict(l),
-                    "cantidad_activa": max(0, float(l['cantidad_reservada']) - float(l['cantidad_liberada']))
-                } for l in lineas_r]
-            })
+        reservas_map = {}
+        for rr in reservas_raw:
+            rid = rr['reserva_id']
+            if rid not in reservas_map:
+                reservas_map[rid] = {"id": rid, "estado": rr['estado'],
+                    "fecha": str(rr['fecha']) if rr['fecha'] else None, "lineas": []}
+            if rr['linea_id']:
+                reservas_map[rid]["lineas"].append({
+                    "id": rr['linea_id'], "item_id": rr['item_id'], "talla_id": rr['talla_id'],
+                    "cantidad_reservada": float(rr['cantidad_reservada'] or 0),
+                    "cantidad_liberada": float(rr['cantidad_liberada'] or 0),
+                    "item_codigo": rr['item_codigo'], "item_nombre": rr['item_nombre'],
+                    "item_unidad": rr['item_unidad'], "talla_nombre": rr['talla_nombre'],
+                    "cantidad_activa": max(0, float(rr['cantidad_reservada'] or 0) - float(rr['cantidad_liberada'] or 0))
+                })
+        reservas_list = list(reservas_map.values())
         
         # 3) Salidas relacionadas
         salidas = await conn.fetch("""
@@ -1045,13 +1045,26 @@ async def get_materiales_consolidado(registro_id: str):
             ORDER BY s.fecha DESC
         """, registro_id)
         
-        # 4) Disponibilidad por item (con reservas globales)
+        # 4) Disponibilidad por item - batch en vez de N queries individuales
         item_ids = list(set(r['item_id'] for r in req_rows))
         disponibilidad = {}
-        for iid in item_ids:
-            disp = await get_disponibilidad_item(conn, iid)
-            if disp:
-                disponibilidad[iid] = disp
+        if item_ids:
+            disp_rows = await conn.fetch("""
+                SELECT i.id as item_id, i.stock_actual,
+                    COALESCE(i.stock_actual, 0) - COALESCE((
+                        SELECT SUM(rl.cantidad_reservada - rl.cantidad_liberada)
+                        FROM prod_inventario_reservas_linea rl
+                        JOIN prod_inventario_reservas rv ON rl.reserva_id = rv.id
+                        WHERE rl.item_id = i.id AND rv.estado = 'ACTIVA'
+                    ), 0) as disponible
+                FROM prod_inventario i
+                WHERE i.id = ANY($1)
+            """, item_ids)
+            for dr in disp_rows:
+                disponibilidad[dr['item_id']] = {
+                    'stock_actual': float(dr['stock_actual'] or 0),
+                    'disponible': float(dr['disponible'] or 0)
+                }
         
         # Armar resultado
         lineas = []

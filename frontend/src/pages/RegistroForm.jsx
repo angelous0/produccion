@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSaving } from '../hooks/useSaving';
@@ -140,15 +140,19 @@ export const RegistroForm = () => {
   };
 
   const fetchRelatedData = () => {
+    // Datos esenciales para el formulario (siempre necesarios)
     fetchWithRetry(`${API}/modelos?all=true`).then(d => { if (d) setModelos(d); });
     fetchWithRetry(`${API}/hilos-especificos`).then(d => { if (d) setHilosEspecificos(d); });
     axios.get(`${API}/estados`).then(r => { setEstados(r.data.estados); setEstadosGlobales(r.data.estados); }).catch(() => {});
     axios.get(`${API}/tallas-catalogo`).then(r => setTallasCatalogo(r.data)).catch(() => {});
     axios.get(`${API}/colores-catalogo`).then(r => setColoresCatalogo(r.data)).catch(() => {});
-    axios.get(`${API}/inventario?all=true`).then(r => setItemsInventario(r.data)).catch(() => {});
     axios.get(`${API}/lineas-negocio`).then(r => setLineasNegocio(r.data)).catch(() => {});
-    axios.get(`${API}/servicios-produccion`).then(r => setServiciosProduccion(r.data)).catch(() => {});
-    axios.get(`${API}/personas-produccion?activo=true`).then(r => setPersonasProduccion(r.data)).catch(() => {});
+    // Datos para dialogos (se cargan en segundo plano, no bloquean render)
+    setTimeout(() => {
+      axios.get(`${API}/inventario?all=true`).then(r => setItemsInventario(r.data)).catch(() => {});
+      axios.get(`${API}/servicios-produccion`).then(r => setServiciosProduccion(r.data)).catch(() => {});
+      axios.get(`${API}/personas-produccion?activo=true`).then(r => setPersonasProduccion(r.data)).catch(() => {});
+    }, 100);
   };
 
   const fetchEstadosDisponibles = async (registroId) => {
@@ -205,20 +209,62 @@ export const RegistroForm = () => {
       });
       setTallasSeleccionadas(registro.tallas || []);
       setDistribucionColores(registro.distribucion_colores || []);
-      try {
-        const modelosRes = await axios.get(`${API}/modelos?all=true`);
-        const modelo = modelosRes.data.find(m => m.id === registro.modelo_id);
+      // Usar modelos ya cargados por fetchRelatedData (evita llamada duplicada)
+      if (modelos.length > 0) {
+        const modelo = modelos.find(m => m.id === registro.modelo_id);
         setModeloSeleccionado(modelo || null);
         if (!registro.pt_item_id && modelo?.pt_item_id) setFormData(prev => ({ ...prev, pt_item_id: modelo.pt_item_id }));
-      } catch {}
+      }
       try { await fetchEstadosDisponibles(id); } catch {}
     } catch { toast.error('Error al cargar registro'); navigate('/registros'); }
     finally { setLoadingData(false); }
   };
 
   // ========== EFFECTS ==========
-  useEffect(() => { fetchRelatedData(); if (id) fetchRegistro(); else setLoadingData(false); }, [id]);
-  useEffect(() => { if (id) { fetchSalidasRegistro(); fetchMovimientosProduccion(); fetchDivisionInfo(); fetchIncidencias(); fetchMotivosIncidencia(); } }, [id]);
+  const [activeTab, setActiveTab] = useState('produccion');
+  const [tabsLoaded, setTabsLoaded] = useState({ general: false, produccion: false, control: false });
+
+  // Carga inicial: solo datos del formulario + datos ligeros del panel lateral
+  useEffect(() => {
+    fetchRelatedData();
+    if (id) {
+      fetchRegistro();
+      // Datos ligeros necesarios para el panel lateral
+      fetchMovimientosProduccion();
+      fetchIncidencias();
+    } else {
+      setLoadingData(false);
+    }
+  }, [id]);
+
+  // Cuando los modelos se cargan, resolver el modelo seleccionado
+  useEffect(() => {
+    if (modelos.length > 0 && formData.modelo_id && !modeloSeleccionado) {
+      const modelo = modelos.find(m => m.id === formData.modelo_id);
+      if (modelo) {
+        setModeloSeleccionado(modelo);
+        if (!formData.pt_item_id && modelo.pt_item_id) setFormData(prev => ({ ...prev, pt_item_id: modelo.pt_item_id }));
+      }
+    }
+  }, [modelos, formData.modelo_id]);
+
+  // Carga lazy por pestaña activa
+  useEffect(() => {
+    if (!id) return;
+    if (activeTab === 'produccion' && !tabsLoaded.produccion) {
+      fetchSalidasRegistro();
+      setTabsLoaded(prev => ({ ...prev, produccion: true }));
+    }
+    if (activeTab === 'control' && !tabsLoaded.control) {
+      fetchMotivosIncidencia();
+      fetchDivisionInfo();
+      setTabsLoaded(prev => ({ ...prev, control: true }));
+    }
+    if (activeTab === 'general' && !tabsLoaded.general) {
+      setTabsLoaded(prev => ({ ...prev, general: true }));
+    }
+  }, [activeTab, id, tabsLoaded]);
+
   useEffect(() => { if (id && usaRuta) fetchAnalisisEstado(); }, [id, usaRuta, movimientosProduccion.length]);
   useEffect(() => {
     if (!id || !esCierreable) { setCierrePreview(null); return; }
@@ -375,7 +421,7 @@ export const RegistroForm = () => {
     }));
     setDistribucionColores(distribucion); setColoresDialogOpen(false); toast.success('Distribución de colores guardada');
   };
-  const tieneColores = () => distribucionColores && distribucionColores.some(t => t.colores && t.colores.length > 0);
+  const tieneColores = useMemo(() => distribucionColores && distribucionColores.some(t => t.colores && t.colores.length > 0), [distribucionColores]);
 
   // Salidas de inventario
   const handleOpenSalidaDialog = () => {
@@ -553,7 +599,7 @@ export const RegistroForm = () => {
     }
   };
 
-  const getTotalCantidadMovimientos = () => movimientosProduccion.reduce((sum, m) => sum + (m.cantidad_recibida || m.cantidad || 0), 0);
+  const totalCantidadMovimientos = useMemo(() => movimientosProduccion.reduce((sum, m) => sum + (m.cantidad_recibida || m.cantidad || 0), 0), [movimientosProduccion]);
 
   // Estado
   const autoGuardarEstado = async (nuevoEstado) => {
@@ -662,7 +708,7 @@ export const RegistroForm = () => {
     setPersonasFiltradas(filtradas); setMovimientoDialogOpen(true);
   };
 
-  const tallasDisponibles = tallasCatalogo.filter(t => !tallasSeleccionadas.find(ts => ts.talla_id === t.id));
+  const tallasDisponibles = useMemo(() => tallasCatalogo.filter(t => !tallasSeleccionadas.find(ts => ts.talla_id === t.id)), [tallasCatalogo, tallasSeleccionadas]);
 
   if (loadingData) return <div className="flex items-center justify-center h-64"><div className="text-muted-foreground">Cargando...</div></div>;
 
@@ -700,13 +746,13 @@ export const RegistroForm = () => {
                 <RegistroTallasCard
                   tallasSeleccionadas={tallasSeleccionadas} tallasDisponibles={tallasDisponibles}
                   onAddTalla={handleAddTalla} onCantidadChange={handleTallaCantidadChange}
-                  onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores()}
+                  onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores}
                   onOpenColoresDialog={handleOpenColoresDialog} distribucionColores={distribucionColores}
                 />
               </>
             ) : (
               /* Modo edición: con pestañas */
-              <Tabs defaultValue="produccion" className="space-y-3">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
                 <TabsList className="h-9 w-full justify-start">
                   <TabsTrigger value="general" className="text-xs gap-1.5" data-testid="tab-general">
                     <ClipboardList className="h-3.5 w-3.5" /> General
@@ -741,7 +787,7 @@ export const RegistroForm = () => {
                   <RegistroTallasCard
                     tallasSeleccionadas={tallasSeleccionadas} tallasDisponibles={tallasDisponibles}
                     onAddTalla={handleAddTalla} onCantidadChange={handleTallaCantidadChange}
-                    onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores()}
+                    onRemoveTalla={handleRemoveTalla} tieneColores={tieneColores}
                     onOpenColoresDialog={handleOpenColoresDialog} distribucionColores={distribucionColores}
                   />
                 </TabsContent>
@@ -752,7 +798,7 @@ export const RegistroForm = () => {
                     movimientosProduccion={movimientosProduccion} serviciosProduccion={serviciosProduccion}
                     isParalizado={isParalizado} onOpenDialog={handleOpenMovimientoDialog}
                     onDelete={handleDeleteMovimiento} onGenerarGuia={handleGenerarGuia}
-                    totalCantidad={getTotalCantidadMovimientos()}
+                    totalCantidad={totalCantidadMovimientos}
                     permisos={permsMovimientos}
                   />
                   <Card><CardContent className="pt-4">

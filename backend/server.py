@@ -1069,6 +1069,27 @@ async def startup():
     await init_transferencias_tables()
     # Tabla de auditoria
     await init_audit_tables()
+    # Indices de performance para queries frecuentes
+    pool2 = await get_pool()
+    async with pool2.acquire() as conn:
+        for idx_sql in [
+            "CREATE INDEX IF NOT EXISTS idx_movimientos_registro_id ON prod_movimientos_produccion(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_mermas_registro_id ON prod_mermas(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_fallados_registro_id ON prod_fallados(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_arreglos_registro_id ON prod_arreglos(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_incidencia_registro_id ON prod_incidencia(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_registros_estado ON prod_registros(estado)",
+            "CREATE INDEX IF NOT EXISTS idx_registros_fecha ON prod_registros(fecha_creacion DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_registros_modelo ON prod_registros(modelo_id)",
+            "CREATE INDEX IF NOT EXISTS idx_registros_dividido ON prod_registros(dividido_desde_registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_paralizacion_registro ON prod_paralizacion(registro_id, activa)",
+            "CREATE INDEX IF NOT EXISTS idx_movimientos_fecha_esperada ON prod_movimientos_produccion(fecha_esperada_movimiento)",
+            "CREATE INDEX IF NOT EXISTS idx_salidas_registro ON prod_inventario_salidas(registro_id)",
+        ]:
+            try:
+                await conn.execute(idx_sql)
+            except Exception:
+                pass
 
 @app.on_event("shutdown")
 async def shutdown():

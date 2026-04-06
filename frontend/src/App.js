@@ -1,64 +1,76 @@
 import "@/App.css";
+import React, { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
-import { Usuarios } from "./pages/Usuarios";
-import { HistorialActividad } from "./pages/HistorialActividad";
-import { Backups } from "./pages/Backups";
 import { Dashboard } from "./pages/Dashboard";
-import { Marcas } from "./pages/Marcas";
-import { Tipos } from "./pages/Tipos";
-import { Entalles } from "./pages/Entalles";
-import { Telas } from "./pages/Telas";
-import { Hilos } from "./pages/Hilos";
-import { TallasCatalogo } from "./pages/TallasCatalogo";
-import { ColoresCatalogo } from "./pages/ColoresCatalogo";
-import { ColoresGenerales } from "./pages/ColoresGenerales";
-import { Modelos, ModelosBases, ModelosVariantes } from "./pages/Modelos";
 import { Registros } from "./pages/Registros";
 import { RegistroForm } from "./pages/RegistroForm";
-import { Inventario } from "./pages/Inventario";
-import { InventarioIngresos } from "./pages/InventarioIngresos";
-import { InventarioSalidas } from "./pages/InventarioSalidas";
-import { InventarioAjustes } from "./pages/InventarioAjustes";
-import { InventarioRollos } from "./pages/InventarioRollos";
-import { ReporteMovimientos } from "./pages/ReporteMovimientos";
-import { Kardex } from "./pages/Kardex";
-import { ServiciosProduccion } from "./pages/ServiciosProduccion";
-import { PersonasProduccion } from "./pages/PersonasProduccion";
-import { MovimientosProduccion } from "./pages/MovimientosProduccion";
-import { ReporteProductividad } from "./pages/ReporteProductividad";
-import { RutasProduccion } from "./pages/RutasProduccion";
-import { CalidadMerma } from "./pages/CalidadMerma";
-import { ReporteMermas } from "./pages/ReporteMermas";
-import { ReporteEstadosItem } from "./pages/ReporteEstadosItem";
-import { GuiasRemision } from "./pages/GuiasRemision";
-import { HilosEspecificos } from "./pages/HilosEspecificos";
-import { ReporteMPValorizado, ReporteWIP, ReportePTValorizado } from "./pages/ReportesValorizacion";
-import { ReportesProduccionDashboard } from "./pages/ReportesProduccionDashboard";
-import { ReporteEnProceso } from "./pages/ReporteEnProceso";
-import { ReporteWIPEtapa } from "./pages/ReporteWIPEtapa";
-import { ReporteAtrasados } from "./pages/ReporteAtrasados";
-import { ReporteTrazabilidad } from "./pages/ReporteTrazabilidad";
-import { ReporteCumplimientoRuta } from "./pages/ReporteCumplimientoRuta";
-import { ReporteBalanceTerceros } from "./pages/ReporteBalanceTerceros";
-import { ReporteLotesFraccionados } from "./pages/ReporteLotesFraccionados";
-import { MatrizProduccion } from "./pages/MatrizProduccion";
-import TrazabilidadReporte from "./pages/TrazabilidadReporte";
-import { ReporteStockBajo } from "./pages/ReporteStockBajo";
-import { ReporteCostura } from "./pages/ReporteCostura";
-import { ReporteTiemposMuertos } from "./pages/ReporteTiemposMuertos";
-import { SeguimientoProduccion } from "./pages/SeguimientoProduccion";
-import { OperativoTerceros } from "./pages/OperativoTerceros";
-import { LotesTrazabilidad } from "./pages/LotesTrazabilidad";
-import { TransferenciasLinea } from "./pages/TransferenciasLinea";
-import { AuditoriaLogs } from "./pages/AuditoriaLogs";
-import { ValorizacionConsolidado } from "./pages/ValorizacionConsolidado";
-import { CalidadConsolidado } from "./pages/CalidadConsolidado";
 import { Loader2 } from "lucide-react";
+
+// Lazy imports - se cargan solo cuando se navega a la ruta
+const Usuarios = lazy(() => import("./pages/Usuarios").then(m => ({ default: m.Usuarios })));
+const HistorialActividad = lazy(() => import("./pages/HistorialActividad").then(m => ({ default: m.HistorialActividad })));
+const Backups = lazy(() => import("./pages/Backups").then(m => ({ default: m.Backups })));
+const Marcas = lazy(() => import("./pages/Marcas").then(m => ({ default: m.Marcas })));
+const Tipos = lazy(() => import("./pages/Tipos").then(m => ({ default: m.Tipos })));
+const Entalles = lazy(() => import("./pages/Entalles").then(m => ({ default: m.Entalles })));
+const Telas = lazy(() => import("./pages/Telas").then(m => ({ default: m.Telas })));
+const Hilos = lazy(() => import("./pages/Hilos").then(m => ({ default: m.Hilos })));
+const TallasCatalogo = lazy(() => import("./pages/TallasCatalogo").then(m => ({ default: m.TallasCatalogo })));
+const ColoresCatalogo = lazy(() => import("./pages/ColoresCatalogo").then(m => ({ default: m.ColoresCatalogo })));
+const ColoresGenerales = lazy(() => import("./pages/ColoresGenerales").then(m => ({ default: m.ColoresGenerales })));
+const ModelosLazy = lazy(() => import("./pages/Modelos").then(m => ({ default: m.Modelos })));
+const ModelosBasesLazy = lazy(() => import("./pages/Modelos").then(m => ({ default: m.ModelosBases })));
+const ModelosVariantesLazy = lazy(() => import("./pages/Modelos").then(m => ({ default: m.ModelosVariantes })));
+const Inventario = lazy(() => import("./pages/Inventario").then(m => ({ default: m.Inventario })));
+const InventarioIngresos = lazy(() => import("./pages/InventarioIngresos").then(m => ({ default: m.InventarioIngresos })));
+const InventarioSalidas = lazy(() => import("./pages/InventarioSalidas").then(m => ({ default: m.InventarioSalidas })));
+const InventarioAjustes = lazy(() => import("./pages/InventarioAjustes").then(m => ({ default: m.InventarioAjustes })));
+const InventarioRollos = lazy(() => import("./pages/InventarioRollos").then(m => ({ default: m.InventarioRollos })));
+const ReporteMovimientos = lazy(() => import("./pages/ReporteMovimientos").then(m => ({ default: m.ReporteMovimientos })));
+const Kardex = lazy(() => import("./pages/Kardex").then(m => ({ default: m.Kardex })));
+const ServiciosProduccion = lazy(() => import("./pages/ServiciosProduccion").then(m => ({ default: m.ServiciosProduccion })));
+const PersonasProduccion = lazy(() => import("./pages/PersonasProduccion").then(m => ({ default: m.PersonasProduccion })));
+const MovimientosProduccion = lazy(() => import("./pages/MovimientosProduccion").then(m => ({ default: m.MovimientosProduccion })));
+const ReporteProductividad = lazy(() => import("./pages/ReporteProductividad").then(m => ({ default: m.ReporteProductividad })));
+const RutasProduccion = lazy(() => import("./pages/RutasProduccion").then(m => ({ default: m.RutasProduccion })));
+const CalidadMerma = lazy(() => import("./pages/CalidadMerma").then(m => ({ default: m.CalidadMerma })));
+const ReporteMermas = lazy(() => import("./pages/ReporteMermas").then(m => ({ default: m.ReporteMermas })));
+const ReporteEstadosItem = lazy(() => import("./pages/ReporteEstadosItem").then(m => ({ default: m.ReporteEstadosItem })));
+const GuiasRemision = lazy(() => import("./pages/GuiasRemision").then(m => ({ default: m.GuiasRemision })));
+const HilosEspecificos = lazy(() => import("./pages/HilosEspecificos").then(m => ({ default: m.HilosEspecificos })));
+const ReportesProduccionDashboard = lazy(() => import("./pages/ReportesProduccionDashboard").then(m => ({ default: m.ReportesProduccionDashboard })));
+const ReporteEnProceso = lazy(() => import("./pages/ReporteEnProceso").then(m => ({ default: m.ReporteEnProceso })));
+const ReporteWIPEtapa = lazy(() => import("./pages/ReporteWIPEtapa").then(m => ({ default: m.ReporteWIPEtapa })));
+const ReporteAtrasados = lazy(() => import("./pages/ReporteAtrasados").then(m => ({ default: m.ReporteAtrasados })));
+const ReporteTrazabilidad = lazy(() => import("./pages/ReporteTrazabilidad").then(m => ({ default: m.ReporteTrazabilidad })));
+const ReporteCumplimientoRuta = lazy(() => import("./pages/ReporteCumplimientoRuta").then(m => ({ default: m.ReporteCumplimientoRuta })));
+const ReporteBalanceTerceros = lazy(() => import("./pages/ReporteBalanceTerceros").then(m => ({ default: m.ReporteBalanceTerceros })));
+const ReporteLotesFraccionados = lazy(() => import("./pages/ReporteLotesFraccionados").then(m => ({ default: m.ReporteLotesFraccionados })));
+const MatrizProduccion = lazy(() => import("./pages/MatrizProduccion").then(m => ({ default: m.MatrizProduccion })));
+const TrazabilidadReporte = lazy(() => import("./pages/TrazabilidadReporte"));
+const ReporteStockBajo = lazy(() => import("./pages/ReporteStockBajo").then(m => ({ default: m.ReporteStockBajo })));
+const ReporteCostura = lazy(() => import("./pages/ReporteCostura").then(m => ({ default: m.ReporteCostura })));
+const ReporteTiemposMuertos = lazy(() => import("./pages/ReporteTiemposMuertos").then(m => ({ default: m.ReporteTiemposMuertos })));
+const SeguimientoProduccion = lazy(() => import("./pages/SeguimientoProduccion").then(m => ({ default: m.SeguimientoProduccion })));
+const OperativoTerceros = lazy(() => import("./pages/OperativoTerceros").then(m => ({ default: m.OperativoTerceros })));
+const LotesTrazabilidad = lazy(() => import("./pages/LotesTrazabilidad").then(m => ({ default: m.LotesTrazabilidad })));
+const TransferenciasLinea = lazy(() => import("./pages/TransferenciasLinea").then(m => ({ default: m.TransferenciasLinea })));
+const AuditoriaLogs = lazy(() => import("./pages/AuditoriaLogs").then(m => ({ default: m.AuditoriaLogs })));
+const ValorizacionConsolidado = lazy(() => import("./pages/ValorizacionConsolidado").then(m => ({ default: m.ValorizacionConsolidado })));
+const CalidadConsolidado = lazy(() => import("./pages/CalidadConsolidado").then(m => ({ default: m.CalidadConsolidado })));
+
+const LazyFallback = () => (
+  <div className="flex items-center justify-center h-64">
+    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+  </div>
+);
+
+const LazyWrap = ({ children }) => <Suspense fallback={<LazyFallback />}>{children}</Suspense>;
 
 // Componente de ruta protegida
 const ProtectedRoute = ({ children }) => {
@@ -115,47 +127,47 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<Dashboard />} />
-        <Route path="usuarios" element={<Usuarios />} />
-        <Route path="auditoria" element={<AuditoriaLogs />} />
-        <Route path="historial-actividad" element={<HistorialActividad />} />
-        <Route path="backups" element={<Backups />} />
-        <Route path="marcas" element={<Marcas />} />
-        <Route path="tipos" element={<Tipos />} />
-        <Route path="entalles" element={<Entalles />} />
-        <Route path="telas" element={<Telas />} />
-        <Route path="hilos" element={<Hilos />} />
-        <Route path="hilos-especificos" element={<HilosEspecificos />} />
-        <Route path="tallas-catalogo" element={<TallasCatalogo />} />
-        <Route path="colores-catalogo" element={<ColoresCatalogo />} />
-        <Route path="colores-generales" element={<ColoresGenerales />} />
-        <Route path="bases" element={<ModelosBases />} />
-        <Route path="modelos" element={<ModelosVariantes />} />
+        <Route path="usuarios" element={<LazyWrap><Usuarios /></LazyWrap>} />
+        <Route path="auditoria" element={<LazyWrap><AuditoriaLogs /></LazyWrap>} />
+        <Route path="historial-actividad" element={<LazyWrap><HistorialActividad /></LazyWrap>} />
+        <Route path="backups" element={<LazyWrap><Backups /></LazyWrap>} />
+        <Route path="marcas" element={<LazyWrap><Marcas /></LazyWrap>} />
+        <Route path="tipos" element={<LazyWrap><Tipos /></LazyWrap>} />
+        <Route path="entalles" element={<LazyWrap><Entalles /></LazyWrap>} />
+        <Route path="telas" element={<LazyWrap><Telas /></LazyWrap>} />
+        <Route path="hilos" element={<LazyWrap><Hilos /></LazyWrap>} />
+        <Route path="hilos-especificos" element={<LazyWrap><HilosEspecificos /></LazyWrap>} />
+        <Route path="tallas-catalogo" element={<LazyWrap><TallasCatalogo /></LazyWrap>} />
+        <Route path="colores-catalogo" element={<LazyWrap><ColoresCatalogo /></LazyWrap>} />
+        <Route path="colores-generales" element={<LazyWrap><ColoresGenerales /></LazyWrap>} />
+        <Route path="bases" element={<LazyWrap><ModelosBasesLazy /></LazyWrap>} />
+        <Route path="modelos" element={<LazyWrap><ModelosVariantesLazy /></LazyWrap>} />
         <Route path="registros" element={<Registros />} />
         <Route path="registros/nuevo" element={<RegistroForm />} />
         <Route path="registros/editar/:id" element={<RegistroForm />} />
-        <Route path="inventario" element={<Inventario />} />
-        <Route path="inventario/ingresos" element={<InventarioIngresos />} />
-        <Route path="inventario/salidas" element={<InventarioSalidas />} />
-        <Route path="inventario/ajustes" element={<InventarioAjustes />} />
-        <Route path="inventario/rollos" element={<InventarioRollos />} />
-        <Route path="inventario/movimientos" element={<ReporteMovimientos />} />
-        <Route path="inventario/kardex" element={<Kardex />} />
-        <Route path="inventario/alertas-stock" element={<ReporteStockBajo />} />
-        <Route path="inventario/transferencias-linea" element={<TransferenciasLinea />} />
-        <Route path="maestros/servicios" element={<ServiciosProduccion />} />
-        <Route path="maestros/personas" element={<PersonasProduccion />} />
-        <Route path="maestros/rutas" element={<RutasProduccion />} />
-        <Route path="maestros/movimientos" element={<MovimientosProduccion />} />
-        <Route path="maestros/productividad" element={<ReporteProductividad />} />
-        <Route path="guias" element={<GuiasRemision />} />
+        <Route path="inventario" element={<LazyWrap><Inventario /></LazyWrap>} />
+        <Route path="inventario/ingresos" element={<LazyWrap><InventarioIngresos /></LazyWrap>} />
+        <Route path="inventario/salidas" element={<LazyWrap><InventarioSalidas /></LazyWrap>} />
+        <Route path="inventario/ajustes" element={<LazyWrap><InventarioAjustes /></LazyWrap>} />
+        <Route path="inventario/rollos" element={<LazyWrap><InventarioRollos /></LazyWrap>} />
+        <Route path="inventario/movimientos" element={<LazyWrap><ReporteMovimientos /></LazyWrap>} />
+        <Route path="inventario/kardex" element={<LazyWrap><Kardex /></LazyWrap>} />
+        <Route path="inventario/alertas-stock" element={<LazyWrap><ReporteStockBajo /></LazyWrap>} />
+        <Route path="inventario/transferencias-linea" element={<LazyWrap><TransferenciasLinea /></LazyWrap>} />
+        <Route path="maestros/servicios" element={<LazyWrap><ServiciosProduccion /></LazyWrap>} />
+        <Route path="maestros/personas" element={<LazyWrap><PersonasProduccion /></LazyWrap>} />
+        <Route path="maestros/rutas" element={<LazyWrap><RutasProduccion /></LazyWrap>} />
+        <Route path="maestros/movimientos" element={<LazyWrap><MovimientosProduccion /></LazyWrap>} />
+        <Route path="maestros/productividad" element={<LazyWrap><ReporteProductividad /></LazyWrap>} />
+        <Route path="guias" element={<LazyWrap><GuiasRemision /></LazyWrap>} />
         {/* Rutas consolidadas */}
-        <Route path="reportes/seguimiento" element={<SeguimientoProduccion />} />
-        <Route path="reportes/operativo" element={<OperativoTerceros />} />
-        <Route path="reportes/lotes" element={<LotesTrazabilidad />} />
-        <Route path="reportes/valorizacion" element={<ValorizacionConsolidado />} />
-        <Route path="reportes/calidad" element={<CalidadConsolidado />} />
-        <Route path="reportes/matriz" element={<MatrizProduccion />} />
-        <Route path="reportes/trazabilidad/:registroId" element={<ReporteTrazabilidad />} />
+        <Route path="reportes/seguimiento" element={<LazyWrap><SeguimientoProduccion /></LazyWrap>} />
+        <Route path="reportes/operativo" element={<LazyWrap><OperativoTerceros /></LazyWrap>} />
+        <Route path="reportes/lotes" element={<LazyWrap><LotesTrazabilidad /></LazyWrap>} />
+        <Route path="reportes/valorizacion" element={<LazyWrap><ValorizacionConsolidado /></LazyWrap>} />
+        <Route path="reportes/calidad" element={<LazyWrap><CalidadConsolidado /></LazyWrap>} />
+        <Route path="reportes/matriz" element={<LazyWrap><MatrizProduccion /></LazyWrap>} />
+        <Route path="reportes/trazabilidad/:registroId" element={<LazyWrap><ReporteTrazabilidad /></LazyWrap>} />
         {/* Legacy redirects */}
         <Route path="reportes/dashboard" element={<Navigate to="/" replace />} />
         <Route path="reportes/en-proceso" element={<Navigate to="/reportes/seguimiento" replace />} />
