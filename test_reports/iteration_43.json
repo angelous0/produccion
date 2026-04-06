@@ -1,0 +1,50 @@
+{
+  "summary": "Backend testing of Cierre de Produccion module (consolidated cierre.py). All 18 tests passed covering: preview-cierre, cierre-produccion (GET/POST), reabrir-cierre, balance-pdf, pt-item assignment, and validation scenarios.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_verified": [
+    "GET /api/registros/{id}/preview-cierre - Returns desglose de costos with errores_validacion and puede_cerrar - PASS",
+    "GET /api/registros/{id}/preview-cierre - Returns 400 for already closed registro - PASS",
+    "GET /api/registros/{id}/preview-cierre - Returns 404 for non-existent registro - PASS",
+    "GET /api/registros/{id}/cierre-produccion - Returns cierre congelado with snapshot_json, estado_cierre, cerrado_por - PASS",
+    "GET /api/registros/{id}/cierre-produccion - Returns null for registro without cierre - PASS",
+    "POST /api/registros/{id}/cierre-produccion - Returns 400 for already closed registro - PASS",
+    "POST /api/registros/{id}/cierre-produccion - Validates PT assignment before cierre - PASS",
+    "POST /api/registros/{id}/reabrir-cierre - Returns 400 for empty motivo - PASS",
+    "POST /api/registros/{id}/reabrir-cierre - Returns 400 for motivo < 5 chars - PASS",
+    "POST /api/registros/{id}/reabrir-cierre - Returns 404 for registro without cierre - PASS",
+    "GET /api/registros/{id}/balance-pdf - Returns PDF status 200 for closed registro - PASS",
+    "GET /api/registros/{id}/balance-pdf - Returns PDF status 200 for registro without cierre - PASS",
+    "GET /api/registros/{id}/balance-pdf - Returns 404 for non-existent registro - PASS",
+    "PUT /api/registros/{id}/pt-item - Returns 400 for closed registro (CERRADA state) - PASS",
+    "PUT /api/registros/{id}/pt-item - Returns 404 for invalid item_id - PASS",
+    "PUT /api/registros/{id}/pt-item - Clears PT when null is passed - PASS",
+    "Login works with eduard/eduard123 - PASS",
+    "GET /api/registros returns paginated list correctly - PASS"
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_cierre_produccion.py",
+    "/app/test_reports/pytest/pytest_cierre_produccion.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_cierre_produccion.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "Not tested (backend only requested)"
+  },
+  "test_credentials": "username: eduard, password: eduard123",
+  "seed_data_creation": "None - used existing data: Registro 009 (a097d502-7058-4d00-a840-0ce8a3bff131) CERRADO, Registro 006 (169c1b44-5b94-49cb-a6d2-42c3fdeb3a69) Lavanderia sin cierre",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Cierre module fully tested. Key test data: Registro 009 (n_corte 009, ID a097d502-7058-4d00-a840-0ce8a3bff131) has estado CERRADO with snapshot_json. Registro 006 (n_corte 006, ID 169c1b44-5b94-49cb-a6d2-42c3fdeb3a69) is in Lavanderia state without cierre - good for testing preview and cierre execution. cierre_v2.py is deprecated, only cierre.py (cierre_legacy_router) is mounted. Empresa_id is 7. All validation scenarios working: PT required, motivo reapertura min 5 chars, cannot close already closed registro."
+}

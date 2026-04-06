@@ -35,7 +35,7 @@ from routes.rollos import router as rollos_router
 from routes.ordenes import router as ordenes_router
 from routes.consumo import router as consumo_router
 from routes.servicios import router as servicios_router
-from routes.cierre_v2 import router as cierre_v2_router
+# cierre_v2 deprecado - toda la logica se consolido en cierre.py (cierre_legacy_router)
 from routes.reportes import router as reportes_router
 from routes.integracion_finanzas import router as integracion_finanzas_router
 from routes.bom import router as bom_router
@@ -1041,6 +1041,20 @@ async def startup():
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
         # Campo para vincular producto de liquidación en Odoo
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS lq_odoo_id VARCHAR NULL")
+        # Migración: extender prod_registro_cierre con campos de auditoría y congelamiento
+        for alter_sql in [
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS merma_qty NUMERIC DEFAULT 0",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS otros_costos NUMERIC DEFAULT 0",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS costo_unitario_final NUMERIC DEFAULT 0",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS cerrado_por VARCHAR",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS observacion_cierre TEXT",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS estado_cierre VARCHAR DEFAULT 'CERRADO'",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS snapshot_json JSONB",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS reabierto_por VARCHAR",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS reabierto_at TIMESTAMP",
+            "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS motivo_reapertura TEXT",
+        ]:
+            await conn.execute(alter_sql)
         # Fix: estandarizar empresa_id = 7 en todas las tablas de produccion
         for tabla in [
             'prod_inventario', 'prod_inventario_reservas', 'prod_inventario_reservas_linea',
@@ -1069,17 +1083,16 @@ app.include_router(catalogos_router)
 app.include_router(auth_router)
 app.include_router(modelos_router)
 app.include_router(registros_main_router)
+app.include_router(rollos_router)
+app.include_router(ordenes_router)
+app.include_router(consumo_router)
+app.include_router(servicios_router)
 app.include_router(movimientos_router)
 app.include_router(stats_reportes_router)
 app.include_router(api_router)
 app.include_router(costos_router)
 app.include_router(cierre_legacy_router)
 app.include_router(inventario_router)
-app.include_router(rollos_router)
-app.include_router(ordenes_router)
-app.include_router(consumo_router)
-app.include_router(servicios_router)
-app.include_router(cierre_v2_router)
 app.include_router(reportes_router)
 app.include_router(integracion_finanzas_router)
 app.include_router(bom_router)

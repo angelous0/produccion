@@ -10,13 +10,15 @@ import {
 } from '../ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
-import { AlertTriangle, Scissors, Package, Check, ChevronsUpDown, FileDown } from 'lucide-react';
+import { AlertTriangle, Scissors, Package, Check, ChevronsUpDown, FileDown, Lock, RotateCcw, Clock } from 'lucide-react';
+import { Textarea } from '../ui/textarea';
 
 export const RegistroDatosCard = ({
   formData, setFormData,
   divisionInfo, navigate,
   esCierreable, cierreExistente, cierrePreview, cierreLoading, ejecutandoCierre,
-  onEjecutarCierre, onDescargarBalancePDF,
+  onEjecutarCierre, onDescargarBalancePDF, onReabrirCierre,
+  observacionCierre, setObservacionCierre,
   modelos, modeloPopoverOpen, setModeloPopoverOpen, modeloSearch, setModeloSearch, onModeloChange,
   lineasNegocio, itemsInventario, modeloSeleccionado,
   onReunificar, isEditing, hilosEspecificos,
@@ -75,7 +77,7 @@ export const RegistroDatosCard = ({
           </div>
         )}
 
-        {/* Panel de Cierre de Producción */}
+        {/* Panel de Cierre de Produccion */}
         {esCierreable && (
           <div className="rounded-lg border-2 border-green-500/40 bg-green-50 dark:bg-green-950/20 p-5 space-y-4" data-testid="cierre-panel">
             <div className="flex items-center gap-3">
@@ -83,25 +85,146 @@ export const RegistroDatosCard = ({
                 <Package className="h-5 w-5 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-green-800 dark:text-green-400">Cierre de Producción</h3>
-                <p className="text-xs text-green-600 dark:text-green-500">El registro está en la etapa final. Puedes ejecutar el cierre para generar el ingreso de PT.</p>
+                <h3 className="font-semibold text-green-800 dark:text-green-400">Cierre de Produccion</h3>
+                <p className="text-xs text-green-600 dark:text-green-500">Cierre oficial con costos congelados y auditoria.</p>
               </div>
             </div>
 
-            {cierreExistente ? (
+            {cierreExistente && cierreExistente.estado_cierre === 'CERRADO' ? (
               <div className="space-y-3">
-                <div className="rounded-md bg-green-100 dark:bg-green-900/30 p-4 text-center">
-                  <p className="font-semibold text-green-800 dark:text-green-300">Producción ya cerrada</p>
-                  <p className="text-sm text-green-600 dark:text-green-400 mt-1">Costo total: S/ {parseFloat(cierreExistente.costo_total || 0).toFixed(2)}</p>
+                <div className="flex items-center justify-between">
+                  <Badge className="bg-green-600 text-white gap-1 text-xs" data-testid="badge-cerrado">
+                    <Lock className="h-3 w-3" /> CERRADO
+                  </Badge>
+                  {cierreExistente.cerrado_por && (
+                    <span className="text-[10px] text-muted-foreground">
+                      por {cierreExistente.cerrado_por} | {cierreExistente.fecha}
+                    </span>
+                  )}
                 </div>
-                <Button type="button" variant="outline" className="w-full" onClick={onDescargarBalancePDF} data-testid="btn-descargar-balance-pdf">
-                  <FileDown className="h-4 w-4 mr-2" /> Descargar Balance del Lote (PDF)
-                </Button>
+                {/* Desglose congelado */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border">
+                    <p className="text-[9px] uppercase text-muted-foreground">Costo MP</p>
+                    <p className="text-sm font-bold font-mono">S/ {parseFloat(cierreExistente.costo_mp || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border">
+                    <p className="text-[9px] uppercase text-muted-foreground">Servicios</p>
+                    <p className="text-sm font-bold font-mono">S/ {parseFloat(cierreExistente.costo_servicios || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border">
+                    <p className="text-[9px] uppercase text-muted-foreground">Otros</p>
+                    <p className="text-sm font-bold font-mono">S/ {parseFloat(cierreExistente.otros_costos || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border border-green-400">
+                    <p className="text-[9px] uppercase text-muted-foreground">Total Final</p>
+                    <p className="text-base font-bold font-mono text-green-700">S/ {parseFloat(cierreExistente.costo_total || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border border-green-400">
+                    <p className="text-[9px] uppercase text-muted-foreground">Unitario Final</p>
+                    <p className="text-base font-bold font-mono text-green-700">S/ {parseFloat(cierreExistente.costo_unitario_final || cierreExistente.costo_unit_pt || 0).toFixed(4)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                  <div><span className="text-muted-foreground">Qty Terminada:</span> <span className="font-mono font-semibold">{cierreExistente.qty_terminada}</span></div>
+                  <div><span className="text-muted-foreground">Merma:</span> <span className="font-mono font-semibold text-amber-600">{cierreExistente.merma_qty || 0}</span></div>
+                  <div><span className="text-muted-foreground">PT:</span> <span className="font-mono">{cierreExistente.pt_nombre || '-'}</span></div>
+                </div>
+                {cierreExistente.observacion_cierre && (
+                  <div className="text-xs bg-white dark:bg-zinc-900 rounded p-2 border">
+                    <span className="text-muted-foreground">Observacion: </span>{cierreExistente.observacion_cierre}
+                  </div>
+                )}
+                {/* Historial reapertura */}
+                {cierreExistente.motivo_reapertura && (
+                  <div className="text-xs bg-amber-50 dark:bg-amber-950/20 rounded p-2 border border-amber-200">
+                    <div className="flex items-center gap-1 mb-1">
+                      <RotateCcw className="h-3 w-3 text-amber-600" />
+                      <span className="font-medium text-amber-700">Historial de reapertura</span>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Reabierto por <span className="font-medium">{cierreExistente.reabierto_por}</span> el {cierreExistente.reabierto_at ? new Date(cierreExistente.reabierto_at).toLocaleDateString('es-PE') : '-'}
+                    </p>
+                    <p>Motivo: {cierreExistente.motivo_reapertura}</p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={onDescargarBalancePDF} data-testid="btn-descargar-balance-pdf">
+                    <FileDown className="h-4 w-4 mr-2" /> Balance PDF
+                  </Button>
+                  {onReabrirCierre && (
+                    <Button type="button" variant="outline" className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                      onClick={onReabrirCierre} data-testid="btn-reabrir-cierre">
+                      <RotateCcw className="h-4 w-4 mr-2" /> Reabrir
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : cierreExistente && cierreExistente.estado_cierre === 'REABIERTO' ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="border-amber-400 text-amber-700 gap-1 text-xs" data-testid="badge-reabierto">
+                    <RotateCcw className="h-3 w-3" /> REABIERTO
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground">
+                    por {cierreExistente.reabierto_por} | {cierreExistente.reabierto_at ? new Date(cierreExistente.reabierto_at).toLocaleDateString('es-PE') : '-'}
+                  </span>
+                </div>
+                <div className="text-xs bg-amber-50 dark:bg-amber-950/20 rounded p-2 border border-amber-200">
+                  <p className="text-muted-foreground">Motivo: {cierreExistente.motivo_reapertura}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Puede volver a ejecutar el cierre con los costos actualizados.</p>
+                {/* Mostrar preview si existe */}
+                {cierrePreview && (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border">
+                        <p className="text-[9px] uppercase text-muted-foreground">Costo MP</p>
+                        <p className="text-sm font-bold font-mono">S/ {cierrePreview.costo_mp.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border">
+                        <p className="text-[9px] uppercase text-muted-foreground">Servicios</p>
+                        <p className="text-sm font-bold font-mono">S/ {cierrePreview.costo_servicios.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border">
+                        <p className="text-[9px] uppercase text-muted-foreground">Otros</p>
+                        <p className="text-sm font-bold font-mono">S/ {(cierrePreview.otros_costos || 0).toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border border-green-300">
+                        <p className="text-[9px] uppercase text-muted-foreground">Total</p>
+                        <p className="text-base font-bold font-mono text-green-700">S/ {(cierrePreview.costo_total_final || cierrePreview.costo_total).toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-md bg-white dark:bg-zinc-900 p-2.5 text-center border border-green-300">
+                        <p className="text-[9px] uppercase text-muted-foreground">Unitario</p>
+                        <p className="text-base font-bold font-mono text-green-700">S/ {(cierrePreview.costo_unitario_final || cierrePreview.costo_unit_pt).toFixed(4)}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Observacion de cierre</Label>
+                      <Textarea placeholder="Observacion opcional..." value={observacionCierre || ''}
+                        onChange={(e) => setObservacionCierre(e.target.value)} className="text-sm h-16" data-testid="textarea-observacion-cierre" />
+                    </div>
+                    <Button type="button" className="w-full h-11 bg-green-600 hover:bg-green-700"
+                      disabled={ejecutandoCierre} onClick={onEjecutarCierre} data-testid="btn-ejecutar-cierre">
+                      {ejecutandoCierre ? 'Ejecutando cierre...' : 'Re-ejecutar Cierre de Produccion'}
+                    </Button>
+                  </>
+                )}
               </div>
             ) : cierreLoading ? (
               <div className="text-center py-4 text-green-600">Calculando costos...</div>
             ) : cierrePreview ? (
               <>
+                {/* Errores de validacion */}
+                {cierrePreview.errores_validacion && cierrePreview.errores_validacion.length > 0 && (
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 rounded p-3 space-y-1">
+                    {cierrePreview.errores_validacion.map((err, i) => (
+                      <p key={i} className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0" /> {err}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border">
                     <p className="text-[10px] uppercase text-muted-foreground">Costo MP</p>
@@ -116,22 +239,30 @@ export const RegistroDatosCard = ({
                     <p className="text-base font-bold font-mono">S/ {(cierrePreview.otros_costos || 0).toFixed(2)}</p>
                   </div>
                   <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border border-green-300">
-                    <p className="text-[10px] uppercase text-muted-foreground">Total</p>
-                    <p className="text-lg font-bold font-mono text-green-700">S/ {cierrePreview.costo_total.toFixed(2)}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground">Total Final</p>
+                    <p className="text-lg font-bold font-mono text-green-700">S/ {(cierrePreview.costo_total_final || cierrePreview.costo_total).toFixed(2)}</p>
                   </div>
                   <div className="rounded-md bg-white dark:bg-zinc-900 p-3 text-center border border-green-300">
-                    <p className="text-[10px] uppercase text-muted-foreground">Unit. PT</p>
-                    <p className="text-lg font-bold font-mono text-green-700">S/ {cierrePreview.costo_unit_pt.toFixed(4)}</p>
+                    <p className="text-[10px] uppercase text-muted-foreground">Unitario Final</p>
+                    <p className="text-lg font-bold font-mono text-green-700">S/ {(cierrePreview.costo_unitario_final || cierrePreview.costo_unit_pt).toFixed(4)}</p>
                   </div>
+                </div>
+                {cierrePreview.merma_qty > 0 && (
+                  <p className="text-xs text-amber-600 text-center">Mermas registradas: {cierrePreview.merma_qty} prendas</p>
+                )}
+                <div className="space-y-1">
+                  <Label className="text-xs">Observacion de cierre</Label>
+                  <Textarea placeholder="Observacion opcional..." value={observacionCierre || ''}
+                    onChange={(e) => setObservacionCierre(e.target.value)} className="text-sm h-16" data-testid="textarea-observacion-cierre" />
                 </div>
                 {!cierrePreview.puede_cerrar && (
                   <p className="text-sm text-amber-600 text-center">
-                    {!formData.pt_item_id ? 'Falta asignar un Artículo PT para poder cerrar.' : 'No hay prendas registradas.'}
+                    {!formData.pt_item_id ? 'Falta asignar un Articulo PT para poder cerrar.' : 'No hay prendas registradas.'}
                   </p>
                 )}
                 <Button type="button" className="w-full h-12 text-base bg-green-600 hover:bg-green-700"
                   disabled={!cierrePreview.puede_cerrar || ejecutandoCierre} onClick={onEjecutarCierre} data-testid="btn-ejecutar-cierre">
-                  {ejecutandoCierre ? 'Ejecutando cierre...' : 'Ejecutar Cierre de Producción'}
+                  {ejecutandoCierre ? 'Ejecutando cierre...' : 'Ejecutar Cierre de Produccion'}
                 </Button>
               </>
             ) : null}

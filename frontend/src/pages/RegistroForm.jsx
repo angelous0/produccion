@@ -85,6 +85,7 @@ export const RegistroForm = () => {
   const [cierreLoading, setCierreLoading] = useState(false);
   const [cierreExistente, setCierreExistente] = useState(null);
   const [ejecutandoCierre, setEjecutandoCierre] = useState(false);
+  const [observacionCierre, setObservacionCierre] = useState('');
 
   const [analisisEstado, setAnalisisEstado] = useState(null);
   const [sugerenciaEstadoDialog, setSugerenciaEstadoDialog] = useState(null);
@@ -227,7 +228,14 @@ export const RegistroForm = () => {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
         const cierreRes = await axios.get(`${API}/registros/${id}/cierre-produccion`, { headers }).catch(() => ({ data: null }));
-        if (cierreRes.data) setCierreExistente(cierreRes.data);
+        if (cierreRes.data) {
+          setCierreExistente(cierreRes.data);
+          // Si esta reabierto, tambien cargar preview
+          if (cierreRes.data.estado_cierre === 'REABIERTO') {
+            const previewRes = await axios.get(`${API}/registros/${id}/preview-cierre`, { headers }).catch(() => ({ data: null }));
+            if (previewRes.data) setCierrePreview(previewRes.data);
+          }
+        }
         else { const previewRes = await axios.get(`${API}/registros/${id}/preview-cierre`, { headers }); setCierrePreview(previewRes.data); }
       } catch {} finally { setCierreLoading(false); }
     };
@@ -256,15 +264,34 @@ export const RegistroForm = () => {
   };
 
   const handleEjecutarCierre = async () => {
-    if (!window.confirm('¿Estás seguro de ejecutar el cierre de producción?')) return;
+    if (!window.confirm('Confirmar el cierre de produccion? Los costos quedaran congelados.')) return;
     setEjecutandoCierre(true);
     try {
       const token = localStorage.getItem('token');
       await handleSubmit(null, true);
-      await axios.post(`${API}/registros/${id}/cierre-produccion`, {}, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Cierre de producción ejecutado exitosamente'); navigate('/registros');
+      await axios.post(`${API}/registros/${id}/cierre-produccion`,
+        { observacion_cierre: observacionCierre || null },
+        { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Cierre de produccion ejecutado exitosamente'); navigate('/registros');
     } catch (err) { toast.error(typeof err.response?.data?.detail === 'string' ? err.response.data.detail : 'Error al ejecutar cierre'); }
     finally { setEjecutandoCierre(false); }
+  };
+
+  const handleReabrirCierre = async () => {
+    const motivo = window.prompt('Motivo de la reapertura (minimo 5 caracteres):');
+    if (!motivo || motivo.trim().length < 5) {
+      if (motivo !== null) toast.error('El motivo debe tener al menos 5 caracteres');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API}/registros/${id}/reabrir-cierre`,
+        { motivo: motivo.trim() },
+        { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Cierre reabierto exitosamente');
+      // Recargar datos
+      window.location.reload();
+    } catch (err) { toast.error(typeof err.response?.data?.detail === 'string' ? err.response.data.detail : 'Error al reabrir cierre'); }
   };
 
   const descargarBalancePDF = async () => {
@@ -652,6 +679,8 @@ export const RegistroForm = () => {
                   navigate={navigate} esCierreable={esCierreable} cierreExistente={cierreExistente}
                   cierrePreview={cierrePreview} cierreLoading={cierreLoading} ejecutandoCierre={ejecutandoCierre}
                   onEjecutarCierre={handleEjecutarCierre} onDescargarBalancePDF={descargarBalancePDF}
+                  onReabrirCierre={handleReabrirCierre}
+                  observacionCierre={observacionCierre} setObservacionCierre={setObservacionCierre}
                   modelos={modelos} modeloPopoverOpen={modeloPopoverOpen} setModeloPopoverOpen={setModeloPopoverOpen}
                   modeloSearch={modeloSearch} setModeloSearch={setModeloSearch} onModeloChange={handleModeloChange}
                   lineasNegocio={lineasNegocio} itemsInventario={itemsInventario} modeloSeleccionado={modeloSeleccionado}
@@ -691,6 +720,8 @@ export const RegistroForm = () => {
                     navigate={navigate} esCierreable={esCierreable} cierreExistente={cierreExistente}
                     cierrePreview={cierrePreview} cierreLoading={cierreLoading} ejecutandoCierre={ejecutandoCierre}
                     onEjecutarCierre={handleEjecutarCierre} onDescargarBalancePDF={descargarBalancePDF}
+                    onReabrirCierre={handleReabrirCierre}
+                    observacionCierre={observacionCierre} setObservacionCierre={setObservacionCierre}
                     modelos={modelos} modeloPopoverOpen={modeloPopoverOpen} setModeloPopoverOpen={setModeloPopoverOpen}
                     modeloSearch={modeloSearch} setModeloSearch={setModeloSearch} onModeloChange={handleModeloChange}
                     lineasNegocio={lineasNegocio} itemsInventario={itemsInventario} modeloSeleccionado={modeloSeleccionado}
