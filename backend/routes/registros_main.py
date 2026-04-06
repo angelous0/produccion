@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from db import get_pool
 from auth_utils import get_current_user, require_permiso as require_permission
 from models import (
-    RegistroCreate, RegistroTallaCreate, RegistroTallaUpdate, RegistroTallaBulkUpdate,
+    RegistroCreate, Registro, RegistroTallaCreate, RegistroTallaUpdate, RegistroTallaBulkUpdate,
     ReservaCreateInput, LiberarReservaInput, ESTADOS_PRODUCCION, DivisionLoteRequest,
 )
 from helpers import row_to_dict, parse_jsonb, registrar_actividad

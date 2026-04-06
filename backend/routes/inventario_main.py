@@ -10,7 +10,7 @@ from models import (
     SalidaInventarioCreate, AjusteInventarioCreate,
     IngresoInventario, SalidaInventario, AjusteInventario, ItemInventario,
 )
-from helpers import registrar_actividad, row_to_dict
+from helpers import registrar_actividad, row_to_dict, parse_jsonb
 from routes.auditoria import audit_log_safe, get_usuario
 from typing import Optional, List
 from pydantic import BaseModel
