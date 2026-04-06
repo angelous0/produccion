@@ -564,12 +564,21 @@ async def resumen_cantidades(
                 except (ValueError, TypeError):
                     pass
 
-        # Liquidación from arreglos resultado_final
-        liq_arreglos = sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a.get("resultado_final") in ("LIQUIDACION", "SEGUNDA", "DESCARTE"))
-
-        total_liquidacion = no_rep_liquidacion + sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a.get("resultado_final") == "LIQUIDACION")
-        total_segunda = no_rep_segunda + sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a.get("resultado_final") == "SEGUNDA")
-        total_descarte = no_rep_descarte + sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a.get("resultado_final") == "DESCARTE")
+        # Liquidacion from arreglos: TODA cantidad_no_resuelta de arreglos RESUELTOS
+        # va a liquidacion por defecto, excepto las explicitamente marcadas como SEGUNDA o DESCARTE
+        total_liquidacion = no_rep_liquidacion + sum(
+            safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows
+            if a["estado"] == "RESUELTO" and safe_int(a["cantidad_no_resuelta"]) > 0
+            and a.get("resultado_final") not in ("SEGUNDA", "DESCARTE")
+        )
+        total_segunda = no_rep_segunda + sum(
+            safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows
+            if a["estado"] == "RESUELTO" and a.get("resultado_final") == "SEGUNDA"
+        )
+        total_descarte = no_rep_descarte + sum(
+            safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows
+            if a["estado"] == "RESUELTO" and a.get("resultado_final") == "DESCARTE"
+        )
 
         # Balance padre-hijos
         hijos = await conn.fetch(
