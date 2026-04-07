@@ -7,11 +7,12 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Save, Scissors } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { ClipboardList, Play, ShieldAlert } from 'lucide-react';
+import { ClipboardList, Play, ShieldAlert, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
 import MaterialesTab from '../components/MaterialesTab';
+import { DistribucionPTPanel } from '../components/registro/DistribucionPTPanel';
 import { ConversacionPanel, ConversacionTrigger } from '../components/ConversacionPanel';
 import { useAuth } from '../context/AuthContext';
 import usePermissions from '../hooks/usePermissions';
@@ -797,6 +798,9 @@ export const RegistroForm = () => {
                       </span>
                     )}
                   </TabsTrigger>
+                  <TabsTrigger value="pt_odoo" className="text-xs gap-1.5" data-testid="tab-pt-odoo">
+                    <Package className="h-3.5 w-3.5" /> PT Odoo
+                  </TabsTrigger>
                 </TabsList>
 
                 {/* TAB GENERAL: Datos + Tallas + Colores */}
@@ -847,6 +851,14 @@ export const RegistroForm = () => {
                     permisos={perms}
                   />
                   <TrazabilidadPanel registroId={id} servicios={serviciosProduccion} personas={personasProduccion} />
+                </TabsContent>
+
+                {/* TAB PT ODOO: Distribucion PT y Conciliacion */}
+                <TabsContent value="pt_odoo" className="space-y-4 mt-0">
+                  <DistribucionPTPanel
+                    registroId={id}
+                    authHeader={{ Authorization: `Bearer ${localStorage.getItem('token')}` }}
+                  />
                 </TabsContent>
               </Tabs>
             )}

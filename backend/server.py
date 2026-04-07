@@ -45,6 +45,7 @@ from routes.trazabilidad import router as trazabilidad_router, init_trazabilidad
 from routes.transferencias_linea import router as transferencias_linea_router, init_transferencias_tables
 from routes.auditoria import router as auditoria_router, init_audit_tables
 from routes.conversacion import router as conversacion_router
+from routes.distribucion_pt import router as distribucion_pt_router, init_distribucion_pt_tables
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1069,6 +1070,8 @@ async def startup():
     await init_transferencias_tables()
     # Tabla de auditoria
     await init_audit_tables()
+    # Tablas de distribucion PT y conciliacion Odoo
+    await init_distribucion_pt_tables()
     # Indices de performance para queries frecuentes
     pool2 = await get_pool()
     async with pool2.acquire() as conn:
@@ -1129,3 +1132,4 @@ app.include_router(trazabilidad_router)
 app.include_router(transferencias_linea_router)
 app.include_router(auditoria_router)
 app.include_router(conversacion_router)
+app.include_router(distribucion_pt_router)
