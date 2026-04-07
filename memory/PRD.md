@@ -53,6 +53,14 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - Datos del modelo se mantienen visibles por peticion del usuario
 - Cantidad sugerida en nuevos movimientos usa ultima cantidad_recibida, no cantidad original
 
+### Responsive Mobile - Pulido Final (07-Abr-2026)
+- Registros listado: Cards en mobile (< md) - N Corte, Modelo, Estado badge, Cantidad, Fecha, card clickeable completa
+- Movimientos: Cards en mobile (< sm) - Servicio, Env→Rec, Persona, Fecha, menu acciones en (...)
+- Inventario: Columnas secundarias ocultas progresivamente (Linea, Categoria, Unidad, Reservado, Disponible, Valorizado, StockMin, Estado)
+- Auditoria: Fecha sin hora en mobile, Usuario oculto en mobile, badges completos (UPDATE/CREATE/DELETE/CONFIRM/CANCEL), filtros en 2 columnas
+- 0 overflow horizontal en todas las pantallas (verificado programaticamente)
+- Desktop sin cambios - tabla completa con todas las columnas
+
 ### Responsive Mobile - Registros (07-Abr-2026)
 - Listado: Columnas secundarias ocultas en mobile (hidden sm/md/lg/xl:table-cell)
 - Mobile muestra: N Corte, Modelo, Total, Estado, Acciones (ver/editar)

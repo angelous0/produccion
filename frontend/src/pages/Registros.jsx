@@ -24,7 +24,7 @@ import {
 } from '../components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Separator } from '../components/ui/separator';
-import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User, Search, X, Filter } from 'lucide-react';
+import { Plus, Pencil, Trash2, AlertTriangle, Eye, Palette, Scissors, Package, Cog, Clock, PauseCircle, PlayCircle, FileWarning, Calendar, User, Search, X, Filter, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { NumericInput } from '../components/ui/numeric-input';
 import { getStatusClass } from '../lib/utils';
@@ -667,14 +667,67 @@ export const Registros = () => {
         </span>
       </div>
 
-      <Card>
+      {/* Vista mobile: Cards */}
+      <div className="md:hidden space-y-2" data-testid="registros-cards-mobile">
+        {loading ? (
+          <div className="text-center py-8 text-muted-foreground">Cargando...</div>
+        ) : displayItems.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            {hayFiltrosActivos ? 'No hay registros que coincidan' : 'No hay registros'}
+          </div>
+        ) : (
+          displayItems.map((item) => (
+            <div
+              key={item.id}
+              className={`rounded-lg border bg-card p-3 active:bg-muted/60 transition-colors cursor-pointer ${item.urgente ? 'border-l-4 border-l-rose-500 bg-rose-50/50 dark:bg-rose-950/20' : item.estado_operativo === 'PARALIZADA' ? 'border-l-4 border-l-red-500' : ''}`}
+              onClick={() => navigate(`/registros/editar/${item.id}`)}
+              data-testid={`registro-card-${item.id}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    {item.urgente && <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />}
+                    {item.paralizacion_activa && <PauseCircle className="h-3.5 w-3.5 text-red-600 shrink-0" />}
+                    <span className="font-mono font-bold text-sm">{item.n_corte}</span>
+                    {item.dividido_desde_registro_id && (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-300 text-blue-600">div</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate mt-0.5">{item.modelo_nombre || '-'}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <Badge variant="outline" className={`${getStatusClass(item.estado)} text-[11px] whitespace-nowrap`}>
+                    {item.estado}
+                  </Badge>
+                  <span className="font-mono font-semibold text-sm">{getTotalPiezas(item)}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                <span className="font-mono">{formatDate(item.fecha_creacion)}</span>
+                {item.incidencias_abiertas > 0 && (
+                  <span className="flex items-center gap-0.5 text-amber-600">
+                    <AlertTriangle className="h-3 w-3" />{item.incidencias_abiertas}
+                  </span>
+                )}
+                {item.mermas_total > 0 && (
+                  <span className="text-amber-600">M:{item.mermas_total}</span>
+                )}
+                <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground/50" />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Vista desktop: Tabla */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead>N° Corte</TableHead>
-                  <TableHead className="hidden sm:table-cell">Fecha Creacion</TableHead>
+                  <TableHead>Fecha Creacion</TableHead>
                   <TableHead>Modelo</TableHead>
                   <TableHead className="hidden lg:table-cell">Marca</TableHead>
                   <TableHead className="hidden xl:table-cell">Tipo</TableHead>
@@ -685,10 +738,10 @@ export const Registros = () => {
                   <TableHead className="hidden xl:table-cell">Curva</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="hidden md:table-cell">Fecha Final</TableHead>
-                  <TableHead className="hidden md:table-cell">Operativo</TableHead>
+                  <TableHead>Fecha Final</TableHead>
+                  <TableHead>Operativo</TableHead>
                   <TableHead className="hidden lg:table-cell">Salud</TableHead>
-                  <TableHead className="w-[100px] sm:w-[140px]">Acciones</TableHead>
+                  <TableHead className="w-[140px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -728,7 +781,7 @@ export const Registros = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs whitespace-nowrap hidden sm:table-cell">
+                      <TableCell className="font-mono text-xs whitespace-nowrap">
                         {formatDate(item.fecha_creacion)}
                       </TableCell>
                       <TableCell className="text-sm">{item.modelo_nombre || '-'}</TableCell>
@@ -747,10 +800,10 @@ export const Registros = () => {
                           {item.estado}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap hidden md:table-cell">
+                      <TableCell className="whitespace-nowrap">
                         {getFechaEntregaBadge(item.fecha_entrega_final, item.estado)}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell>
                         {getEstadoOperativoBadge(item.estado_operativo)}
                       </TableCell>
                       <TableCell data-testid={`salud-${item.id}`} className="hidden lg:table-cell">
@@ -783,13 +836,13 @@ export const Registros = () => {
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleView(item)} title="Ver detalle" data-testid={`view-registro-${item.id}`}>
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:inline-flex" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
                             <Palette className={`h-3.5 w-3.5 ${tieneColores(item) ? 'text-primary' : ''}`} />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/registros/editar/${item.id}`)} title="Editar" data-testid={`edit-registro-${item.id}`}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:inline-flex" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>

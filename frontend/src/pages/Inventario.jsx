@@ -328,22 +328,24 @@ export const Inventario = () => {
 
   return (
     <div className="space-y-4" data-testid="inventario-page">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Inventario</h2>
-          <p className="text-muted-foreground">Gestion de items de inventario (FIFO)</p>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Inventario</h2>
+          <p className="text-muted-foreground text-sm">Gestion de items de inventario (FIFO)</p>
         </div>
         <div className="flex gap-2">
           <ExportButton tabla="inventario" />
-          <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-item">
-            <Plus className="h-4 w-4 mr-2" /> Nuevo Item
+          <Button onClick={() => handleOpenDialog()} data-testid="btn-nuevo-item" size="sm" className="sm:size-default">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nuevo Item</span>
+            <span className="sm:hidden">Nuevo</span>
           </Button>
         </div>
       </div>
 
       {/* Barra de busqueda y filtros */}
       <div className="flex flex-wrap items-center gap-2" data-testid="filtros-inventario">
-        <div className="relative flex-1 min-w-[220px] max-w-[320px]">
+        <div className="relative flex-1 min-w-[180px] sm:min-w-[220px] max-w-[320px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nombre o codigo..."
@@ -430,16 +432,16 @@ export const Inventario = () => {
                 <TableRow className="data-table-header">
                   <TableHead>Codigo</TableHead>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Linea</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Unidad</TableHead>
-                  <TableHead className="text-right">Stock Actual</TableHead>
-                  <TableHead className="text-right">Reservado</TableHead>
-                  <TableHead className="text-right">Disponible</TableHead>
-                  <TableHead className="text-right">Valorizado</TableHead>
-                  <TableHead className="text-right">Stock Min</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="w-[110px]">Acciones</TableHead>
+                  <TableHead className="hidden md:table-cell">Linea</TableHead>
+                  <TableHead className="hidden lg:table-cell">Categoria</TableHead>
+                  <TableHead className="hidden lg:table-cell">Unidad</TableHead>
+                  <TableHead className="text-right">Stock</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Reservado</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">Disponible</TableHead>
+                  <TableHead className="text-right hidden md:table-cell">Valorizado</TableHead>
+                  <TableHead className="text-right hidden lg:table-cell">Stock Min</TableHead>
+                  <TableHead className="hidden md:table-cell">Estado</TableHead>
+                  <TableHead className="w-[80px] sm:w-[110px]">Acc.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -468,35 +470,41 @@ export const Inventario = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs">
+                        <TableCell className="hidden md:table-cell text-xs">
                           {item.linea_negocio_id
                             ? <Badge variant="secondary" className="text-[10px]">{lineasNegocio.find(l => l.id === item.linea_negocio_id)?.nombre || `#${item.linea_negocio_id}`}</Badge>
                             : <span className="text-muted-foreground italic">Global</span>}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <Badge className={getCategoriaColor(item.categoria)}>{item.categoria || 'Otros'}</Badge>
                         </TableCell>
-                        <TableCell className="capitalize text-sm">{item.unidad_medida}</TableCell>
+                        <TableCell className="capitalize text-sm hidden lg:table-cell">{item.unidad_medida}</TableCell>
                         {item.categoria === 'Servicios' ? (
-                          <TableCell className="text-center text-muted-foreground" colSpan={5}>
-                            <span className="text-xs italic">No aplica</span>
-                          </TableCell>
+                          <>
+                            <TableCell className="text-center text-muted-foreground">
+                              <span className="text-xs italic">N/A</span>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell" />
+                            <TableCell className="hidden sm:table-cell" />
+                            <TableCell className="hidden md:table-cell" />
+                            <TableCell className="hidden lg:table-cell" />
+                          </>
                         ) : (
                           <>
                             <TableCell className="text-right font-mono font-semibold">{item.stock_actual}</TableCell>
-                            <TableCell className="text-right font-mono">
+                            <TableCell className="text-right font-mono hidden sm:table-cell">
                               {item.total_reservado > 0 ? (
                                 <span className="text-orange-500 font-medium">{item.total_reservado}</span>
                               ) : (
                                 <span className="text-muted-foreground">0</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-mono font-semibold">
+                            <TableCell className="text-right font-mono font-semibold hidden sm:table-cell">
                               <span className={item.stock_disponible <= item.stock_minimo ? 'text-red-500' : 'text-green-600'}>
                                 {item.stock_disponible}
                               </span>
                             </TableCell>
-                            <TableCell className="text-right font-mono" data-testid={`valorizado-${item.id}`}>
+                            <TableCell className="text-right font-mono hidden md:table-cell" data-testid={`valorizado-${item.id}`}>
                               {item.valorizado > 0 ? (
                                 <span className="font-semibold">
                                   {new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(item.valorizado)}
@@ -505,10 +513,10 @@ export const Inventario = () => {
                                 <span className="text-muted-foreground">--</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right font-mono text-muted-foreground">{item.stock_minimo}</TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground hidden lg:table-cell">{item.stock_minimo}</TableCell>
                           </>
                         )}
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           {item.categoria === 'Servicios' ? (
                             <Badge className="bg-amber-500">Servicio</Badge>
                           ) : (
@@ -524,17 +532,17 @@ export const Inventario = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex gap-0.5">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDetalle(item)} title="Ver detalle" data-testid={`detalle-item-${item.id}`}>
                               <Eye className="h-3.5 w-3.5 text-blue-500" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/inventario/kardex?item=${item.id}`)} title="Ver Kardex" data-testid={`kardex-item-${item.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:inline-flex" onClick={() => navigate(`/inventario/kardex?item=${item.id}`)} title="Ver Kardex" data-testid={`kardex-item-${item.id}`}>
                               <BookOpen className="h-3.5 w-3.5 text-primary" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenDialog(item)} data-testid={`edit-item-${item.id}`}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(item.id)} data-testid={`delete-item-${item.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:inline-flex" onClick={() => handleDelete(item.id)} data-testid={`delete-item-${item.id}`}>
                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
                             </Button>
                           </div>

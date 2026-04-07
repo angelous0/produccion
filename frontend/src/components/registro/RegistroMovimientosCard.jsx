@@ -22,9 +22,10 @@ export const RegistroMovimientosCard = ({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-lg flex items-center gap-2">
+        <CardTitle className="text-base sm:text-lg flex items-center gap-2">
           <Play className="h-5 w-5" />
-          Movimientos de Produccion
+          <span className="hidden sm:inline">Movimientos de Produccion</span>
+          <span className="sm:hidden">Movimientos</span>
         </CardTitle>
         {canCreate && (
           <Button
@@ -35,25 +36,96 @@ export const RegistroMovimientosCard = ({
             className={isParalizado ? 'opacity-50 cursor-not-allowed' : ''}
             data-testid="btn-nuevo-movimiento"
           >
-            <Plus className="h-4 w-4 mr-1" />
-            Agregar Movimiento
+            <Plus className="h-4 w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Agregar Movimiento</span>
           </Button>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
         {movimientosProduccion.length > 0 ? (
           <>
-            <div className="border rounded-lg overflow-x-auto">
+            {/* Vista mobile: Cards */}
+            <div className="sm:hidden space-y-2">
+              {movimientosProduccion.map((mov) => {
+                const enviada = mov.cantidad_enviada || mov.cantidad || 0;
+                const recibida = mov.cantidad_recibida || mov.cantidad || 0;
+                const diferencia = enviada - recibida;
+                return (
+                  <div key={mov.id} className={`rounded-lg border p-3 ${diferencia > 0 ? 'border-l-4 border-l-amber-400' : ''}`} data-testid={`movimiento-card-${mov.id}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Cog className="h-4 w-4 text-blue-500 shrink-0" />
+                        <span className="font-medium text-sm truncate">{mov.servicio_nombre}</span>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" data-testid={`acciones-movimiento-m-${mov.id}`}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {canEditMov && canCheckService(mov.servicio_id) && (
+                            <DropdownMenuItem onClick={() => onOpenDialog(mov)} disabled={isParalizado}>
+                              <Pencil className="h-3.5 w-3.5 mr-2" /> Editar
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => onGenerarGuia(mov.id)}>
+                            <FileText className="h-3.5 w-3.5 mr-2 text-blue-500" /> Generar Guia
+                          </DropdownMenuItem>
+                          {canEditMov && canCheckService(mov.servicio_id) && (
+                            <DropdownMenuItem onClick={() => onDelete(mov.id)} disabled={isParalizado} className="text-destructive">
+                              <Trash2 className="h-3.5 w-3.5 mr-2" /> Eliminar
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">Env</span>
+                        <span className="font-mono font-medium text-sm">{enviada}</span>
+                      </div>
+                      <span className="text-muted-foreground">→</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">Rec</span>
+                        <span className="font-mono font-bold text-sm">{recibida}</span>
+                      </div>
+                      {diferencia > 0 && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">-{diferencia}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                      {mov.persona_nombre && <span>{mov.persona_nombre}</span>}
+                      {mov.fecha_inicio && (
+                        <span className="font-mono">{mov.fecha_inicio.split('-').reverse().join('/')}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                <span className="text-xs text-muted-foreground font-medium">Cantidad efectiva</span>
+                <span className="font-mono font-bold text-primary">
+                  {movimientosProduccion.length > 0
+                    ? (movimientosProduccion[movimientosProduccion.length - 1].cantidad_recibida
+                      ?? movimientosProduccion[movimientosProduccion.length - 1].cantidad ?? '-')
+                    : '-'}
+                </span>
+              </div>
+            </div>
+
+            {/* Vista desktop: Tabla */}
+            <div className="border rounded-lg overflow-x-auto hidden sm:block">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Servicio</TableHead>
-                    <TableHead className="hidden sm:table-cell">Persona</TableHead>
+                    <TableHead>Persona</TableHead>
                     <TableHead className="text-center hidden md:table-cell">F. Esperada</TableHead>
-                    <TableHead className="text-center hidden sm:table-cell">Fechas</TableHead>
+                    <TableHead className="text-center">Fechas</TableHead>
                     <TableHead className="text-right">Enviada</TableHead>
                     <TableHead className="text-right">Recibida</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">Merma</TableHead>
+                    <TableHead className="text-right">Merma</TableHead>
                     {showAvance && <TableHead className="text-center hidden md:table-cell">Avance</TableHead>}
                     <TableHead className="w-[50px] text-right">Acciones</TableHead>
                   </TableRow>
@@ -80,7 +152,7 @@ export const RegistroMovimientosCard = ({
                             <span className="font-medium">{mov.servicio_nombre}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
+                        <TableCell>
                           <div className="flex items-center gap-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <div>
@@ -104,7 +176,7 @@ export const RegistroMovimientosCard = ({
                             </div>
                           ) : <span className="text-muted-foreground text-xs">-</span>}
                         </TableCell>
-                        <TableCell className="text-center hidden sm:table-cell">
+                        <TableCell className="text-center">
                           <div className="text-xs">
                             {mov.fecha_inicio && (
                               <div className="flex items-center justify-center gap-1">
@@ -121,7 +193,7 @@ export const RegistroMovimientosCard = ({
                         </TableCell>
                         <TableCell className="text-right font-mono">{enviada}</TableCell>
                         <TableCell className="text-right font-mono font-semibold">{recibida}</TableCell>
-                        <TableCell className="text-right font-mono hidden sm:table-cell">
+                        <TableCell className="text-right font-mono">
                           {diferencia > 0 ? (
                             <Badge variant="destructive" className="text-xs">-{diferencia}</Badge>
                           ) : (

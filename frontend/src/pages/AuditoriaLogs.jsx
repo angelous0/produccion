@@ -111,18 +111,19 @@ export const AuditoriaLogs = () => {
     <div className="space-y-4" data-testid="auditoria-page">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" data-testid="page-title">
-          <ShieldCheck className="h-6 w-6" />
-          Auditoria del Sistema
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2" data-testid="page-title">
+          <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+          <span className="hidden sm:inline">Auditoria del Sistema</span>
+          <span className="sm:hidden">Auditoria</span>
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Registro de cambios criticos en produccion e inventario
         </p>
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="w-44">
+      <div className="flex flex-wrap gap-2 items-end">
+        <div className="w-full sm:w-44">
           <Label className="text-xs">Usuario</Label>
           <Select value={filtros.usuario || "TODOS"} onValueChange={(v) => handleFiltro("usuario", v)}>
             <SelectTrigger data-testid="filtro-usuario">
@@ -136,7 +137,7 @@ export const AuditoriaLogs = () => {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-40">
+        <div className="w-[calc(50%-4px)] sm:w-40">
           <Label className="text-xs">Modulo</Label>
           <Select value={filtros.modulo || "TODOS"} onValueChange={(v) => handleFiltro("modulo", v)}>
             <SelectTrigger data-testid="filtro-modulo">
@@ -150,7 +151,7 @@ export const AuditoriaLogs = () => {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-40">
+        <div className="w-[calc(50%-4px)] sm:w-40">
           <Label className="text-xs">Accion</Label>
           <Select value={filtros.accion || "TODOS"} onValueChange={(v) => handleFiltro("accion", v)}>
             <SelectTrigger data-testid="filtro-accion">
@@ -164,11 +165,11 @@ export const AuditoriaLogs = () => {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-36">
+        <div className="w-[calc(50%-4px)] sm:w-36">
           <Label className="text-xs">Desde</Label>
           <Input type="date" value={filtros.fecha_desde} onChange={(e) => handleFiltro("fecha_desde", e.target.value)} data-testid="filtro-fecha-desde" />
         </div>
-        <div className="w-36">
+        <div className="w-[calc(50%-4px)] sm:w-36">
           <Label className="text-xs">Hasta</Label>
           <Input type="date" value={filtros.fecha_hasta} onChange={(e) => handleFiltro("fecha_hasta", e.target.value)} data-testid="filtro-fecha-hasta" />
         </div>
@@ -176,18 +177,18 @@ export const AuditoriaLogs = () => {
 
       {/* Tabla */}
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-8" />
                 <TableHead>Fecha</TableHead>
-                <TableHead>Usuario</TableHead>
+                <TableHead className="hidden sm:table-cell">Usuario</TableHead>
                 <TableHead>Accion</TableHead>
-                <TableHead>Modulo</TableHead>
-                <TableHead>Tabla</TableHead>
-                <TableHead>Observacion</TableHead>
-                <TableHead>Resultado</TableHead>
+                <TableHead className="hidden sm:table-cell">Modulo</TableHead>
+                <TableHead className="hidden md:table-cell">Tabla</TableHead>
+                <TableHead className="hidden lg:table-cell">Observacion</TableHead>
+                <TableHead className="hidden md:table-cell">Resultado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -220,28 +221,29 @@ export const AuditoriaLogs = () => {
                         </TableCell>
                         <TableCell className="text-xs font-mono whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            {formatDate(log.fecha_hora)}
+                            <Clock className="h-3 w-3 text-muted-foreground hidden sm:block" />
+                            <span className="hidden sm:inline">{formatDate(log.fecha_hora)}</span>
+                            <span className="sm:hidden">{formatDate(log.fecha_hora).split(',')[0]}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-sm hidden sm:table-cell">
                           <div className="flex items-center gap-1">
                             <User className="h-3 w-3 text-muted-foreground" />
                             {log.usuario}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-xs ${accionClass}`}>{log.accion}</Badge>
+                          <Badge variant="outline" className={`text-[10px] sm:text-xs ${accionClass}`}>{log.accion}</Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={`text-xs ${moduloClass}`}>{log.modulo}</Badge>
+                          <Badge variant="outline" className={`text-[10px] sm:text-xs ${moduloClass}`}>{log.modulo}</Badge>
                         </TableCell>
-                        <TableCell className="text-xs font-mono">{(log.tabla || "").replace("prod_", "")}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                        <TableCell className="text-xs font-mono hidden md:table-cell">{(log.tabla || "").replace("prod_", "")}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate hidden lg:table-cell">
                           {log.observacion || log.referencia || "-"}
                         </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={log.resultado === "OK" ? "bg-green-50 text-green-600 border-green-200" : "bg-red-50 text-red-600 border-red-200"}>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge variant="outline" className={`text-[10px] ${log.resultado === "OK" ? "bg-green-50 text-green-600 border-green-200" : "bg-red-50 text-red-600 border-red-200"}`}>
                             {log.resultado}
                           </Badge>
                         </TableCell>
