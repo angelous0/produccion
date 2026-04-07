@@ -130,6 +130,7 @@ async def listar_audit_logs(
     fecha_desde: str = "",
     fecha_hasta: str = "",
     resultado: str = "",
+    linea_negocio_id: str = "",
     limit: int = Query(default=50, le=200),
     offset: int = 0,
     user=Depends(get_current_user),
@@ -176,6 +177,10 @@ async def listar_audit_logs(
             conditions.append(f"a.fecha_hora < ${idx}")
             params.append(datetime.strptime(fecha_hasta, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
             idx += 1
+        if linea_negocio_id:
+            conditions.append(f"a.linea_negocio_id = ${idx}")
+            params.append(int(linea_negocio_id))
+            idx += 1
 
         where = " AND ".join(conditions) if conditions else "TRUE"
 
@@ -211,6 +216,13 @@ async def listar_audit_logs(
         modulos_unicos = await conn.fetch("SELECT DISTINCT modulo FROM produccion.audit_log ORDER BY modulo")
         acciones_unicas = await conn.fetch("SELECT DISTINCT accion FROM produccion.audit_log ORDER BY accion")
         usuarios_unicos = await conn.fetch("SELECT DISTINCT usuario FROM produccion.audit_log ORDER BY usuario")
+        lineas_unicas = await conn.fetch("""
+            SELECT DISTINCT a.linea_negocio_id, ln.nombre
+            FROM produccion.audit_log a
+            LEFT JOIN finanzas2.cont_linea_negocio ln ON a.linea_negocio_id = ln.id
+            WHERE a.linea_negocio_id IS NOT NULL
+            ORDER BY ln.nombre
+        """)
 
         return {
             "items": items,
@@ -221,6 +233,7 @@ async def listar_audit_logs(
                 "modulos": [r['modulo'] for r in modulos_unicos],
                 "acciones": [r['accion'] for r in acciones_unicas],
                 "usuarios": [r['usuario'] for r in usuarios_unicos],
+                "lineas": [{"id": r['linea_negocio_id'], "nombre": r['nombre'] or f"Linea {r['linea_negocio_id']}"} for r in lineas_unicas],
             }
         }
 

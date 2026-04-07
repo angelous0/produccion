@@ -53,18 +53,23 @@ async def dashboard_kpis(
     fecha_hasta: Optional[str] = None,
     ruta_id: Optional[str] = None,
     modelo_id: Optional[str] = None,
+    linea_negocio_id: Optional[int] = None,
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Condición de filtro por línea
+        linea_filter = f"AND r.linea_negocio_id = {linea_negocio_id}" if linea_negocio_id else ""
+        
         # KPI 1: Registros por estado_op
-        rows_estado_op = await conn.fetch("""
+        rows_estado_op = await conn.fetch(f"""
             SELECT r.estado_op, COUNT(*) as cnt,
                    COALESCE(SUM((SELECT COALESCE(SUM(rt.cantidad_real),0) FROM prod_registro_tallas rt WHERE rt.registro_id = r.id)),0) as prendas
             FROM prod_registros r
             LEFT JOIN prod_modelos m ON r.modelo_id = m.id
             WHERE r.empresa_id = $1
               AND r.dividido_desde_registro_id IS NULL
+              {linea_filter}
             GROUP BY r.estado_op
         """, empresa_id)
 
@@ -79,13 +84,14 @@ async def dashboard_kpis(
                 total_prendas_proceso += int(r["prendas"])
 
         # KPI 2: Distribución por estado (etapa visible)
-        rows_estado = await conn.fetch("""
+        rows_estado = await conn.fetch(f"""
             SELECT r.estado, COUNT(*) as cnt,
                    COALESCE(SUM((SELECT COALESCE(SUM(rt.cantidad_real),0) FROM prod_registro_tallas rt WHERE rt.registro_id = r.id)),0) as prendas
             FROM prod_registros r
             WHERE r.empresa_id = $1
               AND r.estado_op IN ('ABIERTA', 'EN_PROCESO')
               AND r.dividido_desde_registro_id IS NULL
+              {linea_filter}
             GROUP BY r.estado
             ORDER BY cnt DESC
         """, empresa_id)

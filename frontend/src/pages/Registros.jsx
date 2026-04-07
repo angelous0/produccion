@@ -120,6 +120,8 @@ export const Registros = () => {
   const [filtroOperativo, setFiltroOperativo] = useState('todos');
   const [filtroUrgente, setFiltroUrgente] = useState(false);
   const [filtroModeloId, setFiltroModeloId] = useState(searchParams.get('modelo') || '');
+  const [filtroLinea, setFiltroLinea] = useState('');
+  const [lineasNegocio, setLineasNegocio] = useState([]);
   const [estadosDisponibles, setEstadosDisponibles] = useState([]);
   const [total, setTotal] = useState(0);
   const [pageSize] = useState(50);
@@ -146,6 +148,7 @@ export const Registros = () => {
         params.set('excluir_estados', '');
       }
       if (filtroModeloId) params.set('modelo_id', filtroModeloId);
+      if (filtroLinea) params.set('linea_negocio_id', filtroLinea);
       const response = await axios.get(`${API}/registros?${params.toString()}`);
       const data = response.data;
       if (append) {
@@ -180,12 +183,13 @@ export const Registros = () => {
   useEffect(() => {
     fetchEstados();
     fetchColores();
+    axios.get(`${API}/lineas-negocio`).then(r => setLineasNegocio(r.data)).catch(() => {});
   }, []);
 
   // Reload when filters change
   useEffect(() => {
     fetchItems(false);
-  }, [searchDebounced, estadosExcluidos, estadosIncluidos, modoFiltro, filtroOperativo, filtroModeloId]);
+  }, [searchDebounced, estadosExcluidos, estadosIncluidos, modoFiltro, filtroOperativo, filtroModeloId, filtroLinea]);
 
   // ========== LÓGICA DE COLORES ==========
 
@@ -507,7 +511,7 @@ export const Registros = () => {
   // Detectar nombre del modelo filtrado
   const modeloFiltrado = filtroModeloId ? items.find(i => i.modelo_id === filtroModeloId)?.modelo_nombre : null;
 
-  const hayFiltrosActivos = searchTerm || (modoFiltro === 'excluir' ? estadosExcluidos.length > 0 : estadosIncluidos.length > 0) || filtroOperativo !== 'todos' || filtroModeloId || filtroUrgente;
+  const hayFiltrosActivos = searchTerm || (modoFiltro === 'excluir' ? estadosExcluidos.length > 0 : estadosIncluidos.length > 0) || filtroOperativo !== 'todos' || filtroModeloId || filtroUrgente || (filtroLinea && filtroLinea !== 'todas');
 
   const toggleEstado = (estado) => {
     if (modoFiltro === 'excluir') {
@@ -525,6 +529,7 @@ export const Registros = () => {
     setFiltroOperativo('todos');
     setFiltroUrgente(false);
     setFiltroModeloId('');
+    setFiltroLinea('');
     setSearchParams({});
   };
 
@@ -648,6 +653,18 @@ export const Registros = () => {
           Urgentes
         </Button>
 
+        <Select value={filtroLinea || "todas"} onValueChange={v => setFiltroLinea(v === "todas" ? "" : v)}>
+          <SelectTrigger className="h-9 w-[160px] sm:w-[200px]" data-testid="filtro-linea">
+            <SelectValue placeholder="Todas las lineas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas las lineas</SelectItem>
+            {lineasNegocio.map(l => (
+              <SelectItem key={l.id} value={String(l.id)}>{l.nombre}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {modeloFiltrado && (
           <Badge variant="secondary" className="gap-1">
             Modelo: {modeloFiltrado}
@@ -704,6 +721,9 @@ export const Registros = () => {
               </div>
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                 <span className="font-mono">{formatDate(item.fecha_creacion)}</span>
+                {item.linea_negocio_nombre && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 font-normal">{item.linea_negocio_nombre.split(' - ')[0]}</Badge>
+                )}
                 {item.incidencias_abiertas > 0 && (
                   <span className="flex items-center gap-0.5 text-amber-600">
                     <AlertTriangle className="h-3 w-3" />{item.incidencias_abiertas}
@@ -729,6 +749,7 @@ export const Registros = () => {
                   <TableHead>N° Corte</TableHead>
                   <TableHead>Fecha Creacion</TableHead>
                   <TableHead>Modelo</TableHead>
+                  <TableHead className="hidden md:table-cell">Linea</TableHead>
                   <TableHead className="hidden lg:table-cell">Marca</TableHead>
                   <TableHead className="hidden xl:table-cell">Tipo</TableHead>
                   <TableHead className="hidden xl:table-cell">Entalle</TableHead>
@@ -785,6 +806,11 @@ export const Registros = () => {
                         {formatDate(item.fecha_creacion)}
                       </TableCell>
                       <TableCell className="text-sm">{item.modelo_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden md:table-cell">
+                        {item.linea_negocio_nombre
+                          ? <Badge variant="secondary" className="text-[10px] whitespace-nowrap">{item.linea_negocio_nombre.split(' - ')[0]}</Badge>
+                          : <span className="text-muted-foreground">-</span>}
+                      </TableCell>
                       <TableCell className="text-xs hidden lg:table-cell">{item.marca_nombre || '-'}</TableCell>
                       <TableCell className="text-xs hidden xl:table-cell">{item.tipo_nombre || '-'}</TableCell>
                       <TableCell className="text-xs hidden xl:table-cell">{item.entalle_nombre || '-'}</TableCell>

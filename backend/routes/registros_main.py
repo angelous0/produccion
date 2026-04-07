@@ -29,6 +29,7 @@ async def get_registros(
     excluir_estados: str = "Tienda",
     modelo_id: str = "",
     operativo: str = "",
+    linea_negocio_id: str = "",
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -63,6 +64,11 @@ async def get_registros(
             params.append(modelo_id)
             param_idx += 1
 
+        if linea_negocio_id:
+            conditions.append(f"r.linea_negocio_id = ${param_idx}")
+            params.append(int(linea_negocio_id))
+            param_idx += 1
+
         where_clause = " AND ".join(conditions) if conditions else "TRUE"
 
         # Un solo query: count con window function + data paginada
@@ -77,6 +83,7 @@ async def get_registros(
                 h.nombre as hilo_nombre,
                 he.nombre as hilo_especifico_nombre,
                 rp.n_corte as padre_n_corte,
+                ln.nombre as linea_negocio_nombre,
                 (SELECT COUNT(*) FROM prod_incidencia i WHERE i.registro_id = r.id AND i.estado = 'ABIERTA') as incidencias_abiertas,
                 (SELECT row_to_json(p.*) FROM prod_paralizacion p WHERE p.registro_id = r.id AND p.activa = TRUE LIMIT 1) as paralizacion_json,
                 (SELECT COUNT(*) FROM prod_movimientos_produccion mp WHERE mp.registro_id = r.id AND mp.fecha_esperada_movimiento < CURRENT_DATE) as movs_vencidos,
@@ -93,6 +100,7 @@ async def get_registros(
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
             LEFT JOIN prod_hilos_especificos he ON COALESCE(r.hilo_especifico_id, m.hilo_especifico_id) = he.id
             LEFT JOIN prod_registros rp ON r.dividido_desde_registro_id = rp.id
+            LEFT JOIN finanzas2.cont_linea_negocio ln ON r.linea_negocio_id = ln.id
             WHERE {where_clause}
             ORDER BY r.fecha_creacion DESC
             LIMIT ${param_idx} OFFSET ${param_idx + 1}
@@ -156,7 +164,8 @@ async def get_registro(registro_id: str):
                 h.nombre as hilo_nombre,
                 he.nombre as hilo_especifico_nombre,
                 pt.nombre as pt_item_nombre,
-                pt.codigo as pt_item_codigo
+                pt.codigo as pt_item_codigo,
+                ln.nombre as linea_negocio_nombre
             FROM prod_registros r
             LEFT JOIN prod_modelos m ON r.modelo_id = m.id
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
@@ -166,6 +175,7 @@ async def get_registro(registro_id: str):
             LEFT JOIN prod_hilos h ON m.hilo_id = h.id
             LEFT JOIN prod_hilos_especificos he ON COALESCE(r.hilo_especifico_id, m.hilo_especifico_id) = he.id
             LEFT JOIN prod_inventario pt ON r.pt_item_id = pt.id
+            LEFT JOIN finanzas2.cont_linea_negocio ln ON r.linea_negocio_id = ln.id
             WHERE r.id = $1
         """, registro_id)
         if not row:

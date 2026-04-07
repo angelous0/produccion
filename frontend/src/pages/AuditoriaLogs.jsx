@@ -66,10 +66,10 @@ export const AuditoriaLogs = () => {
   const [page, setPage] = useState(0);
   const [expandedId, setExpandedId] = useState(null);
   const [filtros, setFiltros] = useState({
-    usuario: "", modulo: "", accion: "", fecha_desde: "", fecha_hasta: "",
+    usuario: "", modulo: "", accion: "", fecha_desde: "", fecha_hasta: "", linea_negocio_id: "",
   });
   const [filtrosDisponibles, setFiltrosDisponibles] = useState({
-    modulos: [], acciones: [], usuarios: [],
+    modulos: [], acciones: [], usuarios: [], lineas: [],
   });
 
   const limit = 50;
@@ -173,6 +173,22 @@ export const AuditoriaLogs = () => {
           <Label className="text-xs">Hasta</Label>
           <Input type="date" value={filtros.fecha_hasta} onChange={(e) => handleFiltro("fecha_hasta", e.target.value)} data-testid="filtro-fecha-hasta" />
         </div>
+        {filtrosDisponibles.lineas.length > 0 && (
+          <div className="w-full sm:w-44">
+            <Label className="text-xs">Linea</Label>
+            <Select value={filtros.linea_negocio_id || "TODOS"} onValueChange={(v) => handleFiltro("linea_negocio_id", v)}>
+              <SelectTrigger data-testid="filtro-linea">
+                <SelectValue placeholder="Todas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODOS">Todas las lineas</SelectItem>
+                {filtrosDisponibles.lineas.map((l) => (
+                  <SelectItem key={l.id} value={String(l.id)}>{l.nombre}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Tabla */}
