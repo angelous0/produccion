@@ -43,18 +43,18 @@ export const RegistroMovimientosCard = ({
       <CardContent className="space-y-4">
         {movimientosProduccion.length > 0 ? (
           <>
-            <div className="border rounded-lg overflow-hidden">
+            <div className="border rounded-lg overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Servicio</TableHead>
-                    <TableHead>Persona</TableHead>
-                    <TableHead className="text-center">F. Esperada</TableHead>
-                    <TableHead className="text-center">Fechas</TableHead>
+                    <TableHead className="hidden sm:table-cell">Persona</TableHead>
+                    <TableHead className="text-center hidden md:table-cell">F. Esperada</TableHead>
+                    <TableHead className="text-center hidden sm:table-cell">Fechas</TableHead>
                     <TableHead className="text-right">Enviada</TableHead>
                     <TableHead className="text-right">Recibida</TableHead>
-                    <TableHead className="text-right">Merma</TableHead>
-                    {showAvance && <TableHead className="text-center">Avance</TableHead>}
+                    <TableHead className="text-right hidden sm:table-cell">Merma</TableHead>
+                    {showAvance && <TableHead className="text-center hidden md:table-cell">Avance</TableHead>}
                     <TableHead className="w-[50px] text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -80,7 +80,7 @@ export const RegistroMovimientosCard = ({
                             <span className="font-medium">{mov.servicio_nombre}</span>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <div className="flex items-center gap-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <div>
@@ -96,7 +96,7 @@ export const RegistroMovimientosCard = ({
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center hidden md:table-cell">
                           {mov.fecha_esperada_movimiento ? (
                             <div className={`text-xs font-mono ${fechaClase}`}>
                               {mov.fecha_esperada_movimiento.split('-').reverse().join('/')}
@@ -104,7 +104,7 @@ export const RegistroMovimientosCard = ({
                             </div>
                           ) : <span className="text-muted-foreground text-xs">-</span>}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center hidden sm:table-cell">
                           <div className="text-xs">
                             {mov.fecha_inicio && (
                               <div className="flex items-center justify-center gap-1">
@@ -121,7 +121,7 @@ export const RegistroMovimientosCard = ({
                         </TableCell>
                         <TableCell className="text-right font-mono">{enviada}</TableCell>
                         <TableCell className="text-right font-mono font-semibold">{recibida}</TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono hidden sm:table-cell">
                           {diferencia > 0 ? (
                             <Badge variant="destructive" className="text-xs">-{diferencia}</Badge>
                           ) : (
@@ -129,7 +129,7 @@ export const RegistroMovimientosCard = ({
                           )}
                         </TableCell>
                         {showAvance && (
-                          <TableCell className="text-center">
+                          <TableCell className="text-center hidden md:table-cell">
                             {serviciosProduccion.find(s => s.id === mov.servicio_id)?.usa_avance_porcentaje && mov.avance_porcentaje != null ? (
                               <div className="flex items-center justify-center gap-1.5">
                                 <div className="w-12 h-2 bg-muted rounded-full overflow-hidden">

@@ -73,7 +73,7 @@ export const RegistroHeader = ({
               onValueChange={handleEstadoChange}
               disabled={isParalizado || !canChangeStates}
             >
-              <SelectTrigger data-testid="select-estado" className={`w-[220px] h-9 text-sm font-semibold ${(isParalizado || !canChangeStates) ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado || !canChangeStates}>
+              <SelectTrigger data-testid="select-estado" className={`w-full sm:w-[220px] h-9 text-sm font-semibold ${(isParalizado || !canChangeStates) ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isParalizado || !canChangeStates}>
                 <SelectValue placeholder="Seleccionar estado" />
               </SelectTrigger>
               <SelectContent>

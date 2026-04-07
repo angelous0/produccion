@@ -537,23 +537,24 @@ export const Registros = () => {
 
   return (
     <div className="space-y-4" data-testid="registros-page">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Registros de Producción</h2>
-          <p className="text-muted-foreground">Gestión de registros de corte y producción</p>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Registros de Producción</h2>
+          <p className="text-muted-foreground text-sm">Gestión de registros de corte y producción</p>
         </div>
         <div className="flex gap-2">
           <ExportButton tabla="registros" />
-          <Button onClick={() => navigate('/registros/nuevo')} data-testid="btn-nuevo-registro">
-            <Plus className="h-4 w-4 mr-2" />
-            Nuevo Registro
+          <Button onClick={() => navigate('/registros/nuevo')} data-testid="btn-nuevo-registro" size="sm" className="sm:size-default">
+            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Nuevo Registro</span>
+            <span className="sm:hidden">Nuevo</span>
           </Button>
         </div>
       </div>
 
-      {/* Barra de búsqueda y filtros */}
+      {/* Barra de busqueda y filtros */}
       <div className="flex flex-wrap items-center gap-2" data-testid="filtros-registros">
-        <div className="relative flex-1 min-w-[220px] max-w-[320px]">
+        <div className="relative flex-1 min-w-[180px] sm:min-w-[220px] max-w-[320px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar N° Corte o Modelo..."
@@ -673,21 +674,21 @@ export const Registros = () => {
               <TableHeader>
                 <TableRow className="data-table-header">
                   <TableHead>N° Corte</TableHead>
-                  <TableHead>Fecha Creacion</TableHead>
+                  <TableHead className="hidden sm:table-cell">Fecha Creacion</TableHead>
                   <TableHead>Modelo</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Entalle</TableHead>
-                  <TableHead>Tela</TableHead>
-                  <TableHead>Hilo</TableHead>
-                  <TableHead>Hilo Esp.</TableHead>
-                  <TableHead>Curva</TableHead>
+                  <TableHead className="hidden lg:table-cell">Marca</TableHead>
+                  <TableHead className="hidden xl:table-cell">Tipo</TableHead>
+                  <TableHead className="hidden xl:table-cell">Entalle</TableHead>
+                  <TableHead className="hidden lg:table-cell">Tela</TableHead>
+                  <TableHead className="hidden xl:table-cell">Hilo</TableHead>
+                  <TableHead className="hidden xl:table-cell">Hilo Esp.</TableHead>
+                  <TableHead className="hidden xl:table-cell">Curva</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead>Fecha Final</TableHead>
-                  <TableHead>Operativo</TableHead>
-                  <TableHead>Salud</TableHead>
-                  <TableHead className="w-[140px]">Acciones</TableHead>
+                  <TableHead className="hidden md:table-cell">Fecha Final</TableHead>
+                  <TableHead className="hidden md:table-cell">Operativo</TableHead>
+                  <TableHead className="hidden lg:table-cell">Salud</TableHead>
+                  <TableHead className="w-[100px] sm:w-[140px]">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -727,17 +728,17 @@ export const Registros = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs whitespace-nowrap">
+                      <TableCell className="font-mono text-xs whitespace-nowrap hidden sm:table-cell">
                         {formatDate(item.fecha_creacion)}
                       </TableCell>
                       <TableCell className="text-sm">{item.modelo_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.marca_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.tipo_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.entalle_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.tela_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.hilo_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.hilo_especifico_nombre || '-'}</TableCell>
-                      <TableCell className="text-xs">{item.curva || '-'}</TableCell>
+                      <TableCell className="text-xs hidden lg:table-cell">{item.marca_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden xl:table-cell">{item.tipo_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden xl:table-cell">{item.entalle_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden lg:table-cell">{item.tela_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden xl:table-cell">{item.hilo_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden xl:table-cell">{item.hilo_especifico_nombre || '-'}</TableCell>
+                      <TableCell className="text-xs hidden xl:table-cell">{item.curva || '-'}</TableCell>
                       <TableCell className="text-right font-mono font-semibold">
                         {getTotalPiezas(item)}
                       </TableCell>
@@ -746,13 +747,13 @@ export const Registros = () => {
                           {item.estado}
                         </Badge>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">
+                      <TableCell className="whitespace-nowrap hidden md:table-cell">
                         {getFechaEntregaBadge(item.fecha_entrega_final, item.estado)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {getEstadoOperativoBadge(item.estado_operativo)}
                       </TableCell>
-                      <TableCell data-testid={`salud-${item.id}`}>
+                      <TableCell data-testid={`salud-${item.id}`} className="hidden lg:table-cell">
                         <div className="flex items-center gap-1">
                           {(item.mermas_total > 0 || item.fallados_total > 0 || item.arreglos_vencidos > 0) ? (
                             <>
@@ -782,13 +783,13 @@ export const Registros = () => {
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleView(item)} title="Ver detalle" data-testid={`view-registro-${item.id}`}>
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:inline-flex" onClick={() => handleOpenColoresDialog(item)} title="Colores" data-testid={`colores-registro-${item.id}`}>
                             <Palette className={`h-3.5 w-3.5 ${tieneColores(item) ? 'text-primary' : ''}`} />
                           </Button>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/registros/editar/${item.id}`)} title="Editar" data-testid={`edit-registro-${item.id}`}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 hidden sm:inline-flex" onClick={() => handleDelete(item.id)} title="Eliminar" data-testid={`delete-registro-${item.id}`}>
                             <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         </div>

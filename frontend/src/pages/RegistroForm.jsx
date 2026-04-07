@@ -728,6 +728,35 @@ export const RegistroForm = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* COLUMNA IZQUIERDA */}
           <div className="space-y-4 min-w-0">
+            {/* Resumen mobile (visible solo en pantallas < lg donde el panel lateral esta oculto) */}
+            {isEditing && (
+              <div className="lg:hidden flex items-center gap-3 rounded-lg border bg-muted/30 px-3 py-2 overflow-x-auto" data-testid="resumen-mobile">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-muted-foreground">Prendas</span>
+                  <span className="font-mono font-bold text-sm">{tallasSeleccionadas.reduce((s,t) => s + (t.cantidad || 0), 0)}</span>
+                </div>
+                <div className="w-px h-5 bg-border shrink-0" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-muted-foreground">Movs</span>
+                  <span className="font-mono font-bold text-sm">{movimientosProduccion.length}</span>
+                </div>
+                {incidencias.filter(i => i.estado === 'ABIERTA').length > 0 && (
+                  <>
+                    <div className="w-px h-5 bg-border shrink-0" />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-xs text-red-600">Inc. abiertas</span>
+                      <span className="font-mono font-bold text-sm text-red-600">{incidencias.filter(i => i.estado === 'ABIERTA').length}</span>
+                    </div>
+                  </>
+                )}
+                {modeloSeleccionado && (
+                  <>
+                    <div className="w-px h-5 bg-border shrink-0" />
+                    <span className="text-xs text-muted-foreground shrink-0">{modeloSeleccionado.nombre}</span>
+                  </>
+                )}
+              </div>
+            )}
             {!isEditing ? (
               /* Modo creación: sin pestañas */
               <>

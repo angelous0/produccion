@@ -53,6 +53,14 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - Datos del modelo se mantienen visibles por peticion del usuario
 - Cantidad sugerida en nuevos movimientos usa ultima cantidad_recibida, no cantidad original
 
+### Responsive Mobile - Registros (07-Abr-2026)
+- Listado: Columnas secundarias ocultas en mobile (hidden sm/md/lg/xl:table-cell)
+- Mobile muestra: N Corte, Modelo, Total, Estado, Acciones (ver/editar)
+- Detalle: Barra resumen mobile "Prendas X | Movs Y | Inc. Z" reemplaza el panel lateral oculto
+- Movimientos: Columnas Persona/FechaEsp/Fechas/Merma/Avance ocultas progresivamente
+- Header: Select estado y botones responsive (w-full sm:w-[220px])
+- Desktop sin cambios visuales
+
 ### Optimizacion de Performance - Registros (06-Abr-2026)
 - Backend: Detalle registro de 2.63s a 0.79s (3.3x mas rapido) - JOINs en vez de N+1 queries
 - Backend: Listado de 0.97s a 0.75s - COUNT(*) OVER() window function elimina 1 round-trip
