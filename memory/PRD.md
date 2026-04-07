@@ -6,7 +6,7 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 ## Stack
 - Backend: FastAPI + asyncpg + PostgreSQL
 - Frontend: React + Tailwind + Shadcn/UI
-- BD: PostgreSQL (schema `produccion`)
+- BD: PostgreSQL (schema `produccion`, ODS en schema `odoo`)
 
 ## Credenciales
 - Admin: `eduard` / `eduard123`
@@ -32,6 +32,17 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - Timeline unificado, resumen de cantidades, mermas automaticas
 - Frontend: TrazabilidadPanel en pestana Control
 
+### Distribucion PT y Conciliacion Odoo (07-Abr-2026)
+- Tabla `prod_registro_pt_relacion`: distribucion de producto terminado por tipo_salida (normal, arreglo, liquidacion_leve, liquidacion_grave) y product_template_id_odoo
+- Tabla `prod_registro_pt_odoo_vinculo`: vinculacion 1:1 de ajustes de inventario Odoo a registros (UNIQUE stock_inventory_odoo_id)
+- Validacion estricta: suma de lineas de distribucion = total producido del registro
+- Conciliacion: esperado (distribucion) vs ingresado (stock_move de ajustes vinculados), agrupado por product_tmpl_id
+- Estados de conciliacion: SIN_DISTRIBUCION, PENDIENTE, PARCIAL, COMPLETO
+- Buscador de productos Odoo (product_template) con nombre/ID
+- Buscador de ajustes de inventario filtrado por x_es_ingreso_produccion=true, con indicador de disponibilidad
+- UI: Pestana "PT Odoo" en detalle de registro con 3 bloques (distribucion, vinculos, conciliacion)
+- Testing: 100% pass rate iteration_47 (21/21 backend, frontend 100%)
+
 ### Transferencias Internas entre Lineas de Negocio (06-Abr-2026)
 - Flujo completo: Borrador -> Confirmado / Cancelado
 - Tablas: prod_transferencias_linea, prod_transferencias_linea_detalle
@@ -41,62 +52,22 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 - Frontend: Pagina completa con listado, crear, detalle, confirmar/cancelar
 - Testing: 100% pass rate iteration_44
 
-### Bug Fix: Balance de Lote (06-Abr-2026)
-- Problema: cantidad_no_resuelta de arreglos con resultado_final='BUENO' no se contabilizaba
-- Fix: Toda cantidad_no_resuelta de arreglos RESUELTOS va a liquidacion por defecto
-
-### Mejoras UX Layout Registro (06-Abr-2026)
-- "Total Recibidas" reemplazado por "Cantidad efectiva (ultima recibida)" - muestra 232 en vez de 1192
-- Panel lateral: Prendas muestra original tachado + efectiva en ambar (240 -> 232)
-- Acciones de fila en menu "..." en vez de 3 iconos sueltos
-- "Dividir Lote" movido a menu secundario (...)
-- Datos del modelo se mantienen visibles por peticion del usuario
-- Cantidad sugerida en nuevos movimientos usa ultima cantidad_recibida, no cantidad original
-
-### Responsive Mobile - Pulido Final (07-Abr-2026)
-- Registros listado: Cards en mobile (< md) - N Corte, Modelo, Estado badge, Cantidad, Fecha, card clickeable completa
-- Movimientos: Cards en mobile (< sm) - Servicio, Env→Rec, Persona, Fecha, menu acciones en (...)
-- Inventario: Columnas secundarias ocultas progresivamente (Linea, Categoria, Unidad, Reservado, Disponible, Valorizado, StockMin, Estado)
-- Auditoria: Fecha sin hora en mobile, Usuario oculto en mobile, badges completos (UPDATE/CREATE/DELETE/CONFIRM/CANCEL), filtros en 2 columnas
-- 0 overflow horizontal en todas las pantallas (verificado programaticamente)
-- Desktop sin cambios - tabla completa con todas las columnas
-
-### Responsive Mobile - Registros (07-Abr-2026)
-- Listado: Columnas secundarias ocultas en mobile (hidden sm/md/lg/xl:table-cell)
-- Mobile muestra: N Corte, Modelo, Total, Estado, Acciones (ver/editar)
-- Detalle: Barra resumen mobile "Prendas X | Movs Y | Inc. Z" reemplaza el panel lateral oculto
-- Movimientos: Columnas Persona/FechaEsp/Fechas/Merma/Avance ocultas progresivamente
-- Header: Select estado y botones responsive (w-full sm:w-[220px])
-- Desktop sin cambios visuales
-
 ### Optimizacion de Performance - Registros (06-Abr-2026)
 - Backend: Detalle registro de 2.63s a 0.79s (3.3x mas rapido) - JOINs en vez de N+1 queries
 - Backend: Listado de 0.97s a 0.75s - COUNT(*) OVER() window function elimina 1 round-trip
-- Backend: Materiales optimizado con batch queries en vez de N queries individuales
-- BD: 15 indices creados (movimientos, mermas, fallados, arreglos, incidencias, registros estado/fecha/modelo)
+- BD: 15 indices creados
 - Frontend: Code splitting con React.lazy - 50+ paginas lazy loaded
-- Frontend: Lazy loading de tabs en RegistroForm (produccion/control cargan solo al activarse)
-- Frontend: Eliminada llamada duplicada a modelos API en fetchRegistro
-- Frontend: useMemo para calulos de tallasDisponibles, tieneColores, totalCantidadMovimientos
-- Testing: 100% pass rate iteration_46 (19/19 backend, 10/10 frontend)
+- Frontend: Lazy loading de tabs en RegistroForm
+- Testing: 100% pass rate iteration_46
 
-### Modulo de Auditoria - Fase 1 (06-Abr-2026)
-- Tabla centralizada `produccion.audit_log` con JSONB (datos_antes, datos_despues)
-- Helper `audit_log()` atomico dentro de transacciones PostgreSQL
-- Helper `audit_log_safe()` best-effort para operaciones no criticas
-- 11 endpoints criticos instrumentados:
-  - registros_main.py: CREATE, UPDATE
-  - movimientos.py: CREATE, DELETE
-  - cierre.py: CONFIRM (atomico), REOPEN (atomico)
-  - inventario_main.py: CREATE ingreso, CREATE salida, UPDATE ajuste
-  - transferencias_linea.py: CONFIRM (atomico), CANCEL
-- UI exclusiva admin: tabla, filtros (usuario/modulo/accion/fecha), paginacion, detalle expandible antes/despues
-- Testing: 100% pass rate iteration_45 (17/17 backend, frontend 100%)
+### Responsive Mobile Completo (07-Abr-2026)
+- Registros, Movimientos, Inventario, Auditoria: Cards en mobile
+- 0 overflow horizontal verificado programaticamente
 
-### Fix Historial de Actividad (06-Abr-2026)
-- Problema: Solo mostraba logins, no acciones de produccion/inventario
-- Fix: Se agrego registrar_actividad() a 7 endpoints: crear/editar registro, crear/eliminar movimiento, crear ingreso/salida/ajuste inventario
-- Ahora el historial muestra: "Creo registro X", "Edito registro X", "Creo movimiento en Servicio", "Ingreso de N uds", etc.
+### Modulo de Auditoria (06-Abr-2026)
+- Tabla centralizada audit_log con JSONB
+- 11 endpoints criticos instrumentados
+- UI exclusiva admin con filtros y detalle expandible
 
 ### Permisos Granulares
 - servicios, acciones, estados por usuario
@@ -112,39 +83,36 @@ Sistema de gestion de produccion textil full-stack con trazabilidad unificada, p
 
 ## Backlog Priorizado
 
-### P1 - UX/Simplificacion Avanzada (Pendiente)
-- Separar modo tecnico vs operativo (operario vs admin)
-- Ocultar BOM en operacion diaria
-- Simplificar pantallas por etapa (Corte, Costura, Lavanderia, Acabado)
-- Auto-llenado desde BOM
+### P1 - Linea de Negocio (En progreso parcial)
+- Filtro linea_negocio_id en Reportes (Dashboard, Matriz) - pendiente
+- Validacion de inventario/materiales por linea
 
 ### P2
 - Refactorizar registros_main.py y server.py (modularizar)
-- Lazy loading en frontend
 - Logging estructurado en backend
 
 ### P3
-- Exportacion PDF
+- Exportacion PDF de reportes
 - Rate limiting API
 
 ## Arquitectura Clave
 ```
 backend/routes/
-  auditoria.py         - Auditoria: helper + endpoints GET
+  distribucion_pt.py    - Distribucion PT, vinculos Odoo, conciliacion
+  auditoria.py          - Auditoria: helper + endpoints GET
   transferencias_linea.py - Transferencias internas entre lineas
-  cierre.py            - Cierre de produccion (consolidado)
-  trazabilidad.py      - Fallados, arreglos, balance, KPIs
-  registros_main.py    - CRUD registros
+  cierre.py             - Cierre de produccion (consolidado)
+  trazabilidad.py       - Fallados, arreglos, balance, KPIs
+  registros_main.py     - CRUD registros
   reportes_produccion.py - Dashboard, matriz, alertas
-  inventario_main.py   - FIFO, ingresos, salidas, ajustes
-  movimientos.py       - Movimientos de produccion
+  inventario_main.py    - FIFO, ingresos, salidas, ajustes
+  movimientos.py        - Movimientos de produccion
 
 frontend/src/
   pages/
-    AuditoriaLogs.jsx       - UI de auditoria (admin)
-    TransferenciasLinea.jsx  - Transferencias entre lineas
-    RegistroForm.jsx         - Formulario principal
+    RegistroForm.jsx         - Formulario principal (tabs: General, Produccion, Control, PT Odoo)
   components/registro/
+    DistribucionPTPanel.jsx  - Panel PT Odoo (distribucion + vinculos + conciliacion)
     RegistroPanelLateral.jsx - Panel derecho
     RegistroMovimientosCard.jsx - Movimientos con menu "..."
 ```
