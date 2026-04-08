@@ -39,7 +39,7 @@ const EstadoBadge = ({ estado }) => {
   );
 };
 
-const ProductoSelector = ({ value, onChange, authHeader }) => {
+const ProductoSelector = ({ value, onChange }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [options, setOptions] = useState([]);
@@ -49,22 +49,24 @@ const ProductoSelector = ({ value, onChange, authHeader }) => {
     if (!open) return;
     const timer = setTimeout(async () => {
       try {
-        const res = await axios.get(`${API}/odoo/product-templates?search=${encodeURIComponent(search)}&limit=20`, { headers: authHeader });
+        const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+        const res = await axios.get(`${API}/odoo/product-templates?search=${encodeURIComponent(search)}&limit=20`, { headers });
         setOptions(res.data);
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, open, authHeader]);
+  }, [search, open]);
 
   useEffect(() => {
     if (value && !selected) {
-      axios.get(`${API}/odoo/product-templates?search=${value}&limit=5`, { headers: authHeader })
+      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      axios.get(`${API}/odoo/product-templates?search=${value}&limit=5`, { headers })
         .then(res => {
           const found = res.data.find(p => p.odoo_id === value);
           if (found) setSelected(found);
         }).catch(() => {});
     }
-  }, [value, authHeader, selected]);
+  }, [value, selected]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -96,7 +98,7 @@ const ProductoSelector = ({ value, onChange, authHeader }) => {
   );
 };
 
-export const DistribucionPTPanel = ({ registroId, authHeader }) => {
+export const DistribucionPTPanel = ({ registroId }) => {
   const [distribucion, setDistribucion] = useState(null);
   const [vinculos, setVinculos] = useState([]);
   const [conciliacion, setConciliacion] = useState(null);
@@ -113,13 +115,18 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
   const [ajustePopoverOpen, setAjustePopoverOpen] = useState(false);
   const [vinculando, setVinculando] = useState(false);
 
+  const getAuthHeader = useCallback(() => {
+    return { Authorization: `Bearer ${localStorage.getItem('token')}` };
+  }, []);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const headers = getAuthHeader();
       const [distRes, vincRes, concRes] = await Promise.all([
-        axios.get(`${API}/registros/${registroId}/distribucion-pt`, { headers: authHeader }),
-        axios.get(`${API}/registros/${registroId}/vinculos-odoo`, { headers: authHeader }),
-        axios.get(`${API}/registros/${registroId}/conciliacion-odoo`, { headers: authHeader }),
+        axios.get(`${API}/registros/${registroId}/distribucion-pt`, { headers }),
+        axios.get(`${API}/registros/${registroId}/vinculos-odoo`, { headers }),
+        axios.get(`${API}/registros/${registroId}/conciliacion-odoo`, { headers }),
       ]);
       setDistribucion(distRes.data);
       setVinculos(vincRes.data);
@@ -136,7 +143,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
     } finally {
       setLoading(false);
     }
-  }, [registroId, authHeader]);
+  }, [registroId, getAuthHeader]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -147,13 +154,13 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
       try {
         const res = await axios.get(
           `${API}/odoo/stock-inventories?solo_produccion=true&search=${encodeURIComponent(ajusteSearch)}&limit=30`,
-          { headers: authHeader }
+          { headers: getAuthHeader() }
         );
         setAjustesDisponibles(res.data);
       } catch { /* ignore */ }
     }, 300);
     return () => clearTimeout(timer);
-  }, [ajusteSearch, ajustePopoverOpen, authHeader]);
+  }, [ajusteSearch, ajustePopoverOpen, getAuthHeader]);
 
   const addLinea = () => {
     setLineas(prev => [...prev, { tipo_salida: 'normal', product_template_id_odoo: null, cantidad: 0 }]);
@@ -192,7 +199,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
           product_template_id_odoo: l.product_template_id_odoo,
           cantidad: parseFloat(l.cantidad),
         }))
-      }, { headers: authHeader });
+      }, { headers: getAuthHeader() });
       toast.success('Distribucion guardada correctamente');
       await fetchAll();
     } catch (err) {
@@ -206,7 +213,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
     setVinculando(true);
     try {
       await axios.post(`${API}/registros/${registroId}/vinculos-odoo`,
-        { stock_inventory_odoo_id: odooId }, { headers: authHeader });
+        { stock_inventory_odoo_id: odooId }, { headers: getAuthHeader() });
       toast.success('Ajuste vinculado');
       setAjustePopoverOpen(false);
       await fetchAll();
@@ -219,7 +226,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
 
   const desvincularAjuste = async (vinculoId) => {
     try {
-      await axios.delete(`${API}/registros/${registroId}/vinculos-odoo/${vinculoId}`, { headers: authHeader });
+      await axios.delete(`${API}/registros/${registroId}/vinculos-odoo/${vinculoId}`, { headers: getAuthHeader() });
       toast.success('Ajuste desvinculado');
       await fetchAll();
     } catch (err) {
@@ -278,7 +285,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Package className="h-4 w-4" /> Distribucion Esperada
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={addLinea} className="h-7 text-xs gap-1" data-testid="btn-add-linea">
+            <Button type="button" variant="outline" size="sm" onClick={addLinea} className="h-7 text-xs gap-1" data-testid="btn-add-linea">
               <Plus className="h-3 w-3" /> Agregar
             </Button>
           </div>
@@ -308,14 +315,13 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
                   <ProductoSelector
                     value={linea.product_template_id_odoo}
                     onChange={v => updateLinea(idx, 'product_template_id_odoo', v)}
-                    authHeader={authHeader}
                   />
                   <Input type="number" min="1" step="1" className="h-8 text-xs"
                     value={linea.cantidad || ''} placeholder="Cant."
                     onChange={e => updateLinea(idx, 'cantidad', e.target.value)}
                     data-testid={`input-cantidad-${idx}`}
                   />
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
                     onClick={() => removeLinea(idx)} data-testid={`btn-remove-${idx}`}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -337,7 +343,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
                   </Badge>
                 )}
               </div>
-              <Button size="sm" onClick={guardarDistribucion} disabled={saving || !cuadra || !dirty}
+              <Button type="button" size="sm" onClick={guardarDistribucion} disabled={saving || !cuadra || !dirty}
                 className="h-7 text-xs gap-1" data-testid="btn-guardar-distribucion">
                 {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                 Guardar
@@ -404,7 +410,7 @@ export const DistribucionPTPanel = ({ registroId, authHeader }) => {
                       ID Odoo: {v.stock_inventory_odoo_id} | Qty Total: {v.total_moves_qty} | {v.ajuste_fecha ? new Date(v.ajuste_fecha).toLocaleDateString('es') : ''}
                     </span>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
                     onClick={() => desvincularAjuste(v.id)} data-testid={`btn-desvincular-${v.id}`}>
                     <Unlink className="h-3.5 w-3.5" />
                   </Button>

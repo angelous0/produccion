@@ -857,7 +857,6 @@ export const RegistroForm = () => {
                 <TabsContent value="pt_odoo" className="space-y-4 mt-0">
                   <DistribucionPTPanel
                     registroId={id}
-                    authHeader={{ Authorization: `Bearer ${localStorage.getItem('token')}` }}
                   />
                 </TabsContent>
               </Tabs>
