@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Query
 from db import get_pool
 from auth_utils import get_current_user
-from models import MovimientoCreate, MermaCreate, GuiaRemisionCreate
+from models import MovimientoCreate, Movimiento, MermaCreate, GuiaRemisionCreate
 from helpers import row_to_dict, parse_jsonb, registrar_actividad
 from routes.auditoria import audit_log_safe, get_usuario
 from typing import Optional, List
