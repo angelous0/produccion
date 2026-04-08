@@ -11,7 +11,7 @@ import { Separator } from '../ui/separator';
 import { toast } from 'sonner';
 import {
   Package, Link2, Unlink, Search, Plus, Trash2, Save,
-  CheckCircle2, AlertTriangle, Clock, CircleDot, Loader2
+  CheckCircle2, AlertTriangle, Clock, CircleDot, Loader2, Activity
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -115,6 +115,7 @@ export const DistribucionPTPanel = ({ registroId }) => {
   const [ajustePopoverOpen, setAjustePopoverOpen] = useState(false);
   const [vinculando, setVinculando] = useState(false);
   const [desvinculando, setDesvinculando] = useState(null);
+  const [trazabilidad, setTrazabilidad] = useState(null);
 
   const getAuthHeader = useCallback(() => {
     return { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -124,14 +125,16 @@ export const DistribucionPTPanel = ({ registroId }) => {
     setLoading(true);
     try {
       const headers = getAuthHeader();
-      const [distRes, vincRes, concRes] = await Promise.all([
+      const [distRes, vincRes, concRes, trazRes] = await Promise.all([
         axios.get(`${API}/registros/${registroId}/distribucion-pt`, { headers }),
         axios.get(`${API}/registros/${registroId}/vinculos-odoo`, { headers }),
         axios.get(`${API}/registros/${registroId}/conciliacion-odoo`, { headers }),
+        axios.get(`${API}/registros/${registroId}/resumen-cantidades`, { headers }).catch(() => ({ data: null })),
       ]);
       setDistribucion(distRes.data);
       setVinculos(vincRes.data);
       setConciliacion(concRes.data);
+      setTrazabilidad(trazRes.data);
       setLineas(distRes.data.lineas.map(l => ({
         tipo_salida: l.tipo_salida,
         product_template_id_odoo: l.product_template_id_odoo,
@@ -283,6 +286,82 @@ export const DistribucionPTPanel = ({ registroId }) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Bloque Trazabilidad del Lote */}
+      {trazabilidad && (
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Activity className="h-4 w-4" /> Trazabilidad del Lote
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3" data-testid="trazabilidad-resumen">
+              <div className="bg-slate-50 rounded-md px-3 py-2 border">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Inicial</div>
+                <div className="text-base font-bold" data-testid="traz-inicial">{trazabilidad.cantidad_inicial || totalProducido}</div>
+              </div>
+              <div className="bg-emerald-50 rounded-md px-3 py-2 border border-emerald-200">
+                <div className="text-[10px] text-emerald-600 uppercase tracking-wider">Terminado OK</div>
+                <div className="text-base font-bold text-emerald-700" data-testid="traz-terminado">
+                  {(trazabilidad.cantidad_inicial || totalProducido) - trazabilidad.mermas - trazabilidad.fallados_total + trazabilidad.fallados_reparados}
+                </div>
+              </div>
+              {trazabilidad.mermas > 0 && (
+                <div className="bg-red-50 rounded-md px-3 py-2 border border-red-200">
+                  <div className="text-[10px] text-red-600 uppercase tracking-wider">Mermas</div>
+                  <div className="text-base font-bold text-red-700" data-testid="traz-mermas">{trazabilidad.mermas}</div>
+                </div>
+              )}
+              {trazabilidad.fallados_reparados > 0 && (
+                <div className="bg-blue-50 rounded-md px-3 py-2 border border-blue-200">
+                  <div className="text-[10px] text-blue-600 uppercase tracking-wider">Arreglos Resueltos</div>
+                  <div className="text-base font-bold text-blue-700" data-testid="traz-arreglos">{trazabilidad.fallados_reparados}</div>
+                </div>
+              )}
+              {trazabilidad.fallados_liquidados > 0 && (
+                <div className="bg-amber-50 rounded-md px-3 py-2 border border-amber-200">
+                  <div className="text-[10px] text-amber-600 uppercase tracking-wider">Liquidacion</div>
+                  <div className="text-base font-bold text-amber-700" data-testid="traz-liquidacion">{trazabilidad.fallados_liquidados}</div>
+                </div>
+              )}
+              {trazabilidad.fallados_en_arreglo > 0 && (
+                <div className="bg-purple-50 rounded-md px-3 py-2 border border-purple-200">
+                  <div className="text-[10px] text-purple-600 uppercase tracking-wider">En Arreglo</div>
+                  <div className="text-base font-bold text-purple-700" data-testid="traz-en-arreglo">{trazabilidad.fallados_en_arreglo}</div>
+                </div>
+              )}
+              {trazabilidad.fallados_sin_asignar > 0 && (
+                <div className="bg-orange-50 rounded-md px-3 py-2 border border-orange-200">
+                  <div className="text-[10px] text-orange-600 uppercase tracking-wider">Fallados Pendientes</div>
+                  <div className="text-base font-bold text-orange-700" data-testid="traz-fallados-pend">{trazabilidad.fallados_sin_asignar}</div>
+                </div>
+              )}
+              {trazabilidad.segunda > 0 && (
+                <div className="bg-yellow-50 rounded-md px-3 py-2 border border-yellow-200">
+                  <div className="text-[10px] text-yellow-600 uppercase tracking-wider">Segunda</div>
+                  <div className="text-base font-bold text-yellow-700">{trazabilidad.segunda}</div>
+                </div>
+              )}
+              {trazabilidad.descarte > 0 && (
+                <div className="bg-gray-50 rounded-md px-3 py-2 border border-gray-300">
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wider">Descarte</div>
+                  <div className="text-base font-bold text-gray-700">{trazabilidad.descarte}</div>
+                </div>
+              )}
+            </div>
+            {trazabilidad.alertas && trazabilidad.alertas.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {trazabilidad.alertas.map((a, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 rounded px-2 py-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0" /> {a.mensaje}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Bloque A: Distribucion esperada */}
       <Card>
