@@ -211,8 +211,6 @@ class TestRegistroCRUD:
             "urgente": current.get('urgente', False),
             "hilo_especifico_id": current.get('hilo_especifico_id', ''),
             "pt_item_id": current.get('pt_item_id', ''),
-            "lq_odoo_id": current.get('lq_odoo_id', ''),
-            "id_odoo": current.get('id_odoo', ''),
             "observaciones": current.get('observaciones', ''),
             "fecha_entrega_final": current.get('fecha_entrega_final', ''),
             "linea_negocio_id": current.get('linea_negocio_id'),

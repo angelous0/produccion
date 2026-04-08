@@ -172,7 +172,6 @@ async def ensure_bom_tables():
 
     # Asegurar columnas nuevas en prod_registros
     async with pool.acquire() as conn:
-        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS id_odoo VARCHAR(50)")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS observaciones TEXT")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS skip_validacion_estado BOOLEAN DEFAULT FALSE")
 
@@ -725,9 +724,7 @@ class RegistroBase(BaseModel):
     urgente: bool = False
     hilo_especifico_id: Optional[str] = None
     pt_item_id: Optional[str] = None
-    lq_odoo_id: Optional[str] = None
     empresa_id: Optional[int] = 7
-    id_odoo: Optional[str] = None
     observaciones: Optional[str] = None
     fecha_entrega_final: Optional[str] = None
     linea_negocio_id: Optional[int] = None
@@ -1042,8 +1039,6 @@ async def startup():
         # Columnas para división de lote
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS dividido_desde_registro_id VARCHAR NULL")
         await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS division_numero INT DEFAULT 0")
-        # Campo para vincular producto de liquidación en Odoo
-        await conn.execute("ALTER TABLE prod_registros ADD COLUMN IF NOT EXISTS lq_odoo_id VARCHAR NULL")
         # Migración: extender prod_registro_cierre con campos de auditoría y congelamiento
         for alter_sql in [
             "ALTER TABLE prod_registro_cierre ADD COLUMN IF NOT EXISTS merma_qty NUMERIC DEFAULT 0",

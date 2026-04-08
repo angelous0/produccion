@@ -599,8 +599,6 @@ async def get_balance_pdf(registro_id: str, current_user: dict = Depends(get_cur
         if cierre and cierre.get('estado_cierre') == 'CERRADO':
             estado_label += " [CERRADO]"
         elements.append(Paragraph(f"Estado: {estado_label} | Fecha: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')}", normal))
-        if reg.get('id_odoo'):
-            elements.append(Paragraph(f"ID Odoo: {reg['id_odoo']}", normal))
         elements.append(Spacer(1, 0.5*cm))
 
         # Tallas

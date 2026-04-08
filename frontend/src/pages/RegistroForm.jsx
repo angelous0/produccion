@@ -44,7 +44,7 @@ export const RegistroForm = () => {
 
   const [formData, setFormData] = useState({
     n_corte: '', modelo_id: '', curva: '', estado: 'Para Corte', urgente: false,
-    hilo_especifico_id: '', pt_item_id: '', lq_odoo_id: '', id_odoo: '',
+    hilo_especifico_id: '', pt_item_id: '',
     observaciones: '', fecha_entrega_final: '', linea_negocio_id: null,
   });
 
@@ -204,7 +204,7 @@ export const RegistroForm = () => {
       setFormData({
         n_corte: registro.n_corte, modelo_id: registro.modelo_id, curva: registro.curva || '',
         estado: registro.estado, urgente: registro.urgente, hilo_especifico_id: registro.hilo_especifico_id || '',
-        pt_item_id: registro.pt_item_id || '', lq_odoo_id: registro.lq_odoo_id || '', id_odoo: registro.id_odoo || '',
+        pt_item_id: registro.pt_item_id || '',
         observaciones: registro.observaciones || '', fecha_entrega_final: registro.fecha_entrega_final || '',
         skip_validacion_estado: registro.skip_validacion_estado || false, linea_negocio_id: registro.linea_negocio_id || null,
       });

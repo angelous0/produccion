@@ -318,9 +318,7 @@ class RegistroBase(BaseModel):
     urgente: bool = False
     hilo_especifico_id: Optional[str] = None
     pt_item_id: Optional[str] = None
-    lq_odoo_id: Optional[str] = None
     empresa_id: Optional[int] = 8
-    id_odoo: Optional[str] = None
     observaciones: Optional[str] = None
     fecha_entrega_final: Optional[str] = None
     linea_negocio_id: Optional[int] = None

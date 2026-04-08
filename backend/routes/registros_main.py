@@ -234,11 +234,11 @@ async def create_registro(input: RegistroCreate, current_user: dict = Depends(ge
         tallas_json = json.dumps([t.model_dump() for t in registro.tallas])
         dist_json = json.dumps([d.model_dump() for d in registro.distribucion_colores])
         await conn.execute(
-            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id, id_odoo, observaciones, linea_negocio_id) 
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)""",
+            """INSERT INTO prod_registros (id, n_corte, modelo_id, curva, estado, urgente, hilo_especifico_id, tallas, distribucion_colores, fecha_creacion, pt_item_id, empresa_id, observaciones, linea_negocio_id) 
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)""",
             registro.id, registro.n_corte, registro.modelo_id, registro.curva, registro.estado, registro.urgente,
             registro.hilo_especifico_id, tallas_json, dist_json, registro.fecha_creacion.replace(tzinfo=None),
-            registro.pt_item_id, registro.empresa_id, registro.id_odoo, registro.observaciones, registro.linea_negocio_id
+            registro.pt_item_id, registro.empresa_id, registro.observaciones, registro.linea_negocio_id
         )
         cant_total = sum(t.cantidad for t in registro.tallas) if registro.tallas else 0
         await audit_log_safe(conn, get_usuario(current_user), "CREATE", "produccion", "prod_registros", registro.id,
@@ -268,7 +268,6 @@ async def update_registro(registro_id: str, input: RegistroCreate, current_user:
     # Sanitizar FKs opcionales: string vacío → None
     input.pt_item_id = input.pt_item_id or None
     input.hilo_especifico_id = input.hilo_especifico_id or None
-    input.lq_odoo_id = input.lq_odoo_id or None
     pool = await get_pool()
     async with pool.acquire() as conn:
         result = await conn.fetchrow("SELECT * FROM prod_registros WHERE id = $1", registro_id)
@@ -304,8 +303,8 @@ async def update_registro(registro_id: str, input: RegistroCreate, current_user:
             except Exception:
                 fecha_ef = None
         await conn.execute(
-            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, id_odoo=$10, observaciones=$11, lq_odoo_id=$12, linea_negocio_id=$13, fecha_entrega_final=$15 WHERE id=$14""",
-            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.id_odoo, input.observaciones, input.lq_odoo_id, input.linea_negocio_id, registro_id, fecha_ef
+            """UPDATE prod_registros SET n_corte=$1, modelo_id=$2, curva=$3, estado=$4, urgente=$5, hilo_especifico_id=$6, tallas=$7, distribucion_colores=$8, pt_item_id=$9, observaciones=$10, linea_negocio_id=$11, fecha_entrega_final=$13 WHERE id=$12""",
+            input.n_corte, input.modelo_id, input.curva, input.estado, input.urgente, input.hilo_especifico_id, tallas_json, dist_json, input.pt_item_id, input.observaciones, input.linea_negocio_id, registro_id, fecha_ef
         )
         
         # Sincronizar prod_registro_tallas con las cantidades del JSON
