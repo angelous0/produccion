@@ -77,7 +77,18 @@ async def _get_total_producido(conn, registro_id: str) -> float:
         row = await conn.fetchrow("SELECT tallas FROM prod_registros WHERE id = $1", registro_id)
         if row and row['tallas']:
             tallas = row['tallas'] if isinstance(row['tallas'], dict) else {}
-            total = sum(float(v) for v in tallas.values() if str(v).replace('.','',1).isdigit())
+            if isinstance(tallas, list):
+                total = sum(float(t.get('cantidad', 0)) for t in tallas if isinstance(t, dict))
+            elif isinstance(tallas, dict):
+                total = sum(float(v) for v in tallas.values() if str(v).replace('.','',1).isdigit())
+    if total == 0:
+        # Fallback: usar cantidad_enviada del primer movimiento
+        mov_qty = await conn.fetchval(
+            "SELECT cantidad_enviada FROM prod_movimientos_produccion WHERE registro_id = $1 ORDER BY created_at ASC LIMIT 1",
+            registro_id
+        )
+        if mov_qty:
+            total = float(mov_qty)
     return float(total)
 
 

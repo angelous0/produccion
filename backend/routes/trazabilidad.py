@@ -532,6 +532,14 @@ async def resumen_cantidades(
         if cantidad_base == 0:
             tallas_jsonb = parse_jsonb(reg["tallas"])
             cantidad_base = sum(safe_int(t.get("cantidad", 0)) for t in tallas_jsonb)
+        # Fallback: si no hay tallas, usar cantidad_enviada del primer movimiento
+        if cantidad_base == 0:
+            mov_qty = await conn.fetchval(
+                "SELECT cantidad_enviada FROM prod_movimientos_produccion WHERE registro_id = $1 ORDER BY created_at ASC LIMIT 1",
+                registro_id
+            )
+            if mov_qty:
+                cantidad_base = safe_int(mov_qty)
 
         # Merma / faltantes
         merma_total = await conn.fetchval(
