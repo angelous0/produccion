@@ -33,6 +33,7 @@ const InventarioAjustes = lazy(() => import("./pages/InventarioAjustes").then(m 
 const InventarioRollos = lazy(() => import("./pages/InventarioRollos").then(m => ({ default: m.InventarioRollos })));
 const ReporteMovimientos = lazy(() => import("./pages/ReporteMovimientos").then(m => ({ default: m.ReporteMovimientos })));
 const Kardex = lazy(() => import("./pages/Kardex").then(m => ({ default: m.Kardex })));
+const KardexPT = lazy(() => import("./pages/KardexPT").then(m => ({ default: m.KardexPT })));
 const ServiciosProduccion = lazy(() => import("./pages/ServiciosProduccion").then(m => ({ default: m.ServiciosProduccion })));
 const PersonasProduccion = lazy(() => import("./pages/PersonasProduccion").then(m => ({ default: m.PersonasProduccion })));
 const MovimientosProduccion = lazy(() => import("./pages/MovimientosProduccion").then(m => ({ default: m.MovimientosProduccion })));
@@ -152,6 +153,7 @@ function AppRoutes() {
         <Route path="inventario/rollos" element={<LazyWrap><InventarioRollos /></LazyWrap>} />
         <Route path="inventario/movimientos" element={<LazyWrap><ReporteMovimientos /></LazyWrap>} />
         <Route path="inventario/kardex" element={<LazyWrap><Kardex /></LazyWrap>} />
+        <Route path="inventario/kardex-pt" element={<LazyWrap><KardexPT /></LazyWrap>} />
         <Route path="inventario/alertas-stock" element={<LazyWrap><ReporteStockBajo /></LazyWrap>} />
         <Route path="inventario/transferencias-linea" element={<LazyWrap><TransferenciasLinea /></LazyWrap>} />
         <Route path="maestros/servicios" element={<LazyWrap><ServiciosProduccion /></LazyWrap>} />

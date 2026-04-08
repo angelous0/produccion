@@ -102,6 +102,7 @@ const inventarioItems = [
   { to: '/inventario/rollos', icon: Layers, label: 'Rollos' },
   { to: '/inventario/movimientos', icon: FileText, label: 'Movimientos' },
   { to: '/inventario/kardex', icon: BookOpen, label: 'Kardex' },
+  { to: '/inventario/kardex-pt', icon: BookOpen, label: 'Kardex PT' },
   { to: '/inventario/alertas-stock', icon: PackageX, label: 'Alertas Stock' },
   { to: '/inventario/transferencias-linea', icon: ArrowRightLeft, label: 'Transferencias' },
 ];

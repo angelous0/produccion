@@ -46,6 +46,7 @@ from routes.transferencias_linea import router as transferencias_linea_router, i
 from routes.auditoria import router as auditoria_router, init_audit_tables
 from routes.conversacion import router as conversacion_router
 from routes.distribucion_pt import router as distribucion_pt_router, init_distribucion_pt_tables
+from routes.kardex_pt import router as kardex_pt_router
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1128,3 +1129,4 @@ app.include_router(transferencias_linea_router)
 app.include_router(auditoria_router)
 app.include_router(conversacion_router)
 app.include_router(distribucion_pt_router)
+app.include_router(kardex_pt_router)
