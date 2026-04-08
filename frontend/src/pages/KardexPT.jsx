@@ -48,6 +48,7 @@ export const KardexPT = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [saldoConfiable, setSaldoConfiable] = useState(true);
   const pageSize = 50;
 
   // Filtros
@@ -103,6 +104,7 @@ export const KardexPT = () => {
       ]);
       setItems(kardexRes.data.items);
       setTotal(kardexRes.data.total);
+      setSaldoConfiable(kardexRes.data.saldo_confiable);
       setResumen(resumenRes.data);
     } catch {
       /* ignore */
@@ -288,7 +290,9 @@ export const KardexPT = () => {
                     <th className="py-2 px-3 text-left font-medium text-muted-foreground">Tipo</th>
                     <th className="py-2 px-3 text-right font-medium text-emerald-600">Entrada</th>
                     <th className="py-2 px-3 text-right font-medium text-blue-600">Salida</th>
-                    <th className="py-2 px-3 text-right font-medium text-muted-foreground">Saldo</th>
+                    {saldoConfiable && (
+                      <th className="py-2 px-3 text-right font-medium text-muted-foreground">Saldo</th>
+                    )}
                     <th className="py-2 px-3 text-left font-medium text-muted-foreground hidden lg:table-cell">Referencia</th>
                     <th className="py-2 px-3 text-left font-medium text-muted-foreground hidden xl:table-cell">Origen / Destino</th>
                   </tr>
@@ -309,9 +313,11 @@ export const KardexPT = () => {
                       <td className="py-2 px-3 text-right font-medium text-blue-600">
                         {item.salida > 0 ? formatNum(item.salida) : '-'}
                       </td>
-                      <td className={`py-2 px-3 text-right font-bold ${item.saldo_acumulado >= 0 ? '' : 'text-red-600'}`}>
-                        {formatNum(item.saldo_acumulado)}
-                      </td>
+                      {saldoConfiable && (
+                        <td className={`py-2 px-3 text-right font-bold ${item.saldo_acumulado != null && item.saldo_acumulado >= 0 ? '' : 'text-red-600'}`}>
+                          {item.saldo_acumulado != null ? formatNum(item.saldo_acumulado) : '-'}
+                        </td>
+                      )}
                       <td className="py-2 px-3 text-muted-foreground hidden lg:table-cell truncate max-w-[150px]">
                         {item.referencia || '-'}
                       </td>

@@ -68,16 +68,19 @@ async def get_kardex_pt(
     pool = await get_pool()
     async with pool.acquire() as conn:
 
-        # Construir WHERE dinamico
+        # El saldo historico solo es confiable si NO se filtra por tipo_movimiento
+        # (filtrar por tipo omite movimientos y rompe la cadena)
+        saldo_confiable = tipo_movimiento is None
+
+        # --- WHERE para los movimientos del RANGO visible ---
         conditions = ["sm.state = 'done'"]
         params = []
         idx = 1
 
-        # Excluir transferencias del kardex global (salvo filtro por ubicacion)
         if not location_id:
-            conditions.append("""
-                NOT (sm.inventory_id IS NULL AND lo.usage = 'internal' AND ld.usage = 'internal')
-            """)
+            conditions.append(
+                "NOT (sm.inventory_id IS NULL AND lo.usage = 'internal' AND ld.usage = 'internal')"
+            )
 
         if product_tmpl_id:
             conditions.append(f"sm.product_tmpl_id = ${idx}")
@@ -112,7 +115,56 @@ async def get_kardex_pt(
         where = " AND ".join(conditions)
         offset = (page - 1) * page_size
 
-        # Count
+        # --- Saldo inicial (antes de fecha_desde) por producto ---
+        # Solo se calcula cuando hay fecha_desde y el saldo es confiable
+        saldo_inicial_map = {}
+        if fecha_desde and saldo_confiable:
+            # Condiciones para el periodo ANTERIOR al rango
+            pre_conds = ["sm2.state = 'done'"]
+            pre_params = []
+            pre_idx = 1
+
+            if not location_id:
+                pre_conds.append(
+                    "NOT (sm2.inventory_id IS NULL AND lo2.usage = 'internal' AND ld2.usage = 'internal')"
+                )
+
+            pre_conds.append(f"sm2.date < ${pre_idx}::timestamp")
+            pre_params.append(datetime.fromisoformat(fecha_desde))
+            pre_idx += 1
+
+            if product_tmpl_id:
+                pre_conds.append(f"sm2.product_tmpl_id = ${pre_idx}")
+                pre_params.append(product_tmpl_id)
+                pre_idx += 1
+
+            if company_key:
+                pre_conds.append(f"sm2.company_key = ${pre_idx}")
+                pre_params.append(company_key)
+                pre_idx += 1
+
+            if location_id:
+                pre_conds.append(f"(sm2.location_id = ${pre_idx} OR sm2.location_dest_id = ${pre_idx})")
+                pre_params.append(location_id)
+                pre_idx += 1
+
+            pre_where = " AND ".join(pre_conds)
+            pre_entrada = ENTRADA_EXPR.replace("sm.", "sm2.").replace("lo.", "lo2.").replace("ld.", "ld2.")
+            pre_salida = SALIDA_EXPR.replace("sm.", "sm2.").replace("lo.", "lo2.").replace("ld.", "ld2.")
+
+            pre_sql = f"""
+                SELECT sm2.product_tmpl_id,
+                       SUM({pre_entrada} - {pre_salida}) as saldo_pre
+                FROM odoo.stock_move sm2
+                JOIN odoo.stock_location lo2 ON lo2.odoo_id = sm2.location_id
+                JOIN odoo.stock_location ld2 ON ld2.odoo_id = sm2.location_dest_id
+                WHERE {pre_where}
+                GROUP BY sm2.product_tmpl_id
+            """
+            pre_rows = await conn.fetch(pre_sql, *pre_params)
+            saldo_inicial_map = {r["product_tmpl_id"]: float(r["saldo_pre"]) for r in pre_rows}
+
+        # --- Count ---
         count_sql = f"""
             SELECT COUNT(*)
             FROM odoo.stock_move sm
@@ -122,7 +174,7 @@ async def get_kardex_pt(
         """
         total = await conn.fetchval(count_sql, *params)
 
-        # Data con saldo acumulado por producto
+        # --- Data con saldo del periodo ---
         data_sql = f"""
             SELECT
                 sm.odoo_id,
@@ -143,7 +195,7 @@ async def get_kardex_pt(
                 SUM({ENTRADA_EXPR} - {SALIDA_EXPR}) OVER (
                     PARTITION BY sm.product_tmpl_id
                     ORDER BY sm.date, sm.odoo_id
-                ) as saldo_acumulado
+                ) as saldo_periodo
             FROM odoo.stock_move sm
             JOIN odoo.stock_location lo ON lo.odoo_id = sm.location_id
             JOIN odoo.stock_location ld ON ld.odoo_id = sm.location_dest_id
@@ -156,16 +208,24 @@ async def get_kardex_pt(
 
         items = []
         for r in rows:
+            saldo_periodo = float(r["saldo_periodo"])
+            prod_id = r["product_tmpl_id"]
+
+            if saldo_confiable:
+                saldo_real = saldo_periodo + saldo_inicial_map.get(prod_id, 0)
+            else:
+                saldo_real = None
+
             items.append({
                 "odoo_id": r["odoo_id"],
                 "fecha": r["date"].isoformat() if r["date"] else None,
-                "product_tmpl_id": r["product_tmpl_id"],
+                "product_tmpl_id": prod_id,
                 "producto_nombre": r["producto_nombre"],
                 "producto_marca": r["producto_marca"],
                 "tipo_movimiento": r["tipo_movimiento"],
                 "entrada": float(r["entrada"]),
                 "salida": float(r["salida"]),
-                "saldo_acumulado": float(r["saldo_acumulado"]),
+                "saldo_acumulado": saldo_real,
                 "referencia": r["referencia"],
                 "company_key": r["company_key"],
                 "location_from": r["location_from"],
@@ -177,6 +237,8 @@ async def get_kardex_pt(
             "total": total,
             "page": page,
             "page_size": page_size,
+            "saldo_confiable": saldo_confiable,
+            "tiene_saldo_inicial": bool(saldo_inicial_map),
         }
 
 
