@@ -7,7 +7,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://trace-textil.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://kardex-pt-sync.preview.emergentagent.com')
 
 # Test data from context
 TEST_ITEM_ID = "d402f7c9-9c4c-4a05-8f43-7589288828b0"  # Cierre YKK #5 Metal

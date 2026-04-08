@@ -56,5 +56,5 @@
   "seed_data_creation": "Created test transfers during testing: TRF-20260406-003 (CONFIRMADO), TRF-20260406-004 (CANCELADO), TRF-20260406-005 (BORRADOR)",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "Transferencias Linea feature fully tested. Key test data: item_id=d402f7c9-9c4c-4a05-8f43-7589288828b0 (Cierre YKK #5 Metal), lineas: 26 (Pantalon denim), 27 (Polo), 28 (Pantalon Qepo). Existing confirmed transfer TRF-20260406-001 moved 50 units with costo_total=468.50. FIFO traceability working: detalles array contains ingreso_origen_id, ingreso_destino_id, cantidad, costo_unitario. Tables: prod_transferencias_linea (master), prod_transferencias_linea_detalle (FIFO traceability). prod_inventario_salidas has tipo='TRANSFERENCIA' column."
+  "context_for_next_testing_agent": "Transferencias Linea feature fully tested. Key test data: item_id=kardex-pt-sync (Cierre YKK #5 Metal), lineas: 26 (Pantalon denim), 27 (Polo), 28 (Pantalon Qepo). Existing confirmed transfer TRF-20260406-001 moved 50 units with costo_total=468.50. FIFO traceability working: detalles array contains ingreso_origen_id, ingreso_destino_id, cantidad, costo_unitario. Tables: prod_transferencias_linea (master), prod_transferencias_linea_detalle (FIFO traceability). prod_inventario_salidas has tipo='TRANSFERENCIA' column."
 }

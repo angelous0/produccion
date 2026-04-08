@@ -48,7 +48,7 @@
   "seed_data_creation": "None - used existing test data (movimiento_id: 0064144d-ac63-4a08-8db4-0c8cc6e8ec72)",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "Reporte Costura feature fully implemented and working. Test movimiento: id=0064144d-ac63-4a08-8db4-0c8cc6e8ec72, persona=Pepe Perez, servicio=Costura, n_corte=01, cantidad=500, avance=35%, 1 incidencia abierta, riesgo=atencion. Remote PostgreSQL DB at postgres://admin:admin@72.60.241.216:9090/datos.",
+  "context_for_next_testing_agent": "Reporte Costura feature fully implemented and working. Test movimiento: id=kardex-pt-sync, persona=Pepe Perez, servicio=Costura, n_corte=01, cantidad=500, avance=35%, 1 incidencia abierta, riesgo=atencion. Remote PostgreSQL DB at postgres://admin:admin@72.60.241.216:9090/datos.",
   "test_data": {
     "movimiento_id": "0064144d-ac63-4a08-8db4-0c8cc6e8ec72",
     "persona_nombre": "Pepe Perez",

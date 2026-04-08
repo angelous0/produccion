@@ -7,7 +7,7 @@ import requests
 import os
 import time
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://trace-textil.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://kardex-pt-sync.preview.emergentagent.com').rstrip('/')
 
 # Test registro with complete data: n_corte=006
 TEST_REGISTRO_ID = "169c1b44-5b94-49cb-a6d2-42c3fdeb3a69"
