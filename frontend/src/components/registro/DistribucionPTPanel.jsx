@@ -114,6 +114,7 @@ export const DistribucionPTPanel = ({ registroId }) => {
   const [ajusteSearch, setAjusteSearch] = useState('');
   const [ajustePopoverOpen, setAjustePopoverOpen] = useState(false);
   const [vinculando, setVinculando] = useState(false);
+  const [desvinculando, setDesvinculando] = useState(null);
 
   const getAuthHeader = useCallback(() => {
     return { Authorization: `Bearer ${localStorage.getItem('token')}` };
@@ -210,6 +211,7 @@ export const DistribucionPTPanel = ({ registroId }) => {
   };
 
   const vincularAjuste = async (odooId) => {
+    if (vinculando) return;
     setVinculando(true);
     try {
       await axios.post(`${API}/registros/${registroId}/vinculos-odoo`,
@@ -225,12 +227,16 @@ export const DistribucionPTPanel = ({ registroId }) => {
   };
 
   const desvincularAjuste = async (vinculoId) => {
+    if (desvinculando) return;
+    setDesvinculando(vinculoId);
     try {
       await axios.delete(`${API}/registros/${registroId}/vinculos-odoo/${vinculoId}`, { headers: getAuthHeader() });
       toast.success('Ajuste desvinculado');
       await fetchAll();
     } catch (err) {
       toast.error('Error al desvincular');
+    } finally {
+      setDesvinculando(null);
     }
   };
 
@@ -373,9 +379,9 @@ export const DistribucionPTPanel = ({ registroId }) => {
                     <CommandEmpty>Sin ajustes de produccion encontrados</CommandEmpty>
                     <CommandGroup>
                       {ajustesDisponibles.map(a => (
-                        <CommandItem key={a.odoo_id} value={String(a.odoo_id)} disabled={!a.disponible}
-                          onSelect={() => { if (a.disponible) vincularAjuste(a.odoo_id); }}
-                          className={!a.disponible ? 'opacity-50' : ''}>
+                        <CommandItem key={a.odoo_id} value={String(a.odoo_id)} disabled={!a.disponible || vinculando}
+                          onSelect={() => { if (a.disponible && !vinculando) vincularAjuste(a.odoo_id); }}
+                          className={!a.disponible || vinculando ? 'opacity-50' : ''}>
                           <div className="flex flex-col flex-1">
                             <span className="text-xs font-medium">{a.name}</span>
                             <span className="text-[10px] text-muted-foreground">
@@ -386,6 +392,9 @@ export const DistribucionPTPanel = ({ registroId }) => {
                             <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-300 shrink-0">
                               Vinculado a otro
                             </Badge>
+                          )}
+                          {a.disponible && vinculando && (
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
                           )}
                         </CommandItem>
                       ))}
@@ -411,8 +420,9 @@ export const DistribucionPTPanel = ({ registroId }) => {
                     </span>
                   </div>
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                    disabled={desvinculando === v.id}
                     onClick={() => desvincularAjuste(v.id)} data-testid={`btn-desvincular-${v.id}`}>
-                    <Unlink className="h-3.5 w-3.5" />
+                    {desvinculando === v.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unlink className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
               ))}
