@@ -11,6 +11,7 @@ import { ClipboardList, Play, ShieldAlert, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { SalidaRollosDialog } from '../components/SalidaRollosDialog';
 import { TrazabilidadPanel } from '../components/TrazabilidadPanel';
+import { ArreglosPanel } from '../components/ArreglosPanel';
 import MaterialesTab from '../components/MaterialesTab';
 import { DistribucionPTPanel } from '../components/registro/DistribucionPTPanel';
 import { ConversacionPanel, ConversacionTrigger } from '../components/ConversacionPanel';
@@ -850,7 +851,7 @@ export const RegistroForm = () => {
                     onNueva={() => { setIncidenciaForm({ motivo_id: '', comentario: '', paraliza: false }); setIncidenciaDialogOpen(true); }}
                     permisos={perms}
                   />
-                  <TrazabilidadPanel registroId={id} servicios={serviciosProduccion} personas={personasProduccion} />
+                  <ArreglosPanel registroId={id} servicios={serviciosProduccion} personas={personasProduccion} />
                 </TabsContent>
 
                 {/* TAB PT ODOO: Distribucion PT y Conciliacion */}

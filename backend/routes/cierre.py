@@ -213,6 +213,18 @@ async def preview_cierre(registro_id: str, current_user: dict = Depends(get_curr
         # Validar
         errores = await _validar_pre_cierre(conn, reg, qty)
 
+        # Datos de arreglos para cierre
+        total_fallados = safe_float(await conn.fetchval(
+            "SELECT COALESCE(SUM(cantidad_detectada), 0) FROM prod_fallados WHERE registro_id = $1", registro_id))
+        arreglos_rows = await conn.fetch(
+            "SELECT cantidad, cantidad_recuperada, cantidad_liquidacion, cantidad_merma, estado FROM prod_registro_arreglos WHERE registro_id = $1", registro_id)
+        total_en_arreglo = sum(safe_float(a["cantidad"]) for a in arreglos_rows)
+        total_recuperado = sum(safe_float(a["cantidad_recuperada"]) for a in arreglos_rows)
+        total_liquidacion = sum(safe_float(a["cantidad_liquidacion"]) for a in arreglos_rows)
+        total_merma_arreglos = sum(safe_float(a["cantidad_merma"]) for a in arreglos_rows)
+        fallado_pendiente = max(total_fallados - total_en_arreglo, 0)
+        normal = max(qty - total_fallados - merma_qty, 0)
+
         return {
             "registro_id": registro_id,
             "n_corte": reg['n_corte'],
@@ -226,6 +238,15 @@ async def preview_cierre(registro_id: str, current_user: dict = Depends(get_curr
             "costo_unitario_final": round(costo_unitario_final, 6),
             "puede_cerrar": len(errores) == 0,
             "errores_validacion": errores,
+            # Resultado final arreglos
+            "resultado_final": {
+                "normal": normal,
+                "recuperado": total_recuperado,
+                "liquidacion": total_liquidacion,
+                "merma": merma_qty + total_merma_arreglos,
+                "fallado_pendiente": fallado_pendiente,
+                "total_fallados": total_fallados,
+            },
         }
 
 

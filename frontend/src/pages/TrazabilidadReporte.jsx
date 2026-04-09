@@ -48,7 +48,7 @@ const TrazabilidadReporte = () => {
     const matchSearch = !search || r.n_corte.toLowerCase().includes(search.toLowerCase()) || r.modelo.toLowerCase().includes(search.toLowerCase());
     const matchFiltro = filtro === 'todos' ||
       (filtro === 'con_fallados' && r.fallados_total > 0) ||
-      (filtro === 'con_mermas' && r.mermas > 0) ||
+      (filtro === 'con_mermas' && r.merma > 0) ||
       (filtro === 'con_vencidos' && r.vencidos > 0) ||
       (filtro === 'con_novedades' && r.tiene_novedades) ||
       (filtro === 'sin_novedades' && !r.tiene_novedades);
@@ -74,15 +74,14 @@ const TrazabilidadReporte = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
         {[
           { label: 'Total Prendas', value: t.cantidad_inicial, color: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200' },
-          { label: 'En Produccion', value: t.en_produccion, color: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200' },
-          { label: 'Fallados', value: t.fallados_total, color: t.fallados_total > 0 ? 'bg-red-50 dark:bg-red-950/30 border-red-200' : 'bg-zinc-50 border-zinc-200' },
+          { label: 'Normal', value: t.normal, color: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200' },
+          { label: 'Fallados', value: t.total_fallados, color: t.total_fallados > 0 ? 'bg-red-50 dark:bg-red-950/30 border-red-200' : 'bg-zinc-50 border-zinc-200' },
           { label: 'En Arreglo', value: t.en_arreglo, color: t.en_arreglo > 0 ? 'bg-violet-50 dark:bg-violet-950/30 border-violet-200' : 'bg-zinc-50 border-zinc-200' },
-          { label: 'Reparados', value: t.reparados, color: t.reparados > 0 ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-zinc-50 border-zinc-200' },
-          { label: 'Liquidados', value: t.liquidados, color: t.liquidados > 0 ? 'bg-red-50 dark:bg-red-950/30 border-red-200' : 'bg-zinc-50 border-zinc-200' },
-          { label: 'Mermas', value: t.mermas, color: t.mermas > 0 ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200' : 'bg-zinc-50 border-zinc-200' },
+          { label: 'Recuperado', value: t.recuperado, color: t.recuperado > 0 ? 'bg-green-50 dark:bg-green-950/30 border-green-200' : 'bg-zinc-50 border-zinc-200' },
+          { label: 'Mermas', value: t.merma, color: t.merma > 0 ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200' : 'bg-zinc-50 border-zinc-200' },
           { label: 'Vencidos', value: t.vencidos, color: t.vencidos > 0 ? 'bg-red-50 dark:bg-red-950/30 border-red-200' : 'bg-zinc-50 border-zinc-200' },
         ].map((k, i) => (
           <div key={i} className={`rounded-lg border p-2.5 text-center ${k.color}`}>
@@ -126,14 +125,13 @@ const TrazabilidadReporte = () => {
                   <TableHead className="text-[11px] font-semibold">Estado</TableHead>
                   <TableHead className="text-[11px] font-semibold">Modelo</TableHead>
                   <TableHead className="text-[11px] font-semibold text-center">Inicial</TableHead>
-                  <TableHead className="text-[11px] font-semibold text-center">En Prod.</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-center">Normal</TableHead>
                   <TableHead className="text-[11px] font-semibold text-center">Fallados</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-center">F.Pendiente</TableHead>
                   <TableHead className="text-[11px] font-semibold text-center">Arreglo</TableHead>
-                  <TableHead className="text-[11px] font-semibold text-center">Reparados</TableHead>
-                  <TableHead className="text-[11px] font-semibold text-center">Liquidados</TableHead>
-                  <TableHead className="text-[11px] font-semibold text-center">Sin Asig.</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-center">Recuperado</TableHead>
+                  <TableHead className="text-[11px] font-semibold text-center">Liquidacion</TableHead>
                   <TableHead className="text-[11px] font-semibold text-center">Mermas</TableHead>
-                  <TableHead className="text-[11px] font-semibold text-center">Divididos</TableHead>
                   <TableHead className="text-[11px] font-semibold text-center">Alertas</TableHead>
                 </TableRow>
               </TableHeader>
@@ -145,14 +143,13 @@ const TrazabilidadReporte = () => {
                     <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{r.estado}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{r.modelo}{r.marca ? ` (${r.marca})` : ''}</TableCell>
                     <TableCell className="text-xs text-center font-mono font-semibold">{r.cantidad_inicial}</TableCell>
-                    <TableCell className="text-xs text-center font-mono text-blue-600">{r.en_produccion}</TableCell>
-                    <TableCell className={`text-xs text-center font-mono ${r.fallados_total > 0 ? 'text-red-600 font-semibold' : ''}`}>{r.fallados_total || '-'}</TableCell>
+                    <TableCell className="text-xs text-center font-mono text-emerald-600">{r.normal || '-'}</TableCell>
+                    <TableCell className={`text-xs text-center font-mono ${r.total_fallados > 0 ? 'text-red-600 font-semibold' : ''}`}>{r.total_fallados || '-'}</TableCell>
+                    <TableCell className={`text-xs text-center font-mono ${r.fallado_pendiente > 0 ? 'text-orange-600 font-semibold' : ''}`}>{r.fallado_pendiente || '-'}</TableCell>
                     <TableCell className={`text-xs text-center font-mono ${r.en_arreglo > 0 ? 'text-violet-600' : ''}`}>{r.en_arreglo || '-'}</TableCell>
-                    <TableCell className={`text-xs text-center font-mono ${r.reparados > 0 ? 'text-green-600' : ''}`}>{r.reparados || '-'}</TableCell>
-                    <TableCell className={`text-xs text-center font-mono ${r.liquidados > 0 ? 'text-red-600' : ''}`}>{r.liquidados || '-'}</TableCell>
-                    <TableCell className={`text-xs text-center font-mono ${r.sin_asignar > 0 ? 'text-orange-600 font-semibold' : ''}`}>{r.sin_asignar || '-'}</TableCell>
-                    <TableCell className={`text-xs text-center font-mono ${r.mermas > 0 ? 'text-amber-600' : ''}`}>{r.mermas || '-'}</TableCell>
-                    <TableCell className={`text-xs text-center font-mono ${r.divididos > 0 ? 'text-cyan-600' : ''}`}>{r.divididos || '-'}</TableCell>
+                    <TableCell className={`text-xs text-center font-mono ${r.recuperado > 0 ? 'text-green-600' : ''}`}>{r.recuperado || '-'}</TableCell>
+                    <TableCell className={`text-xs text-center font-mono ${r.liquidacion > 0 ? 'text-orange-600' : ''}`}>{r.liquidacion || '-'}</TableCell>
+                    <TableCell className={`text-xs text-center font-mono ${r.merma > 0 ? 'text-amber-600' : ''}`}>{r.merma || '-'}</TableCell>
                     <TableCell className="text-center">
                       {r.vencidos > 0 && <Badge variant="destructive" className="text-[9px] h-4">{r.vencidos} venc.</Badge>}
                     </TableCell>
@@ -160,7 +157,7 @@ const TrazabilidadReporte = () => {
                 ))}
                 {registros.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">Sin registros</TableCell>
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">Sin registros</TableCell>
                   </TableRow>
                 )}
               </TableBody>

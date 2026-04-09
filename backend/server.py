@@ -1076,6 +1076,8 @@ async def startup():
             "CREATE INDEX IF NOT EXISTS idx_mermas_registro_id ON prod_mermas(registro_id)",
             "CREATE INDEX IF NOT EXISTS idx_fallados_registro_id ON prod_fallados(registro_id)",
             "CREATE INDEX IF NOT EXISTS idx_arreglos_registro_id ON prod_arreglos(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_registro_arreglos_registro_id ON prod_registro_arreglos(registro_id)",
+            "CREATE INDEX IF NOT EXISTS idx_registro_arreglos_estado ON prod_registro_arreglos(estado)",
             "CREATE INDEX IF NOT EXISTS idx_incidencia_registro_id ON prod_incidencia(registro_id)",
             "CREATE INDEX IF NOT EXISTS idx_registros_estado ON prod_registros(estado)",
             "CREATE INDEX IF NOT EXISTS idx_registros_fecha ON prod_registros(fecha_creacion DESC)",

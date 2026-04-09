@@ -1,15 +1,16 @@
 """
-Router: Trazabilidad Unificada de Lotes
-- Fallados (detección, clasificación, destino no reparables)
-- Arreglos (envío, retorno, resultado)
-- Resumen de cantidades por lote
-- Trazabilidad completa (timeline unificado)
+Router: Trazabilidad Simplificada - Fallados + Arreglos V2
+- prod_fallados simplificada: fuente oficial de total_fallados
+- prod_registro_arreglos: envios a arreglo con resolucion (recuperado/liquidacion/merma)
+- Resumen de cantidades en tiempo real
+- Estados automaticos: EN_ARREGLO, PARCIAL, COMPLETADO, VENCIDO
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import date, datetime, timedelta
-import json, uuid
+from datetime import date, datetime, timedelta, timezone
+import json
+import uuid
 
 router = APIRouter(prefix="/api", tags=["trazabilidad"])
 
@@ -18,6 +19,8 @@ sys.path.insert(0, '/app/backend')
 from db import get_pool
 from auth import get_current_user
 from helpers import row_to_dict
+
+DIAS_LIMITE_ARREGLO = 3
 
 
 def safe_int(v):
@@ -36,31 +39,55 @@ def parse_jsonb(val):
         except (ValueError, json.JSONDecodeError): return []
     return val
 
-DIAS_LIMITE_ARREGLO = 3
-
 
 # ==================== INIT TABLES ====================
 
 async def init_trazabilidad_tables():
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Tabla simplificada de fallados (fuente oficial de total_fallados)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS prod_fallados (
                 id VARCHAR PRIMARY KEY,
                 registro_id VARCHAR NOT NULL,
-                movimiento_id VARCHAR,
-                servicio_detectado_id VARCHAR,
                 cantidad_detectada INT NOT NULL DEFAULT 0,
-                cantidad_reparable INT NOT NULL DEFAULT 0,
-                cantidad_no_reparable INT NOT NULL DEFAULT 0,
-                destino_no_reparable VARCHAR DEFAULT 'PENDIENTE',
-                motivo TEXT,
-                fecha_deteccion DATE,
-                estado VARCHAR DEFAULT 'ABIERTO',
-                observaciones TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
+                fecha DATE,
+                observacion TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                created_by VARCHAR
             )
         """)
+        # Columnas legacy que pueden existir - agregar created_by si no existe
+        for col_sql in [
+            "ALTER TABLE prod_fallados ADD COLUMN IF NOT EXISTS created_by VARCHAR",
+            "ALTER TABLE prod_fallados ADD COLUMN IF NOT EXISTS observacion TEXT",
+        ]:
+            try:
+                await conn.execute(col_sql)
+            except Exception:
+                pass
+
+        # Tabla nueva de arreglos V2 (vinculada a registro, no a fallado)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS prod_registro_arreglos (
+                id VARCHAR PRIMARY KEY,
+                registro_id VARCHAR NOT NULL,
+                cantidad INT NOT NULL DEFAULT 0,
+                servicio_id VARCHAR,
+                persona_id VARCHAR,
+                fecha_envio DATE NOT NULL,
+                fecha_limite DATE NOT NULL,
+                estado VARCHAR NOT NULL DEFAULT 'EN_ARREGLO',
+                cantidad_recuperada INT NOT NULL DEFAULT 0,
+                cantidad_liquidacion INT NOT NULL DEFAULT 0,
+                cantidad_merma INT NOT NULL DEFAULT 0,
+                observacion TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                created_by VARCHAR
+            )
+        """)
+
+        # Tabla legacy de arreglos (mantener para datos existentes)
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS prod_arreglos (
                 id VARCHAR PRIMARY KEY,
@@ -81,103 +108,146 @@ async def init_trazabilidad_tables():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-        await conn.execute("ALTER TABLE prod_mermas ADD COLUMN IF NOT EXISTS tipo VARCHAR DEFAULT 'FALTANTE'")
-        await conn.execute("ALTER TABLE prod_arreglos ADD COLUMN IF NOT EXISTS motivo TEXT")
-        await conn.execute("ALTER TABLE prod_arreglos ADD COLUMN IF NOT EXISTS motivo_no_resuelta TEXT")
+
+        # Tabla legacy de mermas (mantener)
+        try:
+            await conn.execute("ALTER TABLE prod_mermas ADD COLUMN IF NOT EXISTS tipo VARCHAR DEFAULT 'FALTANTE'")
+        except Exception:
+            pass
 
 
 # ==================== MODELS ====================
 
 class FalladoCreate(BaseModel):
     registro_id: str
-    movimiento_id: Optional[str] = None
-    servicio_detectado_id: Optional[str] = None
     cantidad_detectada: int
-    cantidad_reparable: int = 0
-    cantidad_no_reparable: int = 0
-    destino_no_reparable: str = "PENDIENTE"
-    motivo: str = ""
     fecha_deteccion: Optional[str] = None
-    observaciones: str = ""
+    observacion: str = ""
 
 class FalladoUpdate(BaseModel):
     cantidad_detectada: Optional[int] = None
-    cantidad_reparable: Optional[int] = None
-    cantidad_no_reparable: Optional[int] = None
-    destino_no_reparable: Optional[str] = None
-    motivo: Optional[str] = None
-    estado: Optional[str] = None
-    observaciones: Optional[str] = None
     fecha_deteccion: Optional[str] = None
-    servicio_detectado_id: Optional[str] = None
+    observacion: Optional[str] = None
 
 class ArregloCreate(BaseModel):
-    fallado_id: str
-    registro_id: str
-    cantidad_enviada: int
-    tipo: str = "ARREGLO_INTERNO"
-    servicio_destino_id: Optional[str] = None
-    persona_destino_id: Optional[str] = None
+    cantidad: int
+    servicio_id: Optional[str] = None
+    persona_id: Optional[str] = None
     fecha_envio: Optional[str] = None
-    motivo: str = ""
-    observaciones: str = ""
+    observacion: str = ""
 
-class ArregloCierre(BaseModel):
-    fecha_retorno: Optional[str] = None
-    cantidad_resuelta: int = 0
-    cantidad_no_resuelta: int = 0
-    resultado_final: str = "BUENO"
-    motivo_no_resuelta: Optional[str] = None
-    observaciones: Optional[str] = None
+class ArregloResolucion(BaseModel):
+    cantidad_recuperada: int = 0
+    cantidad_liquidacion: int = 0
+    cantidad_merma: int = 0
 
 class ArregloUpdate(BaseModel):
-    cantidad_enviada: Optional[int] = None
-    tipo: Optional[str] = None
-    servicio_destino_id: Optional[str] = None
-    persona_destino_id: Optional[str] = None
+    cantidad: Optional[int] = None
+    servicio_id: Optional[str] = None
+    persona_id: Optional[str] = None
     fecha_envio: Optional[str] = None
-    motivo: Optional[str] = None
-    observaciones: Optional[str] = None
-
-class LiquidacionDirecta(BaseModel):
-    fallado_id: str
-    registro_id: str
-    cantidad: int
-    destino: str = "LIQUIDACION"
-    motivo: str = ""
+    observacion: Optional[str] = None
+    cantidad_recuperada: Optional[int] = None
+    cantidad_liquidacion: Optional[int] = None
+    cantidad_merma: Optional[int] = None
 
 
-# ==================== FALLADOS CRUD ====================
+# ==================== HELPERS ====================
+
+def _calcular_estado_arreglo(arreglo_row):
+    """Calcula el estado real de un arreglo basado en sus datos."""
+    rec = safe_int(arreglo_row.get("cantidad_recuperada", 0))
+    liq = safe_int(arreglo_row.get("cantidad_liquidacion", 0))
+    mer = safe_int(arreglo_row.get("cantidad_merma", 0))
+    cant = safe_int(arreglo_row.get("cantidad", 0))
+    resuelto = rec + liq + mer
+
+    if resuelto >= cant and cant > 0:
+        return "COMPLETADO"
+
+    fecha_limite = arreglo_row.get("fecha_limite")
+    if fecha_limite:
+        if isinstance(fecha_limite, str):
+            try:
+                fecha_limite = date.fromisoformat(fecha_limite[:10])
+            except (ValueError, TypeError):
+                fecha_limite = None
+        if fecha_limite and fecha_limite < date.today() and resuelto < cant:
+            return "VENCIDO"
+
+    if resuelto > 0 and resuelto < cant:
+        return "PARCIAL"
+
+    return "EN_ARREGLO"
+
+
+async def _get_total_fallados(conn, registro_id: str) -> int:
+    """Fuente oficial: SUM(cantidad_detectada) de prod_fallados."""
+    val = await conn.fetchval(
+        "SELECT COALESCE(SUM(cantidad_detectada), 0) FROM prod_fallados WHERE registro_id = $1",
+        registro_id
+    )
+    return safe_int(val)
+
+
+async def _get_arreglos_sum(conn, registro_id: str, exclude_id: str = None) -> int:
+    """Suma de cantidades en arreglos V2 para un registro."""
+    if exclude_id:
+        val = await conn.fetchval(
+            "SELECT COALESCE(SUM(cantidad), 0) FROM prod_registro_arreglos WHERE registro_id = $1 AND id != $2",
+            registro_id, exclude_id
+        )
+    else:
+        val = await conn.fetchval(
+            "SELECT COALESCE(SUM(cantidad), 0) FROM prod_registro_arreglos WHERE registro_id = $1",
+            registro_id
+        )
+    return safe_int(val)
+
+
+async def _actualizar_estados_arreglos(conn, registro_id: str):
+    """Recalcula estados de todos los arreglos de un registro."""
+    rows = await conn.fetch(
+        "SELECT id, cantidad, cantidad_recuperada, cantidad_liquidacion, cantidad_merma, fecha_limite FROM prod_registro_arreglos WHERE registro_id = $1",
+        registro_id
+    )
+    for r in rows:
+        nuevo_estado = _calcular_estado_arreglo(dict(r))
+        if r.get("estado") != nuevo_estado:
+            # No cambiar si ya esta COMPLETADO
+            if r.get("estado") == "COMPLETADO":
+                continue
+            await conn.execute(
+                "UPDATE prod_registro_arreglos SET estado = $1 WHERE id = $2",
+                nuevo_estado, r["id"]
+            )
+
+
+# ==================== FALLADOS CRUD (simplificado) ====================
 
 @router.get("/fallados")
 async def get_fallados(
     registro_id: Optional[str] = None,
-    estado: Optional[str] = None,
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT f.*,
-                   sp.nombre as servicio_detectado_nombre,
-                   r.n_corte as registro_n_corte
+            SELECT f.id, f.registro_id, f.cantidad_detectada, f.fecha_deteccion,
+                   COALESCE(f.observacion, f.observaciones) as observacion,
+                   f.created_at, f.created_by
             FROM prod_fallados f
-            LEFT JOIN prod_servicios_produccion sp ON f.servicio_detectado_id = sp.id
-            LEFT JOIN prod_registros r ON f.registro_id = r.id
             WHERE 1=1
         """
         params = []
         if registro_id:
             params.append(registro_id)
             query += f" AND f.registro_id = ${len(params)}"
-        if estado:
-            params.append(estado)
-            query += f" AND f.estado = ${len(params)}"
         query += " ORDER BY f.created_at DESC"
         rows = await conn.fetch(query, *params)
         result = []
         for r in rows:
-            d = row_to_dict(r)
+            d = dict(r)
             for f in ("fecha_deteccion", "created_at"):
                 if d.get(f): d[f] = str(d[f])
             result.append(d)
@@ -189,23 +259,20 @@ async def create_fallado(
     input: FalladoCreate,
     current_user: dict = Depends(get_current_user),
 ):
-    if input.cantidad_reparable + input.cantidad_no_reparable > input.cantidad_detectada:
-        raise HTTPException(status_code=400, detail="Reparable + No reparable no puede exceder cantidad detectada")
+    if input.cantidad_detectada <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad detectada debe ser mayor a 0")
 
     pool = await get_pool()
     async with pool.acquire() as conn:
         fid = str(uuid.uuid4())
-        # Convert fecha_deteccion string to date object for asyncpg
-        fecha_str = input.fecha_deteccion or str(date.today())
-        fecha = date.fromisoformat(fecha_str[:10]) if fecha_str else date.today()
+        fecha = date.fromisoformat(input.fecha_deteccion[:10]) if input.fecha_deteccion else date.today()
+        created_by = current_user.get("username", current_user.get("nombre", "sistema"))
+
         await conn.execute("""
-            INSERT INTO prod_fallados (id, registro_id, movimiento_id, servicio_detectado_id,
-                cantidad_detectada, cantidad_reparable, cantidad_no_reparable, destino_no_reparable,
-                motivo, fecha_deteccion, estado, observaciones)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-        """, fid, input.registro_id, input.movimiento_id, input.servicio_detectado_id,
-            input.cantidad_detectada, input.cantidad_reparable, input.cantidad_no_reparable,
-            input.destino_no_reparable, input.motivo, fecha, 'ABIERTO', input.observaciones)
+            INSERT INTO prod_fallados (id, registro_id, cantidad_detectada, fecha_deteccion, observacion, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        """, fid, input.registro_id, input.cantidad_detectada, fecha, input.observacion, created_by)
+
         return {"id": fid, "message": "Fallado registrado"}
 
 
@@ -221,31 +288,33 @@ async def update_fallado(
         if not existing:
             raise HTTPException(status_code=404, detail="Fallado no encontrado")
 
-        det = input.cantidad_detectada if input.cantidad_detectada is not None else existing["cantidad_detectada"]
-        rep = input.cantidad_reparable if input.cantidad_reparable is not None else existing["cantidad_reparable"]
-        norep = input.cantidad_no_reparable if input.cantidad_no_reparable is not None else existing["cantidad_no_reparable"]
-        if rep + norep > det:
-            raise HTTPException(status_code=400, detail="Reparable + No reparable no puede exceder cantidad detectada")
+        if input.cantidad_detectada is not None and input.cantidad_detectada <= 0:
+            raise HTTPException(status_code=400, detail="La cantidad detectada debe ser mayor a 0")
 
-        sets = []
-        params = []
-        for field, val in [
-            ("cantidad_detectada", input.cantidad_detectada),
-            ("cantidad_reparable", input.cantidad_reparable),
-            ("cantidad_no_reparable", input.cantidad_no_reparable),
-            ("destino_no_reparable", input.destino_no_reparable),
-            ("motivo", input.motivo),
-            ("estado", input.estado),
-            ("observaciones", input.observaciones),
-            ("servicio_detectado_id", input.servicio_detectado_id),
-        ]:
-            if val is not None:
-                params.append(val)
-                sets.append(f"{field} = ${len(params)}")
+        # Validar que al reducir fallados no queden arreglos excedidos
+        if input.cantidad_detectada is not None:
+            registro_id = existing["registro_id"]
+            otros_fallados = await conn.fetchval(
+                "SELECT COALESCE(SUM(cantidad_detectada), 0) FROM prod_fallados WHERE registro_id = $1 AND id != $2",
+                registro_id, fallado_id
+            )
+            nuevo_total = safe_int(otros_fallados) + input.cantidad_detectada
+            arreglos_sum = await _get_arreglos_sum(conn, registro_id)
+            if arreglos_sum > nuevo_total:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No se puede reducir: hay {arreglos_sum} prendas en arreglos que exceden el nuevo total ({nuevo_total})"
+                )
 
+        sets, params = [], []
+        if input.cantidad_detectada is not None:
+            params.append(input.cantidad_detectada)
+            sets.append(f"cantidad_detectada = ${len(params)}")
+        if input.observacion is not None:
+            params.append(input.observacion)
+            sets.append(f"observacion = ${len(params)}")
         if input.fecha_deteccion is not None:
-            from datetime import date as date_type
-            params.append(date_type.fromisoformat(input.fecha_deteccion))
+            params.append(date.fromisoformat(input.fecha_deteccion[:10]))
             sets.append(f"fecha_deteccion = ${len(params)}")
 
         if sets:
@@ -262,140 +331,106 @@ async def delete_fallado(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM prod_arreglos WHERE fallado_id = $1", fallado_id)
+        existing = await conn.fetchrow("SELECT * FROM prod_fallados WHERE id = $1", fallado_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Fallado no encontrado")
+
+        registro_id = existing["registro_id"]
+        otros_fallados = await conn.fetchval(
+            "SELECT COALESCE(SUM(cantidad_detectada), 0) FROM prod_fallados WHERE registro_id = $1 AND id != $2",
+            registro_id, fallado_id
+        )
+        arreglos_sum = await _get_arreglos_sum(conn, registro_id)
+        if arreglos_sum > safe_int(otros_fallados):
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se puede eliminar: hay {arreglos_sum} prendas en arreglos que exceden los fallados restantes ({safe_int(otros_fallados)})"
+            )
+
         await conn.execute("DELETE FROM prod_fallados WHERE id = $1", fallado_id)
         return {"message": "Fallado eliminado"}
 
 
-# ==================== ARREGLOS CRUD ====================
+# ==================== ARREGLOS V2 CRUD ====================
 
-@router.get("/arreglos")
+@router.get("/registros/{registro_id}/arreglos")
 async def get_arreglos(
-    registro_id: Optional[str] = None,
-    fallado_id: Optional[str] = None,
-    estado: Optional[str] = None,
+    registro_id: str,
     current_user: dict = Depends(get_current_user),
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        query = """
+        # Actualizar estados automaticamente
+        await _actualizar_estados_arreglos(conn, registro_id)
+
+        rows = await conn.fetch("""
             SELECT a.*,
-                   sp.nombre as servicio_destino_nombre,
-                   pp.nombre as persona_destino_nombre
-            FROM prod_arreglos a
-            LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
-            LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
-            WHERE 1=1
-        """
-        params = []
-        if registro_id:
-            params.append(registro_id)
-            query += f" AND a.registro_id = ${len(params)}"
-        if fallado_id:
-            params.append(fallado_id)
-            query += f" AND a.fallado_id = ${len(params)}"
-        if estado:
-            params.append(estado)
-            query += f" AND a.estado = ${len(params)}"
-        query += " ORDER BY a.created_at DESC"
-        rows = await conn.fetch(query, *params)
+                   sp.nombre as servicio_nombre,
+                   pp.nombre as persona_nombre
+            FROM prod_registro_arreglos a
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_id = pp.id
+            WHERE a.registro_id = $1
+            ORDER BY a.created_at DESC
+        """, registro_id)
+
         result = []
         for r in rows:
-            d = row_to_dict(r)
-            for f in ("fecha_envio", "fecha_limite", "fecha_retorno", "created_at"):
+            d = dict(r)
+            # Recalcular estado en vivo
+            d["estado"] = _calcular_estado_arreglo(d)
+            for f in ("fecha_envio", "fecha_limite", "created_at"):
                 if d.get(f): d[f] = str(d[f])
-            # Mark as vencido if past limit
-            if d.get("estado") == "PENDIENTE" and d.get("fecha_limite"):
-                try:
-                    lim = date.fromisoformat(str(d["fecha_limite"])[:10])
-                    if lim < date.today() and not d.get("fecha_retorno"):
-                        d["vencido"] = True
-                except (ValueError, TypeError):
-                    pass
             result.append(d)
         return result
 
 
-@router.post("/arreglos")
+@router.post("/registros/{registro_id}/arreglos")
 async def create_arreglo(
+    registro_id: str,
     input: ArregloCreate,
     current_user: dict = Depends(get_current_user),
 ):
+    if input.cantidad <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad debe ser mayor a 0")
+
     pool = await get_pool()
     async with pool.acquire() as conn:
-        fallado = await conn.fetchrow("SELECT * FROM prod_fallados WHERE id = $1", input.fallado_id)
-        if not fallado:
-            raise HTTPException(status_code=404, detail="Fallado no encontrado")
+        # Verificar registro existe
+        reg = await conn.fetchrow("SELECT id FROM prod_registros WHERE id = $1", registro_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
 
-        # Validate: sum of arreglos.cantidad_enviada <= fallado.cantidad_detectada
-        existing_sum = await conn.fetchval(
-            "SELECT COALESCE(SUM(cantidad_enviada),0) FROM prod_arreglos WHERE fallado_id = $1",
-            input.fallado_id
-        )
-        disponible = fallado["cantidad_detectada"] - safe_int(existing_sum)
-        if input.cantidad_enviada > disponible:
-            raise HTTPException(status_code=400, detail=f"Cantidad excede disponible ({disponible} de {fallado['cantidad_detectada']})")
+        # Validar: SUM(arreglos.cantidad) + nueva <= total_fallados
+        total_fallados = await _get_total_fallados(conn, registro_id)
+        arreglos_sum = await _get_arreglos_sum(conn, registro_id)
+        disponible = total_fallados - arreglos_sum
+
+        if input.cantidad > disponible:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cantidad ({input.cantidad}) excede el disponible para arreglo ({disponible}). Total fallados: {total_fallados}, ya en arreglo: {arreglos_sum}"
+            )
 
         aid = str(uuid.uuid4())
-        # Convert fecha_envio string to date object for asyncpg
-        fecha_envio_str = input.fecha_envio or str(date.today())
-        fecha_envio = date.fromisoformat(fecha_envio_str[:10]) if fecha_envio_str else date.today()
+        fecha_envio = date.fromisoformat(input.fecha_envio[:10]) if input.fecha_envio else date.today()
         fecha_limite = fecha_envio + timedelta(days=DIAS_LIMITE_ARREGLO)
+        created_by = current_user.get("username", current_user.get("nombre", "sistema"))
 
         await conn.execute("""
-            INSERT INTO prod_arreglos (id, fallado_id, registro_id, cantidad_enviada,
-                tipo, servicio_destino_id, persona_destino_id,
-                fecha_envio, fecha_limite, estado, motivo, observaciones)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-        """, aid, input.fallado_id, input.registro_id, input.cantidad_enviada,
-            input.tipo, input.servicio_destino_id, input.persona_destino_id,
-            fecha_envio, fecha_limite, 'PENDIENTE', input.motivo, input.observaciones)
+            INSERT INTO prod_registro_arreglos
+                (id, registro_id, cantidad, servicio_id, persona_id, fecha_envio, fecha_limite, estado, observacion, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        """, aid, registro_id, input.cantidad,
+            input.servicio_id or None, input.persona_id or None,
+            fecha_envio, fecha_limite, 'EN_ARREGLO', input.observacion, created_by)
 
-        # Update fallado estado
-        await conn.execute("UPDATE prod_fallados SET estado = 'EN_PROCESO' WHERE id = $1", input.fallado_id)
-
-        return {"id": aid, "message": "Arreglo creado", "fecha_limite": str(fecha_limite)}
-
-
-@router.put("/arreglos/{arreglo_id}/cerrar")
-async def cerrar_arreglo(
-    arreglo_id: str,
-    input: ArregloCierre,
-    current_user: dict = Depends(get_current_user),
-):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        arreglo = await conn.fetchrow("SELECT * FROM prod_arreglos WHERE id = $1", arreglo_id)
-        if not arreglo:
-            raise HTTPException(status_code=404, detail="Arreglo no encontrado")
-
-        if input.cantidad_resuelta + input.cantidad_no_resuelta > arreglo["cantidad_enviada"]:
-            raise HTTPException(status_code=400, detail="Resuelta + No resuelta excede cantidad enviada")
-
-        # Convert fecha_retorno string to date object for asyncpg
-        fecha_retorno_str = input.fecha_retorno or str(date.today())
-        fecha_retorno = date.fromisoformat(fecha_retorno_str[:10]) if fecha_retorno_str else date.today()
-        estado = "RESUELTO"
-
-        await conn.execute("""
-            UPDATE prod_arreglos SET
-                fecha_retorno = $1, cantidad_resuelta = $2, cantidad_no_resuelta = $3,
-                resultado_final = $4, estado = $5, observaciones = COALESCE($6, observaciones),
-                motivo_no_resuelta = $7
-            WHERE id = $8
-        """, fecha_retorno, input.cantidad_resuelta, input.cantidad_no_resuelta,
-            input.resultado_final, estado, input.observaciones, input.motivo_no_resuelta, arreglo_id)
-
-        # Check if all arreglos for this fallado are resolved
-        fallado_id = arreglo["fallado_id"]
-        pending = await conn.fetchval(
-            "SELECT COUNT(*) FROM prod_arreglos WHERE fallado_id = $1 AND estado IN ('PENDIENTE','EN_PROCESO')",
-            fallado_id
-        )
-        if safe_int(pending) == 0:
-            await conn.execute("UPDATE prod_fallados SET estado = 'CERRADO' WHERE id = $1", fallado_id)
-
-        return {"message": "Arreglo cerrado"}
+        return {
+            "id": aid,
+            "message": "Envio a arreglo creado",
+            "fecha_envio": str(fecha_envio),
+            "fecha_limite": str(fecha_limite),
+        }
 
 
 @router.put("/arreglos/{arreglo_id}")
@@ -406,91 +441,83 @@ async def update_arreglo(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        existing = await conn.fetchrow("SELECT * FROM prod_arreglos WHERE id = $1", arreglo_id)
+        existing = await conn.fetchrow("SELECT * FROM prod_registro_arreglos WHERE id = $1", arreglo_id)
         if not existing:
             raise HTTPException(status_code=404, detail="Arreglo no encontrado")
-        if existing["estado"] == "RESUELTO":
-            raise HTTPException(status_code=400, detail="No se puede editar un arreglo ya cerrado")
 
-        sets = []
-        params = []
+        if existing["estado"] == "COMPLETADO":
+            raise HTTPException(status_code=400, detail="No se puede editar un arreglo completado")
+
+        registro_id = existing["registro_id"]
+        cantidad_final = input.cantidad if input.cantidad is not None else existing["cantidad"]
+        rec = input.cantidad_recuperada if input.cantidad_recuperada is not None else existing["cantidad_recuperada"]
+        liq = input.cantidad_liquidacion if input.cantidad_liquidacion is not None else existing["cantidad_liquidacion"]
+        mer = input.cantidad_merma if input.cantidad_merma is not None else existing["cantidad_merma"]
+
+        # Validar no negativos
+        for nombre, val in [("cantidad", cantidad_final), ("cantidad_recuperada", rec), ("cantidad_liquidacion", liq), ("cantidad_merma", mer)]:
+            if val < 0:
+                raise HTTPException(status_code=400, detail=f"{nombre} no puede ser negativo")
+
+        # Validar resolucion no exceda cantidad
+        if rec + liq + mer > cantidad_final:
+            raise HTTPException(
+                status_code=400,
+                detail=f"La resolucion ({rec} + {liq} + {mer} = {rec+liq+mer}) excede la cantidad del arreglo ({cantidad_final})"
+            )
+
+        # Si se cambia la cantidad, validar contra total_fallados
+        if input.cantidad is not None and input.cantidad != existing["cantidad"]:
+            total_fallados = await _get_total_fallados(conn, registro_id)
+            arreglos_sum_otros = await _get_arreglos_sum(conn, registro_id, exclude_id=arreglo_id)
+            disponible = total_fallados - arreglos_sum_otros
+            if input.cantidad > disponible:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Cantidad ({input.cantidad}) excede disponible ({disponible})"
+                )
+
+        sets, params = [], []
         for field, val in [
-            ("cantidad_enviada", input.cantidad_enviada),
-            ("tipo", input.tipo),
-            ("servicio_destino_id", input.servicio_destino_id),
-            ("persona_destino_id", input.persona_destino_id),
-            ("motivo", input.motivo),
-            ("observaciones", input.observaciones),
+            ("cantidad", input.cantidad),
+            ("servicio_id", input.servicio_id),
+            ("persona_id", input.persona_id),
+            ("observacion", input.observacion),
+            ("cantidad_recuperada", input.cantidad_recuperada),
+            ("cantidad_liquidacion", input.cantidad_liquidacion),
+            ("cantidad_merma", input.cantidad_merma),
         ]:
             if val is not None:
-                params.append(val)
+                params.append(val if val != "" else None)
                 sets.append(f"{field} = ${len(params)}")
 
         if input.fecha_envio is not None:
-            params.append(date.fromisoformat(input.fecha_envio[:10]))
+            fe = date.fromisoformat(input.fecha_envio[:10])
+            params.append(fe)
             sets.append(f"fecha_envio = ${len(params)}")
-            fecha_limite = date.fromisoformat(input.fecha_envio[:10]) + timedelta(days=3)
-            params.append(fecha_limite)
+            fl = fe + timedelta(days=DIAS_LIMITE_ARREGLO)
+            params.append(fl)
             sets.append(f"fecha_limite = ${len(params)}")
+
+        # Recalcular estado
+        temp = dict(existing)
+        if input.cantidad is not None: temp["cantidad"] = input.cantidad
+        if input.cantidad_recuperada is not None: temp["cantidad_recuperada"] = input.cantidad_recuperada
+        if input.cantidad_liquidacion is not None: temp["cantidad_liquidacion"] = input.cantidad_liquidacion
+        if input.cantidad_merma is not None: temp["cantidad_merma"] = input.cantidad_merma
+        if input.fecha_envio is not None: temp["fecha_limite"] = date.fromisoformat(input.fecha_envio[:10]) + timedelta(days=DIAS_LIMITE_ARREGLO)
+        nuevo_estado = _calcular_estado_arreglo(temp)
+        params.append(nuevo_estado)
+        sets.append(f"estado = ${len(params)}")
 
         if sets:
             params.append(arreglo_id)
-            await conn.execute(f"UPDATE prod_arreglos SET {', '.join(sets)} WHERE id = ${len(params)}", *params)
-
-        return {"message": "Arreglo actualizado"}
-
-
-@router.post("/liquidacion-directa")
-async def liquidacion_directa(
-    input: LiquidacionDirecta,
-    current_user: dict = Depends(get_current_user),
-):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        fallado = await conn.fetchrow("SELECT * FROM prod_fallados WHERE id = $1", input.fallado_id)
-        if not fallado:
-            raise HTTPException(status_code=404, detail="Fallado no encontrado")
-
-        if input.cantidad < 1:
-            raise HTTPException(status_code=400, detail="Cantidad debe ser mayor a 0")
-
-        existing_sum = await conn.fetchval(
-            "SELECT COALESCE(SUM(cantidad_enviada),0) FROM prod_arreglos WHERE fallado_id = $1",
-            input.fallado_id
-        )
-        disponible = fallado["cantidad_detectada"] - safe_int(existing_sum)
-        if input.cantidad > disponible:
-            raise HTTPException(status_code=400, detail=f"Cantidad excede disponible ({disponible} de {fallado['cantidad_detectada']})")
-
-        aid = str(uuid.uuid4())
-        today = date.today()
-
-        await conn.execute("""
-            INSERT INTO prod_arreglos (id, fallado_id, registro_id, cantidad_enviada,
-                cantidad_resuelta, cantidad_no_resuelta,
-                tipo, fecha_envio, fecha_retorno, resultado_final, estado,
-                motivo, motivo_no_resuelta)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
-        """, aid, input.fallado_id, input.registro_id, input.cantidad,
-            0, input.cantidad,
-            'LIQUIDACION_DIRECTA', today, today, input.destino, 'RESUELTO',
-            input.motivo, input.motivo)
-
-        await conn.execute("UPDATE prod_fallados SET estado = 'EN_PROCESO' WHERE id = $1", input.fallado_id)
-
-        pending = await conn.fetchval(
-            "SELECT COUNT(*) FROM prod_arreglos WHERE fallado_id = $1 AND estado IN ('PENDIENTE','EN_PROCESO')",
-            input.fallado_id
-        )
-        if safe_int(pending) == 0:
-            total_nr = await conn.fetchval(
-                "SELECT COALESCE(SUM(cantidad_no_resuelta),0) FROM prod_arreglos WHERE fallado_id = $1 AND estado = 'RESUELTO'",
-                input.fallado_id
+            await conn.execute(
+                f"UPDATE prod_registro_arreglos SET {', '.join(sets)} WHERE id = ${len(params)}",
+                *params
             )
-            if safe_int(total_nr) >= fallado["cantidad_reparable"]:
-                await conn.execute("UPDATE prod_fallados SET estado = 'CERRADO' WHERE id = $1", input.fallado_id)
 
-        return {"id": aid, "message": "Liquidacion directa registrada"}
+        return {"message": "Arreglo actualizado", "estado": nuevo_estado}
 
 
 @router.delete("/arreglos/{arreglo_id}")
@@ -500,11 +527,16 @@ async def delete_arreglo(
 ):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM prod_arreglos WHERE id = $1", arreglo_id)
+        existing = await conn.fetchrow("SELECT * FROM prod_registro_arreglos WHERE id = $1", arreglo_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Arreglo no encontrado")
+        if existing["estado"] == "COMPLETADO":
+            raise HTTPException(status_code=400, detail="No se puede eliminar un arreglo completado")
+        await conn.execute("DELETE FROM prod_registro_arreglos WHERE id = $1", arreglo_id)
         return {"message": "Arreglo eliminado"}
 
 
-# ==================== RESUMEN DE CANTIDADES ====================
+# ==================== RESUMEN DE CANTIDADES V2 ====================
 
 @router.get("/registros/{registro_id}/resumen-cantidades")
 async def resumen_cantidades(
@@ -512,12 +544,11 @@ async def resumen_cantidades(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Resumen de cantidades del lote calculado en tiempo real.
-    Regla prendas: SUM(prod_registro_tallas.cantidad_real), fallback JSONB tallas.
+    Resumen simplificado del lote:
+    total_producido = normal + recuperado + liquidacion + merma + fallado_pendiente
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-
         reg = await conn.fetchrow("""
             SELECT r.id, r.n_corte, r.estado, r.estado_op, r.tallas,
                    r.dividido_desde_registro_id,
@@ -527,12 +558,11 @@ async def resumen_cantidades(
         if not reg:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
 
-        # Cantidad inicial: tallas actuales + prendas en hijos (para reflejar el total original)
+        # Cantidad base (producida)
         cantidad_base = safe_int(reg["cantidad_tallas"])
         if cantidad_base == 0:
             tallas_jsonb = parse_jsonb(reg["tallas"])
             cantidad_base = sum(safe_int(t.get("cantidad", 0)) for t in tallas_jsonb)
-        # Fallback: si no hay tallas, usar cantidad_enviada del primer movimiento
         if cantidad_base == 0:
             mov_qty = await conn.fetchval(
                 "SELECT cantidad_enviada FROM prod_movimientos_produccion WHERE registro_id = $1 ORDER BY created_at ASC LIMIT 1",
@@ -541,124 +571,207 @@ async def resumen_cantidades(
             if mov_qty:
                 cantidad_base = safe_int(mov_qty)
 
-        # Merma / faltantes
-        merma_total = await conn.fetchval(
+        # Hijos (divisiones)
+        total_hijos = safe_int(await conn.fetchval(
+            "SELECT COALESCE(SUM(rt.cantidad_real),0) FROM prod_registro_tallas rt JOIN prod_registros r ON rt.registro_id = r.id WHERE r.dividido_desde_registro_id = $1",
+            registro_id
+        ))
+        total_producido = cantidad_base + total_hijos
+
+        # Mermas
+        merma_total = safe_int(await conn.fetchval(
             "SELECT COALESCE(SUM(cantidad), 0) FROM prod_mermas WHERE registro_id = $1", registro_id
+        ))
+
+        # Fallados (fuente oficial)
+        total_fallados = await _get_total_fallados(conn, registro_id)
+
+        # Arreglos V2
+        arreglos_rows = await conn.fetch(
+            "SELECT cantidad, cantidad_recuperada, cantidad_liquidacion, cantidad_merma, estado, fecha_limite FROM prod_registro_arreglos WHERE registro_id = $1",
+            registro_id
         )
+        total_en_arreglo = sum(safe_int(a["cantidad"]) for a in arreglos_rows)
+        total_recuperado = sum(safe_int(a["cantidad_recuperada"]) for a in arreglos_rows)
+        total_liquidacion = sum(safe_int(a["cantidad_liquidacion"]) for a in arreglos_rows)
+        total_merma_arreglos = sum(safe_int(a["cantidad_merma"]) for a in arreglos_rows)
+        fallado_pendiente = total_fallados - total_en_arreglo
 
-        # Fallados
-        fallados_rows = await conn.fetch("SELECT * FROM prod_fallados WHERE registro_id = $1", registro_id)
-        fallados_detectados = sum(safe_int(f["cantidad_detectada"]) for f in fallados_rows)
-        total_reparable = sum(safe_int(f["cantidad_reparable"]) for f in fallados_rows)
-        total_no_reparable = sum(safe_int(f["cantidad_no_reparable"]) for f in fallados_rows)
-        no_rep_liquidacion = sum(safe_int(f["cantidad_no_reparable"]) for f in fallados_rows if f["destino_no_reparable"] == "LIQUIDACION")
-        no_rep_segunda = sum(safe_int(f["cantidad_no_reparable"]) for f in fallados_rows if f["destino_no_reparable"] == "SEGUNDA")
-        no_rep_descarte = sum(safe_int(f["cantidad_no_reparable"]) for f in fallados_rows if f["destino_no_reparable"] == "DESCARTE")
-        no_rep_pendiente = sum(safe_int(f["cantidad_no_reparable"]) for f in fallados_rows if f["destino_no_reparable"] == "PENDIENTE")
-
-        # Arreglos
-        arreglos_rows = await conn.fetch("SELECT * FROM prod_arreglos WHERE registro_id = $1", registro_id)
-        arreglos_enviados = sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows)
-        arreglos_resueltos = sum(safe_int(a["cantidad_resuelta"]) for a in arreglos_rows if a["estado"] == "RESUELTO")
-        arreglos_no_resueltos = sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a["estado"] == "RESUELTO")
-        arreglos_pendientes = sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows if a["estado"] in ("PENDIENTE", "EN_PROCESO"))
+        # Arreglos vencidos
         arreglos_vencidos = 0
         for a in arreglos_rows:
-            if a["estado"] in ("PENDIENTE", "EN_PROCESO") and a.get("fecha_limite"):
-                try:
-                    lim = a["fecha_limite"] if isinstance(a["fecha_limite"], date) else date.fromisoformat(str(a["fecha_limite"])[:10])
-                    if lim < date.today():
-                        arreglos_vencidos += safe_int(a["cantidad_enviada"])
-                except (ValueError, TypeError):
-                    pass
+            estado = _calcular_estado_arreglo(dict(a))
+            if estado == "VENCIDO":
+                arreglos_vencidos += safe_int(a["cantidad"])
 
-        # Liquidacion from arreglos: TODA cantidad_no_resuelta de arreglos RESUELTOS
-        # va a liquidacion por defecto, excepto las explicitamente marcadas como SEGUNDA o DESCARTE
-        total_liquidacion = no_rep_liquidacion + sum(
-            safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows
-            if a["estado"] == "RESUELTO" and safe_int(a["cantidad_no_resuelta"]) > 0
-            and a.get("resultado_final") not in ("SEGUNDA", "DESCARTE")
-        )
-        total_segunda = no_rep_segunda + sum(
-            safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows
-            if a["estado"] == "RESUELTO" and a.get("resultado_final") == "SEGUNDA"
-        )
-        total_descarte = no_rep_descarte + sum(
-            safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows
-            if a["estado"] == "RESUELTO" and a.get("resultado_final") == "DESCARTE"
-        )
-
-        # Balance padre-hijos
-        hijos = await conn.fetch(
-            "SELECT id, n_corte, estado FROM prod_registros WHERE dividido_desde_registro_id = $1", registro_id
-        )
-        padre = None
-        if reg["dividido_desde_registro_id"]:
-            padre_row = await conn.fetchrow(
-                "SELECT id, n_corte FROM prod_registros WHERE id = $1", reg["dividido_desde_registro_id"]
-            )
-            if padre_row:
-                padre = {"id": padre_row["id"], "n_corte": padre_row["n_corte"]}
-
-        hijos_data = []
-        total_hijos_prendas = 0
-        for h in hijos:
-            hp = await conn.fetchval(
-                "SELECT COALESCE(SUM(cantidad_real),0) FROM prod_registro_tallas WHERE registro_id = $1", h["id"]
-            )
-            hp_int = safe_int(hp)
-            total_hijos_prendas += hp_int
-            hijos_data.append({"id": h["id"], "n_corte": h["n_corte"], "estado": h["estado"], "prendas": hp_int})
-
-        # cantidad_inicial = tallas actuales + hijos divididos (= total original antes de dividir)
-        cantidad_inicial = cantidad_base + total_hijos_prendas
+        # Normal = total_producido - total_fallados - mermas - divididos
+        normal = total_producido - total_fallados - merma_total - total_hijos
 
         # Alertas
         alertas = []
         if arreglos_vencidos > 0:
             alertas.append({"tipo": "VENCIDO", "mensaje": f"{arreglos_vencidos} prendas en arreglos vencidos"})
-        if safe_int(merma_total) > 0:
-            alertas.append({"tipo": "MERMA", "mensaje": f"{safe_int(merma_total)} prendas extraviadas/faltantes"})
-        if no_rep_pendiente > 0:
-            alertas.append({"tipo": "PENDIENTE", "mensaje": f"{no_rep_pendiente} no reparables sin destino definido"})
+        if merma_total > 0:
+            alertas.append({"tipo": "MERMA", "mensaje": f"{merma_total} prendas en mermas"})
+        if fallado_pendiente > 0:
+            alertas.append({"tipo": "PENDIENTE", "mensaje": f"{fallado_pendiente} fallados sin enviar a arreglo"})
 
-        # ---- Distribución que suma al total ----
-        fallados_en_arreglo_pendiente = arreglos_pendientes
-        fallados_en_arreglo_resuelto_buenos = arreglos_resueltos
-        fallados_liquidados = total_liquidacion + total_segunda + total_descarte
-        fallados_sin_asignar = fallados_detectados - sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows)
-
-        # En producción = inicial - mermas - fallados + reparados - divididos
-        en_produccion = cantidad_inicial - safe_int(merma_total) - fallados_detectados + fallados_en_arreglo_resuelto_buenos - total_hijos_prendas
+        # Ecuacion: normal + recuperado + liquidacion + merma_total_all + fallado_pendiente + divididos = total_producido
+        merma_total_all = merma_total + total_merma_arreglos
+        ecuacion_valida = (
+            max(normal, 0) + total_recuperado + total_liquidacion + merma_total_all + max(fallado_pendiente, 0) + total_hijos
+        ) == total_producido if total_producido > 0 else True
 
         return {
             "registro_id": registro_id,
             "n_corte": reg["n_corte"],
             "estado": reg["estado"],
-            "cantidad_inicial": cantidad_inicial,
-            # Distribución (suma = cantidad_inicial)
-            "en_produccion": max(en_produccion, 0),
-            "mermas": safe_int(merma_total),
-            "fallados_total": fallados_detectados,
-            "fallados_en_arreglo": fallados_en_arreglo_pendiente,
-            "fallados_reparados": fallados_en_arreglo_resuelto_buenos,
-            "fallados_liquidados": fallados_liquidados,
-            "fallados_sin_asignar": max(fallados_sin_asignar, 0),
-            "divididos": total_hijos_prendas,
-            # Desglose liquidación
+            # Cifras principales
+            "total_producido": total_producido,
+            "normal": max(normal, 0),
+            "total_fallados": total_fallados,
+            "fallado_pendiente": max(fallado_pendiente, 0),
+            "recuperado": total_recuperado,
             "liquidacion": total_liquidacion,
-            "segunda": total_segunda,
-            "descarte": total_descarte,
-            # Desglose fallados
-            "reparables": total_reparable,
-            "no_reparables": total_no_reparable,
-            "no_reparables_pendiente": no_rep_pendiente,
+            "merma": merma_total,
+            "merma_arreglos": total_merma_arreglos,
+            "divididos": total_hijos,
             # Arreglos detalle
             "arreglos_vencidos": arreglos_vencidos,
-            # Padre/hijos
-            "padre": padre,
-            "hijos": hijos_data,
+            "total_en_arreglo": total_en_arreglo,
+            # Alertas
             "alertas": alertas,
+            "ecuacion_valida": ecuacion_valida,
+        }
+
+
+# ==================== TRAZABILIDAD COMPLETA (timeline) ====================
+
+@router.get("/registros/{registro_id}/trazabilidad-completa")
+async def trazabilidad_completa(
+    registro_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Timeline unificado de eventos del lote."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        reg = await conn.fetchrow("""
+            SELECT r.id, r.n_corte, r.estado, r.estado_op, r.fecha_creacion,
+                   r.fecha_entrega_final, r.urgente, r.dividido_desde_registro_id,
+                   m.nombre as modelo_nombre, rp.nombre as ruta_nombre
+            FROM prod_registros r
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
+            WHERE r.id = $1
+        """, registro_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Registro no encontrado")
+
+        reg_d = dict(reg)
+        for f in ("fecha_creacion", "fecha_entrega_final"):
+            if reg_d.get(f): reg_d[f] = str(reg_d[f])
+
+        eventos = []
+
+        # 1. Movimientos
+        movs = await conn.fetch("""
+            SELECT mp.*, sp.nombre as servicio_nombre, pp.nombre as persona_nombre
+            FROM prod_movimientos_produccion mp
+            LEFT JOIN prod_servicios_produccion sp ON mp.servicio_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON mp.persona_id = pp.id
+            WHERE mp.registro_id = $1
+            ORDER BY mp.fecha_inicio ASC NULLS LAST, mp.created_at ASC
+        """, registro_id)
+        for mv in movs:
+            d = dict(mv)
+            eventos.append({
+                "tipo_evento": "MOVIMIENTO",
+                "fecha": str(d.get("fecha_inicio") or d.get("created_at") or ""),
+                "servicio": d.get("servicio_nombre", ""),
+                "persona": d.get("persona_nombre", ""),
+                "cantidad_enviada": safe_int(d.get("cantidad_enviada")),
+                "cantidad_recibida": safe_int(d.get("cantidad_recibida")),
+                "id": d["id"],
+            })
+
+        # 2. Mermas
+        mermas = await conn.fetch("""
+            SELECT m.*, sp.nombre as servicio_nombre
+            FROM prod_mermas m
+            LEFT JOIN prod_servicios_produccion sp ON m.servicio_id = sp.id
+            WHERE m.registro_id = $1
+        """, registro_id)
+        for mr in mermas:
+            d = dict(mr)
+            eventos.append({
+                "tipo_evento": "MERMA",
+                "fecha": str(d.get("fecha") or d.get("created_at") or ""),
+                "cantidad": safe_int(d.get("cantidad")),
+                "motivo": d.get("motivo", ""),
+                "id": d["id"],
+            })
+
+        # 3. Fallados
+        fallados = await conn.fetch("SELECT * FROM prod_fallados WHERE registro_id = $1", registro_id)
+        for fl in fallados:
+            d = dict(fl)
+            eventos.append({
+                "tipo_evento": "FALLADO",
+                "fecha": str(d.get("fecha_deteccion") or d.get("created_at") or ""),
+                "cantidad_detectada": safe_int(d.get("cantidad_detectada")),
+                "observacion": d.get("observacion") or d.get("observaciones") or "",
+                "id": d["id"],
+            })
+
+        # 4. Arreglos V2
+        arreglos = await conn.fetch("""
+            SELECT a.*, sp.nombre as servicio_nombre, pp.nombre as persona_nombre
+            FROM prod_registro_arreglos a
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_id = pp.id
+            WHERE a.registro_id = $1
+        """, registro_id)
+        for ar in arreglos:
+            d = dict(ar)
+            estado = _calcular_estado_arreglo(d)
+            eventos.append({
+                "tipo_evento": "ARREGLO",
+                "fecha": str(d.get("fecha_envio") or d.get("created_at") or ""),
+                "cantidad": safe_int(d.get("cantidad")),
+                "servicio": d.get("servicio_nombre", ""),
+                "persona": d.get("persona_nombre", ""),
+                "estado": estado,
+                "cantidad_recuperada": safe_int(d.get("cantidad_recuperada")),
+                "cantidad_liquidacion": safe_int(d.get("cantidad_liquidacion")),
+                "cantidad_merma": safe_int(d.get("cantidad_merma")),
+                "fecha_limite": str(d["fecha_limite"]) if d.get("fecha_limite") else None,
+                "id": d["id"],
+            })
+
+        # 5. Divisiones
+        hijos = await conn.fetch("""
+            SELECT id, n_corte, estado, division_numero, fecha_creacion,
+                   COALESCE((SELECT SUM(rt.cantidad_real) FROM prod_registro_tallas rt WHERE rt.registro_id = h.id),0) as prendas
+            FROM prod_registros h
+            WHERE h.dividido_desde_registro_id = $1
+            ORDER BY h.division_numero
+        """, registro_id)
+        for h in hijos:
+            d = dict(h)
+            eventos.append({
+                "tipo_evento": "DIVISION",
+                "fecha": str(d.get("fecha_creacion") or ""),
+                "hijo_id": d["id"],
+                "hijo_n_corte": d["n_corte"],
+                "prendas": safe_int(d.get("prendas")),
+            })
+
+        eventos.sort(key=lambda e: e.get("fecha", ""))
+
+        return {
+            "registro": reg_d,
+            "eventos": eventos,
+            "total_eventos": len(eventos),
         }
 
 
@@ -688,31 +801,25 @@ async def reporte_trazabilidad(
 
             merma = safe_int(await conn.fetchval(
                 "SELECT COALESCE(SUM(cantidad),0) FROM prod_mermas WHERE registro_id = $1", rid))
+            total_fallados = await _get_total_fallados(conn, rid)
 
-            fallados_total = safe_int(await conn.fetchval(
-                "SELECT COALESCE(SUM(cantidad_detectada),0) FROM prod_fallados WHERE registro_id = $1", rid))
-
-            arreglos_rows = await conn.fetch("SELECT * FROM prod_arreglos WHERE registro_id = $1", rid)
-            en_arreglo = sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows if a["estado"] in ("PENDIENTE", "EN_PROCESO"))
-            reparados = sum(safe_int(a["cantidad_resuelta"]) for a in arreglos_rows if a["estado"] == "RESUELTO")
-            liquidados = sum(safe_int(a["cantidad_no_resuelta"]) for a in arreglos_rows if a["estado"] == "RESUELTO")
-            sin_asignar = fallados_total - sum(safe_int(a["cantidad_enviada"]) for a in arreglos_rows)
-            en_produccion = max(ci - merma - fallados_total + reparados, 0)
+            # Arreglos V2
+            arreglos_rows = await conn.fetch(
+                "SELECT cantidad, cantidad_recuperada, cantidad_liquidacion, cantidad_merma, estado, fecha_limite FROM prod_registro_arreglos WHERE registro_id = $1", rid)
+            total_en_arreglo = sum(safe_int(a["cantidad"]) for a in arreglos_rows)
+            recuperado = sum(safe_int(a["cantidad_recuperada"]) for a in arreglos_rows)
+            liquidacion = sum(safe_int(a["cantidad_liquidacion"]) for a in arreglos_rows)
+            merma_arreglos = sum(safe_int(a["cantidad_merma"]) for a in arreglos_rows)
+            fallado_pendiente = total_fallados - total_en_arreglo
 
             vencidos = 0
             for a in arreglos_rows:
-                if a["estado"] in ("PENDIENTE", "EN_PROCESO") and a.get("fecha_limite"):
-                    try:
-                        lim = a["fecha_limite"] if isinstance(a["fecha_limite"], date) else date.fromisoformat(str(a["fecha_limite"])[:10])
-                        if lim < date.today():
-                            vencidos += safe_int(a["cantidad_enviada"])
-                    except (ValueError, TypeError):
-                        pass
+                estado = _calcular_estado_arreglo(dict(a))
+                if estado == "VENCIDO":
+                    vencidos += safe_int(a["cantidad"])
 
-            divididos = safe_int(await conn.fetchval(
-                "SELECT COALESCE(SUM(rt.cantidad_real),0) FROM prod_registro_tallas rt JOIN prod_registros r ON rt.registro_id = r.id WHERE r.dividido_desde_registro_id = $1", rid))
-
-            tiene_novedades = fallados_total > 0 or merma > 0 or divididos > 0
+            normal = max(ci - total_fallados - merma, 0)
+            tiene_novedades = total_fallados > 0 or merma > 0
 
             resultado.append({
                 "id": rid,
@@ -721,195 +828,31 @@ async def reporte_trazabilidad(
                 "modelo": reg["modelo_nombre"] or "",
                 "marca": reg["marca"] or "",
                 "cantidad_inicial": ci,
-                "en_produccion": en_produccion,
-                "fallados_total": fallados_total,
-                "en_arreglo": en_arreglo,
-                "reparados": reparados,
-                "liquidados": liquidados,
-                "sin_asignar": max(sin_asignar, 0),
-                "mermas": merma,
-                "divididos": divididos,
+                "normal": normal,
+                "total_fallados": total_fallados,
+                "fallado_pendiente": max(fallado_pendiente, 0),
+                "en_arreglo": total_en_arreglo,
+                "recuperado": recuperado,
+                "liquidacion": liquidacion,
+                "merma": merma,
+                "merma_arreglos": merma_arreglos,
                 "vencidos": vencidos,
                 "tiene_novedades": tiene_novedades,
             })
 
-        # Totales generales
         totales = {
             "registros": len(resultado),
             "cantidad_inicial": sum(r["cantidad_inicial"] for r in resultado),
-            "en_produccion": sum(r["en_produccion"] for r in resultado),
-            "fallados_total": sum(r["fallados_total"] for r in resultado),
+            "normal": sum(r["normal"] for r in resultado),
+            "total_fallados": sum(r["total_fallados"] for r in resultado),
             "en_arreglo": sum(r["en_arreglo"] for r in resultado),
-            "reparados": sum(r["reparados"] for r in resultado),
-            "liquidados": sum(r["liquidados"] for r in resultado),
-            "sin_asignar": sum(r["sin_asignar"] for r in resultado),
-            "mermas": sum(r["mermas"] for r in resultado),
-            "divididos": sum(r["divididos"] for r in resultado),
+            "recuperado": sum(r["recuperado"] for r in resultado),
+            "liquidacion": sum(r["liquidacion"] for r in resultado),
+            "merma": sum(r["merma"] for r in resultado),
             "vencidos": sum(r["vencidos"] for r in resultado),
         }
 
         return {"registros": resultado, "totales": totales}
-
-
-# ==================== TRAZABILIDAD COMPLETA ====================
-
-@router.get("/registros/{registro_id}/trazabilidad-completa")
-async def trazabilidad_completa(
-    registro_id: str,
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Timeline unificado: movimientos + mermas + fallados + arreglos + divisiones.
-    Todo cronológico en un solo array de eventos.
-    """
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-
-        # Registro info
-        reg = await conn.fetchrow("""
-            SELECT r.id, r.n_corte, r.estado, r.estado_op, r.fecha_creacion,
-                   r.fecha_entrega_final, r.urgente, r.dividido_desde_registro_id,
-                   m.nombre as modelo_nombre, rp.nombre as ruta_nombre
-            FROM prod_registros r
-            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
-            LEFT JOIN prod_rutas_produccion rp ON m.ruta_produccion_id = rp.id
-            WHERE r.id = $1
-        """, registro_id)
-        if not reg:
-            raise HTTPException(status_code=404, detail="Registro no encontrado")
-
-        reg_d = row_to_dict(reg)
-        for f in ("fecha_creacion", "fecha_entrega_final"):
-            if reg_d.get(f): reg_d[f] = str(reg_d[f])
-
-        eventos = []
-
-        # 1. Movimientos
-        movs = await conn.fetch("""
-            SELECT mp.*, sp.nombre as servicio_nombre, pp.nombre as persona_nombre
-            FROM prod_movimientos_produccion mp
-            LEFT JOIN prod_servicios_produccion sp ON mp.servicio_id = sp.id
-            LEFT JOIN prod_personas_produccion pp ON mp.persona_id = pp.id
-            WHERE mp.registro_id = $1
-            ORDER BY mp.fecha_inicio ASC NULLS LAST, mp.created_at ASC
-        """, registro_id)
-        for mv in movs:
-            d = row_to_dict(mv)
-            eventos.append({
-                "tipo_evento": "MOVIMIENTO",
-                "fecha": str(d.get("fecha_inicio") or d.get("created_at") or ""),
-                "servicio": d.get("servicio_nombre", ""),
-                "persona": d.get("persona_nombre", ""),
-                "cantidad_enviada": safe_int(d.get("cantidad_enviada")),
-                "cantidad_recibida": safe_int(d.get("cantidad_recibida")),
-                "diferencia": safe_int(d.get("diferencia")),
-                "fecha_fin": str(d["fecha_fin"]) if d.get("fecha_fin") else None,
-                "id": d["id"],
-            })
-
-        # 2. Mermas
-        mermas = await conn.fetch("""
-            SELECT m.*, sp.nombre as servicio_nombre, pp.nombre as persona_nombre
-            FROM prod_mermas m
-            LEFT JOIN prod_servicios_produccion sp ON m.servicio_id = sp.id
-            LEFT JOIN prod_personas_produccion pp ON m.persona_id = pp.id
-            WHERE m.registro_id = $1
-        """, registro_id)
-        for mr in mermas:
-            d = row_to_dict(mr)
-            eventos.append({
-                "tipo_evento": "MERMA",
-                "fecha": str(d.get("fecha") or d.get("created_at") or ""),
-                "cantidad": safe_int(d.get("cantidad")),
-                "motivo": d.get("motivo", ""),
-                "tipo": d.get("tipo", "FALTANTE"),
-                "servicio": d.get("servicio_nombre", ""),
-                "id": d["id"],
-            })
-
-        # 3. Fallados
-        fallados = await conn.fetch("""
-            SELECT f.*, sp.nombre as servicio_nombre
-            FROM prod_fallados f
-            LEFT JOIN prod_servicios_produccion sp ON f.servicio_detectado_id = sp.id
-            WHERE f.registro_id = $1
-        """, registro_id)
-        for fl in fallados:
-            d = row_to_dict(fl)
-            eventos.append({
-                "tipo_evento": "FALLADO",
-                "fecha": str(d.get("fecha_deteccion") or d.get("created_at") or ""),
-                "cantidad_detectada": safe_int(d.get("cantidad_detectada")),
-                "cantidad_reparable": safe_int(d.get("cantidad_reparable")),
-                "cantidad_no_reparable": safe_int(d.get("cantidad_no_reparable")),
-                "destino_no_reparable": d.get("destino_no_reparable", "PENDIENTE"),
-                "motivo": d.get("motivo", ""),
-                "estado": d.get("estado", "ABIERTO"),
-                "servicio": d.get("servicio_nombre", ""),
-                "id": d["id"],
-            })
-
-        # 4. Arreglos
-        arreglos = await conn.fetch("""
-            SELECT a.*, sp.nombre as servicio_nombre, pp.nombre as persona_nombre
-            FROM prod_arreglos a
-            LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
-            LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
-            WHERE a.registro_id = $1
-        """, registro_id)
-        for ar in arreglos:
-            d = row_to_dict(ar)
-            vencido = False
-            if d.get("estado") in ("PENDIENTE", "EN_PROCESO") and d.get("fecha_limite"):
-                try:
-                    lim = d["fecha_limite"] if isinstance(d["fecha_limite"], date) else date.fromisoformat(str(d["fecha_limite"])[:10])
-                    vencido = lim < date.today() and not d.get("fecha_retorno")
-                except (ValueError, TypeError):
-                    pass
-            eventos.append({
-                "tipo_evento": "ARREGLO",
-                "fecha": str(d.get("fecha_envio") or d.get("created_at") or ""),
-                "tipo": d.get("tipo", ""),
-                "cantidad_enviada": safe_int(d.get("cantidad_enviada")),
-                "cantidad_resuelta": safe_int(d.get("cantidad_resuelta")),
-                "cantidad_no_resuelta": safe_int(d.get("cantidad_no_resuelta")),
-                "servicio": d.get("servicio_nombre", ""),
-                "persona": d.get("persona_nombre", ""),
-                "fecha_limite": str(d["fecha_limite"]) if d.get("fecha_limite") else None,
-                "fecha_retorno": str(d["fecha_retorno"]) if d.get("fecha_retorno") else None,
-                "estado": d.get("estado", "PENDIENTE"),
-                "resultado_final": d.get("resultado_final", "PENDIENTE"),
-                "vencido": vencido,
-                "id": d["id"],
-            })
-
-        # 5. Divisiones
-        hijos = await conn.fetch("""
-            SELECT id, n_corte, estado, division_numero, fecha_creacion,
-                   COALESCE((SELECT SUM(rt.cantidad_real) FROM prod_registro_tallas rt WHERE rt.registro_id = h.id),0) as prendas
-            FROM prod_registros h
-            WHERE h.dividido_desde_registro_id = $1
-            ORDER BY h.division_numero
-        """, registro_id)
-        for h in hijos:
-            d = row_to_dict(h)
-            eventos.append({
-                "tipo_evento": "DIVISION",
-                "fecha": str(d.get("fecha_creacion") or ""),
-                "hijo_id": d["id"],
-                "hijo_n_corte": d["n_corte"],
-                "hijo_estado": d["estado"],
-                "hijo_prendas": safe_int(d.get("prendas")),
-            })
-
-        # Sort by date
-        eventos.sort(key=lambda e: e.get("fecha", ""))
-
-        return {
-            "registro": reg_d,
-            "eventos": eventos,
-            "total_eventos": len(eventos),
-        }
 
 
 # ==================== REPORTES KPI TRAZABILIDAD ====================
@@ -918,13 +861,12 @@ async def trazabilidad_completa(
 async def reportes_trazabilidad_kpis(
     current_user: dict = Depends(get_current_user),
 ):
-    """KPIs consolidados de trazabilidad: mermas por servicio, fallados, arreglos vencidos."""
+    """KPIs consolidados de trazabilidad."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-
-        # 1. Mermas por servicio
+        # Mermas por servicio
         mermas_servicio = await conn.fetch("""
-            SELECT sp.nombre as servicio, 
+            SELECT sp.nombre as servicio,
                    COUNT(*) as eventos,
                    COALESCE(SUM(m.cantidad), 0) as total_prendas
             FROM prod_mermas m
@@ -933,102 +875,69 @@ async def reportes_trazabilidad_kpis(
             ORDER BY total_prendas DESC
         """)
 
-        # 2. Fallados por servicio de deteccion
-        fallados_servicio = await conn.fetch("""
-            SELECT sp.nombre as servicio,
-                   COUNT(*) as eventos,
-                   COALESCE(SUM(f.cantidad_detectada), 0) as total_detectadas,
-                   COALESCE(SUM(f.cantidad_reparable), 0) as reparables,
-                   COALESCE(SUM(f.cantidad_no_reparable), 0) as no_reparables
-            FROM prod_fallados f
-            LEFT JOIN prod_servicios_produccion sp ON f.servicio_detectado_id = sp.id
-            GROUP BY sp.nombre
-            ORDER BY total_detectadas DESC
+        # Fallados resumen
+        fallados_resumen = await conn.fetchrow(
+            "SELECT COUNT(*) as eventos, COALESCE(SUM(cantidad_detectada), 0) as prendas FROM prod_fallados"
+        )
+
+        # Arreglos V2 resumen
+        arreglos_resumen = await conn.fetchrow("""
+            SELECT COUNT(*) as total,
+                   COALESCE(SUM(cantidad_recuperada), 0) as recuperadas,
+                   COALESCE(SUM(cantidad_liquidacion), 0) as liquidadas,
+                   COALESCE(SUM(cantidad_merma), 0) as mermas
+            FROM prod_registro_arreglos
         """)
 
-        # 3. Arreglos vencidos (pendientes con fecha_limite pasada)
+        # Arreglos vencidos
         arreglos_vencidos = await conn.fetch("""
-            SELECT a.id, a.registro_id, r.n_corte, 
-                   sp.nombre as servicio_destino,
-                   pp.nombre as persona_destino,
-                   a.cantidad_enviada, a.fecha_envio, a.fecha_limite,
-                   a.estado, a.tipo,
+            SELECT a.id, a.registro_id, r.n_corte,
+                   sp.nombre as servicio_nombre,
+                   pp.nombre as persona_nombre,
+                   a.cantidad, a.fecha_envio, a.fecha_limite,
+                   a.estado,
                    (CURRENT_DATE - a.fecha_limite::date) as dias_vencido
-            FROM prod_arreglos a
+            FROM prod_registro_arreglos a
             JOIN prod_registros r ON a.registro_id = r.id
-            LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
-            LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
-            WHERE a.estado IN ('PENDIENTE', 'EN_PROCESO')
-              AND a.fecha_limite < CURRENT_DATE
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_id = pp.id
+            WHERE a.fecha_limite < CURRENT_DATE
+              AND (a.cantidad_recuperada + a.cantidad_liquidacion + a.cantidad_merma) < a.cantidad
             ORDER BY a.fecha_limite ASC
         """)
 
-        # 4. Resumen general de fallados por estado
-        fallados_estado = await conn.fetch("""
-            SELECT f.estado, COUNT(*) as cantidad, 
-                   COALESCE(SUM(f.cantidad_detectada), 0) as prendas
-            FROM prod_fallados f
-            GROUP BY f.estado
-            ORDER BY cantidad DESC
-        """)
-
-        # 5. Top registros con mas perdidas (mermas + fallados)
-        top_perdidas = await conn.fetch("""
-            SELECT r.id, r.n_corte, m.nombre as modelo,
-                   COALESCE((SELECT SUM(cantidad) FROM prod_mermas WHERE registro_id = r.id), 0) as mermas,
-                   COALESCE((SELECT SUM(cantidad_detectada) FROM prod_fallados WHERE registro_id = r.id), 0) as fallados,
-                   COALESCE((SELECT SUM(rt.cantidad_real) FROM prod_registro_tallas rt WHERE rt.registro_id = r.id), 0) as total_prendas
-            FROM prod_registros r
-            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
-            WHERE r.estado NOT IN ('Anulada', 'Tienda')
-            ORDER BY (COALESCE((SELECT SUM(cantidad) FROM prod_mermas WHERE registro_id = r.id), 0) + 
-                      COALESCE((SELECT SUM(cantidad_detectada) FROM prod_fallados WHERE registro_id = r.id), 0)) DESC
-            LIMIT 10
-        """)
-
-        # 6. Arreglos por responsable/servicio
+        # Arreglos por responsable
         arreglos_responsable = await conn.fetch("""
             SELECT COALESCE(sp.nombre, pp.nombre, 'Sin asignar') as responsable,
                    COUNT(*) as total_arreglos,
-                   SUM(CASE WHEN a.estado = 'RESUELTO' THEN 1 ELSE 0 END) as resueltos,
-                   SUM(CASE WHEN a.estado IN ('PENDIENTE','EN_PROCESO') THEN 1 ELSE 0 END) as pendientes,
-                   COALESCE(SUM(a.cantidad_enviada), 0) as prendas_enviadas,
-                   COALESCE(SUM(a.cantidad_resuelta), 0) as prendas_resueltas
-            FROM prod_arreglos a
-            LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
-            LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
+                   COALESCE(SUM(a.cantidad), 0) as prendas_enviadas,
+                   COALESCE(SUM(a.cantidad_recuperada), 0) as prendas_recuperadas
+            FROM prod_registro_arreglos a
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_id = pp.id
             GROUP BY COALESCE(sp.nombre, pp.nombre, 'Sin asignar')
             ORDER BY total_arreglos DESC
         """)
 
-        # Totales generales
+        # Totales mermas
         totales_mermas = await conn.fetchrow("SELECT COUNT(*) as eventos, COALESCE(SUM(cantidad),0) as prendas FROM prod_mermas")
-        totales_fallados = await conn.fetchrow("SELECT COUNT(*) as eventos, COALESCE(SUM(cantidad_detectada),0) as prendas FROM prod_fallados")
-        totales_arreglos = await conn.fetchrow("SELECT COUNT(*) as total, SUM(CASE WHEN estado='RESUELTO' THEN 1 ELSE 0 END) as resueltos, SUM(CASE WHEN estado IN ('PENDIENTE','EN_PROCESO') THEN 1 ELSE 0 END) as pendientes FROM prod_arreglos")
 
         return {
             "kpis": {
                 "mermas_total": safe_int(totales_mermas["prendas"]),
                 "mermas_eventos": safe_int(totales_mermas["eventos"]),
-                "fallados_total": safe_int(totales_fallados["prendas"]),
-                "fallados_eventos": safe_int(totales_fallados["eventos"]),
-                "arreglos_total": safe_int(totales_arreglos["total"]),
-                "arreglos_resueltos": safe_int(totales_arreglos["resueltos"]),
-                "arreglos_pendientes": safe_int(totales_arreglos["pendientes"]),
+                "fallados_total": safe_int(fallados_resumen["prendas"]),
+                "fallados_eventos": safe_int(fallados_resumen["eventos"]),
+                "arreglos_total": safe_int(arreglos_resumen["total"]),
+                "arreglos_recuperadas": safe_int(arreglos_resumen["recuperadas"]),
+                "arreglos_liquidadas": safe_int(arreglos_resumen["liquidadas"]),
                 "arreglos_vencidos": len(arreglos_vencidos),
             },
-            "mermas_por_servicio": [row_to_dict(r) for r in mermas_servicio],
-            "fallados_por_servicio": [row_to_dict(r) for r in fallados_servicio],
-            "fallados_por_estado": [row_to_dict(r) for r in fallados_estado],
+            "mermas_por_servicio": [dict(r) for r in mermas_servicio],
             "arreglos_vencidos": [
-                {**row_to_dict(r), "fecha_envio": str(r["fecha_envio"]) if r["fecha_envio"] else None,
+                {**dict(r), "fecha_envio": str(r["fecha_envio"]) if r["fecha_envio"] else None,
                  "fecha_limite": str(r["fecha_limite"]) if r["fecha_limite"] else None}
                 for r in arreglos_vencidos
             ],
-            "arreglos_por_responsable": [row_to_dict(r) for r in arreglos_responsable],
-            "top_perdidas": [
-                {**row_to_dict(r), "perdida_total": safe_int(r["mermas"]) + safe_int(r["fallados"]),
-                 "porcentaje": round((safe_int(r["mermas"]) + safe_int(r["fallados"])) / max(safe_int(r["total_prendas"]),1) * 100, 1)}
-                for r in top_perdidas
-            ],
+            "arreglos_por_responsable": [dict(r) for r in arreglos_responsable],
         }

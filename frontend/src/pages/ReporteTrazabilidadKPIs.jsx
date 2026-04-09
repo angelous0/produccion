@@ -5,7 +5,7 @@ import { Badge } from '../components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../components/ui/table';
-import { AlertTriangle, Package, Wrench, Clock, TrendingDown, BarChart3 } from 'lucide-react';
+import { AlertTriangle, Package, Wrench, Clock } from 'lucide-react';
 import { formatDate } from '../lib/dateUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -25,7 +25,7 @@ export const ReporteTrazabilidadKPIs = () => {
   if (loading) return <div className="text-center py-8 text-muted-foreground">Cargando KPIs...</div>;
   if (!data) return <div className="text-center py-8 text-muted-foreground">Error al cargar datos</div>;
 
-  const { kpis, mermas_por_servicio, fallados_por_servicio, fallados_por_estado, arreglos_vencidos, arreglos_por_responsable, top_perdidas } = data;
+  const { kpis, mermas_por_servicio, arreglos_vencidos, arreglos_por_responsable } = data;
 
   return (
     <div className="space-y-4" data-testid="reporte-trazabilidad-kpis">
@@ -48,7 +48,7 @@ export const ReporteTrazabilidadKPIs = () => {
               <span className="text-xs text-muted-foreground font-medium">Fallados</span>
             </div>
             <div className="text-2xl font-bold text-red-600">{kpis.fallados_total}</div>
-            <div className="text-[10px] text-muted-foreground">{kpis.fallados_eventos} eventos</div>
+            <div className="text-[10px] text-muted-foreground">{kpis.fallados_eventos} detecciones</div>
           </CardContent>
         </Card>
         <Card data-testid="kpi-arreglos">
@@ -58,7 +58,7 @@ export const ReporteTrazabilidadKPIs = () => {
               <span className="text-xs text-muted-foreground font-medium">Arreglos</span>
             </div>
             <div className="text-2xl font-bold">{kpis.arreglos_total}</div>
-            <div className="text-[10px] text-muted-foreground">{kpis.arreglos_resueltos} resueltos / {kpis.arreglos_pendientes} pendientes</div>
+            <div className="text-[10px] text-muted-foreground">{kpis.arreglos_recuperadas} recuperadas / {kpis.arreglos_liquidadas} liquidadas</div>
           </CardContent>
         </Card>
         <Card data-testid="kpi-vencidos">
@@ -91,46 +91,13 @@ export const ReporteTrazabilidadKPIs = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mermas_por_servicio.length === 0 ? (
+                {(mermas_por_servicio || []).length === 0 ? (
                   <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground text-xs py-4">Sin mermas registradas</TableCell></TableRow>
                 ) : mermas_por_servicio.map((s, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-sm">{s.servicio || 'Sin servicio'}</TableCell>
                     <TableCell className="text-right font-mono">{s.eventos}</TableCell>
                     <TableCell className="text-right font-mono font-semibold text-amber-600">{s.total_prendas}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Fallados por servicio */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Package className="h-4 w-4 text-red-500" /> Fallados por Servicio
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Servicio</TableHead>
-                  <TableHead className="text-right">Detectados</TableHead>
-                  <TableHead className="text-right">Reparables</TableHead>
-                  <TableHead className="text-right">No Repar.</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fallados_por_servicio.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground text-xs py-4">Sin fallados registrados</TableCell></TableRow>
-                ) : fallados_por_servicio.map((s, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-sm">{s.servicio || 'Sin servicio'}</TableCell>
-                    <TableCell className="text-right font-mono font-semibold text-red-600">{s.total_detectadas}</TableCell>
-                    <TableCell className="text-right font-mono text-green-600">{s.reparables}</TableCell>
-                    <TableCell className="text-right font-mono text-rose-600">{s.no_reparables}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -151,60 +118,19 @@ export const ReporteTrazabilidadKPIs = () => {
                 <TableRow>
                   <TableHead>Responsable</TableHead>
                   <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Resueltos</TableHead>
-                  <TableHead className="text-right">Pendientes</TableHead>
-                  <TableHead className="text-right">Prendas</TableHead>
+                  <TableHead className="text-right">Enviadas</TableHead>
+                  <TableHead className="text-right">Recuperadas</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {arreglos_por_responsable.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-xs py-4">Sin arreglos registrados</TableCell></TableRow>
+                {(arreglos_por_responsable || []).length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground text-xs py-4">Sin arreglos registrados</TableCell></TableRow>
                 ) : arreglos_por_responsable.map((s, i) => (
                   <TableRow key={i}>
                     <TableCell className="text-sm">{s.responsable}</TableCell>
                     <TableCell className="text-right font-mono">{s.total_arreglos}</TableCell>
-                    <TableCell className="text-right font-mono text-green-600">{s.resueltos}</TableCell>
-                    <TableCell className="text-right font-mono text-amber-600">{s.pendientes}</TableCell>
                     <TableCell className="text-right font-mono">{s.prendas_enviadas}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Top perdidas */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-rose-500" /> Top Registros con Perdidas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Corte</TableHead>
-                  <TableHead>Modelo</TableHead>
-                  <TableHead className="text-right">Mermas</TableHead>
-                  <TableHead className="text-right">Fallados</TableHead>
-                  <TableHead className="text-right">%</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {top_perdidas.filter(r => r.perdida_total > 0).length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground text-xs py-4">Sin perdidas registradas</TableCell></TableRow>
-                ) : top_perdidas.filter(r => r.perdida_total > 0).map((r, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="font-mono font-medium">{r.n_corte}</TableCell>
-                    <TableCell className="text-sm">{r.modelo || '-'}</TableCell>
-                    <TableCell className="text-right font-mono text-amber-600">{r.mermas}</TableCell>
-                    <TableCell className="text-right font-mono text-red-600">{r.fallados}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={r.porcentaje > 5 ? "destructive" : "secondary"} className="text-[10px]">
-                        {r.porcentaje}%
-                      </Badge>
-                    </TableCell>
+                    <TableCell className="text-right font-mono text-emerald-600">{s.prendas_recuperadas}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -214,7 +140,7 @@ export const ReporteTrazabilidadKPIs = () => {
       </div>
 
       {/* Arreglos vencidos detalle */}
-      {arreglos_vencidos.length > 0 && (
+      {(arreglos_vencidos || []).length > 0 && (
         <Card className="border-rose-200 dark:border-rose-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2 text-rose-600">
@@ -226,9 +152,8 @@ export const ReporteTrazabilidadKPIs = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Corte</TableHead>
-                  <TableHead>Servicio Destino</TableHead>
+                  <TableHead>Servicio</TableHead>
                   <TableHead>Persona</TableHead>
-                  <TableHead>Tipo</TableHead>
                   <TableHead className="text-right">Prendas</TableHead>
                   <TableHead>Enviado</TableHead>
                   <TableHead>Limite</TableHead>
@@ -239,10 +164,9 @@ export const ReporteTrazabilidadKPIs = () => {
                 {arreglos_vencidos.map((a, i) => (
                   <TableRow key={i} className="bg-rose-50/50 dark:bg-rose-950/20">
                     <TableCell className="font-mono font-medium">{a.n_corte}</TableCell>
-                    <TableCell className="text-sm">{a.servicio_destino || '-'}</TableCell>
-                    <TableCell className="text-sm">{a.persona_destino || '-'}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-[10px]">{a.tipo}</Badge></TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{a.cantidad_enviada}</TableCell>
+                    <TableCell className="text-sm">{a.servicio_nombre || '-'}</TableCell>
+                    <TableCell className="text-sm">{a.persona_nombre || '-'}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{a.cantidad}</TableCell>
                     <TableCell className="text-xs">{formatDate(a.fecha_envio)}</TableCell>
                     <TableCell className="text-xs text-rose-600 font-medium">{formatDate(a.fecha_limite)}</TableCell>
                     <TableCell className="text-right font-mono font-bold text-rose-600">{a.dias_vencido}d</TableCell>

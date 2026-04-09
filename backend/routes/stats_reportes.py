@@ -1025,16 +1025,16 @@ async def export_to_csv(tabla: str, current_user: dict = Depends(get_current_use
         },
         "arreglos": {
             "query": """
-                SELECT r.n_corte, sp.nombre as servicio_destino, pp.nombre as persona,
-                       a.tipo, a.cantidad_enviada, a.cantidad_resuelta, a.cantidad_no_resuelta,
-                       a.estado, a.resultado_final, a.fecha_envio, a.fecha_limite, a.fecha_retorno
-                FROM prod_arreglos a
+                SELECT r.n_corte, sp.nombre as servicio, pp.nombre as persona,
+                       a.cantidad, a.cantidad_recuperada, a.cantidad_liquidacion, a.cantidad_merma,
+                       a.estado, a.fecha_envio, a.fecha_limite
+                FROM prod_registro_arreglos a
                 LEFT JOIN prod_registros r ON a.registro_id = r.id
-                LEFT JOIN prod_servicios_produccion sp ON a.servicio_destino_id = sp.id
-                LEFT JOIN prod_personas_produccion pp ON a.persona_destino_id = pp.id
+                LEFT JOIN prod_servicios_produccion sp ON a.servicio_id = sp.id
+                LEFT JOIN prod_personas_produccion pp ON a.persona_id = pp.id
                 ORDER BY a.created_at DESC
             """,
-            "headers": ["N° Corte", "Servicio Destino", "Persona", "Tipo", "Enviadas", "Resueltas", "No Resueltas", "Estado", "Resultado", "F. Envio", "F. Limite", "F. Retorno"]
+            "headers": ["N Corte", "Servicio", "Persona", "Cantidad", "Recuperado", "Liquidacion", "Merma", "Estado", "F. Envio", "F. Limite"]
         }
     }
     

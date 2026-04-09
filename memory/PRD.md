@@ -1,108 +1,105 @@
 # Sistema de Produccion Textil - PRD
 
-## Problema Original
-Sistema de gestion de produccion textil full-stack con trazabilidad unificada, permisos granulares, reportes operativos, cierre de costos auditables, distribucion PT con conciliacion Odoo, y Kardex de Producto Terminado.
+## Descripcion General
+ERP full-stack para gestion de produccion textil. Backend FastAPI + Frontend React + PostgreSQL.
 
-## Stack
-- Backend: FastAPI + asyncpg + PostgreSQL
-- Frontend: React + Tailwind + Shadcn/UI
-- BD: PostgreSQL (schema `produccion`, ODS en schema `odoo`)
+## Modulos Implementados
 
-## Credenciales
-- Admin: `eduard` / `eduard123`
-- empresa_id: **7**
+### 1. Produccion Core
+- Registros de produccion (OP), modelos, rutas, tallas, colores
+- Movimientos de produccion (envio/recepcion entre servicios)
+- Incidencias y paralizaciones
 
-## Funcionalidades Implementadas
+### 2. Inventario FIFO
+- Items de inventario con control de stock
+- Ingresos, salidas, ajustes con costeo FIFO
+- Rollos de tela con trazabilidad
+- Alertas de stock minimo
 
-### Core
-- Gestion de registros de produccion (CRUD completo)
-- Modelos, marcas, tipos, entalles, telas, hilos, tallas, colores
-- Rutas de produccion con etapas
-- Movimientos entre servicios/personas
-- Incidencias con paralizacion
+### 3. Trazabilidad Simplificada (V2) - NUEVO 2026-04-09
+- **prod_fallados simplificada**: fuente oficial de total_fallados (id, registro_id, cantidad_detectada, fecha_deteccion, observacion, created_by)
+- **prod_registro_arreglos**: envios a arreglo con resolucion (recuperado/liquidacion/merma)
+- Estados automaticos: EN_ARREGLO, PARCIAL, COMPLETADO, VENCIDO (3 dias limite)
+- Resumen de cantidades: total_producido = normal + recuperado + liquidacion + merma + fallado_pendiente
+- Ecuacion de validacion en tiempo real
+- Alertas por arreglos vencidos y fallados pendientes
 
-### Cierre de Produccion
-- Fuentes de costo: costo_mp (FIFO), costo_servicios, otros_costos
-- Congelamiento: snapshot_json al cerrar
-- Reapertura controlada con trazabilidad
+### 4. Distribucion PT y Conciliacion Odoo
+- Tabla prod_registro_pt_relacion (distribucion planificada)
+- Tabla prod_registro_pt_odoo_vinculo (vinculo con ajustes Odoo)
+- Tab PT Odoo en detalle de registro
 
-### Trazabilidad Unificada
-- CRUD fallados, arreglos, liquidacion directa
-- Timeline unificado, resumen de cantidades, mermas automaticas
-- TrazabilidadPanel en pestana Control
+### 5. Kardex PT
+- Lectura del schema Odoo (stock_move, stock_location)
+- Saldo historico acumulado con Window Functions
+- Filtros por fecha, producto, tipo de movimiento
 
-### Distribucion PT y Conciliacion Odoo (07-Abr-2026)
-- Tabla prod_registro_pt_relacion: distribucion por tipo_salida + product_template_id_odoo
-- Tabla prod_registro_pt_odoo_vinculo: vinculacion 1:1 ajustes Odoo a registros
-- Validacion suma = total producido
-- Conciliacion: esperado vs ingresado, estados SIN_DISTRIBUCION/PENDIENTE/PARCIAL/COMPLETO
-- Bloque Trazabilidad del Lote como card separado arriba de distribucion
-- UI: Pestana "PT Odoo" con 4 bloques (trazabilidad, distribucion, vinculos, conciliacion)
+### 6. Cierre de Produccion
+- Preview con costos (MP, servicios, otros)
+- Ingreso automatico a inventario PT
+- Snapshot de auditoria congelado
+- Integrado con resultado_final de arreglos V2
 
-### Kardex de Producto Terminado (08-Abr-2026)
-- Endpoint GET /api/kardex-pt con clasificacion de movimientos:
-  - INGRESO_PRODUCCION (via vinculos con prod_registro_pt_odoo_vinculo)
-  - SALIDA_VENTA (internal -> customer)
-  - AJUSTE_POSITIVO/NEGATIVO (inventory_id sin vinculo)
-  - TRANSFERENCIA (internal -> internal, excluida del saldo global)
-- Saldo acumulado via window function SUM() OVER(PARTITION BY product_tmpl_id)
-- Filtros: producto, tipo_movimiento, company_key, location_id, fecha_desde, fecha_hasta
-- Endpoint GET /api/kardex-pt/resumen: totales y desglose por producto
-- Endpoint GET /api/kardex-pt/filtros: opciones de filtro disponibles
-- UI: Pantalla completa con cards resumen, filtros, tabla movimientos, resumen por producto
-- Datos reales: 2151 movimientos, 226 productos, saldo global 1173
-- Testing: 100% pass rate iteration_48 (17/17 backend, frontend 100%)
-
-### Transferencias Internas entre Lineas de Negocio
-- Flujo completo: Borrador -> Confirmado / Cancelado
-- Logica FIFO preservada
-- Transaccion atomica con FOR UPDATE
-
-### Optimizacion de Performance
-- Backend: JOINs en vez de N+1 queries (3.3x mas rapido)
-- BD: 15+ indices
-- Frontend: Code splitting con React.lazy, lazy loading de tabs
-
-### Modulo de Auditoria
-- Tabla centralizada audit_log con JSONB
-- 11 endpoints instrumentados
-- UI admin con filtros y detalle expandible
-
-### Inventario FIFO
-- Items, ingresos, salidas, kardex, BOM, reservas, consumo
-
-## Campos Eliminados (08-Abr-2026)
-- `id_odoo` y `lq_odoo_id` eliminados de prod_registros (BD + backend + frontend)
-- Reemplazados por el modulo formal de distribucion PT y vinculos Odoo
-
-## Backlog Priorizado
-
-### P1 - Linea de Negocio
-- Filtro linea_negocio_id en Reportes (Dashboard, Matriz) - pendiente
-- Validacion de inventario/materiales por linea
-
-### P2
-- Refactorizar registros_main.py y server.py (modularizar)
-- Logging estructurado en backend
-
-### P3
-- Exportacion PDF de reportes
-- Rate limiting API
+### 7. Reportes
+- Dashboard con KPIs
+- Reporte de trazabilidad general
+- KPIs de trazabilidad (mermas, fallados, arreglos)
+- Reporte de costura, atrasados, balance terceros
 
 ## Arquitectura
-```
-backend/routes/
-  kardex_pt.py            - Kardex PT (clasificacion, saldo, filtros)
-  distribucion_pt.py      - Distribucion PT, vinculos Odoo, conciliacion
-  trazabilidad.py         - Fallados, arreglos, balance, KPIs
-  auditoria.py            - Auditoria
-  registros_main.py       - CRUD registros
-  reportes_produccion.py  - Dashboard, matriz, alertas
-  inventario_main.py      - FIFO
-  movimientos.py          - Movimientos produccion
-  cierre.py               - Cierre produccion
 
-frontend/src/pages/
-  KardexPT.jsx            - Pantalla Kardex PT
-  RegistroForm.jsx        - Detalle registro (tabs: General, Produccion, Control, PT Odoo)
 ```
+/app
+├── backend/
+│   ├── routes/
+│   │   ├── trazabilidad.py (REESCRITO V2: fallados simplificados + arreglos V2)
+│   │   ├── distribucion_pt.py
+│   │   ├── kardex_pt.py
+│   │   ├── cierre.py (actualizado con resultado_final arreglos)
+│   │   ├── registros_main.py
+│   │   ├── inventario_main.py
+│   │   ├── reportes_produccion.py
+│   │   └── stats_reportes.py (actualizado query arreglos)
+│   ├── tests/
+│   │   └── test_fallados_arreglos_v2.py (25 tests, 100% passed)
+│   ├── models.py
+│   └── server.py
+└── frontend/
+    └── src/
+        ├── components/
+        │   ├── ArreglosPanel.jsx (NUEVO: panel simplificado 3 bloques)
+        │   ├── TrazabilidadPanel.jsx (legacy, reemplazado por ArreglosPanel)
+        │   └── registro/
+        │       └── DistribucionPTPanel.jsx
+        ├── pages/
+        │   ├── RegistroForm.jsx (usa ArreglosPanel en tab Control)
+        │   ├── TrazabilidadReporte.jsx (actualizado campos V2)
+        │   ├── ReporteTrazabilidadKPIs.jsx (actualizado campos V2)
+        │   └── KardexPT.jsx
+```
+
+## Tablas Clave (Schema produccion)
+- prod_registros: registros de produccion
+- prod_fallados: deteccion de fallados (simplificada)
+- prod_registro_arreglos: envios a arreglo V2 (nueva)
+- prod_arreglos: tabla legacy (mantenida para datos historicos)
+- prod_mermas: mermas/faltantes
+- prod_registro_cierre: cierres de produccion
+- prod_registro_pt_relacion: distribucion PT
+- prod_registro_pt_odoo_vinculo: vinculos con Odoo
+
+## Endpoints Clave
+- CRUD Fallados: GET/POST /api/fallados, PUT/DELETE /api/fallados/{id}
+- CRUD Arreglos V2: GET/POST /api/registros/{id}/arreglos, PUT/DELETE /api/arreglos/{id}
+- Resumen: GET /api/registros/{id}/resumen-cantidades
+- Timeline: GET /api/registros/{id}/trazabilidad-completa
+- KPIs: GET /api/reportes/trazabilidad-kpis
+- Reporte: GET /api/reporte-trazabilidad
+- Preview cierre: GET /api/registros/{id}/preview-cierre
+
+## Tareas Pendientes
+- P1: Integrar filtro linea_negocio_id en Reportes (Dashboard, KPIs, Matriz)
+- P2: Refactorizar registros_main.py y server.py (modularizacion)
+- P2: Logging estructurado backend
+- P3: Exportacion PDF de reportes
+- P3: Rate limiting API
