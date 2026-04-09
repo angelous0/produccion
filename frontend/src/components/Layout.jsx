@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from './ui/button';
@@ -21,11 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from './ui/dialog';
-import { 
-  LayoutDashboard, 
-  Tag, 
-  Layers, 
-  Shirt, 
+import {
+  LayoutDashboard,
+  Tag,
+  Layers,
+  Shirt,
   Palette,
   Scissors,
   Box,
@@ -47,7 +47,6 @@ import {
   Play,
   BarChart3,
   Route,
-  AlertTriangle,
   Sparkles,
   LogOut,
   User,
@@ -57,20 +56,14 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
-  PanelLeftClose,
-  PanelLeft,
   Database,
   Activity,
-  Clock,
   GitBranch,
-  TrendingUp,
   Grid3X3,
   PackageX,
-  Timer,
   ArrowRightLeft,
   ShieldCheck,
 } from 'lucide-react';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { NotificacionesBell } from './NotificacionesBell';
@@ -78,24 +71,15 @@ import { usePermissions, RUTA_A_TABLA } from '../hooks/usePermissions';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/marcas', icon: Tag, label: 'Marcas' },
-  { to: '/tipos', icon: Layers, label: 'Tipos' },
-  { to: '/entalles', icon: Shirt, label: 'Entalles' },
-  { to: '/telas', icon: Palette, label: 'Telas' },
-  { to: '/hilos', icon: Scissors, label: 'Hilos' },
-  { to: '/hilos-especificos', icon: Sparkles, label: 'Hilos Específicos' },
-  { to: '/tallas-catalogo', icon: Ruler, label: 'Tallas' },
-  { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
-  { to: '/colores-generales', icon: Palette, label: 'Colores Generales' },
-  { to: '/bases', icon: Layers, label: 'Bases' },
-  { to: '/modelos', icon: Box, label: 'Modelos' },
-  { to: '/registros', icon: ClipboardList, label: 'Registros' },
+// ── Grupos de navegacion ──
+const operacionesItems = [
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', testId: 'nav-dashboard' },
+  { to: '/registros', icon: ClipboardList, label: 'Registros', testId: 'nav-registros' },
+  { to: '/reportes/seguimiento', icon: Activity, label: 'Seguimiento', testId: 'nav-rep-seguimiento' },
 ];
 
 const inventarioItems = [
-  { to: '/inventario', icon: Package, label: 'Inventario' },
+  { to: '/inventario', icon: Package, label: 'Inventario', end: true },
   { to: '/inventario/ingresos', icon: ArrowDownCircle, label: 'Ingresos' },
   { to: '/inventario/salidas', icon: ArrowUpCircle, label: 'Salidas' },
   { to: '/inventario/ajustes', icon: RefreshCw, label: 'Ajustes' },
@@ -107,29 +91,42 @@ const inventarioItems = [
   { to: '/inventario/transferencias-linea', icon: ArrowRightLeft, label: 'Transferencias' },
 ];
 
+const reportesItems = [
+  { to: '/reportes/matriz', icon: Grid3X3, label: 'Matriz Dinámica', testId: 'nav-rep-matriz-dinámica' },
+  { to: '/reportes/operativo', icon: Users, label: 'Operativo & Terceros', testId: 'nav-rep-operativo-&-terceros' },
+  { to: '/reportes/lotes', icon: GitBranch, label: 'Lotes & Trazabilidad', testId: 'nav-rep-lotes-&-trazabilidad' },
+  { to: '/reportes/valorizacion', icon: Package, label: 'Valorización', testId: 'nav-rep-valorización' },
+  { to: '/reportes/calidad', icon: Shield, label: 'Calidad', testId: 'nav-rep-calidad' },
+];
+
+const catalogosItems = [
+  { to: '/marcas', icon: Tag, label: 'Marcas' },
+  { to: '/tipos', icon: Layers, label: 'Tipos' },
+  { to: '/entalles', icon: Shirt, label: 'Entalles' },
+  { to: '/telas', icon: Palette, label: 'Telas' },
+  { to: '/hilos', icon: Scissors, label: 'Hilos' },
+  { to: '/hilos-especificos', icon: Sparkles, label: 'Hilos Específicos' },
+  { to: '/tallas-catalogo', icon: Ruler, label: 'Tallas' },
+  { to: '/colores-catalogo', icon: Droplets, label: 'Colores' },
+  { to: '/colores-generales', icon: Palette, label: 'Colores Generales' },
+  { to: '/bases', icon: Layers, label: 'Bases' },
+  { to: '/modelos', icon: Box, label: 'Modelos' },
+];
+
 const maestrosItems = [
   { to: '/maestros/servicios', icon: Cog, label: 'Servicios' },
   { to: '/maestros/personas', icon: Users, label: 'Personas' },
   { to: '/maestros/rutas', icon: Route, label: 'Rutas' },
   { to: '/maestros/movimientos', icon: Play, label: 'Movimientos' },
   { to: '/maestros/productividad', icon: BarChart3, label: 'Productividad' },
-];
-
-const calidadItems = [];
-
-const documentosItems = [
   { to: '/guias', icon: FileText, label: 'Guías de Remisión' },
 ];
 
-const valorizacionItems = [];
-
-const reportesProduccionItems = [
-  { to: '/reportes/matriz', icon: Grid3X3, label: 'Matriz Dinámica' },
-  { to: '/reportes/seguimiento', icon: Activity, label: 'Seguimiento' },
-  { to: '/reportes/operativo', icon: Users, label: 'Operativo & Terceros' },
-  { to: '/reportes/lotes', icon: GitBranch, label: 'Lotes & Trazabilidad' },
-  { to: '/reportes/valorizacion', icon: Package, label: 'Valorización' },
-  { to: '/reportes/calidad', icon: Shield, label: 'Calidad' },
+const configItems = [
+  { to: '/usuarios', icon: Users, label: 'Usuarios', testId: 'nav-cfg-usuarios' },
+  { to: '/historial-actividad', icon: History, label: 'Historial', testId: 'nav-cfg-historial' },
+  { to: '/auditoria', icon: ShieldCheck, label: 'Auditoría', testId: 'nav-cfg-auditoria' },
+  { to: '/backups', icon: Database, label: 'Backups', testId: 'nav-cfg-backups' },
 ];
 
 function ScrollToTop() {
@@ -145,30 +142,30 @@ export const Layout = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const { canView: canViewRegistros } = usePermissions('registros');
+  usePermissions('registros');
 
-  // Filtrar items del sidebar segun permisos del usuario
   const filterNavItems = (items) => {
     if (isAdmin()) return items;
     return items.filter(item => {
       const tabla = RUTA_A_TABLA[item.to];
-      if (!tabla) return true; // rutas sin restriccion (dashboard, reportes)
+      if (!tabla) return true;
       const permisos = user?.permisos || {};
       const perm = permisos[tabla];
-      if (!perm) return true; // si no hay permisos definidos, mostrar
+      if (!perm) return true;
       return perm.ver !== false;
     });
   };
-
-  const filteredNavItems = filterNavItems(navItems);
-  const filteredInventarioItems = filterNavItems(inventarioItems);
-  const filteredMaestrosItems = filterNavItems(maestrosItems);
-  const filteredDocumentosItems = filterNavItems(documentosItems);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
+  });
+  const [groupState, setGroupState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sidebarGroups');
+      return saved ? JSON.parse(saved) : { catalogos: false, maestros: false, config: false };
+    } catch { return { catalogos: false, maestros: false, config: false }; }
   });
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -184,6 +181,14 @@ export const Layout = () => {
     localStorage.setItem('sidebarCollapsed', String(newValue));
   };
 
+  const toggleGroup = useCallback((key) => {
+    setGroupState(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      localStorage.setItem('sidebarGroups', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -191,17 +196,14 @@ export const Layout = () => {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    
     if (passwordForm.new_password !== passwordForm.confirm_password) {
       toast.error('Las contraseñas nuevas no coinciden');
       return;
     }
-    
     if (passwordForm.new_password.length < 4) {
       toast.error('La contraseña debe tener al menos 4 caracteres');
       return;
     }
-
     setPasswordLoading(true);
     try {
       await axios.put(`${API}/auth/change-password`, {
@@ -218,11 +220,74 @@ export const Layout = () => {
     }
   };
 
+  // ── Helpers de renderizado ──
+  const cls = sidebarCollapsed ? 'md:justify-center md:px-2' : '';
+  const hideTxt = sidebarCollapsed ? 'md:hidden' : '';
+
+  const renderItem = (item) => (
+    <NavLink
+      key={item.to}
+      to={item.to}
+      end={item.end || item.to === '/'}
+      onClick={() => setSidebarOpen(false)}
+      className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''} ${cls}`}
+      data-testid={item.testId || `nav-${item.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+      title={sidebarCollapsed ? item.label : undefined}
+    >
+      <item.icon className="h-4 w-4 flex-shrink-0" />
+      <span className={hideTxt}>{item.label}</span>
+    </NavLink>
+  );
+
+  const renderDivider = () => (
+    sidebarCollapsed
+      ? <div className="hidden md:block h-px bg-border mx-2 my-2" />
+      : <div className="h-px bg-border mx-1 my-2" />
+  );
+
+  const renderStaticHeader = (label) => (
+    <div className="mt-3 mb-1">
+      <p className={`px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 ${hideTxt}`}>
+        {label}
+      </p>
+      {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
+    </div>
+  );
+
+  const renderCollapsibleHeader = (label, key) => {
+    const isOpen = groupState[key];
+    return (
+      <div className="mt-3 mb-1">
+        {sidebarCollapsed ? (
+          <div className="hidden md:block h-px bg-border mx-2" />
+        ) : (
+          <button
+            type="button"
+            onClick={() => toggleGroup(key)}
+            className="flex items-center w-full px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 hover:text-muted-foreground transition-colors rounded-md"
+            data-testid={`sidebar-group-${key}`}
+          >
+            <ChevronRight className={`h-3 w-3 mr-1.5 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+            <span className="flex-1 text-left">{label}</span>
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // Filtered items
+  const fOps = filterNavItems(operacionesItems);
+  const fInv = filterNavItems(inventarioItems);
+  const fRep = filterNavItems(reportesItems);
+  const fCat = filterNavItems(catalogosItems);
+  const fMae = filterNavItems(maestrosItems);
+  const fCfg = filterNavItems(configItems);
+
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b flex-shrink-0">
-        <div className="flex h-16 items-center px-4 md:px-6">
+        <div className="flex h-14 items-center px-4 md:px-6">
           <Button
             variant="ghost"
             size="icon"
@@ -232,33 +297,23 @@ export const Layout = () => {
           >
             {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          
+
           <div className="flex items-center gap-2">
-            <Scissors className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight">Producción Textil</h1>
+            <Scissors className="h-5 w-5 text-primary" />
+            <h1 className="text-base font-bold tracking-tight">Producción Textil</h1>
           </div>
-          
-          <div className="ml-auto flex items-center gap-2">
+
+          <div className="ml-auto flex items-center gap-1.5">
             <NotificacionesBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              data-testid="theme-toggle"
-            >
-              {theme === 'light' ? (
-                <Moon className="h-5 w-5" />
-              ) : (
-                <Sun className="h-5 w-5" />
-              )}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="theme-toggle" className="h-8 w-8">
+              {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
-            
-            {/* Menú de usuario */}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2" data-testid="user-menu-btn">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-4 w-4 text-primary" />
+                <Button variant="ghost" className="flex items-center gap-2 h-8 px-2" data-testid="user-menu-btn">
+                  <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <span className="hidden md:inline text-sm font-medium">
                     {user?.nombre_completo || user?.username}
@@ -315,62 +370,33 @@ export const Layout = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cambiar Contraseña</DialogTitle>
-            <DialogDescription>
-              Ingresa tu contraseña actual y la nueva contraseña
-            </DialogDescription>
+            <DialogDescription>Ingresa tu contraseña actual y la nueva contraseña</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleChangePassword}>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="current_password">Contraseña Actual</Label>
-                <Input
-                  id="current_password"
-                  type="password"
-                  value={passwordForm.current_password}
+                <Input id="current_password" type="password" value={passwordForm.current_password}
                   onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
-                  placeholder="Tu contraseña actual"
-                  required
-                  disabled={passwordLoading}
-                />
+                  placeholder="Tu contraseña actual" required disabled={passwordLoading} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new_password">Nueva Contraseña</Label>
-                <Input
-                  id="new_password"
-                  type="password"
-                  value={passwordForm.new_password}
+                <Input id="new_password" type="password" value={passwordForm.new_password}
                   onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
-                  placeholder="Tu nueva contraseña"
-                  required
-                  disabled={passwordLoading}
-                />
+                  placeholder="Tu nueva contraseña" required disabled={passwordLoading} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm_password">Confirmar Nueva Contraseña</Label>
-                <Input
-                  id="confirm_password"
-                  type="password"
-                  value={passwordForm.confirm_password}
+                <Input id="confirm_password" type="password" value={passwordForm.confirm_password}
                   onChange={(e) => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
-                  placeholder="Repite la nueva contraseña"
-                  required
-                  disabled={passwordLoading}
-                />
+                  placeholder="Repite la nueva contraseña" required disabled={passwordLoading} />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)} disabled={passwordLoading}>
-                Cancelar
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)} disabled={passwordLoading}>Cancelar</Button>
               <Button type="submit" disabled={passwordLoading}>
-                {passwordLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  'Guardar'
-                )}
+                {passwordLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Guardando...</> : 'Guardar'}
               </Button>
             </DialogFooter>
           </form>
@@ -380,162 +406,77 @@ export const Layout = () => {
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <aside className={`
-          fixed inset-y-0 left-0 z-40 transform bg-card border-r pt-16 transition-all duration-300 ease-in-out
+          fixed inset-y-0 left-0 z-40 transform bg-card border-r pt-14 transition-all duration-300 ease-in-out
           md:translate-x-0 md:relative md:pt-0 md:flex-shrink-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          ${sidebarCollapsed ? 'md:w-16' : 'md:w-64'} w-64
+          ${sidebarCollapsed ? 'md:w-14' : 'md:w-56'} w-56
         `}>
-          {/* Botón para colapsar/expandir (solo desktop) */}
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleSidebarCollapsed}
-            className="absolute -right-3 top-20 z-50 hidden md:flex h-6 w-6 rounded-full border bg-background shadow-md hover:bg-accent"
+            className="absolute -right-3 top-3 z-50 hidden md:flex h-6 w-6 rounded-full border bg-background shadow-md hover:bg-accent"
             data-testid="sidebar-toggle"
           >
-            {sidebarCollapsed ? (
-              <ChevronRight className="h-3 w-3" />
-            ) : (
-              <ChevronLeft className="h-3 w-3" />
-            )}
+            {sidebarCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
           </Button>
 
-          <nav className={`flex flex-col gap-1 p-4 overflow-y-auto h-full ${sidebarCollapsed ? 'md:items-center md:px-2' : ''}`} data-testid="sidebar-nav">
-            {filteredNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/'}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-${item.label.toLowerCase()}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
-            
-            {filteredInventarioItems.length > 0 && (
-            <>
-            <div className="mt-4 mb-2">
-              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Inventario FIFO
-              </p>
-              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
-            </div>
-            
-            {filteredInventarioItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/inventario'}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-${item.label.toLowerCase()}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
-            </>
+          <nav className={`flex flex-col gap-0.5 px-3 py-3 overflow-y-auto h-full ${sidebarCollapsed ? 'md:items-center md:px-2' : ''}`} data-testid="sidebar-nav">
+            {/* OPERACIONES — sin titulo, siempre visible */}
+            {fOps.map(renderItem)}
+
+            {/* INVENTARIO — titulo visible, siempre expandido */}
+            {fInv.length > 0 && (
+              <>
+                {renderStaticHeader('Inventario')}
+                {fInv.map(renderItem)}
+              </>
             )}
 
-            {/* Separador Maestros */}
-            {filteredMaestrosItems.length > 0 && (
-            <>
-            <div className="mt-4 mb-2">
-              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Maestros
-              </p>
-              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
-            </div>
-            
-            {filteredMaestrosItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-${item.label.toLowerCase()}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
-            </>
+            {/* REPORTES — titulo visible, siempre expandido */}
+            {fRep.length > 0 && (
+              <>
+                {renderStaticHeader('Reportes')}
+                {fRep.map(renderItem)}
+              </>
             )}
 
-            {/* Separador Documentos */}
-            {filteredDocumentosItems.length > 0 && (
-            <>
-            <div className="mt-4 mb-2">
-              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Documentos
-              </p>
-              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
-            </div>
-            {filteredDocumentosItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-${item.label.toLowerCase()}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
-            </>
+            {/* CATÁLOGOS — colapsable, cerrado por defecto */}
+            {fCat.length > 0 && (
+              <>
+                {renderCollapsibleHeader('Catálogos', 'catalogos')}
+                {(sidebarCollapsed || groupState.catalogos) && fCat.map(renderItem)}
+              </>
             )}
 
-            {/* Separador Reportes Producción */}
-            <div className="mt-4 mb-2">
-              <p className={`px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${sidebarCollapsed ? 'md:hidden' : ''}`}>
-                Reportes
-              </p>
-              {sidebarCollapsed && <div className="hidden md:block h-px bg-border mx-2" />}
-            </div>
-            {reportesProduccionItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `sidebar-item ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'md:justify-center md:px-2' : ''}`
-                }
-                data-testid={`nav-rep-${item.label.toLowerCase().replace(/ /g, '-')}`}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                <span className={sidebarCollapsed ? 'md:hidden' : ''}>{item.label}</span>
-              </NavLink>
-            ))}
+            {/* MAESTROS — colapsable, cerrado por defecto */}
+            {fMae.length > 0 && (
+              <>
+                {renderCollapsibleHeader('Maestros', 'maestros')}
+                {(sidebarCollapsed || groupState.maestros) && fMae.map(renderItem)}
+              </>
+            )}
+
+            {/* CONFIGURACIÓN — colapsable, cerrado, solo admin */}
+            {isAdmin() && fCfg.length > 0 && (
+              <>
+                {renderCollapsibleHeader('Configuración', 'config')}
+                {(sidebarCollapsed || groupState.config) && fCfg.map(renderItem)}
+              </>
+            )}
           </nav>
         </aside>
 
         {/* Overlay for mobile */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-30 bg-black/50 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0 p-6 md:p-8" id="main-content">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 min-w-0 p-4 md:p-6" id="main-content">
           <ScrollToTop />
           <Outlet />
         </main>
