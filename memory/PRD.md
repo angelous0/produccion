@@ -24,8 +24,8 @@ ERP full-stack para gestion de produccion textil. Backend FastAPI + Frontend Rea
 - Ecuacion de validacion en tiempo real
 - Alertas por arreglos vencidos y fallados pendientes
 
-### 4. Control de Fallados (NUEVO) - 2026-04-09
-- Pantalla centralizada `/control-fallados`
+### 4. Control de Fallados - 2026-04-09
+- Integrado como tab "Fallados y Arreglos" dentro de Calidad
 - KPIs: Total Fallados, Pendientes, Vencidos, Recuperado, Liquidacion, Merma
 - Filtros: Estado, Servicio, Persona, Fecha, Solo vencidos, Solo pendientes, Linea negocio
 - Tabla consolidada por registro con estados calculados
@@ -42,8 +42,15 @@ ERP full-stack para gestion de produccion textil. Backend FastAPI + Frontend Rea
 ### 7. Cierre de Produccion
 - Preview con costos + resultado_final de arreglos V2
 
-### 8. Reportes
-- Dashboard con KPIs, Matriz, Seguimiento, Operativo, Trazabilidad, Calidad
+### 8. Reportes - Reestructurado 2026-04-09
+Dashboard unico con KPIs, alertas, WIP por etapa, carga por servicio y accesos rapidos.
+Pantallas consolidadas con Tabs:
+- **Seguimiento**: En Proceso, WIP por Etapa, Atrasados, Cumplimiento Ruta, Paralizados
+- **Operativo y Terceros**: Rep. Operativo, Tiempos Muertos, Paralizados, Balance Terceros
+- **Lotes y Trazabilidad**: Fraccionados, Trazabilidad General, KPIs Calidad
+- **Valorizacion**: MP Valorizado, WIP, PT Valorizado
+- **Calidad**: Resumen Calidad, Mermas, Estados del Item, Fallados y Arreglos
+- **Matriz Dinamica**: pantalla independiente
 
 ## Arquitectura
 ```
@@ -58,7 +65,14 @@ ERP full-stack para gestion de produccion textil. Backend FastAPI + Frontend Rea
 
 /app/frontend/src/
   components/ArreglosPanel.jsx  - Panel simplificado en tab Control
-  pages/ControlFallados.jsx     - Pantalla centralizada
+  components/Layout.jsx         - Sidebar limpio (sin Control Fallados independiente)
+  pages/Dashboard.jsx           - Dashboard unico fusionado
+  pages/CalidadConsolidado.jsx  - 4 tabs con useSearchParams
+  pages/OperativoTerceros.jsx   - 4 tabs reordenados con useSearchParams
+  pages/SeguimientoProduccion.jsx - 5 tabs
+  pages/LotesTrazabilidad.jsx  - 3 tabs
+  pages/ValorizacionConsolidado.jsx - 3 tabs
+  pages/ControlFallados.jsx     - Integrado como tab (sin h1 standalone)
   pages/RegistroForm.jsx        - Formulario registro (usa ArreglosPanel)
 ```
 
@@ -71,7 +85,8 @@ ERP full-stack para gestion de produccion textil. Backend FastAPI + Frontend Rea
 - Preview cierre: GET /api/registros/{id}/preview-cierre
 
 ## Tareas Pendientes
-- P1: Integrar filtro linea_negocio_id en Reportes (Dashboard, KPIs, Matriz)
+- P1: Integrar filtro linea_negocio_id en Reportes (Dashboard, KPIs, Matriz) e Inventario
+- P2: Fase 2 de Reportes (indicadores por servicio, ranking, tiempos promedio, % recuperacion/merma)
 - P2: Refactorizar registros_main.py y server.py (modularizacion)
 - P2: Logging estructurado backend
 - P3: Exportacion PDF de reportes
