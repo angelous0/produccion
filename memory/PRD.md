@@ -16,85 +16,58 @@ ERP full-stack para gestion de produccion textil. Backend FastAPI + Frontend Rea
 - Rollos de tela con trazabilidad
 - Alertas de stock minimo
 
-### 3. Trazabilidad Simplificada (V2) - NUEVO 2026-04-09
-- **prod_fallados simplificada**: fuente oficial de total_fallados (id, registro_id, cantidad_detectada, fecha_deteccion, observacion, created_by)
+### 3. Trazabilidad Simplificada (V2) - 2026-04-09
+- **prod_fallados simplificada**: fuente oficial de total_fallados
 - **prod_registro_arreglos**: envios a arreglo con resolucion (recuperado/liquidacion/merma)
 - Estados automaticos: EN_ARREGLO, PARCIAL, COMPLETADO, VENCIDO (3 dias limite)
-- Resumen de cantidades: total_producido = normal + recuperado + liquidacion + merma + fallado_pendiente
+- Resumen: total_producido = normal + recuperado + liquidacion + merma + fallado_pendiente
 - Ecuacion de validacion en tiempo real
 - Alertas por arreglos vencidos y fallados pendientes
 
-### 4. Distribucion PT y Conciliacion Odoo
-- Tabla prod_registro_pt_relacion (distribucion planificada)
-- Tabla prod_registro_pt_odoo_vinculo (vinculo con ajustes Odoo)
+### 4. Control de Fallados (NUEVO) - 2026-04-09
+- Pantalla centralizada `/control-fallados`
+- KPIs: Total Fallados, Pendientes, Vencidos, Recuperado, Liquidacion, Merma
+- Filtros: Estado, Servicio, Persona, Fecha, Solo vencidos, Solo pendientes, Linea negocio
+- Tabla consolidada por registro con estados calculados
+- Click en fila abre el registro
+- Tooltip con info rapida al hover
+- Endpoint: GET /api/fallados-control
+
+### 5. Distribucion PT y Conciliacion Odoo
 - Tab PT Odoo en detalle de registro
 
-### 5. Kardex PT
+### 6. Kardex PT
 - Lectura del schema Odoo (stock_move, stock_location)
-- Saldo historico acumulado con Window Functions
-- Filtros por fecha, producto, tipo de movimiento
 
-### 6. Cierre de Produccion
-- Preview con costos (MP, servicios, otros)
-- Ingreso automatico a inventario PT
-- Snapshot de auditoria congelado
-- Integrado con resultado_final de arreglos V2
+### 7. Cierre de Produccion
+- Preview con costos + resultado_final de arreglos V2
 
-### 7. Reportes
-- Dashboard con KPIs
-- Reporte de trazabilidad general
-- KPIs de trazabilidad (mermas, fallados, arreglos)
-- Reporte de costura, atrasados, balance terceros
+### 8. Reportes
+- Dashboard con KPIs, Matriz, Seguimiento, Operativo, Trazabilidad, Calidad
 
 ## Arquitectura
-
 ```
-/app
-├── backend/
-│   ├── routes/
-│   │   ├── trazabilidad.py (REESCRITO V2: fallados simplificados + arreglos V2)
-│   │   ├── distribucion_pt.py
-│   │   ├── kardex_pt.py
-│   │   ├── cierre.py (actualizado con resultado_final arreglos)
-│   │   ├── registros_main.py
-│   │   ├── inventario_main.py
-│   │   ├── reportes_produccion.py
-│   │   └── stats_reportes.py (actualizado query arreglos)
-│   ├── tests/
-│   │   └── test_fallados_arreglos_v2.py (25 tests, 100% passed)
-│   ├── models.py
-│   └── server.py
-└── frontend/
-    └── src/
-        ├── components/
-        │   ├── ArreglosPanel.jsx (NUEVO: panel simplificado 3 bloques)
-        │   ├── TrazabilidadPanel.jsx (legacy, reemplazado por ArreglosPanel)
-        │   └── registro/
-        │       └── DistribucionPTPanel.jsx
-        ├── pages/
-        │   ├── RegistroForm.jsx (usa ArreglosPanel en tab Control)
-        │   ├── TrazabilidadReporte.jsx (actualizado campos V2)
-        │   ├── ReporteTrazabilidadKPIs.jsx (actualizado campos V2)
-        │   └── KardexPT.jsx
-```
+/app/backend/routes/
+  trazabilidad.py  - Fallados/Arreglos V2 + Control Fallados + KPIs
+  cierre.py        - Preview/ejecutar cierre con resultado_final
+  registros_main.py
+  distribucion_pt.py
+  kardex_pt.py
+  reportes_produccion.py
+  stats_reportes.py
 
-## Tablas Clave (Schema produccion)
-- prod_registros: registros de produccion
-- prod_fallados: deteccion de fallados (simplificada)
-- prod_registro_arreglos: envios a arreglo V2 (nueva)
-- prod_arreglos: tabla legacy (mantenida para datos historicos)
-- prod_mermas: mermas/faltantes
-- prod_registro_cierre: cierres de produccion
-- prod_registro_pt_relacion: distribucion PT
-- prod_registro_pt_odoo_vinculo: vinculos con Odoo
+/app/frontend/src/
+  components/ArreglosPanel.jsx  - Panel simplificado en tab Control
+  pages/ControlFallados.jsx     - Pantalla centralizada
+  pages/RegistroForm.jsx        - Formulario registro (usa ArreglosPanel)
+```
 
 ## Endpoints Clave
 - CRUD Fallados: GET/POST /api/fallados, PUT/DELETE /api/fallados/{id}
 - CRUD Arreglos V2: GET/POST /api/registros/{id}/arreglos, PUT/DELETE /api/arreglos/{id}
 - Resumen: GET /api/registros/{id}/resumen-cantidades
-- Timeline: GET /api/registros/{id}/trazabilidad-completa
+- Control Fallados: GET /api/fallados-control
 - KPIs: GET /api/reportes/trazabilidad-kpis
-- Reporte: GET /api/reporte-trazabilidad
 - Preview cierre: GET /api/registros/{id}/preview-cierre
 
 ## Tareas Pendientes
