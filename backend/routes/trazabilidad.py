@@ -967,145 +967,194 @@ async def fallados_control(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Vista consolidada de fallados por registro.
-    Devuelve: lista de registros con fallados + KPIs globales.
+    Vista desglosada: una fila por cada arreglo individual + una fila por cada
+    registro que tiene fallados sin asignar a arreglo.
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Query principal: registros que tienen fallados
-        rows = await conn.fetch("""
-            WITH fallados_agg AS (
-                SELECT registro_id,
-                       COALESCE(SUM(cantidad_detectada), 0) as total_fallados
-                FROM prod_fallados
-                GROUP BY registro_id
-                HAVING SUM(cantidad_detectada) > 0
-            ),
-            arreglos_agg AS (
-                SELECT registro_id,
-                       COALESCE(SUM(cantidad), 0) as total_enviado,
-                       COALESCE(SUM(cantidad_recuperada), 0) as total_recuperado,
-                       COALESCE(SUM(cantidad_liquidacion), 0) as total_liquidacion,
-                       COALESCE(SUM(cantidad_merma), 0) as total_merma,
-                       COUNT(*) FILTER (WHERE fecha_limite < CURRENT_DATE
-                           AND (cantidad_recuperada + cantidad_liquidacion + cantidad_merma) < cantidad) as arreglos_vencidos_count,
-                       MAX(CASE WHEN fecha_limite < CURRENT_DATE
-                           AND (cantidad_recuperada + cantidad_liquidacion + cantidad_merma) < cantidad
-                           THEN fecha_limite END) as fecha_vencido_mas_antigua
-                FROM prod_registro_arreglos
-                GROUP BY registro_id
-            )
-            SELECT r.id, r.n_corte, r.estado, r.estado_op,
-                   m.nombre as modelo_nombre,
+        # 1) Filas de arreglos individuales
+        arreglo_rows = await conn.fetch("""
+            SELECT a.id as arreglo_id,
+                   a.registro_id,
+                   r.n_corte,
+                   r.estado as estado_op,
+                   r.linea_negocio_id,
+                   m.nombre as modelo,
                    ma.nombre as marca,
                    ln.nombre as linea_negocio,
-                   r.linea_negocio_id,
-                   fa.total_fallados,
-                   COALESCE(aa.total_enviado, 0) as total_enviado,
-                   COALESCE(aa.total_recuperado, 0) as total_recuperado,
-                   COALESCE(aa.total_liquidacion, 0) as total_liquidacion,
-                   COALESCE(aa.total_merma, 0) as total_merma,
-                   COALESCE(aa.arreglos_vencidos_count, 0) as arreglos_vencidos_count,
-                   aa.fecha_vencido_mas_antigua
-            FROM prod_registros r
-            INNER JOIN fallados_agg fa ON r.id = fa.registro_id
-            LEFT JOIN arreglos_agg aa ON r.id = aa.registro_id
+                   (SELECT COALESCE(SUM(pf.cantidad_detectada),0) FROM prod_fallados pf WHERE pf.registro_id = r.id) as total_fallados_registro,
+                   a.cantidad,
+                   a.cantidad as enviado,
+                   a.cantidad_recuperada,
+                   a.cantidad_liquidacion,
+                   a.cantidad_merma,
+                   (a.cantidad - a.cantidad_recuperada - a.cantidad_liquidacion - a.cantidad_merma) as pendiente_arreglo,
+                   sp.nombre as servicio,
+                   pp.nombre as persona,
+                   a.servicio_id,
+                   a.persona_id,
+                   a.fecha_envio,
+                   a.fecha_limite,
+                   a.estado,
+                   a.created_at
+            FROM prod_registro_arreglos a
+            JOIN prod_registros r ON a.registro_id = r.id
             LEFT JOIN prod_modelos m ON r.modelo_id = m.id
             LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
             LEFT JOIN finanzas2.cont_linea_negocio ln ON r.linea_negocio_id = ln.id
-            ORDER BY COALESCE(aa.arreglos_vencidos_count, 0) DESC,
-                     (fa.total_fallados - COALESCE(aa.total_recuperado, 0) - COALESCE(aa.total_liquidacion, 0) - COALESCE(aa.total_merma, 0)) DESC,
-                     r.n_corte
+            LEFT JOIN prod_servicios_produccion sp ON a.servicio_id = sp.id
+            LEFT JOIN prod_personas_produccion pp ON a.persona_id = pp.id
+            ORDER BY
+                CASE WHEN a.fecha_limite < CURRENT_DATE
+                     AND (a.cantidad_recuperada + a.cantidad_liquidacion + a.cantidad_merma) < a.cantidad
+                     THEN 0 ELSE 1 END,
+                a.fecha_envio DESC NULLS LAST
         """)
 
+        # 2) Registros con fallados sin asignar (para mostrar como "SIN ARREGLO")
+        sin_arreglo_rows = await conn.fetch("""
+            SELECT r.id as registro_id,
+                   r.n_corte,
+                   r.estado as estado_op,
+                   r.linea_negocio_id,
+                   m.nombre as modelo,
+                   ma.nombre as marca,
+                   ln.nombre as linea_negocio,
+                   fa_sum.total_fallados,
+                   COALESCE(aa_sum.total_enviado, 0) as total_enviado,
+                   (fa_sum.total_fallados - COALESCE(aa_sum.total_enviado, 0)) as sin_enviar
+            FROM prod_registros r
+            INNER JOIN (
+                SELECT registro_id, COALESCE(SUM(cantidad_detectada),0) as total_fallados
+                FROM prod_fallados GROUP BY registro_id HAVING SUM(cantidad_detectada) > 0
+            ) fa_sum ON r.id = fa_sum.registro_id
+            LEFT JOIN (
+                SELECT registro_id, COALESCE(SUM(cantidad),0) as total_enviado
+                FROM prod_registro_arreglos GROUP BY registro_id
+            ) aa_sum ON r.id = aa_sum.registro_id
+            LEFT JOIN prod_modelos m ON r.modelo_id = m.id
+            LEFT JOIN prod_marcas ma ON m.marca_id = ma.id
+            LEFT JOIN finanzas2.cont_linea_negocio ln ON r.linea_negocio_id = ln.id
+            WHERE (fa_sum.total_fallados - COALESCE(aa_sum.total_enviado, 0)) > 0
+            ORDER BY (fa_sum.total_fallados - COALESCE(aa_sum.total_enviado, 0)) DESC
+        """)
+
+        hoy = date.today()
         resultado = []
-        for row in rows:
+
+        # Procesar arreglos individuales
+        for row in arreglo_rows:
             d = dict(row)
-            total_fallados = safe_int(d["total_fallados"])
-            total_enviado = safe_int(d["total_enviado"])
-            recuperado = safe_int(d["total_recuperado"])
-            liquidacion = safe_int(d["total_liquidacion"])
-            merma_arreglos = safe_int(d["total_merma"])
-            vencidos = safe_int(d["arreglos_vencidos_count"])
+            estado_calc = _calcular_estado_arreglo(d)
 
-            pendiente = total_fallados - recuperado - liquidacion - merma_arreglos
-            sin_enviar = total_fallados - total_enviado
-
-            # Estado consolidado del registro
-            if vencidos > 0:
-                estado_registro = "VENCIDO"
-            elif pendiente <= 0 and total_fallados > 0:
-                estado_registro = "COMPLETADO"
-            elif total_enviado > 0:
-                estado_registro = "EN_PROCESO"
+            # Dias transcurridos
+            fecha_envio = d.get("fecha_envio")
+            fecha_limite = d.get("fecha_limite")
+            if estado_calc == "COMPLETADO":
+                # Para completados: dias que tardo (envio hasta limite o hoy, el menor)
+                dias = 0
+            elif fecha_envio:
+                dias = max((hoy - fecha_envio).days, 0) if isinstance(fecha_envio, date) else 0
             else:
-                estado_registro = "PENDIENTE"
+                dias = 0
 
-            # Filtros
-            if estado and estado_registro != estado:
+            fila = {
+                "tipo_fila": "ARREGLO",
+                "arreglo_id": d["arreglo_id"],
+                "registro_id": d["registro_id"],
+                "n_corte": d["n_corte"],
+                "modelo": d["modelo"] or "",
+                "marca": d["marca"] or "",
+                "linea_negocio": d["linea_negocio"] or "",
+                "linea_negocio_id": d.get("linea_negocio_id"),
+                "total_fallados_registro": safe_int(d["total_fallados_registro"]),
+                "enviado": safe_int(d["enviado"]),
+                "recuperado": safe_int(d["cantidad_recuperada"]),
+                "liquidacion": safe_int(d["cantidad_liquidacion"]),
+                "merma": safe_int(d["cantidad_merma"]),
+                "pendiente": max(safe_int(d["pendiente_arreglo"]), 0),
+                "servicio": d["servicio"] or "",
+                "persona": d["persona"] or "",
+                "servicio_id": d.get("servicio_id"),
+                "persona_id": d.get("persona_id"),
+                "fecha_envio": str(fecha_envio) if fecha_envio else None,
+                "fecha_limite": str(fecha_limite) if fecha_limite else None,
+                "dias": dias,
+                "estado": estado_calc,
+            }
+
+            # Aplicar filtros
+            if estado and estado_calc != estado:
                 continue
-            if solo_vencidos and estado_registro != "VENCIDO":
+            if solo_vencidos and estado_calc != "VENCIDO":
                 continue
-            if solo_pendientes and estado_registro not in ("PENDIENTE", "EN_PROCESO"):
+            if solo_pendientes and estado_calc in ("COMPLETADO",):
                 continue
             if linea_negocio_id and str(d.get("linea_negocio_id") or "") != linea_negocio_id:
                 continue
-
-            resultado.append({
-                "id": d["id"],
-                "n_corte": d["n_corte"],
-                "estado_op": d["estado"] or d["estado_op"],
-                "modelo": d["modelo_nombre"] or "",
-                "marca": d["marca"] or "",
-                "linea_negocio": d["linea_negocio"] or "",
-                "total_fallados": total_fallados,
-                "total_enviado": total_enviado,
-                "recuperado": recuperado,
-                "liquidacion": liquidacion,
-                "merma_arreglos": merma_arreglos,
-                "pendiente": max(pendiente, 0),
-                "sin_enviar": max(sin_enviar, 0),
-                "arreglos_vencidos": vencidos,
-                "estado_control": estado_registro,
-            })
-
-        # Filtro por arreglos (servicio, persona, fecha)
-        if servicio_id or persona_id or fecha_desde or fecha_hasta:
-            reg_ids_with_match = set()
-            arreglo_filters = ["1=1"]
-            arreglo_params = []
-            if servicio_id:
-                arreglo_params.append(servicio_id)
-                arreglo_filters.append(f"a.servicio_id = ${len(arreglo_params)}")
-            if persona_id:
-                arreglo_params.append(persona_id)
-                arreglo_filters.append(f"a.persona_id = ${len(arreglo_params)}")
+            if servicio_id and d.get("servicio_id") != servicio_id:
+                continue
+            if persona_id and d.get("persona_id") != persona_id:
+                continue
             if fecha_desde:
-                arreglo_params.append(date.fromisoformat(fecha_desde[:10]))
-                arreglo_filters.append(f"a.fecha_envio >= ${len(arreglo_params)}")
+                fd = date.fromisoformat(fecha_desde[:10])
+                if fecha_envio and fecha_envio < fd:
+                    continue
             if fecha_hasta:
-                arreglo_params.append(date.fromisoformat(fecha_hasta[:10]))
-                arreglo_filters.append(f"a.fecha_envio <= ${len(arreglo_params)}")
+                fh = date.fromisoformat(fecha_hasta[:10])
+                if fecha_envio and fecha_envio > fh:
+                    continue
 
-            arreglo_q = f"SELECT DISTINCT registro_id FROM prod_registro_arreglos a WHERE {' AND '.join(arreglo_filters)}"
-            matched = await conn.fetch(arreglo_q, *arreglo_params)
-            reg_ids_with_match = {r["registro_id"] for r in matched}
-            # Also include registros with no arreglos at all if they are PENDIENTE
-            if not solo_vencidos:
-                resultado = [r for r in resultado if r["id"] in reg_ids_with_match or r["estado_control"] == "PENDIENTE"]
-            else:
-                resultado = [r for r in resultado if r["id"] in reg_ids_with_match]
+            resultado.append(fila)
 
-        # KPIs globales
+        # Procesar registros sin arreglo asignado
+        if not solo_vencidos and estado != "COMPLETADO" and not servicio_id and not persona_id:
+            for row in sin_arreglo_rows:
+                d = dict(row)
+                fila = {
+                    "tipo_fila": "SIN_ARREGLO",
+                    "arreglo_id": None,
+                    "registro_id": d["registro_id"],
+                    "n_corte": d["n_corte"],
+                    "modelo": d["modelo"] or "",
+                    "marca": d["marca"] or "",
+                    "linea_negocio": d["linea_negocio"] or "",
+                    "linea_negocio_id": d.get("linea_negocio_id"),
+                    "total_fallados_registro": safe_int(d["total_fallados"]),
+                    "enviado": 0,
+                    "recuperado": 0,
+                    "liquidacion": 0,
+                    "merma": 0,
+                    "pendiente": safe_int(d["sin_enviar"]),
+                    "servicio": "",
+                    "persona": "",
+                    "servicio_id": None,
+                    "persona_id": None,
+                    "fecha_envio": None,
+                    "fecha_limite": None,
+                    "dias": 0,
+                    "estado": "SIN_ASIGNAR",
+                }
+
+                if estado and estado not in ("SIN_ASIGNAR", "PENDIENTE"):
+                    continue
+                if linea_negocio_id and str(d.get("linea_negocio_id") or "") != linea_negocio_id:
+                    continue
+
+                resultado.append(fila)
+
+        # KPIs
+        total_fallados = sum(r["total_fallados_registro"] for r in resultado if r["tipo_fila"] == "SIN_ARREGLO") + sum(r["enviado"] for r in resultado if r["tipo_fila"] == "ARREGLO")
         kpis = {
-            "total_registros": len(resultado),
-            "total_fallados": sum(r["total_fallados"] for r in resultado),
+            "total_fallados": total_fallados,
             "total_pendiente": sum(r["pendiente"] for r in resultado),
-            "total_vencidos": len([r for r in resultado if r["estado_control"] == "VENCIDO"]),
+            "total_vencidos": len([r for r in resultado if r["estado"] == "VENCIDO"]),
             "total_recuperado": sum(r["recuperado"] for r in resultado),
             "total_liquidacion": sum(r["liquidacion"] for r in resultado),
-            "total_merma": sum(r["merma_arreglos"] for r in resultado),
-            "total_completados": len([r for r in resultado if r["estado_control"] == "COMPLETADO"]),
+            "total_merma": sum(r["merma"] for r in resultado),
+            "total_sin_asignar": sum(r["pendiente"] for r in resultado if r["tipo_fila"] == "SIN_ARREGLO"),
+            "total_registros": len(resultado),
         }
 
-        return {"registros": resultado, "kpis": kpis}
+        return {"filas": resultado, "kpis": kpis}
+
