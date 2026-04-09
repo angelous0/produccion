@@ -595,7 +595,13 @@ async def resumen_cantidades(
         total_recuperado = sum(safe_int(a["cantidad_recuperada"]) for a in arreglos_rows)
         total_liquidacion = sum(safe_int(a["cantidad_liquidacion"]) for a in arreglos_rows)
         total_merma_arreglos = sum(safe_int(a["cantidad_merma"]) for a in arreglos_rows)
-        fallado_pendiente = total_fallados - total_en_arreglo
+
+        # fallado_pendiente = TODO lo no resuelto (sin enviar + enviado sin resolver)
+        fallado_pendiente = total_fallados - total_recuperado - total_liquidacion - total_merma_arreglos
+        # sin_enviar = lo que aun no se ha mandado a arreglo
+        sin_enviar = total_fallados - total_en_arreglo
+        # en_arreglo_sin_resolver = enviado pero aun no resuelto
+        en_arreglo_sin_resolver = total_en_arreglo - total_recuperado - total_liquidacion - total_merma_arreglos
 
         # Arreglos vencidos
         arreglos_vencidos = 0
@@ -613,8 +619,10 @@ async def resumen_cantidades(
             alertas.append({"tipo": "VENCIDO", "mensaje": f"{arreglos_vencidos} prendas en arreglos vencidos"})
         if merma_total > 0:
             alertas.append({"tipo": "MERMA", "mensaje": f"{merma_total} prendas en mermas"})
-        if fallado_pendiente > 0:
-            alertas.append({"tipo": "PENDIENTE", "mensaje": f"{fallado_pendiente} fallados sin enviar a arreglo"})
+        if sin_enviar > 0:
+            alertas.append({"tipo": "PENDIENTE", "mensaje": f"{sin_enviar} fallados sin enviar a arreglo"})
+        if en_arreglo_sin_resolver > 0:
+            alertas.append({"tipo": "EN_PROCESO", "mensaje": f"{en_arreglo_sin_resolver} prendas en arreglo sin resolver"})
 
         # Ecuacion: normal + recuperado + liquidacion + merma_total_all + fallado_pendiente + divididos = total_producido
         merma_total_all = merma_total + total_merma_arreglos
