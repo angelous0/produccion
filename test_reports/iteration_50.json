@@ -1,0 +1,71 @@
+{
+  "iteration": 50,
+  "date": "2026-04-09",
+  "feature": "Control de Fallados - Pantalla centralizada operativa diaria",
+  "summary": "Tested new 'Control de Fallados' screen in Production module. All backend API tests (13/13) and frontend UI tests passed successfully.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_control_fallados.py",
+    "/app/test_reports/pytest/pytest_control_fallados.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_control_fallados.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": "Admin: eduard/eduard123",
+  "seed_data_creation": "Used existing test data: registros 008 (15 fallados), 013 (5 fallados), 007 (8 fallados)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Control de Fallados screen fully functional. Backend endpoint /api/fallados-control returns registros with fallados + KPIs. Filters work: estado, servicio_id, persona_id, fecha_desde, fecha_hasta, solo_vencidos, solo_pendientes, linea_negocio_id. Frontend shows KPI cards, expandable filters, table with colored badges, tooltip on hover, row click navigates to /registros/editar/{id}. Sidebar link in Reportes section.",
+  "test_results": {
+    "backend_api_tests": {
+      "GET /api/fallados-control": "PASS - Returns registros with fallados + KPIs",
+      "GET /api/fallados-control?estado=PENDIENTE": "PASS - Filter by estado works",
+      "GET /api/fallados-control?estado=EN_PROCESO": "PASS - Filter by estado works",
+      "GET /api/fallados-control?solo_vencidos=true": "PASS - Returns only VENCIDO registros",
+      "GET /api/fallados-control?solo_pendientes=true": "PASS - Returns PENDIENTE/EN_PROCESO registros",
+      "KPIs calculation": "PASS - total_fallados, total_pendiente, total_vencidos, total_recuperado, total_liquidacion, total_merma verified",
+      "Estado consolidado logic": "PASS - VENCIDO > EN_PROCESO > PENDIENTE > COMPLETADO",
+      "Known registros present": "PASS - 008, 013, 007 found",
+      "Registro 008 data": "PASS - 15 fallados confirmed"
+    },
+    "frontend_ui_tests": {
+      "Page loads": "PASS - data-testid='control-fallados-page' found",
+      "KPI cards": "PASS - All 6 KPIs displayed (total-fallados, pendientes, vencidos, recuperado, liquidacion, merma)",
+      "Table with registros": "PASS - Rows for 008, 013, 007 found",
+      "Filters panel": "PASS - All filters present (estado, servicio, persona, linea_negocio, desde, hasta, solo_vencidos, solo_pendientes)",
+      "Badges": "PASS - PENDIENTE (yellow), EN_PROCESO (blue) badges displayed correctly",
+      "Tooltip on hover": "PASS - Shows detailed registro info",
+      "Row click navigation": "PASS - Navigates to /registros/editar/{id}",
+      "Sidebar link": "PASS - 'Control Fallados' in Reportes section",
+      "Refresh button": "PASS - Works correctly",
+      "Clear filters": "PASS - Works correctly"
+    }
+  },
+  "verified_features": [
+    "GET /api/fallados-control - retorna registros con fallados + KPIs globales",
+    "GET /api/fallados-control?estado=PENDIENTE - filtro por estado funciona",
+    "GET /api/fallados-control?solo_vencidos=true - filtro solo vencidos",
+    "GET /api/fallados-control?solo_pendientes=true - filtro solo pendientes",
+    "KPIs correctos: total_fallados, total_pendiente, total_vencidos, total_recuperado, total_liquidacion, total_merma",
+    "Estado consolidado por registro: VENCIDO si tiene arreglos vencidos, EN_PROCESO si tiene arreglos activos, PENDIENTE si no tiene arreglos, COMPLETADO si todo resuelto",
+    "Frontend: /control-fallados muestra KPI cards, filtros expandibles, tabla con registros",
+    "Frontend: click en fila navega a /registros/editar/{id}",
+    "Frontend: badges de color correcto (rojo=VENCIDO, amarillo=PENDIENTE, azul=EN_PROCESO, verde=COMPLETADO)",
+    "Frontend: tooltip al hover muestra detalle del registro",
+    "Sidebar: enlace 'Control Fallados' en seccion de reportes"
+  ]
+}

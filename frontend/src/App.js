@@ -64,6 +64,7 @@ const TransferenciasLinea = lazy(() => import("./pages/TransferenciasLinea").the
 const AuditoriaLogs = lazy(() => import("./pages/AuditoriaLogs").then(m => ({ default: m.AuditoriaLogs })));
 const ValorizacionConsolidado = lazy(() => import("./pages/ValorizacionConsolidado").then(m => ({ default: m.ValorizacionConsolidado })));
 const CalidadConsolidado = lazy(() => import("./pages/CalidadConsolidado").then(m => ({ default: m.CalidadConsolidado })));
+const ControlFallados = lazy(() => import("./pages/ControlFallados").then(m => ({ default: m.ControlFallados })));
 
 const LazyFallback = () => (
   <div className="flex items-center justify-center h-64">
@@ -168,6 +169,7 @@ function AppRoutes() {
         <Route path="reportes/lotes" element={<LazyWrap><LotesTrazabilidad /></LazyWrap>} />
         <Route path="reportes/valorizacion" element={<LazyWrap><ValorizacionConsolidado /></LazyWrap>} />
         <Route path="reportes/calidad" element={<LazyWrap><CalidadConsolidado /></LazyWrap>} />
+        <Route path="control-fallados" element={<LazyWrap><ControlFallados /></LazyWrap>} />
         <Route path="reportes/matriz" element={<LazyWrap><MatrizProduccion /></LazyWrap>} />
         <Route path="reportes/trazabilidad/:registroId" element={<LazyWrap><ReporteTrazabilidad /></LazyWrap>} />
         {/* Legacy redirects */}
