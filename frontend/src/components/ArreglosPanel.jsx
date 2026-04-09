@@ -255,7 +255,7 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
               <XCircle className="h-4 w-4 text-red-500" /> Deteccion de Fallados
               {fallados.length > 0 && <Badge variant="secondary" className="text-[10px]">{r.total_fallados || 0} prendas</Badge>}
             </CardTitle>
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setEditingFalladoId(null); setFalladoForm({ cantidad_detectada: '', fecha_deteccion: '', observacion: '' }); setFalladoDialogOpen(true); }} data-testid="btn-nuevo-fallado">
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setEditingFalladoId(null); setFalladoForm({ cantidad_detectada: '', fecha_deteccion: '', observacion: '' }); setFalladoDialogOpen(true); }} data-testid="btn-nuevo-fallado">
               <Plus className="h-3 w-3 mr-1" /> Registrar Fallado
             </Button>
           </div>
@@ -274,10 +274,10 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
                     <TableCell className="text-xs max-w-[200px] truncate">{f.observacion || '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditingFalladoId(f.id); setFalladoForm({ cantidad_detectada: f.cantidad_detectada, fecha_deteccion: f.fecha_deteccion?.slice(0,10) || '', observacion: f.observacion || '' }); setFalladoDialogOpen(true); }} data-testid={`btn-edit-fallado-${f.id}`}>
+                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditingFalladoId(f.id); setFalladoForm({ cantidad_detectada: f.cantidad_detectada, fecha_deteccion: f.fecha_deteccion?.slice(0,10) || '', observacion: f.observacion || '' }); setFalladoDialogOpen(true); }} data-testid={`btn-edit-fallado-${f.id}`}>
                           <Pencil className="h-3 w-3" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteFallado(f.id)} data-testid={`btn-delete-fallado-${f.id}`}>
+                        <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteFallado(f.id)} data-testid={`btn-delete-fallado-${f.id}`}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
@@ -298,7 +298,7 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
               <Wrench className="h-4 w-4 text-violet-500" /> Envios a Arreglo
               {arreglos.length > 0 && <Badge variant="secondary" className="text-[10px]">{arreglos.length} envios</Badge>}
             </CardTitle>
-            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={falladoPendiente <= 0} onClick={() => { setArregloForm({ cantidad: '', servicio_id: '', persona_id: '', fecha_envio: '', observacion: '' }); setArregloDialogOpen(true); }} data-testid="btn-nuevo-arreglo">
+            <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={falladoPendiente <= 0} onClick={() => { setArregloForm({ cantidad: '', servicio_id: '', persona_id: '', fecha_envio: '', observacion: '' }); setArregloDialogOpen(true); }} data-testid="btn-nuevo-arreglo">
               <Plus className="h-3 w-3 mr-1" /> Nuevo Envio
               {falladoPendiente > 0 && <span className="ml-1 text-[10px] text-muted-foreground">({falladoPendiente} disp.)</span>}
             </Button>
@@ -355,12 +355,12 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
                       <TableCell>
                         <div className="flex gap-1">
                           {a.estado !== 'COMPLETADO' && (
-                            <Button size="icon" variant="ghost" className="h-6 w-6 text-blue-500" onClick={() => openResolucion(a)} data-testid={`btn-resolver-${a.id}`} title="Resolver">
+                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-blue-500" onClick={() => openResolucion(a)} data-testid={`btn-resolver-${a.id}`} title="Resolver">
                               <Wrench className="h-3 w-3" />
                             </Button>
                           )}
                           {a.estado !== 'COMPLETADO' && (
-                            <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-delete-arreglo-${a.id}`}>
+                            <Button type="button" size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteArreglo(a.id)} data-testid={`btn-delete-arreglo-${a.id}`}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           )}
@@ -402,8 +402,8 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setFalladoDialogOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleSaveFallado} disabled={saving} data-testid="btn-guardar-fallado">{saving ? 'Guardando...' : 'Guardar'}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setFalladoDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" size="sm" onClick={handleSaveFallado} disabled={saving} data-testid="btn-guardar-fallado">{saving ? 'Guardando...' : 'Guardar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -449,8 +449,8 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setArregloDialogOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleSaveArreglo} disabled={saving} data-testid="btn-guardar-arreglo">{saving ? 'Guardando...' : 'Crear Envio'}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setArregloDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" size="sm" onClick={handleSaveArreglo} disabled={saving} data-testid="btn-guardar-arreglo">{saving ? 'Guardando...' : 'Crear Envio'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -488,8 +488,8 @@ export const ArreglosPanel = ({ registroId, servicios = [], personas = [] }) => 
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setResolucionDialogOpen(false)}>Cancelar</Button>
-            <Button size="sm" onClick={handleSaveResolucion} disabled={saving || resExcede} data-testid="btn-guardar-resolucion">{saving ? 'Guardando...' : 'Guardar Resolucion'}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setResolucionDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" size="sm" onClick={handleSaveResolucion} disabled={saving || resExcede} data-testid="btn-guardar-resolucion">{saving ? 'Guardando...' : 'Guardar Resolucion'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
