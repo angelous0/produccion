@@ -101,10 +101,7 @@ export const ControlFallados = () => {
     <div className="space-y-4" data-testid="control-fallados-page">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold">Control de Fallados</h1>
-          <p className="text-xs text-muted-foreground">Vista operativa diaria — cada fila es un arreglo individual o un lote sin asignar</p>
-        </div>
+        <p className="text-xs text-muted-foreground">Vista operativa diaria — cada fila es un arreglo individual o un lote sin asignar</p>
         <div className="flex gap-2">
           <Button type="button" variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="h-8 text-xs" data-testid="btn-filtros">
             <Filter className="h-3 w-3 mr-1" /> Filtros {hasActiveFilters && <Badge variant="secondary" className="ml-1 h-4 text-[9px]">ON</Badge>}

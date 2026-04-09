@@ -1,33 +1,42 @@
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Shield, BarChart3, ListChecks } from 'lucide-react';
-import { CalidadMerma } from './CalidadMerma';
+import { BarChart3, Shield, ListChecks, AlertTriangle } from 'lucide-react';
 import { ReporteMermas } from './ReporteMermas';
+import { CalidadMerma } from './CalidadMerma';
 import { ReporteEstadosItem } from './ReporteEstadosItem';
+import { ControlFallados } from './ControlFallados';
 
 export const CalidadConsolidado = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'resumen-calidad';
+
   return (
     <div className="space-y-4" data-testid="calidad-consolidado">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Calidad</h2>
-        <p className="text-sm text-muted-foreground">Gestión de mermas, reportes y estados</p>
+        <p className="text-sm text-muted-foreground">Resumen, mermas, estados y control de fallados</p>
       </div>
 
-      <Tabs defaultValue="merma" className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="h-9">
-          <TabsTrigger value="merma" className="text-xs gap-1.5" data-testid="tab-merma">
-            <Shield className="h-3.5 w-3.5" /> Merma
+          <TabsTrigger value="resumen-calidad" className="text-xs gap-1.5" data-testid="tab-resumen-calidad">
+            <BarChart3 className="h-3.5 w-3.5" /> Resumen Calidad
           </TabsTrigger>
-          <TabsTrigger value="reporte-mermas" className="text-xs gap-1.5" data-testid="tab-reporte-mermas">
-            <BarChart3 className="h-3.5 w-3.5" /> Reporte Mermas
+          <TabsTrigger value="mermas" className="text-xs gap-1.5" data-testid="tab-mermas">
+            <Shield className="h-3.5 w-3.5" /> Mermas
           </TabsTrigger>
           <TabsTrigger value="estados" className="text-xs gap-1.5" data-testid="tab-estados">
-            <ListChecks className="h-3.5 w-3.5" /> Reporte Estados
+            <ListChecks className="h-3.5 w-3.5" /> Estados del Item
+          </TabsTrigger>
+          <TabsTrigger value="fallados" className="text-xs gap-1.5" data-testid="tab-fallados">
+            <AlertTriangle className="h-3.5 w-3.5" /> Fallados y Arreglos
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="merma"><CalidadMerma /></TabsContent>
-        <TabsContent value="reporte-mermas"><ReporteMermas /></TabsContent>
+        <TabsContent value="resumen-calidad"><ReporteMermas /></TabsContent>
+        <TabsContent value="mermas"><CalidadMerma /></TabsContent>
         <TabsContent value="estados"><ReporteEstadosItem /></TabsContent>
+        <TabsContent value="fallados"><ControlFallados /></TabsContent>
       </Tabs>
     </div>
   );

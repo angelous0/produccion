@@ -39,24 +39,11 @@ const PersonasProduccion = lazy(() => import("./pages/PersonasProduccion").then(
 const MovimientosProduccion = lazy(() => import("./pages/MovimientosProduccion").then(m => ({ default: m.MovimientosProduccion })));
 const ReporteProductividad = lazy(() => import("./pages/ReporteProductividad").then(m => ({ default: m.ReporteProductividad })));
 const RutasProduccion = lazy(() => import("./pages/RutasProduccion").then(m => ({ default: m.RutasProduccion })));
-const CalidadMerma = lazy(() => import("./pages/CalidadMerma").then(m => ({ default: m.CalidadMerma })));
-const ReporteMermas = lazy(() => import("./pages/ReporteMermas").then(m => ({ default: m.ReporteMermas })));
-const ReporteEstadosItem = lazy(() => import("./pages/ReporteEstadosItem").then(m => ({ default: m.ReporteEstadosItem })));
 const GuiasRemision = lazy(() => import("./pages/GuiasRemision").then(m => ({ default: m.GuiasRemision })));
 const HilosEspecificos = lazy(() => import("./pages/HilosEspecificos").then(m => ({ default: m.HilosEspecificos })));
-const ReportesProduccionDashboard = lazy(() => import("./pages/ReportesProduccionDashboard").then(m => ({ default: m.ReportesProduccionDashboard })));
-const ReporteEnProceso = lazy(() => import("./pages/ReporteEnProceso").then(m => ({ default: m.ReporteEnProceso })));
-const ReporteWIPEtapa = lazy(() => import("./pages/ReporteWIPEtapa").then(m => ({ default: m.ReporteWIPEtapa })));
-const ReporteAtrasados = lazy(() => import("./pages/ReporteAtrasados").then(m => ({ default: m.ReporteAtrasados })));
 const ReporteTrazabilidad = lazy(() => import("./pages/ReporteTrazabilidad").then(m => ({ default: m.ReporteTrazabilidad })));
-const ReporteCumplimientoRuta = lazy(() => import("./pages/ReporteCumplimientoRuta").then(m => ({ default: m.ReporteCumplimientoRuta })));
-const ReporteBalanceTerceros = lazy(() => import("./pages/ReporteBalanceTerceros").then(m => ({ default: m.ReporteBalanceTerceros })));
-const ReporteLotesFraccionados = lazy(() => import("./pages/ReporteLotesFraccionados").then(m => ({ default: m.ReporteLotesFraccionados })));
 const MatrizProduccion = lazy(() => import("./pages/MatrizProduccion").then(m => ({ default: m.MatrizProduccion })));
-const TrazabilidadReporte = lazy(() => import("./pages/TrazabilidadReporte"));
 const ReporteStockBajo = lazy(() => import("./pages/ReporteStockBajo").then(m => ({ default: m.ReporteStockBajo })));
-const ReporteCostura = lazy(() => import("./pages/ReporteCostura").then(m => ({ default: m.ReporteCostura })));
-const ReporteTiemposMuertos = lazy(() => import("./pages/ReporteTiemposMuertos").then(m => ({ default: m.ReporteTiemposMuertos })));
 const SeguimientoProduccion = lazy(() => import("./pages/SeguimientoProduccion").then(m => ({ default: m.SeguimientoProduccion })));
 const OperativoTerceros = lazy(() => import("./pages/OperativoTerceros").then(m => ({ default: m.OperativoTerceros })));
 const LotesTrazabilidad = lazy(() => import("./pages/LotesTrazabilidad").then(m => ({ default: m.LotesTrazabilidad })));
@@ -64,7 +51,6 @@ const TransferenciasLinea = lazy(() => import("./pages/TransferenciasLinea").the
 const AuditoriaLogs = lazy(() => import("./pages/AuditoriaLogs").then(m => ({ default: m.AuditoriaLogs })));
 const ValorizacionConsolidado = lazy(() => import("./pages/ValorizacionConsolidado").then(m => ({ default: m.ValorizacionConsolidado })));
 const CalidadConsolidado = lazy(() => import("./pages/CalidadConsolidado").then(m => ({ default: m.CalidadConsolidado })));
-const ControlFallados = lazy(() => import("./pages/ControlFallados").then(m => ({ default: m.ControlFallados })));
 
 const LazyFallback = () => (
   <div className="flex items-center justify-center h-64">
@@ -169,7 +155,7 @@ function AppRoutes() {
         <Route path="reportes/lotes" element={<LazyWrap><LotesTrazabilidad /></LazyWrap>} />
         <Route path="reportes/valorizacion" element={<LazyWrap><ValorizacionConsolidado /></LazyWrap>} />
         <Route path="reportes/calidad" element={<LazyWrap><CalidadConsolidado /></LazyWrap>} />
-        <Route path="control-fallados" element={<LazyWrap><ControlFallados /></LazyWrap>} />
+        <Route path="control-fallados" element={<Navigate to="/reportes/calidad?tab=fallados" replace />} />
         <Route path="reportes/matriz" element={<LazyWrap><MatrizProduccion /></LazyWrap>} />
         <Route path="reportes/trazabilidad/:registroId" element={<LazyWrap><ReporteTrazabilidad /></LazyWrap>} />
         {/* Legacy redirects */}
@@ -178,7 +164,7 @@ function AppRoutes() {
         <Route path="reportes/wip-etapa" element={<Navigate to="/reportes/seguimiento?tab=wip-etapa" replace />} />
         <Route path="reportes/atrasados" element={<Navigate to="/reportes/seguimiento?tab=atrasados" replace />} />
         <Route path="reportes/cumplimiento-ruta" element={<Navigate to="/reportes/seguimiento?tab=cumplimiento" replace />} />
-        <Route path="reportes/balance-terceros" element={<Navigate to="/reportes/operativo" replace />} />
+        <Route path="reportes/balance-terceros" element={<Navigate to="/reportes/operativo?tab=balance" replace />} />
         <Route path="reportes/costura" element={<Navigate to="/reportes/operativo?tab=operativo" replace />} />
         <Route path="reportes/tiempos-muertos" element={<Navigate to="/reportes/operativo?tab=tiempos" replace />} />
         <Route path="reportes/lotes-fraccionados" element={<Navigate to="/reportes/lotes" replace />} />
@@ -186,8 +172,8 @@ function AppRoutes() {
         <Route path="reportes/mp-valorizado" element={<Navigate to="/reportes/valorizacion" replace />} />
         <Route path="reportes/wip" element={<Navigate to="/reportes/valorizacion?tab=wip" replace />} />
         <Route path="reportes/pt-valorizado" element={<Navigate to="/reportes/valorizacion?tab=pt" replace />} />
-        <Route path="calidad/merma" element={<Navigate to="/reportes/calidad" replace />} />
-        <Route path="calidad/reporte-mermas" element={<Navigate to="/reportes/calidad?tab=reporte-mermas" replace />} />
+        <Route path="calidad/merma" element={<Navigate to="/reportes/calidad?tab=mermas" replace />} />
+        <Route path="calidad/reporte-mermas" element={<Navigate to="/reportes/calidad?tab=resumen-calidad" replace />} />
         <Route path="reportes/estados-item" element={<Navigate to="/reportes/calidad?tab=estados" replace />} />
       </Route>
       

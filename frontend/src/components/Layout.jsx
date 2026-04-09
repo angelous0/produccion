@@ -130,7 +130,6 @@ const reportesProduccionItems = [
   { to: '/reportes/lotes', icon: GitBranch, label: 'Lotes & Trazabilidad' },
   { to: '/reportes/valorizacion', icon: Package, label: 'Valorización' },
   { to: '/reportes/calidad', icon: Shield, label: 'Calidad' },
-  { to: '/control-fallados', icon: AlertTriangle, label: 'Control Fallados' },
 ];
 
 function ScrollToTop() {

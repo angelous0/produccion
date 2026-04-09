@@ -1,0 +1,96 @@
+{
+  "iteration": 51,
+  "date": "2026-04-09",
+  "feature": "Frontend Restructuring - Dashboard, Calidad, Operativo, Redirects, Sidebar",
+  "summary": "Tested complete frontend restructuring of reports and dashboard. All 19 features tested successfully. Dashboard is the main screen, Calidad has 4 tabs (Resumen Calidad, Mermas, Estados del Item, Fallados y Arreglos), Operativo has 4 tabs (Rep. Operativo, Tiempos Muertos, Paralizados, Balance Terceros), Control Fallados removed from sidebar and integrated as tab, all legacy redirects working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "Unknown API", "issue": "Console showed 500 error during Operativo page load - did not affect UI functionality"}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_51.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend only test)",
+    "frontend": "100% (19/19 features verified)"
+  },
+  "test_credentials": "Admin: eduard/eduard123",
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend restructuring complete. Dashboard (/) is main screen with KPIs, alerts, WIP, quick access. Calidad (/reportes/calidad) has 4 tabs with useSearchParams. Operativo (/reportes/operativo) has 4 tabs reordered. ControlFallados integrated as tab in Calidad (h1 removed). Sidebar has 6 Reportes items (no Control Fallados). All legacy redirects working.",
+  "test_results": {
+    "dashboard_tests": {
+      "Dashboard loads": "PASS - data-testid='dashboard' found",
+      "KPIs present": "PASS - En Proceso, Prendas, Atrasados, Movimientos",
+      "Alertas de Produccion": "PASS - Shows alerts with badges",
+      "WIP por Etapa": "PASS - Shows distribution by stage",
+      "Carga por Servicio": "PASS - Shows service load chart",
+      "Quick access links": "PASS - Seguimiento, Operativo, Lotes, Valorizacion, Calidad, Matriz"
+    },
+    "calidad_tests": {
+      "Page loads": "PASS - data-testid='calidad-consolidado' found",
+      "4 tabs present": "PASS - Resumen Calidad, Mermas, Estados del Item, Fallados y Arreglos",
+      "Tab order correct": "PASS - Resumen Calidad | Mermas | Estados del Item | Fallados y Arreglos",
+      "Resumen Calidad tab": "PASS - ReporteMermas component loads with charts",
+      "Mermas tab": "PASS - CalidadMerma component loads",
+      "Estados del Item tab": "PASS - ReporteEstadosItem component loads with filters and table",
+      "Fallados y Arreglos tab": "PASS - ControlFallados component loads with KPIs and table",
+      "ControlFallados h1 removed": "PASS - No h1 title (correct for embedded tab)",
+      "URL ?tab=fallados": "PASS - Opens Fallados tab directly",
+      "URL ?tab=mermas": "PASS - Opens Mermas tab directly"
+    },
+    "operativo_tests": {
+      "Page loads": "PASS - data-testid='operativo-terceros' found",
+      "4 tabs present": "PASS - Rep. Operativo, Tiempos Muertos, Paralizados, Balance Terceros",
+      "Tab order correct": "PASS - Rep. Operativo | Tiempos Muertos | Paralizados | Balance Terceros",
+      "URL ?tab=balance": "PASS - Opens Balance Terceros tab directly"
+    },
+    "redirect_tests": {
+      "/control-fallados": "PASS - Redirects to /reportes/calidad?tab=fallados",
+      "/calidad/merma": "PASS - Redirects to /reportes/calidad?tab=mermas",
+      "/calidad/reporte-mermas": "PASS - Redirects to /reportes/calidad?tab=resumen-calidad",
+      "/reportes/balance-terceros": "PASS - Redirects to /reportes/operativo?tab=balance"
+    },
+    "sidebar_tests": {
+      "Control Fallados NOT in sidebar": "PASS - Removed correctly",
+      "Reportes section items": "PASS - 6 items: Matriz Dinámica, Seguimiento, Operativo & Terceros, Lotes & Trazabilidad, Valorización, Calidad"
+    },
+    "other_pages_tests": {
+      "Seguimiento 5 tabs": "PASS - En Proceso, WIP por Etapa, Atrasados, Cumplimiento Ruta, Paralizados",
+      "Lotes & Trazabilidad 3 tabs": "PASS - Fraccionados, Trazabilidad General, KPIs Calidad",
+      "Valorización 3 tabs": "PASS - MP Valorizado, WIP, PT Valorizado"
+    }
+  },
+  "verified_features": [
+    "Dashboard principal (/) carga correctamente con KPIs, alertas, WIP por etapa, carga por servicio, accesos rápidos",
+    "Calidad (/reportes/calidad) muestra 4 tabs en orden: Resumen Calidad, Mermas, Estados del Item, Fallados y Arreglos",
+    "Tab 'Resumen Calidad' carga el componente de Reporte de Mermas con gráficas",
+    "Tab 'Mermas' carga el componente de gestión de mermas individual",
+    "Tab 'Estados del Item' carga el reporte de estados",
+    "Tab 'Fallados y Arreglos' carga el componente ControlFallados con KPIs y tabla",
+    "URL /reportes/calidad?tab=fallados abre directamente en tab Fallados y Arreglos",
+    "URL /reportes/calidad?tab=mermas abre directamente en tab Mermas",
+    "Operativo (/reportes/operativo) muestra tabs en nuevo orden: Rep. Operativo, Tiempos Muertos, Paralizados, Balance Terceros",
+    "URL /reportes/operativo?tab=balance abre directamente en tab Balance Terceros",
+    "Ruta /control-fallados redirige a /reportes/calidad?tab=fallados",
+    "Legacy redirect /calidad/merma redirige a /reportes/calidad?tab=mermas",
+    "Legacy redirect /calidad/reporte-mermas redirige a /reportes/calidad?tab=resumen-calidad",
+    "Legacy redirect /reportes/balance-terceros redirige a /reportes/operativo?tab=balance",
+    "Sidebar no muestra 'Control Fallados' como link independiente",
+    "Seguimiento (/reportes/seguimiento) mantiene tabs: En Proceso, WIP por Etapa, Atrasados, Cumplimiento Ruta, Paralizados",
+    "Lotes & Trazabilidad (/reportes/lotes) mantiene tabs: Fraccionados, Trazabilidad General, KPIs Calidad",
+    "Valorización (/reportes/valorizacion) mantiene tabs: MP Valorizado, WIP, PT Valorizado",
+    "Navegación general del sidebar funciona correctamente"
+  ]
+}
